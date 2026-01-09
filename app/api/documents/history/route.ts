@@ -106,6 +106,21 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error creating document history:", error);
+
+    // Lark API 403権限エラーの検出
+    const axiosError = error as { response?: { status?: number; data?: { code?: number; msg?: string } } };
+    if (axiosError.response?.status === 403 || axiosError.response?.data?.code === 1254302) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "更新履歴テーブルへの書き込み権限がありません",
+          detail: "Lark Base管理画面で更新履歴テーブル(DOCUMENT_HISTORY)の書き込み権限を付与してください",
+          code: "PERMISSION_DENIED",
+        },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json(
       { success: false, error: "更新履歴の記録に失敗しました" },
       { status: 500 }

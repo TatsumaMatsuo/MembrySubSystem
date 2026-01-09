@@ -23,7 +23,11 @@ import {
   Trash2,
   Plus,
   RefreshCw,
+  Menu,
+  X,
+  History,
 } from "lucide-react";
+import { Sidebar } from "@/components/layout";
 import type {
   BaiyakuInfo,
   CustomerRequest,
@@ -32,6 +36,8 @@ import type {
   MenuItemType,
   DepartmentName,
   GanttChartData,
+  DocumentHistory,
+  OperationType,
 } from "@/types";
 import { DOCUMENT_CATEGORIES } from "@/lib/lark-tables";
 import PdfThumbnail from "@/components/PdfThumbnail";
@@ -60,7 +66,22 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [uploadTarget, setUploadTarget] = useState<{ dept: DepartmentName; docType: string; replace: boolean; targetFileToken?: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null); // 削除中のファイルトークン
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [historyTarget, setHistoryTarget] = useState<{ docType: string } | null>(null); // 履歴表示対象
+  const [documentHistory, setDocumentHistory] = useState<DocumentHistory[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ESCキーでメニューを閉じる
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSidebarOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // 部門の折りたたみ状態を切り替え
   const toggleDeptCollapse = (dept: DepartmentName) => {
@@ -73,6 +94,53 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       }
       return newSet;
     });
+  };
+
+  // 更新履歴を記録
+  const recordHistory = async (
+    docType: string,
+    operationType: OperationType,
+    fileName: string
+  ) => {
+    try {
+      await fetch("/api/documents/history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          seiban,
+          documentType: docType,
+          operationType,
+          fileName,
+          operator: session?.user?.name || session?.user?.email || "不明",
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to record history:", error);
+    }
+  };
+
+  // 更新履歴を取得
+  const fetchHistory = async (docType: string) => {
+    setLoadingHistory(true);
+    try {
+      const response = await fetch(
+        `/api/documents/history?seiban=${encodeURIComponent(seiban)}&documentType=${encodeURIComponent(docType)}`
+      );
+      const data = await response.json();
+      if (data.success) {
+        setDocumentHistory(data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch history:", error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // 更新履歴モーダルを開く
+  const handleOpenHistory = (docType: string) => {
+    setHistoryTarget({ docType });
+    fetchHistory(docType);
   };
 
   // ファイルアップロードダイアログを開く
@@ -103,6 +171,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       const data = await response.json();
 
       if (data.success) {
+        // 履歴を記録
+        await recordHistory(docType, "削除", fileName);
         alert(`「${fileName}」を削除しました`);
         // ドキュメント一覧を再取得
         const docsResponse = await fetch(`/api/documents?seiban=${encodeURIComponent(seiban)}`);
@@ -150,6 +220,9 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       const data = await response.json();
 
       if (data.success) {
+        // 履歴を記録
+        const operationType: OperationType = uploadTarget.replace ? "差替" : "追加";
+        await recordHistory(uploadTarget.docType, operationType, file.name);
         alert(`「${file.name}」をアップロードしました`);
         // ドキュメント一覧を再取得
         const docsResponse = await fetch(`/api/documents?seiban=${encodeURIComponent(seiban)}`);
@@ -411,17 +484,66 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
 
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden">
+      {/* POPサイドバー */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-40 transition-opacity"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <div
+        className={`fixed top-0 left-0 h-full z-50 transform transition-transform duration-300 ease-in-out ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="h-full flex">
+          <div className="w-72 bg-white shadow-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">M</span>
+                </div>
+                <div>
+                  <h2 className="font-bold text-white text-sm">Membry</h2>
+                  <p className="text-xs text-white/70">Sub System</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <Sidebar
+              collapsed={false}
+              onNavigate={() => setSidebarOpen(false)}
+              isPopover
+            />
+          </div>
+        </div>
+      </div>
+
       {/* ヘッダー（固定・コンパクト） */}
-      <header className="flex-shrink-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 shadow-lg z-50">
+      <header className="flex-shrink-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 shadow-lg z-30">
         <div className="w-full px-4 py-2">
           <div className="flex items-center justify-between">
-            <button
-              onClick={() => router.push("/")}
-              className="flex items-center gap-1.5 text-white/90 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-all duration-200 text-sm"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="font-medium">検索に戻る</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {/* メニューボタン */}
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => router.push("/")}
+                className="flex items-center gap-1.5 text-white/90 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-all duration-200 text-sm"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="font-medium">検索に戻る</span>
+              </button>
+            </div>
             {baiyaku && (
               <div className="flex-1 flex items-center justify-center gap-6 mx-4">
                 <div className="flex items-center gap-2">
@@ -857,6 +979,16 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                                             </>
                                           )}
                                         </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenHistory(docType);
+                                          }}
+                                          className="flex-1 text-xs px-2 py-1.5 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors font-medium flex items-center justify-center gap-1"
+                                        >
+                                          <History className="w-3 h-3" />
+                                          履歴
+                                        </button>
                                       </div>
                                     </div>
                                   </div>
@@ -948,6 +1080,82 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                           className="w-full h-[70vh]"
                           title={viewingFile.name}
                         />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 更新履歴モーダル */}
+              {historyTarget && (
+                <div
+                  className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+                  onClick={() => setHistoryTarget(null)}
+                >
+                  <div
+                    className="bg-white rounded-2xl max-w-2xl max-h-[80vh] w-full overflow-hidden shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-indigo-50">
+                      <div className="flex items-center gap-3">
+                        <History className="w-5 h-5 text-purple-600" />
+                        <h3 className="font-bold text-gray-800">
+                          更新履歴 - {historyTarget.docType}
+                        </h3>
+                      </div>
+                      <button
+                        onClick={() => setHistoryTarget(null)}
+                        className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        閉じる
+                      </button>
+                    </div>
+                    <div className="p-4 overflow-auto max-h-[calc(80vh-80px)]">
+                      {loadingHistory ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+                        </div>
+                      ) : documentHistory.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          更新履歴がありません
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {documentHistory.map((history) => (
+                            <div
+                              key={history.record_id}
+                              className="border rounded-lg p-3 hover:bg-gray-50 transition-colors"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <span
+                                  className={`px-2 py-1 text-xs font-bold rounded ${
+                                    history.operation_type === "追加"
+                                      ? "bg-green-100 text-green-700"
+                                      : history.operation_type === "差替"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-red-100 text-red-700"
+                                  }`}
+                                >
+                                  {history.operation_type}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(history.operated_at).toLocaleString("ja-JP")}
+                                </span>
+                              </div>
+                              <div className="text-sm text-gray-800 font-medium truncate">
+                                {history.file_name}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                操作者: {history.operator}
+                              </div>
+                              {history.notes && (
+                                <div className="text-xs text-gray-400 mt-1">
+                                  {history.notes}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>

@@ -12,8 +12,20 @@ export function getLarkTables() {
     QUALITY_ISSUES: process.env.LARK_TABLE_QUALITY_ISSUES || "tblLKAcEaleuCrMB",
     // 案件書庫テーブル
     PROJECT_DOCUMENTS: process.env.LARK_TABLE_PROJECT_DOCUMENTS || "tblHdcIy11FwCLCE",
+    // 更新履歴テーブル
+    DOCUMENT_HISTORY: process.env.LARK_TABLE_DOCUMENT_HISTORY || "tblOi19V3t3XO2Te",
     // 社員マスタテーブル
-    EMPLOYEES: process.env.LARK_TABLE_EMPLOYEES || "tblFj7MnxF3svRcu",
+    EMPLOYEES: process.env.LARK_TABLE_EMPLOYEES || "tblXpm1d05ovRf1y",
+    // 機能マスタテーブル
+    FEATURE_MASTER: process.env.LARK_TABLE_FEATURE_MASTER || "tbloM14bI5lBJCgT",
+    // ユーザー権限テーブル
+    USER_PERMISSIONS: process.env.LARK_TABLE_USER_PERMISSIONS || "tbl0qPqlC88kaUeZ",
+    // ロールマスタテーブル
+    ROLE_MASTER: process.env.LARK_TABLE_ROLE_MASTER || "tblXyJIyHv4fcyD7",
+    // ロール権限テーブル
+    ROLE_PERMISSIONS: process.env.LARK_TABLE_ROLE_PERMISSIONS || "tbl6QGbCV9U4xdc0",
+    // ユーザーロールテーブル
+    USER_ROLES: process.env.LARK_TABLE_USER_ROLES || "tblk4XGgWlLy0uey",
   };
 }
 
@@ -67,13 +79,27 @@ export const PROJECT_DOCUMENT_FIELDS = {
 } as const;
 
 /**
+ * 更新履歴テーブルのフィールド定義
+ */
+export const DOCUMENT_HISTORY_FIELDS = {
+  seiban: "製番",
+  document_type: "書類種別",
+  operation_type: "操作種別",
+  file_name: "ファイル名",
+  operator: "操作者",
+  operated_at: "操作日時",
+  notes: "備考",
+} as const;
+
+/**
  * 社員マスタテーブルのフィールド定義
  */
 export const EMPLOYEE_FIELDS = {
   employee_id: "社員コード",
   employee_name: "社員名",
-  email: "メールアドレス",
-  department: "部署",
+  email: "社員名 (メンバー ).仕事用メールアドレス",
+  department: "社員名 (メンバー ).部署",
+  retired_flag: "退職者フラグ",
 } as const;
 
 /**
@@ -103,4 +129,95 @@ export const DOCUMENT_CATEGORIES = {
     "ボルトリスト",
   ],
   工務課: ["施工要領書", "施工計画書", "安全書類"],
+} as const;
+
+/**
+ * 機能マスタテーブルのフィールド定義
+ */
+export const FEATURE_MASTER_FIELDS = {
+  feature_id: "機能ID",
+  feature_name: "機能名",
+  menu_group: "所属メニューグループ",
+  feature_type: "機能タイプ",
+  parent_feature_id: "親機能ID",
+  sort_order: "表示順",
+  description: "機能説明",
+  is_active: "有効フラグ",
+} as const;
+
+/**
+ * ユーザー権限テーブルのフィールド定義
+ */
+export const USER_PERMISSION_FIELDS = {
+  permission_id: "権限ID",
+  user_email: "ユーザーメール",
+  user_name: "ユーザー名",
+  feature_id: "対象機能",
+  permission_level: "権限レベル",
+  granted_by: "付与者",
+  granted_at: "付与日時",
+  expires_at: "有効期限",
+  notes: "備考",
+} as const;
+
+/**
+ * ロールマスタテーブルのフィールド定義
+ */
+export const ROLE_MASTER_FIELDS = {
+  role_id: "ロールID",
+  role_name: "ロール名",
+  description: "説明",
+  is_active: "有効フラグ",
+} as const;
+
+/**
+ * ロール権限テーブルのフィールド定義
+ */
+export const ROLE_PERMISSION_FIELDS = {
+  role_id: "ロール",
+  feature_id: "対象機能",
+  permission_level: "権限レベル",
+} as const;
+
+/**
+ * ユーザーロールテーブルのフィールド定義
+ */
+export const USER_ROLE_FIELDS = {
+  user_email: "ユーザーメール",
+  role_id: "割当ロール",
+  assigned_at: "割当日",
+} as const;
+
+/**
+ * 権限レベル定義
+ */
+export const PERMISSION_LEVELS = {
+  edit: "編集",
+  view: "表示のみ",
+  hidden: "非表示",
+} as const;
+
+/**
+ * メニューグループ定義
+ */
+export const MENU_GROUPS = [
+  "共通",
+  "総務部",
+  "営業部",
+  "設計部",
+  "製造部",
+  "生産管理部",
+  "工務課",
+  "運輸部",
+  "システムハウス",
+  "マスタ",
+] as const;
+
+/**
+ * 機能タイプ定義
+ */
+export const FEATURE_TYPES = {
+  menu: "menu",
+  feature: "feature",
+  action: "action",
 } as const;

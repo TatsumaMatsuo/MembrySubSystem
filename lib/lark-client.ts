@@ -32,21 +32,31 @@ export function getLarkBaseToken(): string {
   return process.env.LARK_BASE_TOKEN || "";
 }
 
+export function getLarkBaseTokenForEmployees(): string {
+  return process.env.LARK_BASE_TOKEN_MASTER || getLarkBaseToken();
+}
+
+export function getLarkBaseTokenForMaster(): string {
+  return process.env.LARK_BASE_TOKEN_MASTER || getLarkBaseToken();
+}
+
 export async function getBaseRecords(tableId: string, params?: {
   filter?: string;
   sort?: Array<string | { field_name: string; desc?: boolean }>;
   pageSize?: number;
   pageToken?: string;
+  baseToken?: string;
 }) {
   try {
+    const appToken = params?.baseToken || getLarkBaseToken();
     console.log("[lark-client] getBaseRecords called:", {
-      app_token: getLarkBaseToken(),
+      app_token: appToken,
       table_id: tableId,
       filter: params?.filter,
     });
     const response = await larkClient.bitable.appTableRecord.list({
       path: {
-        app_token: getLarkBaseToken(),
+        app_token: appToken,
         table_id: tableId,
       },
       params: {
@@ -69,11 +79,12 @@ export async function getBaseRecords(tableId: string, params?: {
   }
 }
 
-export async function createBaseRecord(tableId: string, fields: Record<string, any>) {
+export async function createBaseRecord(tableId: string, fields: Record<string, any>, baseToken?: string) {
   try {
+    const appToken = baseToken || getLarkBaseToken();
     const response = await larkClient.bitable.appTableRecord.create({
       path: {
-        app_token: getLarkBaseToken(),
+        app_token: appToken,
         table_id: tableId,
       },
       data: { fields },

@@ -21,6 +21,10 @@ import {
   Shield,
   Users,
   BarChart3,
+  Upload,
+  FileSpreadsheet,
+  Cog,
+  Link2,
 } from "lucide-react";
 
 // 部門メニュー定義
@@ -43,6 +47,32 @@ export const DEPARTMENT_MENUS: MenuItem[] = [
         label: "売約情報",
         icon: <FileText className="w-4 h-4 text-indigo-400" />,
         href: "/",
+      },
+      {
+        id: "data-upload",
+        label: "データアップロード",
+        icon: <Upload className="w-4 h-4 text-indigo-400" />,
+        children: [
+          {
+            id: "upload-order-backlog",
+            label: "受注残情報",
+            icon: <FileSpreadsheet className="w-4 h-4 text-indigo-300" />,
+            href: "/upload/order-backlog",
+          },
+        ],
+      },
+      {
+        id: "system-settings",
+        label: "システム設定",
+        icon: <Cog className="w-4 h-4 text-indigo-400" />,
+        children: [
+          {
+            id: "data-mapping",
+            label: "データマッピング",
+            icon: <Link2 className="w-4 h-4 text-indigo-300" />,
+            href: "/settings/data-mapping",
+          },
+        ],
       },
     ],
   },

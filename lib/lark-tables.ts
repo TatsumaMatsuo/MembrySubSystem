@@ -2,6 +2,8 @@
  * Lark Base テーブルID定義
  */
 
+export type BaseType = "project" | "master";
+
 export function getLarkTables() {
   return {
     // 売約情報テーブル
@@ -27,6 +29,38 @@ export function getLarkTables() {
     // ユーザーロールテーブル
     USER_ROLES: process.env.LARK_TABLE_USER_ROLES || "tblk4XGgWlLy0uey",
   };
+}
+
+/**
+ * テーブルごとのBase設定
+ * - project: 案件情報用Base (LARK_BASE_TOKEN)
+ * - master: マスタ用Base (LARK_BASE_TOKEN_MASTER)
+ */
+export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
+  // 案件情報用Base
+  BAIYAKU: "project",
+  CUSTOMER_REQUESTS: "project",
+  QUALITY_ISSUES: "project",
+  PROJECT_DOCUMENTS: "project",
+  DOCUMENT_HISTORY: "project",
+  // マスタ用Base
+  EMPLOYEES: "master",
+  FEATURE_MASTER: "master",
+  USER_PERMISSIONS: "master",
+  ROLE_MASTER: "master",
+  ROLE_PERMISSIONS: "master",
+  USER_ROLES: "master",
+};
+
+/**
+ * テーブル名からBaseトークンを取得
+ */
+export function getBaseTokenForTable(tableName: keyof typeof TABLE_BASE_CONFIG): string {
+  const baseType = TABLE_BASE_CONFIG[tableName] || "project";
+  if (baseType === "master") {
+    return process.env.LARK_BASE_TOKEN_MASTER || process.env.LARK_BASE_TOKEN || "";
+  }
+  return process.env.LARK_BASE_TOKEN || "";
 }
 
 /**

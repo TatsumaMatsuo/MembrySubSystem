@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBaseRecords, createBaseRecord } from "@/lib/lark-client";
-import { getLarkTables, DOCUMENT_HISTORY_FIELDS } from "@/lib/lark-tables";
+import { getLarkTables, DOCUMENT_HISTORY_FIELDS, getBaseTokenForTable } from "@/lib/lark-tables";
 import type { DocumentHistory, OperationType } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -29,10 +29,12 @@ export async function GET(request: NextRequest) {
       filter += ` && CurrentValue.[${DOCUMENT_HISTORY_FIELDS.document_type}] = "${documentType}"`;
     }
 
+    const baseToken = getBaseTokenForTable("DOCUMENT_HISTORY");
     const response = await getBaseRecords(tables.DOCUMENT_HISTORY, {
       filter,
       sort: [{ field_name: DOCUMENT_HISTORY_FIELDS.operated_at, desc: true }],
       pageSize: 100,
+      baseToken,
     });
 
     if (!response.data?.items) {
@@ -96,7 +98,8 @@ export async function POST(request: NextRequest) {
       [DOCUMENT_HISTORY_FIELDS.notes]: notes || "",
     };
 
-    const response = await createBaseRecord(tables.DOCUMENT_HISTORY, fields);
+    const baseToken = getBaseTokenForTable("DOCUMENT_HISTORY");
+    const response = await createBaseRecord(tables.DOCUMENT_HISTORY, fields, baseToken);
 
     return NextResponse.json({
       success: true,

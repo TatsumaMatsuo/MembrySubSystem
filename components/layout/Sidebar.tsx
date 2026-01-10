@@ -20,6 +20,7 @@ import {
   Database,
   Shield,
   Users,
+  BarChart3,
 } from "lucide-react";
 
 // 部門メニュー定義
@@ -55,7 +56,14 @@ export const DEPARTMENT_MENUS: MenuItem[] = [
     id: "eigyo",
     label: "営業部",
     icon: <Briefcase className="w-5 h-5 text-emerald-500" />,
-    children: [],
+    children: [
+      {
+        id: "sales-analysis",
+        label: "売上分析",
+        icon: <BarChart3 className="w-4 h-4 text-emerald-400" />,
+        href: "/eigyo/sales-analysis",
+      },
+    ],
   },
   {
     id: "sekkei",

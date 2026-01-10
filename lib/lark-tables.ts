@@ -123,6 +123,8 @@ export const DOCUMENT_HISTORY_FIELDS = {
   operator: "操作者",
   operated_at: "操作日時",
   notes: "備考",
+  before_image: "変更前",
+  after_image: "変更後",
 } as const;
 
 /**

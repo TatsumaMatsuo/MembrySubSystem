@@ -73,6 +73,8 @@ export interface DocumentHistory {
   operator: string;
   operated_at: number;
   notes?: string;
+  before_image?: LarkAttachment[];
+  after_image?: LarkAttachment[];
 }
 
 /**

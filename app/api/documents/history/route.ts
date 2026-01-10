@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBaseRecords, createBaseRecord } from "@/lib/lark-client";
 import { getLarkTables, DOCUMENT_HISTORY_FIELDS, getBaseTokenForTable } from "@/lib/lark-tables";
-import type { DocumentHistory, OperationType } from "@/types";
+import type { DocumentHistory, OperationType, LarkAttachment } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,6 @@ export async function GET(request: NextRequest) {
     const baseToken = getBaseTokenForTable("DOCUMENT_HISTORY");
     const response = await getBaseRecords(tables.DOCUMENT_HISTORY, {
       filter,
-      sort: [{ field_name: DOCUMENT_HISTORY_FIELDS.operated_at, desc: true }],
       pageSize: 100,
       baseToken,
     });
@@ -45,18 +44,36 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const histories: DocumentHistory[] = response.data.items.map((item) => ({
-      record_id: item.record_id || "",
-      seiban: String(item.fields?.[DOCUMENT_HISTORY_FIELDS.seiban] || ""),
-      document_type: String(item.fields?.[DOCUMENT_HISTORY_FIELDS.document_type] || ""),
-      operation_type: item.fields?.[DOCUMENT_HISTORY_FIELDS.operation_type] as OperationType || "追加",
-      file_name: String(item.fields?.[DOCUMENT_HISTORY_FIELDS.file_name] || ""),
-      operator: String(item.fields?.[DOCUMENT_HISTORY_FIELDS.operator] || ""),
-      operated_at: item.fields?.[DOCUMENT_HISTORY_FIELDS.operated_at] as number || Date.now(),
-      notes: item.fields?.[DOCUMENT_HISTORY_FIELDS.notes]
-        ? String(item.fields[DOCUMENT_HISTORY_FIELDS.notes])
-        : undefined,
-    }));
+    const histories: DocumentHistory[] = response.data.items.map((item) => {
+      // 添付ファイルフィールドを変換
+      const parseAttachments = (fieldValue: unknown): LarkAttachment[] | undefined => {
+        if (!fieldValue || !Array.isArray(fieldValue)) return undefined;
+        return fieldValue.map((file: { file_token?: string; name?: string; size?: number; type?: string }) => ({
+          file_token: file.file_token || "",
+          name: file.name || "",
+          size: file.size || 0,
+          type: file.type || "",
+        }));
+      };
+
+      return {
+        record_id: item.record_id || "",
+        seiban: String(item.fields?.[DOCUMENT_HISTORY_FIELDS.seiban] || ""),
+        document_type: String(item.fields?.[DOCUMENT_HISTORY_FIELDS.document_type] || ""),
+        operation_type: item.fields?.[DOCUMENT_HISTORY_FIELDS.operation_type] as OperationType || "追加",
+        file_name: String(item.fields?.[DOCUMENT_HISTORY_FIELDS.file_name] || ""),
+        operator: String(item.fields?.[DOCUMENT_HISTORY_FIELDS.operator] || ""),
+        operated_at: item.fields?.[DOCUMENT_HISTORY_FIELDS.operated_at] as number || Date.now(),
+        notes: item.fields?.[DOCUMENT_HISTORY_FIELDS.notes]
+          ? String(item.fields[DOCUMENT_HISTORY_FIELDS.notes])
+          : undefined,
+        before_image: parseAttachments(item.fields?.[DOCUMENT_HISTORY_FIELDS.before_image]),
+        after_image: parseAttachments(item.fields?.[DOCUMENT_HISTORY_FIELDS.after_image]),
+      };
+    });
+
+    // 操作日時で降順ソート（新しい順）
+    histories.sort((a, b) => b.operated_at - a.operated_at);
 
     return NextResponse.json({
       success: true,

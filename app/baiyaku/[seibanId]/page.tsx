@@ -41,6 +41,7 @@ import type {
 } from "@/types";
 import { DOCUMENT_CATEGORIES } from "@/lib/lark-tables";
 import PdfThumbnail from "@/components/PdfThumbnail";
+import { ImageDiff } from "@/components/ImageDiff";
 
 interface PageProps {
   params: { seibanId: string };
@@ -70,6 +71,11 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [historyTarget, setHistoryTarget] = useState<{ docType: string } | null>(null); // 履歴表示対象
   const [documentHistory, setDocumentHistory] = useState<DocumentHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null); // 選択中の履歴
+  const [historyImageUrls, setHistoryImageUrls] = useState<Record<string, string>>({}); // 履歴画像のURL
+  const [historyFullscreen, setHistoryFullscreen] = useState(false); // フルスクリーンモード
+  const [historyZoom, setHistoryZoom] = useState(100); // ズームレベル（%）
+  const [showDiff, setShowDiff] = useState(false); // 差分表示モード
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ESCキーでメニューを閉じる
@@ -129,6 +135,33 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       const data = await response.json();
       if (data.success) {
         setDocumentHistory(data.data);
+        // 画像URLを取得
+        const imageTokens: string[] = [];
+        for (const history of data.data as DocumentHistory[]) {
+          if (history.before_image?.[0]?.file_token) {
+            imageTokens.push(history.before_image[0].file_token);
+          }
+          if (history.after_image?.[0]?.file_token) {
+            imageTokens.push(history.after_image[0].file_token);
+          }
+        }
+        // ファイルURLを並列取得（履歴テーブル用にsource=historyを指定）
+        if (imageTokens.length > 0) {
+          const urlResults = await Promise.allSettled(
+            imageTokens.map(async (token) => {
+              const res = await fetch(`/api/file?file_token=${encodeURIComponent(token)}&source=history`);
+              const urlData = await res.json();
+              return urlData.success ? { token, url: urlData.data.url } : null;
+            })
+          );
+          const newUrls: Record<string, string> = {};
+          for (const result of urlResults) {
+            if (result.status === "fulfilled" && result.value) {
+              newUrls[result.value.token] = result.value.url;
+            }
+          }
+          setHistoryImageUrls((prev) => ({ ...prev, ...newUrls }));
+        }
       }
     } catch (error) {
       console.error("Failed to fetch history:", error);
@@ -140,6 +173,10 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   // 更新履歴モーダルを開く
   const handleOpenHistory = (docType: string) => {
     setHistoryTarget({ docType });
+    setSelectedHistoryId(null);
+    setHistoryFullscreen(false);
+    setHistoryZoom(100);
+    setShowDiff(false);
     fetchHistory(docType);
   };
 
@@ -1089,28 +1126,95 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
               {/* 更新履歴モーダル */}
               {historyTarget && (
                 <div
-                  className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+                  className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-2"
                   onClick={() => setHistoryTarget(null)}
                 >
                   <div
-                    className="bg-white rounded-2xl max-w-2xl max-h-[80vh] w-full overflow-hidden shadow-2xl"
+                    className={`bg-white rounded-2xl ${
+                      historyFullscreen
+                        ? "w-full h-full max-w-none max-h-none rounded-none"
+                        : selectedHistoryId
+                          ? "max-w-6xl max-h-[95vh]"
+                          : "max-w-2xl max-h-[90vh]"
+                    } w-full overflow-hidden shadow-2xl transition-all duration-300`}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-indigo-50">
+                    <div className="flex items-center justify-between px-6 py-3 border-b bg-gradient-to-r from-purple-50 to-indigo-50">
                       <div className="flex items-center gap-3">
                         <History className="w-5 h-5 text-purple-600" />
                         <h3 className="font-bold text-gray-800">
                           更新履歴 - {historyTarget.docType}
                         </h3>
                       </div>
-                      <button
-                        onClick={() => setHistoryTarget(null)}
-                        className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors"
-                      >
-                        閉じる
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {selectedHistoryId && (
+                          <>
+                            {/* ズームコントロール */}
+                            <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1">
+                              <button
+                                onClick={() => setHistoryZoom(Math.max(50, historyZoom - 25))}
+                                className="w-6 h-6 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded"
+                                title="縮小"
+                              >
+                                −
+                              </button>
+                              <span className="text-xs text-gray-600 w-10 text-center">{historyZoom}%</span>
+                              <button
+                                onClick={() => setHistoryZoom(Math.min(200, historyZoom + 25))}
+                                className="w-6 h-6 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded"
+                                title="拡大"
+                              >
+                                +
+                              </button>
+                              <button
+                                onClick={() => setHistoryZoom(100)}
+                                className="ml-1 text-xs text-gray-500 hover:text-gray-700"
+                                title="リセット"
+                              >
+                                リセット
+                              </button>
+                            </div>
+                            {/* フルスクリーンボタン */}
+                            <button
+                              onClick={() => setHistoryFullscreen(!historyFullscreen)}
+                              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                                historyFullscreen
+                                  ? "bg-purple-600 text-white"
+                                  : "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                              }`}
+                              title={historyFullscreen ? "通常表示" : "全画面表示"}
+                            >
+                              {historyFullscreen ? "縮小" : "拡大"}
+                            </button>
+                            {/* 差分表示ボタン */}
+                            <button
+                              onClick={() => setShowDiff(!showDiff)}
+                              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                                showDiff
+                                  ? "bg-red-600 text-white"
+                                  : "bg-red-100 text-red-700 hover:bg-red-200"
+                              }`}
+                              title="変更箇所を赤くハイライト"
+                            >
+                              {showDiff ? "差分非表示" : "差分表示"}
+                            </button>
+                            <button
+                              onClick={() => { setSelectedHistoryId(null); setHistoryZoom(100); setShowDiff(false); }}
+                              className="px-3 py-1.5 text-sm rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+                            >
+                              一覧に戻る
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => setHistoryTarget(null)}
+                          className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors"
+                        >
+                          閉じる
+                        </button>
+                      </div>
                     </div>
-                    <div className="p-4 overflow-auto max-h-[calc(80vh-80px)]">
+                    <div className={`p-4 overflow-auto ${historyFullscreen ? "h-[calc(100vh-60px)]" : "max-h-[calc(95vh-60px)]"}`}>
                       {loadingHistory ? (
                         <div className="flex items-center justify-center py-8">
                           <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
@@ -1119,14 +1223,160 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                         <div className="text-center py-8 text-gray-500">
                           更新履歴がありません
                         </div>
+                      ) : selectedHistoryId ? (
+                        /* 選択した履歴の詳細表示 */
+                        (() => {
+                          const history = documentHistory.find((h) => h.record_id === selectedHistoryId);
+                          if (!history) return null;
+                          const beforeFile = history.before_image?.[0];
+                          const afterFile = history.after_image?.[0];
+                          const beforeUrl = beforeFile?.file_token ? historyImageUrls[beforeFile.file_token] : null;
+                          const afterUrl = afterFile?.file_token ? historyImageUrls[afterFile.file_token] : null;
+                          const isBeforePdf = beforeFile?.name?.toLowerCase().endsWith('.pdf');
+                          const isAfterPdf = afterFile?.name?.toLowerCase().endsWith('.pdf');
+
+                          // 高さ計算（ズームに応じて）
+                          const baseHeight = historyFullscreen ? 600 : 400;
+                          const zoomedHeight = Math.round(baseHeight * historyZoom / 100);
+
+                          // ファイル表示コンポーネント
+                          const FilePreview = ({ url, fileName, isPdf, label }: { url: string | null; fileName?: string; isPdf: boolean; label: string }) => {
+                            if (!url) {
+                              return (
+                                <div
+                                  className="w-full bg-gray-100 rounded flex items-center justify-center text-gray-400"
+                                  style={{ height: `${zoomedHeight}px` }}
+                                >
+                                  <div className="text-center">
+                                    <ImageIcon className="w-12 h-12 mx-auto mb-2" />
+                                    <span className="text-sm">ファイルなし</span>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            if (isPdf) {
+                              return (
+                                <div
+                                  className="w-full bg-gray-100 rounded overflow-hidden relative"
+                                  style={{ height: `${zoomedHeight}px` }}
+                                >
+                                  <PdfThumbnail url={url} className="w-full h-full" />
+                                  <button
+                                    onClick={() => window.open(url, '_blank')}
+                                    className="absolute bottom-2 right-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 shadow-lg"
+                                  >
+                                    PDFを開く
+                                  </button>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div
+                                className="w-full bg-gray-100 rounded overflow-auto"
+                                style={{ height: `${zoomedHeight}px` }}
+                              >
+                                <img
+                                  src={url}
+                                  alt={label}
+                                  className="cursor-pointer hover:opacity-90 transition-opacity"
+                                  style={{
+                                    width: `${historyZoom}%`,
+                                    maxWidth: 'none',
+                                    objectFit: 'contain'
+                                  }}
+                                  onClick={() => setViewingFile({ url, name: label, type: "image" })}
+                                />
+                              </div>
+                            );
+                          };
+
+                          return (
+                            <div className="space-y-4">
+                              {/* 履歴情報 */}
+                              <div className="bg-gray-50 rounded-lg p-4">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <span
+                                    className={`px-2 py-1 text-xs font-bold rounded ${
+                                      history.operation_type === "追加"
+                                        ? "bg-green-100 text-green-700"
+                                        : history.operation_type === "差替"
+                                        ? "bg-blue-100 text-blue-700"
+                                        : "bg-red-100 text-red-700"
+                                    }`}
+                                  >
+                                    {history.operation_type}
+                                  </span>
+                                  <span className="text-sm text-gray-600">
+                                    {new Date(history.operated_at).toLocaleString("ja-JP")}
+                                  </span>
+                                  <span className="text-sm text-gray-500">
+                                    操作者: {history.operator}
+                                  </span>
+                                </div>
+                                <div className="text-base font-medium text-gray-800">
+                                  {history.file_name}
+                                </div>
+                                {history.notes && (
+                                  <div className="text-sm text-gray-500 mt-1">{history.notes}</div>
+                                )}
+                              </div>
+
+                              {/* 変更前/変更後の比較 */}
+                              <div className={`grid ${showDiff ? "grid-cols-3" : "grid-cols-2"} gap-4`}>
+                                {/* 変更前 */}
+                                <div className="border rounded-lg overflow-hidden">
+                                  <div className="px-3 py-2 bg-red-50 text-red-700 text-sm font-medium flex items-center justify-between">
+                                    <span>変更前</span>
+                                    {beforeFile?.name && <span className="text-xs text-red-500 truncate ml-2">{beforeFile.name}</span>}
+                                  </div>
+                                  <div className="p-3 relative">
+                                    <FilePreview url={beforeUrl} fileName={beforeFile?.name} isPdf={isBeforePdf || false} label="変更前" />
+                                  </div>
+                                </div>
+
+                                {/* 差分表示 */}
+                                {showDiff && (
+                                  <div className="border rounded-lg overflow-hidden border-red-300">
+                                    <div className="px-3 py-2 bg-red-100 text-red-800 text-sm font-medium">
+                                      差分（変更箇所）
+                                    </div>
+                                    <div className="p-3">
+                                      <ImageDiff
+                                        beforeUrl={beforeUrl}
+                                        afterUrl={afterUrl}
+                                        beforeIsPdf={isBeforePdf || false}
+                                        afterIsPdf={isAfterPdf || false}
+                                        height={Math.round((historyFullscreen ? 600 : 400) * historyZoom / 100)}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* 変更後 */}
+                                <div className="border rounded-lg overflow-hidden">
+                                  <div className="px-3 py-2 bg-green-50 text-green-700 text-sm font-medium flex items-center justify-between">
+                                    <span>変更後</span>
+                                    {afterFile?.name && <span className="text-xs text-green-500 truncate ml-2">{afterFile.name}</span>}
+                                  </div>
+                                  <div className="p-3 relative">
+                                    <FilePreview url={afterUrl} fileName={afterFile?.name} isPdf={isAfterPdf || false} label="変更後" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()
                       ) : (
-                        <div className="space-y-3">
+                        /* 履歴一覧 */
+                        <div className="space-y-2">
+                          <p className="text-sm text-gray-500 mb-3">履歴を選択すると変更前/変更後を確認できます</p>
                           {documentHistory.map((history) => (
-                            <div
+                            <button
                               key={history.record_id}
-                              className="border rounded-lg p-3 hover:bg-gray-50 transition-colors"
+                              onClick={() => setSelectedHistoryId(history.record_id)}
+                              className="w-full border rounded-lg p-3 hover:bg-purple-50 hover:border-purple-300 transition-colors text-left"
                             >
-                              <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center justify-between mb-1">
                                 <span
                                   className={`px-2 py-1 text-xs font-bold rounded ${
                                     history.operation_type === "追加"
@@ -1148,12 +1398,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                               <div className="text-xs text-gray-500 mt-1">
                                 操作者: {history.operator}
                               </div>
-                              {history.notes && (
-                                <div className="text-xs text-gray-400 mt-1">
-                                  {history.notes}
-                                </div>
-                              )}
-                            </div>
+                            </button>
                           ))}
                         </div>
                       )}

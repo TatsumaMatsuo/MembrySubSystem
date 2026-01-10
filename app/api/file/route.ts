@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
+import { getLarkTables } from "@/lib/lark-tables";
 
 export const dynamic = 'force-dynamic';
 
@@ -7,6 +8,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const fileToken = searchParams.get("file_token");
+    const tableId = searchParams.get("table_id");
+    const source = searchParams.get("source"); // "history" の場合は履歴テーブルを使用
 
     if (!fileToken) {
       return NextResponse.json(
@@ -15,7 +18,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log("[file-api] Getting download URL for file_token:", fileToken);
+    console.log("[file-api] Getting download URL for file_token:", fileToken, "tableId:", tableId, "source:", source);
 
     const client = getLarkClient();
     if (!client) {
@@ -25,11 +28,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // tableIdの決定: source指定 > tableId指定 > デフォルト
+    const tables = getLarkTables();
+    let targetTableId: string;
+    if (source === "history") {
+      targetTableId = tables.DOCUMENT_HISTORY;
+    } else {
+      targetTableId = tableId || tables.PROJECT_DOCUMENTS || process.env.LARK_TABLE_PROJECT_DOCUMENTS || "";
+    }
+
     // Bitable添付ファイル用の一時ダウンロードURL取得
     // extraパラメータでbitablePermを指定する必要がある
     const extra = JSON.stringify({
       bitablePerm: {
-        tableId: process.env.LARK_TABLE_PROJECT_DOCUMENTS || "",
+        tableId: targetTableId,
         rev: 0,
       },
     });

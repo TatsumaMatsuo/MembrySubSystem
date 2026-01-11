@@ -1,0 +1,67 @@
+# Miyabi Configuration
+# Generated for MembrySubSystem
+
+version: "0.19.0"
+
+project:
+  name: membrysubsystem
+  repository: TatsumaMatsuo/MembrySubSystem
+  framework: nextjs
+  language: typescript
+
+# Agent Configuration
+agents:
+  coordinator:
+    enabled: true
+    auto_assign: true
+
+  codegen:
+    enabled: true
+    model: claude-sonnet-4-20250514
+    strict_mode: true
+
+  review:
+    enabled: true
+    quality_threshold: 80
+    auto_approve: false
+
+  pr:
+    enabled: true
+    draft_by_default: true
+    conventional_commits: true
+
+  deployment:
+    enabled: true
+    auto_deploy: false
+    rollback_on_failure: true
+
+  issue:
+    enabled: true
+    auto_label: true
+    complexity_estimation: true
+
+# GitHub Integration
+github:
+  labels:
+    sync: true
+    shikigaku_labels: true
+
+  actions:
+    enabled: true
+    workflows_path: .github/workflows
+
+  projects_v2:
+    enabled: false
+
+# Quality Gates
+quality:
+  coverage_threshold: 80
+  review_score_threshold: 80
+  lint_required: true
+  tests_required: true
+
+# Notification Settings
+notifications:
+  slack: false
+  discord: false
+  email: false

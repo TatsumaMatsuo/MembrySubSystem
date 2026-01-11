@@ -655,29 +655,106 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
               <div className="px-6 py-4 border-b">
                 <h2 className="text-lg font-semibold">顧客要求事項変更履歴</h2>
               </div>
-              <div className="divide-y">
-                {customerRequests.length === 0 ? (
-                  <div className="px-6 py-8 text-center text-gray-500">
-                    データがありません
-                  </div>
-                ) : (
-                  customerRequests.map((item) => (
-                    <div key={item.record_id} className="px-6 py-4">
-                      <div className="flex items-center gap-4 mb-2">
-                        <span className="text-sm text-gray-500">
-                          {formatDate(item.shinsei_date)}
-                        </span>
-                        <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
-                          {item.youkyuu_kubun}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                        {item.honbun}
-                      </p>
+              {customerRequests.length === 0 ? (
+                <div className="px-6 py-8 text-center text-gray-500">
+                  データがありません
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 divide-x">
+                  {/* 仕様変更列 */}
+                  <div className="flex flex-col">
+                    <div className="px-4 py-3 bg-blue-50 border-b">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded">
+                        仕様変更
+                      </span>
+                      <span className="ml-2 text-sm text-gray-500">
+                        ({customerRequests.filter(r => r.youkyuu_kubun === "仕様変更").length}件)
+                      </span>
                     </div>
-                  ))
-                )}
-              </div>
+                    <div className="flex-1 divide-y overflow-y-auto max-h-[600px]">
+                      {customerRequests
+                        .filter(item => item.youkyuu_kubun === "仕様変更")
+                        .map((item) => (
+                          <div key={item.record_id} className="px-4 py-3">
+                            <div className="text-xs text-gray-500 mb-1">
+                              {formatDate(item.shinsei_date)}
+                            </div>
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                              {item.honbun}
+                            </p>
+                          </div>
+                        ))}
+                      {customerRequests.filter(r => r.youkyuu_kubun === "仕様変更").length === 0 && (
+                        <div className="px-4 py-6 text-center text-gray-400 text-sm">
+                          データなし
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 金額変更列 */}
+                  <div className="flex flex-col">
+                    <div className="px-4 py-3 bg-amber-50 border-b">
+                      <span className="px-2 py-1 bg-amber-100 text-amber-700 text-sm font-medium rounded">
+                        金額変更
+                      </span>
+                      <span className="ml-2 text-sm text-gray-500">
+                        ({customerRequests.filter(r => r.youkyuu_kubun === "金額変更").length}件)
+                      </span>
+                    </div>
+                    <div className="flex-1 divide-y overflow-y-auto max-h-[600px]">
+                      {customerRequests
+                        .filter(item => item.youkyuu_kubun === "金額変更")
+                        .map((item) => (
+                          <div key={item.record_id} className="px-4 py-3">
+                            <div className="text-xs text-gray-500 mb-1">
+                              {formatDate(item.shinsei_date)}
+                            </div>
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                              {item.honbun}
+                            </p>
+                          </div>
+                        ))}
+                      {customerRequests.filter(r => r.youkyuu_kubun === "金額変更").length === 0 && (
+                        <div className="px-4 py-6 text-center text-gray-400 text-sm">
+                          データなし
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 納期変更列 */}
+                  <div className="flex flex-col">
+                    <div className="px-4 py-3 bg-purple-50 border-b">
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded">
+                        納期変更
+                      </span>
+                      <span className="ml-2 text-sm text-gray-500">
+                        ({customerRequests.filter(r => r.youkyuu_kubun === "納期変更").length}件)
+                      </span>
+                    </div>
+                    <div className="flex-1 divide-y overflow-y-auto max-h-[600px]">
+                      {customerRequests
+                        .filter(item => item.youkyuu_kubun === "納期変更")
+                        .map((item) => (
+                          <div key={item.record_id} className="px-4 py-3">
+                            <div className="text-xs text-gray-500 mb-1">
+                              {formatDate(item.shinsei_date)}
+                            </div>
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                              {item.honbun}
+                            </p>
+                          </div>
+                        ))}
+                      {customerRequests.filter(r => r.youkyuu_kubun === "納期変更").length === 0 && (
+                        <div className="px-4 py-6 text-center text-gray-400 text-sm">
+                          データなし
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

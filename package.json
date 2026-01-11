@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/TatsumaMatsuo/BaiyakuInfo#readme",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
     "@larksuiteoapi/node-sdk": "^1.56.0",
     "@tanstack/react-query": "^5.90.16",
     "@types/node": "^25.0.3",

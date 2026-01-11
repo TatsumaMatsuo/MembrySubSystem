@@ -110,11 +110,61 @@ export type DepartmentName = "営業部" | "設計部" | "製造部" | "工務�
  * メニュー項目の型定義
  */
 export type MenuItemType =
+  | "baiyaku-detail"
   | "customer-requests"
   | "quality-issues"
   | "gantt-chart"
   | "cost-analysis"
   | "documents";
+
+/**
+ * 売約詳細情報の型定義
+ */
+export interface BaiyakuDetail {
+  seiban: string;
+  juchu_denpyo_no: string;
+  juchu_kenmei: string;
+  tantousha: string;
+  bumon: string;
+  tokuisaki: {
+    name1: string;
+    name2: string;
+    postal_code: string;
+    address: string;
+    tel: string;
+    fax: string;
+  };
+  nounyusaki: {
+    name1: string;
+    name2: string;
+    postal_code: string;
+    address: string;
+    tel: string;
+  };
+  juchu_date: string;
+  hinmei: string;
+  hinmei2: string;
+  juchu_suryo: number | null;
+  juchu_tani: string;
+  juchu_tanka: number | null;
+  juchu_kingaku: number | null;
+  yotei_arariritsu: number | null;
+  nouki: string;
+  uriage_mikomi_date: string;
+  maguchi_size: number | null;
+  keta_size: number | null;
+  takasa: number | null;
+  tateya_area: number | null;
+  tekkotsu_juryo: number | null;
+  maku_area: number | null;
+  maku_shiyou: string;
+  tosou_shiyou: string;
+  yotei_tekko_jikan: number | null;
+  yotei_housei_jikan: number | null;
+  yotei_seizu_jikan: number | null;
+  yotei_sekou_ninzu: number | null;
+  yotei_sekou_nissu: number | null;
+}
 
 /**
  * 原価分析データの型定義

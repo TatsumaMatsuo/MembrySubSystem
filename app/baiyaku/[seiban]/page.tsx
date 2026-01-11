@@ -27,6 +27,8 @@ import {
   X,
   History,
   TrendingUp,
+  ClipboardList,
+  MapPin,
 } from "lucide-react";
 import {
   PieChart,
@@ -44,6 +46,7 @@ import {
 import { Sidebar } from "@/components/layout";
 import type {
   BaiyakuInfo,
+  BaiyakuDetail,
   CustomerRequest,
   QualityIssue,
   ProjectDocument,
@@ -68,13 +71,17 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const seiban = decodeURIComponent(params.seiban);
 
   const [baiyaku, setBaiyaku] = useState<BaiyakuInfo | null>(null);
-  const [activeMenu, setActiveMenu] = useState<MenuItemType>("customer-requests");
+  const [baiyakuDetail, setBaiyakuDetail] = useState<BaiyakuDetail | null>(null);
+  const [loadingBaiyakuDetail, setLoadingBaiyakuDetail] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<MenuItemType>("baiyaku-detail");
   const [customerRequests, setCustomerRequests] = useState<CustomerRequest[]>([]);
   const [qualityIssues, setQualityIssues] = useState<QualityIssue[]>([]);
   const [documents, setDocuments] = useState<Record<DepartmentName, Record<string, ProjectDocument | null>> | null>(null);
   const [ganttData, setGanttData] = useState<GanttChartData | null>(null);
   const [costAnalysisData, setCostAnalysisData] = useState<CostAnalysisData | null>(null);
   const [loadingCostAnalysis, setLoadingCostAnalysis] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [loadingAiAnalysis, setLoadingAiAnalysis] = useState(false);
   const [loading, setLoading] = useState(true);
   const [viewingFile, setViewingFile] = useState<{ url: string; name: string; type: string } | null>(null);
   const [loadingFile, setLoadingFile] = useState<string | null>(null);
@@ -503,6 +510,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   };
 
   const menuItems: { id: MenuItemType; label: string; icon: React.ReactNode; color: string; activeColor: string }[] = [
+    { id: "baiyaku-detail", label: "売約詳細情報", icon: <ClipboardList className="w-5 h-5" />, color: "text-indigo-500", activeColor: "text-indigo-600" },
     { id: "customer-requests", label: "顧客要求事項変更履歴", icon: <FileText className="w-5 h-5" />, color: "text-blue-500", activeColor: "text-blue-600" },
     { id: "quality-issues", label: "不具合情報", icon: <AlertTriangle className="w-5 h-5" />, color: "text-orange-500", activeColor: "text-orange-600" },
     { id: "gantt-chart", label: "ガントチャート", icon: <Calendar className="w-5 h-5" />, color: "text-emerald-500", activeColor: "text-emerald-600" },
@@ -510,9 +518,26 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     { id: "documents", label: "関連資料", icon: <FolderOpen className="w-5 h-5" />, color: "text-purple-500", activeColor: "text-purple-600" },
   ];
 
+  // 売約詳細データ取得
+  const fetchBaiyakuDetail = async () => {
+    if (baiyakuDetail) return;
+    setLoadingBaiyakuDetail(true);
+    try {
+      const response = await fetch(`/api/baiyaku-detail?seiban=${encodeURIComponent(seiban)}`);
+      const data = await response.json();
+      if (data.success) {
+        setBaiyakuDetail(data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching baiyaku detail:", error);
+    } finally {
+      setLoadingBaiyakuDetail(false);
+    }
+  };
+
   // 原価分析データ取得
   const fetchCostAnalysis = async () => {
-    if (costAnalysisData) return; // 既に取得済み
+    if (costAnalysisData) return;
     setLoadingCostAnalysis(true);
     try {
       const response = await fetch(`/api/cost-analysis?seiban=${encodeURIComponent(seiban)}`);
@@ -527,12 +552,36 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     }
   };
 
-  // メニュー切替時に原価分析データを取得
+  // メニュー切替時にデータを取得
   useEffect(() => {
+    if (activeMenu === "baiyaku-detail" && !baiyakuDetail && !loadingBaiyakuDetail) {
+      fetchBaiyakuDetail();
+    }
     if (activeMenu === "cost-analysis" && !costAnalysisData && !loadingCostAnalysis) {
       fetchCostAnalysis();
     }
   }, [activeMenu]);
+
+  // AI分析を生成
+  const fetchAiAnalysis = async () => {
+    if (loadingAiAnalysis) return;
+    setLoadingAiAnalysis(true);
+    setAiAnalysis(null);
+    try {
+      const response = await fetch(`/api/ai-cost-analysis?seiban=${encodeURIComponent(seiban)}`);
+      const data = await response.json();
+      if (data.success) {
+        setAiAnalysis(data.data.analysis);
+      } else {
+        setAiAnalysis("AI分析の生成に失敗しました: " + (data.error || "不明なエラー"));
+      }
+    } catch (error) {
+      console.error("Error fetching AI analysis:", error);
+      setAiAnalysis("AI分析の生成中にエラーが発生しました");
+    } finally {
+      setLoadingAiAnalysis(false);
+    }
+  };
 
   // 円グラフの色
   const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
@@ -652,6 +701,12 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                   <span className="text-white/70 text-xs">金額:</span>
                   <span className="text-white text-sm">{formatCurrency(baiyaku.juchu_kingaku)}</span>
                 </div>
+                {baiyaku.tantousha && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-white/70 text-xs">担当:</span>
+                    <span className="text-white text-sm font-medium">{baiyaku.tantousha}</span>
+                  </div>
+                )}
               </div>
             )}
             <div className="flex items-center gap-3">
@@ -700,6 +755,210 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
 
         {/* メインコンテンツ（スクロール可能） */}
         <main className="flex-1 overflow-y-auto">
+          {activeMenu === "baiyaku-detail" && (
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b">
+                <h2 className="text-lg font-semibold">売約詳細情報</h2>
+              </div>
+              {loadingBaiyakuDetail ? (
+                <div className="px-6 py-8 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+                  <span className="ml-3 text-gray-500">読み込み中...</span>
+                </div>
+              ) : baiyakuDetail ? (
+                <div className="p-6 space-y-6">
+                  {/* 基本情報 */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">基本情報</h3>
+                      <dl className="grid grid-cols-2 gap-y-2 text-sm">
+                        <dt className="text-gray-500">受注伝票番号</dt>
+                        <dd className="font-medium">{baiyakuDetail.juchu_denpyo_no || "-"}</dd>
+                        <dt className="text-gray-500">製番</dt>
+                        <dd className="font-medium">{baiyakuDetail.seiban || "-"}</dd>
+                        <dt className="text-gray-500">受注件名</dt>
+                        <dd className="font-medium col-span-2 mt-1">{baiyakuDetail.juchu_kenmei || "-"}</dd>
+                        <dt className="text-gray-500">担当者</dt>
+                        <dd className="font-medium">{baiyakuDetail.tantousha || "-"}</dd>
+                        <dt className="text-gray-500">部門</dt>
+                        <dd className="font-medium">{baiyakuDetail.bumon || "-"}</dd>
+                        <dt className="text-gray-500">受注日</dt>
+                        <dd className="font-medium">{baiyakuDetail.juchu_date || "-"}</dd>
+                        <dt className="text-gray-500">納期</dt>
+                        <dd className="font-medium">{baiyakuDetail.nouki || "-"}</dd>
+                      </dl>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-2">受注金額</h3>
+                      <dl className="grid grid-cols-2 gap-y-2 text-sm">
+                        <dt className="text-gray-500">品名</dt>
+                        <dd className="font-medium">{baiyakuDetail.hinmei || "-"}</dd>
+                        {baiyakuDetail.hinmei2 && (
+                          <>
+                            <dt className="text-gray-500">品名2</dt>
+                            <dd className="font-medium">{baiyakuDetail.hinmei2}</dd>
+                          </>
+                        )}
+                        <dt className="text-gray-500">数量</dt>
+                        <dd className="font-medium">{baiyakuDetail.juchu_suryo ?? "-"} {baiyakuDetail.juchu_tani}</dd>
+                        <dt className="text-gray-500">単価</dt>
+                        <dd className="font-medium">{baiyakuDetail.juchu_tanka ? formatCurrency(baiyakuDetail.juchu_tanka) : "-"}</dd>
+                        <dt className="text-gray-500">受注金額</dt>
+                        <dd className="font-bold text-lg text-indigo-600">{baiyakuDetail.juchu_kingaku ? formatCurrency(baiyakuDetail.juchu_kingaku) : "-"}</dd>
+                        <dt className="text-gray-500">予定粗利率</dt>
+                        <dd className="font-medium">{baiyakuDetail.yotei_arariritsu != null ? `${baiyakuDetail.yotei_arariritsu}%` : "-"}</dd>
+                        <dt className="text-gray-500">売上見込日</dt>
+                        <dd className="font-medium">{baiyakuDetail.uriage_mikomi_date || "-"}</dd>
+                      </dl>
+                    </div>
+                  </div>
+
+                  {/* 得意先・納入先情報 */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-blue-700 mb-3 border-b border-blue-200 pb-2">得意先情報</h3>
+                      <dl className="space-y-2 text-sm">
+                        <div>
+                          <dt className="text-gray-500">得意先名</dt>
+                          <dd className="font-medium">{baiyakuDetail.tokuisaki.name1} {baiyakuDetail.tokuisaki.name2}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">住所</dt>
+                          <dd className="font-medium flex items-center gap-2">
+                            <span>〒{baiyakuDetail.tokuisaki.postal_code} {baiyakuDetail.tokuisaki.address}</span>
+                            {baiyakuDetail.tokuisaki.address && (
+                              <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(baiyakuDetail.tokuisaki.address)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                              >
+                                <MapPin className="w-3 h-3" />
+                                MAP
+                              </a>
+                            )}
+                          </dd>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <dt className="text-gray-500">TEL</dt>
+                            <dd className="font-medium">{baiyakuDetail.tokuisaki.tel || "-"}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-gray-500">FAX</dt>
+                            <dd className="font-medium">{baiyakuDetail.tokuisaki.fax || "-"}</dd>
+                          </div>
+                        </div>
+                      </dl>
+                    </div>
+
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <h3 className="text-sm font-semibold text-green-700 mb-3 border-b border-green-200 pb-2">納入先情報</h3>
+                      <dl className="space-y-2 text-sm">
+                        <div>
+                          <dt className="text-gray-500">納入先名</dt>
+                          <dd className="font-medium">{baiyakuDetail.nounyusaki.name1} {baiyakuDetail.nounyusaki.name2}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">住所</dt>
+                          <dd className="font-medium flex items-center gap-2">
+                            <span>〒{baiyakuDetail.nounyusaki.postal_code} {baiyakuDetail.nounyusaki.address}</span>
+                            {baiyakuDetail.nounyusaki.address && (
+                              <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(baiyakuDetail.nounyusaki.address)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                              >
+                                <MapPin className="w-3 h-3" />
+                                MAP
+                              </a>
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">TEL</dt>
+                          <dd className="font-medium">{baiyakuDetail.nounyusaki.tel || "-"}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
+
+                  {/* 仕様情報 */}
+                  <div className="bg-orange-50 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-orange-700 mb-3 border-b border-orange-200 pb-2">仕様情報</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <dt className="text-gray-500">間口サイズ</dt>
+                        <dd className="font-bold text-lg">{baiyakuDetail.maguchi_size ?? "-"}<span className="text-sm font-normal ml-1">M</span></dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500">桁サイズ</dt>
+                        <dd className="font-bold text-lg">{baiyakuDetail.keta_size ?? "-"}<span className="text-sm font-normal ml-1">M</span></dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500">高さ</dt>
+                        <dd className="font-bold text-lg">{baiyakuDetail.takasa ?? "-"}<span className="text-sm font-normal ml-1">M</span></dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500">建屋面積</dt>
+                        <dd className="font-bold text-lg">{baiyakuDetail.tateya_area ?? "-"}<span className="text-sm font-normal ml-1">㎡</span></dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500">鉄骨重量</dt>
+                        <dd className="font-bold text-lg">{baiyakuDetail.tekkotsu_juryo?.toLocaleString() ?? "-"}<span className="text-sm font-normal ml-1">kg</span></dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500">膜面積</dt>
+                        <dd className="font-bold text-lg">{baiyakuDetail.maku_area ?? "-"}<span className="text-sm font-normal ml-1">㎡</span></dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500">膜材仕様</dt>
+                        <dd className="font-medium">{baiyakuDetail.maku_shiyou || "-"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-gray-500">塗装仕様</dt>
+                        <dd className="font-medium">{baiyakuDetail.tosou_shiyou || "-"}</dd>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 予定工数 */}
+                  <div className="bg-purple-50 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-purple-700 mb-3 border-b border-purple-200 pb-2">予定工数</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                      <div className="text-center p-3 bg-white rounded-lg shadow-sm">
+                        <dt className="text-gray-500 mb-1">鉄工製作</dt>
+                        <dd className="font-bold text-xl text-purple-600">{baiyakuDetail.yotei_tekko_jikan ?? "-"}<span className="text-sm font-normal ml-1">時間</span></dd>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg shadow-sm">
+                        <dt className="text-gray-500 mb-1">縫製製作</dt>
+                        <dd className="font-bold text-xl text-purple-600">{baiyakuDetail.yotei_housei_jikan ?? "-"}<span className="text-sm font-normal ml-1">時間</span></dd>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg shadow-sm">
+                        <dt className="text-gray-500 mb-1">製作図</dt>
+                        <dd className="font-bold text-xl text-purple-600">{baiyakuDetail.yotei_seizu_jikan ?? "-"}<span className="text-sm font-normal ml-1">時間</span></dd>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg shadow-sm col-span-2 md:col-span-2">
+                        <dt className="text-gray-500 mb-1">施工</dt>
+                        <dd className="font-bold text-xl text-purple-600">
+                          {baiyakuDetail.yotei_sekou_ninzu ?? "-"}<span className="text-sm font-normal mx-1">人</span>
+                          ×
+                          {baiyakuDetail.yotei_sekou_nissu ?? "-"}<span className="text-sm font-normal ml-1">日</span>
+                        </dd>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-6 py-8 text-center text-gray-500">
+                  売約詳細情報が見つかりません
+                </div>
+              )}
+            </div>
+          )}
+
           {activeMenu === "customer-requests" && (
             <div className="bg-white rounded-lg shadow">
               <div className="px-6 py-4 border-b">
@@ -984,40 +1243,176 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
               ) : costAnalysisData ? (
                 <>
                   {/* サマリーカード */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-white rounded-lg shadow p-4">
-                      <div className="text-sm text-gray-500 mb-1">売上金額</div>
-                      <div className="text-xl font-bold text-gray-900">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    {/* 売上金額 */}
+                    <div className="bg-white rounded-lg shadow p-5">
+                      <div className="text-sm font-medium text-gray-500 mb-3">売上金額</div>
+                      <div className="text-3xl font-bold text-gray-900">
                         {formatCurrency(costAnalysisData.summary.sales_amount)}
                       </div>
                     </div>
-                    <div className="bg-white rounded-lg shadow p-4">
-                      <div className="text-sm text-gray-500 mb-1">実績原価合計</div>
-                      <div className="text-xl font-bold text-orange-600">
-                        {formatCurrency(costAnalysisData.summary.total_actual_cost)}
+
+                    {/* 原価合計 */}
+                    {(() => {
+                      // 差額 = 予定 - 実績（マイナス=実績が多い=超過=赤、プラス=実績が少ない=削減=緑）
+                      const costDiff = costAnalysisData.summary.total_planned_cost - costAnalysisData.summary.total_actual_cost;
+                      const diffColor = costDiff >= 0 ? 'text-green-600' : 'text-red-600';
+                      const diffBg = costDiff >= 0 ? 'bg-green-50' : 'bg-red-50';
+                      return (
+                        <div className="bg-white rounded-lg shadow p-5">
+                          <div className="text-sm font-medium text-gray-500 mb-3">原価合計</div>
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <div>
+                                <div className="text-xs text-gray-400">予定</div>
+                                <div className="text-xl font-bold text-gray-600">
+                                  {formatCurrency(costAnalysisData.summary.total_planned_cost)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-400">実績</div>
+                                <div className="text-2xl font-bold text-gray-900">
+                                  {formatCurrency(costAnalysisData.summary.total_actual_cost)}
+                                </div>
+                              </div>
+                            </div>
+                            <div className={`${diffBg} rounded-lg px-3 py-2 text-right`}>
+                              <div className="text-xs text-gray-500">差額</div>
+                              <div className={`text-lg font-bold ${diffColor}`}>
+                                {costDiff >= 0 ? '+' : ''}{formatCurrency(costDiff)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* 利益 */}
+                    {(() => {
+                      // 差額 = 実績 - 予定（プラス=利益増=緑、マイナス=利益減=赤）
+                      const profitDiff = costAnalysisData.summary.actual_profit - costAnalysisData.summary.planned_profit;
+                      const diffColor = profitDiff >= 0 ? 'text-green-600' : 'text-red-600';
+                      const diffBg = profitDiff >= 0 ? 'bg-green-50' : 'bg-red-50';
+                      return (
+                        <div className="bg-white rounded-lg shadow p-5">
+                          <div className="text-sm font-medium text-gray-500 mb-3">利益</div>
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <div>
+                                <div className="text-xs text-gray-400">予定</div>
+                                <div className="text-xl font-bold text-gray-600">
+                                  {formatCurrency(costAnalysisData.summary.planned_profit)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-400">実績</div>
+                                <div className="text-2xl font-bold text-gray-900">
+                                  {formatCurrency(costAnalysisData.summary.actual_profit)}
+                                </div>
+                              </div>
+                            </div>
+                            <div className={`${diffBg} rounded-lg px-3 py-2 text-right`}>
+                              <div className="text-xs text-gray-500">差額</div>
+                              <div className={`text-lg font-bold ${diffColor}`}>
+                                {profitDiff >= 0 ? '+' : ''}{formatCurrency(profitDiff)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* 利益率（粗利） */}
+                    {(() => {
+                      const actualRate = costAnalysisData.summary.actual_profit_rate;
+                      const plannedRate = costAnalysisData.summary.planned_profit_rate;
+                      // 差額 = 実績 - 予定（プラス=利益率増=緑、マイナス=利益率減=赤）
+                      const rateDiff = actualRate - plannedRate;
+                      // 粗利の色分け: 35%以上=緑、25%～35%未満=青、25%未満=赤
+                      const getRateColor = (rate: number) => {
+                        if (rate >= 35) return 'text-green-600';
+                        if (rate >= 25) return 'text-blue-600';
+                        return 'text-red-600';
+                      };
+                      const getRateBg = (rate: number) => {
+                        if (rate >= 35) return 'bg-green-100';
+                        if (rate >= 25) return 'bg-blue-100';
+                        return 'bg-red-100';
+                      };
+                      const diffColor = rateDiff >= 0 ? 'text-green-600' : 'text-red-600';
+                      const diffBg = rateDiff >= 0 ? 'bg-green-50' : 'bg-red-50';
+                      return (
+                        <div className="bg-white rounded-lg shadow p-5">
+                          <div className="text-sm font-medium text-gray-500 mb-3">利益率</div>
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <div>
+                                <div className="text-xs text-gray-400">予定</div>
+                                <div className="text-xl font-bold text-gray-600">
+                                  {plannedRate}%
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs text-gray-400">実績</div>
+                                <div className={`text-3xl font-bold ${getRateColor(actualRate)}`}>
+                                  <span className={`${getRateBg(actualRate)} px-2 py-1 rounded`}>
+                                    {actualRate}%
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className={`${diffBg} rounded-lg px-3 py-2 text-right`}>
+                              <div className="text-xs text-gray-500">差</div>
+                              <div className={`text-lg font-bold ${diffColor}`}>
+                                {rateDiff >= 0 ? '+' : ''}{rateDiff.toFixed(1)}pt
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* AI分析コメント */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow p-6 border border-blue-100">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-800">AI総評</h3>
                       </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        予定: {formatCurrency(costAnalysisData.summary.total_planned_cost)}
-                      </div>
+                      <button
+                        onClick={fetchAiAnalysis}
+                        disabled={loadingAiAnalysis}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          loadingAiAnalysis
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        {loadingAiAnalysis ? (
+                          <span className="flex items-center gap-2">
+                            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            分析中...
+                          </span>
+                        ) : aiAnalysis ? '再分析' : 'AI分析を生成'}
+                      </button>
                     </div>
-                    <div className="bg-white rounded-lg shadow p-4">
-                      <div className="text-sm text-gray-500 mb-1">実績利益</div>
-                      <div className={`text-xl font-bold ${costAnalysisData.summary.actual_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {formatCurrency(costAnalysisData.summary.actual_profit)}
+                    {aiAnalysis ? (
+                      <div className="prose prose-sm max-w-none">
+                        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{aiAnalysis}</p>
                       </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        予定: {formatCurrency(costAnalysisData.summary.planned_profit)}
-                      </div>
-                    </div>
-                    <div className="bg-white rounded-lg shadow p-4">
-                      <div className="text-sm text-gray-500 mb-1">利益率</div>
-                      <div className={`text-xl font-bold ${costAnalysisData.summary.actual_profit_rate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {costAnalysisData.summary.actual_profit_rate}%
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        予定: {costAnalysisData.summary.planned_profit_rate}%
-                      </div>
-                    </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm">
+                        「AI分析を生成」ボタンをクリックすると、原価データ・顧客要求変更・不具合情報・工程進捗を総合的に分析した総評が表示されます。
+                      </p>
+                    )}
                   </div>
 
                   {/* チャートエリア */}

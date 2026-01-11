@@ -7,38 +7,37 @@ export const dynamic = 'force-dynamic';
 // テーブルID（製番原価データ）
 const TABLE_ID = "tbl7lMDstBVYxQKd";
 
-// 科目の定義（一般的な原価科目）
+// 科目の定義（Larkテーブルの実際のフィールドに合わせる）
 const COST_CATEGORIES = [
   "材料費",
-  "外注費",
   "労務費",
   "経費",
-  "輸送費",
-  "一般管理費",
+  "外注費",
 ] as const;
 
 interface CostRecord {
   fields: {
     製番?: string;
     受注金額?: string | number;
-    // 予定原価科目
-    材料費予定?: string | number;
-    外注費予定?: string | number;
-    労務費予定?: string | number;
-    経費予定?: string | number;
-    輸送費予定?: string | number;
-    一般管理費予定?: string | number;
-    // 実績原価科目
-    材料費実績?: string | number;
-    外注費実績?: string | number;
-    労務費実績?: string | number;
-    経費実績?: string | number;
-    輸送費実績?: string | number;
-    一般管理費実績?: string | number;
-    // 代替フィールド名
-    予定原価?: string | number;
-    実績原価?: string | number;
     売上金額?: string | number;
+    // 実績原価科目（接尾辞なし）
+    材料費?: string | number;
+    外注費?: string | number;
+    労務費?: string | number;
+    経費?: string | number;
+    原価合計?: string | number;
+    // 予定原価科目（予定_プレフィックス）
+    予定_材料費?: string | number;
+    予定_外注費?: string | number;
+    予定_労務費?: string | number;
+    予定_経費?: string | number;
+    予定_原価合計?: string | number;
+    // 予算原価科目（予算_プレフィックス）
+    予算_材料費?: string | number;
+    予算_外注費?: string | number;
+    予算_労務費?: string | number;
+    予算_経費?: string | number;
+    予算_原価合計?: string | number;
     [key: string]: any;
   };
 }
@@ -108,31 +107,30 @@ export async function GET(request: NextRequest) {
     let totalPlannedCost = 0;
     let totalActualCost = 0;
 
-    // 各科目の原価を集計
+    // 各科目の原価を集計（Larkフィールド名: 実績=科目名, 予定=予定_科目名）
+    // 0円でも全科目を表示する
     for (const category of COST_CATEGORIES) {
-      const plannedKey = `${category}予定`;
-      const actualKey = `${category}実績`;
+      const plannedKey = `予定_${category}`;
+      const actualKey = category; // 実績は科目名そのまま
 
       const plannedCost = parseNumber(fields[plannedKey]);
       const actualCost = parseNumber(fields[actualKey]);
 
-      if (plannedCost > 0 || actualCost > 0) {
-        categories.push({
-          category,
-          planned_cost: plannedCost,
-          actual_cost: actualCost,
-          difference: actualCost - plannedCost,
-          cost_ratio: 0, // 後で計算
-        });
-        totalPlannedCost += plannedCost;
-        totalActualCost += actualCost;
-      }
+      categories.push({
+        category,
+        planned_cost: plannedCost,
+        actual_cost: actualCost,
+        difference: actualCost - plannedCost,
+        cost_ratio: 0, // 後で計算
+      });
+      totalPlannedCost += plannedCost;
+      totalActualCost += actualCost;
     }
 
-    // フィールドが見つからない場合は代替フィールドをチェック
+    // フィールドが見つからない場合は原価合計フィールドをチェック
     if (categories.length === 0) {
-      const plannedCost = parseNumber(fields.予定原価);
-      const actualCost = parseNumber(fields.実績原価);
+      const plannedCost = parseNumber(fields.予定_原価合計);
+      const actualCost = parseNumber(fields.原価合計);
 
       if (plannedCost > 0 || actualCost > 0) {
         categories.push({
@@ -211,15 +209,14 @@ function createDummyData(seiban: string): CostAnalysisData {
 
 // ダミーの科目別データを作成
 function createDummyCategories(): CostCategory[] {
-  const totalActual = 7500000;
   const data = [
     { category: "材料費", planned: 3000000, actual: 3200000 },
-    { category: "外注費", planned: 2000000, actual: 1800000 },
     { category: "労務費", planned: 1500000, actual: 1600000 },
     { category: "経費", planned: 500000, actual: 550000 },
-    { category: "輸送費", planned: 300000, actual: 250000 },
-    { category: "一般管理費", planned: 200000, actual: 100000 },
+    { category: "外注費", planned: 0, actual: 0 },
   ];
+
+  const totalActual = data.reduce((sum, d) => sum + d.actual, 0);
 
   return data.map(d => ({
     category: d.category,

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken, getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
 import { getLarkTables } from "@/lib/lark-tables";
-import { Readable } from "stream";
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,26 +69,32 @@ export async function POST(request: NextRequest) {
     // 2. Drive APIでファイルをアップロード
     console.log("[upload] Uploading file to Drive...");
 
-    const fileStream = Readable.from(fileBuffer);
-
     const uploadResponse = await client.drive.media.uploadAll({
       data: {
         file_name: file.name,
         parent_type: "bitable_file",
         parent_node: getLarkBaseToken(),
         size: file.size,
-        file: fileStream,
+        file: fileBuffer as any, // Buffer型をファイルとして渡す
       },
     });
 
     console.log("[upload] Drive upload response:", JSON.stringify(uploadResponse, null, 2));
 
+    if (!uploadResponse) {
+      return NextResponse.json({
+        success: false,
+        error: "ファイルアップロードに失敗しました: レスポンスがありません",
+      }, { status: 500 });
+    }
+
     // レスポンス形式: { file_token: "xxx" } または { code: 0, data: { file_token: "xxx" } }
-    const fileToken = uploadResponse.file_token || uploadResponse.data?.file_token;
+    const responseData = uploadResponse as any;
+    const fileToken = responseData.file_token || responseData.data?.file_token;
     if (!fileToken) {
       return NextResponse.json({
         success: false,
-        error: `ファイルアップロードに失敗しました: ${uploadResponse.msg || "不明なエラー"}`,
+        error: `ファイルアップロードに失敗しました: ${responseData.msg || "不明なエラー"}`,
       }, { status: 500 });
     }
 

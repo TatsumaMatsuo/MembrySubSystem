@@ -99,7 +99,9 @@ export async function getBaiyakuBySeiban(seiban: string): Promise<BaiyakuInfo | 
       ? String(item.fields[BAIYAKU_FIELDS.hinmei2])
       : undefined,
     tantousha: String(item.fields?.[BAIYAKU_FIELDS.tantousha] || ""),
-    juchu_date: item.fields?.[BAIYAKU_FIELDS.juchu_date] as number | undefined,
+    juchu_date: item.fields?.[BAIYAKU_FIELDS.juchu_date]
+      ? String(item.fields[BAIYAKU_FIELDS.juchu_date])
+      : undefined,
     juchu_kingaku: item.fields?.[BAIYAKU_FIELDS.juchu_kingaku] as number | undefined,
     sekou_start_date: item.fields?.[BAIYAKU_FIELDS.sekou_start_date] as number | undefined,
   };

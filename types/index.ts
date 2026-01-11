@@ -113,7 +113,34 @@ export type MenuItemType =
   | "customer-requests"
   | "quality-issues"
   | "gantt-chart"
+  | "cost-analysis"
   | "documents";
+
+/**
+ * 原価分析データの型定義
+ */
+export interface CostAnalysisData {
+  seiban: string;
+  summary: {
+    sales_amount: number;       // 売上金額
+    total_planned_cost: number; // 予定原価合計
+    total_actual_cost: number;  // 実績原価合計
+    planned_profit: number;     // 予定利益
+    actual_profit: number;      // 実績利益
+    planned_profit_rate: number; // 予定利益率
+    actual_profit_rate: number;  // 実績利益率
+  };
+  categories: CostCategory[];   // 科目別原価
+}
+
+export interface CostCategory {
+  category: string;             // 科目名
+  planned_cost: number;         // 予定原価
+  actual_cost: number;          // 実績原価
+  difference: number;           // 差異
+  cost_ratio: number;           // 原価比率（実績ベース）
+  [key: string]: string | number; // Rechartsとの互換性のためのインデックスシグネチャ
+}
 
 /**
  * ガントチャート工程の型定義

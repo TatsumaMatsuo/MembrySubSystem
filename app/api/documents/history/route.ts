@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     };
 
     const baseToken = getBaseTokenForTable("DOCUMENT_HISTORY");
-    const response = await createBaseRecord(tables.DOCUMENT_HISTORY, fields, baseToken);
+    const response = await createBaseRecord(tables.DOCUMENT_HISTORY, fields, { baseToken });
 
     return NextResponse.json({
       success: true,

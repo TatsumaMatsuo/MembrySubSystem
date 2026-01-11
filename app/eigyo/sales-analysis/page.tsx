@@ -272,8 +272,8 @@ export default function SalesAnalysisPage() {
                         tick={{ fontSize: 12 }}
                       />
                       <Tooltip
-                        formatter={(value: number) => [
-                          `${value.toLocaleString()}円`,
+                        formatter={(value) => [
+                          `${(value as number).toLocaleString()}円`,
                           "",
                         ]}
                       />
@@ -336,8 +336,8 @@ export default function SalesAnalysisPage() {
                       <XAxis dataKey="month" />
                       <YAxis tickFormatter={(value) => formatAmount(value)} />
                       <Tooltip
-                        formatter={(value: number) => [
-                          `${value.toLocaleString()}円`,
+                        formatter={(value) => [
+                          `${(value as number).toLocaleString()}円`,
                           "",
                         ]}
                       />

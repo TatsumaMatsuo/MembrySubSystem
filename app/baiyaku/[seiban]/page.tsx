@@ -26,7 +26,21 @@ import {
   Menu,
   X,
   History,
+  TrendingUp,
 } from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { Sidebar } from "@/components/layout";
 import type {
   BaiyakuInfo,
@@ -38,6 +52,7 @@ import type {
   GanttChartData,
   DocumentHistory,
   OperationType,
+  CostAnalysisData,
 } from "@/types";
 import { DOCUMENT_CATEGORIES } from "@/lib/lark-tables";
 import PdfThumbnail from "@/components/PdfThumbnail";
@@ -58,6 +73,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [qualityIssues, setQualityIssues] = useState<QualityIssue[]>([]);
   const [documents, setDocuments] = useState<Record<DepartmentName, Record<string, ProjectDocument | null>> | null>(null);
   const [ganttData, setGanttData] = useState<GanttChartData | null>(null);
+  const [costAnalysisData, setCostAnalysisData] = useState<CostAnalysisData | null>(null);
+  const [loadingCostAnalysis, setLoadingCostAnalysis] = useState(false);
   const [loading, setLoading] = useState(true);
   const [viewingFile, setViewingFile] = useState<{ url: string; name: string; type: string } | null>(null);
   const [loadingFile, setLoadingFile] = useState<string | null>(null);
@@ -467,8 +484,13 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     }
   }, [documents, activeMenu]);
 
-  const formatDate = (timestamp?: number) => {
+  const formatDate = (timestamp?: number | string) => {
     if (!timestamp) return "-";
+    if (typeof timestamp === "string") {
+      // 日付文字列の場合はそのまま返すか、Dateに変換
+      const date = new Date(timestamp);
+      return isNaN(date.getTime()) ? timestamp : date.toLocaleDateString("ja-JP");
+    }
     return new Date(timestamp).toLocaleDateString("ja-JP");
   };
 
@@ -484,8 +506,36 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     { id: "customer-requests", label: "顧客要求事項変更履歴", icon: <FileText className="w-5 h-5" />, color: "text-blue-500", activeColor: "text-blue-600" },
     { id: "quality-issues", label: "不具合情報", icon: <AlertTriangle className="w-5 h-5" />, color: "text-orange-500", activeColor: "text-orange-600" },
     { id: "gantt-chart", label: "ガントチャート", icon: <Calendar className="w-5 h-5" />, color: "text-emerald-500", activeColor: "text-emerald-600" },
+    { id: "cost-analysis", label: "原価分析", icon: <TrendingUp className="w-5 h-5" />, color: "text-cyan-500", activeColor: "text-cyan-600" },
     { id: "documents", label: "関連資料", icon: <FolderOpen className="w-5 h-5" />, color: "text-purple-500", activeColor: "text-purple-600" },
   ];
+
+  // 原価分析データ取得
+  const fetchCostAnalysis = async () => {
+    if (costAnalysisData) return; // 既に取得済み
+    setLoadingCostAnalysis(true);
+    try {
+      const response = await fetch(`/api/cost-analysis?seiban=${encodeURIComponent(seiban)}`);
+      const data = await response.json();
+      if (data.success) {
+        setCostAnalysisData(data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching cost analysis:", error);
+    } finally {
+      setLoadingCostAnalysis(false);
+    }
+  };
+
+  // メニュー切替時に原価分析データを取得
+  useEffect(() => {
+    if (activeMenu === "cost-analysis" && !costAnalysisData && !loadingCostAnalysis) {
+      fetchCostAnalysis();
+    }
+  }, [activeMenu]);
+
+  // 円グラフの色
+  const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
   // 認証チェック
   useEffect(() => {
@@ -919,6 +969,171 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
               ) : (
                 <div className="px-6 py-8 text-center text-gray-500">
                   データを読み込み中...
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeMenu === "cost-analysis" && (
+            <div className="space-y-6">
+              {loadingCostAnalysis ? (
+                <div className="bg-white rounded-lg shadow p-8 flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+                  <span className="ml-3 text-gray-500">原価データを読み込み中...</span>
+                </div>
+              ) : costAnalysisData ? (
+                <>
+                  {/* サマリーカード */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <div className="text-sm text-gray-500 mb-1">売上金額</div>
+                      <div className="text-xl font-bold text-gray-900">
+                        {formatCurrency(costAnalysisData.summary.sales_amount)}
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <div className="text-sm text-gray-500 mb-1">実績原価合計</div>
+                      <div className="text-xl font-bold text-orange-600">
+                        {formatCurrency(costAnalysisData.summary.total_actual_cost)}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        予定: {formatCurrency(costAnalysisData.summary.total_planned_cost)}
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <div className="text-sm text-gray-500 mb-1">実績利益</div>
+                      <div className={`text-xl font-bold ${costAnalysisData.summary.actual_profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatCurrency(costAnalysisData.summary.actual_profit)}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        予定: {formatCurrency(costAnalysisData.summary.planned_profit)}
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-4">
+                      <div className="text-sm text-gray-500 mb-1">利益率</div>
+                      <div className={`text-xl font-bold ${costAnalysisData.summary.actual_profit_rate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {costAnalysisData.summary.actual_profit_rate}%
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        予定: {costAnalysisData.summary.planned_profit_rate}%
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* チャートエリア */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* 科目別原価比率（円グラフ） */}
+                    <div className="bg-white rounded-lg shadow p-6">
+                      <h3 className="text-lg font-semibold mb-4">科目別原価比率</h3>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={costAnalysisData.categories}
+                              dataKey="actual_cost"
+                              nameKey="category"
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={80}
+                              label={({ payload }) => `${payload.category} ${payload.cost_ratio}%`}
+                            >
+                              {costAnalysisData.categories.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(value) => formatCurrency(value as number)}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* 予定vs実績（棒グラフ） */}
+                    <div className="bg-white rounded-lg shadow p-6">
+                      <h3 className="text-lg font-semibold mb-4">科目別 予定vs実績</h3>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={costAnalysisData.categories} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis type="number" tickFormatter={(value) => `${(value / 10000).toFixed(0)}万`} />
+                            <YAxis type="category" dataKey="category" width={80} />
+                            <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                            <Legend />
+                            <Bar dataKey="planned_cost" name="予定" fill="#94a3b8" />
+                            <Bar dataKey="actual_cost" name="実績" fill="#3b82f6" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 詳細テーブル */}
+                  <div className="bg-white rounded-lg shadow">
+                    <div className="px-6 py-4 border-b">
+                      <h3 className="text-lg font-semibold">科目別原価明細</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">科目</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">予定原価</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">実績原価</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">差異</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">原価比率</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {costAnalysisData.categories.map((cat, index) => (
+                            <tr key={cat.category} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                                  />
+                                  {cat.category}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
+                                {formatCurrency(cat.planned_cost)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
+                                {formatCurrency(cat.actual_cost)}
+                              </td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${cat.difference > 0 ? 'text-red-600' : cat.difference < 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                                {cat.difference > 0 ? '+' : ''}{formatCurrency(cat.difference)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-500">
+                                {cat.cost_ratio}%
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-gray-100">
+                          <tr>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">合計</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
+                              {formatCurrency(costAnalysisData.summary.total_planned_cost)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">
+                              {formatCurrency(costAnalysisData.summary.total_actual_cost)}
+                            </td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-bold ${(costAnalysisData.summary.total_actual_cost - costAnalysisData.summary.total_planned_cost) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              {(costAnalysisData.summary.total_actual_cost - costAnalysisData.summary.total_planned_cost) > 0 ? '+' : ''}
+                              {formatCurrency(costAnalysisData.summary.total_actual_cost - costAnalysisData.summary.total_planned_cost)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">100%</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+                  原価データがありません
                 </div>
               )}
             </div>

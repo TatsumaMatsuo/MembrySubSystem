@@ -52,7 +52,7 @@ interface SalesRecord {
     受注日?: string;
     完成日?: string;
     受注金額?: string | number;
-    PJ区分?: string;
+    PJ区分?: string | Array<{ text?: string } | string> | { text?: string };
     得意先?: string;
     担当者?: string;
     状態?: string;

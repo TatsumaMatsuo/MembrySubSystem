@@ -21,7 +21,14 @@ const PROCESS_DEFINITIONS: Array<{
  * 売約情報からガントチャートデータを生成
  */
 export function generateGanttChartData(baiyaku: BaiyakuInfo): GanttChartData {
-  const baseDate = baiyaku.juchu_date || Date.now();
+  // juchu_dateが文字列の場合はタイムスタンプに変換
+  let baseDate: number;
+  if (baiyaku.juchu_date) {
+    const parsed = new Date(baiyaku.juchu_date);
+    baseDate = isNaN(parsed.getTime()) ? Date.now() : parsed.getTime();
+  } else {
+    baseDate = Date.now();
+  }
   const tasks: GanttTask[] = [];
 
   let earliestStart = Infinity;

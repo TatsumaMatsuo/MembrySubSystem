@@ -262,7 +262,7 @@ export async function getDepartmentInfo(departmentId: string) {
  */
 export async function getGroups(pageSize: number = 100) {
   try {
-    const response = await larkClient.contact.group.list({
+    const response = await (larkClient.contact.group as any).list({
       params: {
         page_size: pageSize,
         type: 1, // 1: 普通グループ

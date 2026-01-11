@@ -16,6 +16,8 @@ export function getLarkTables() {
     PROJECT_DOCUMENTS: process.env.LARK_TABLE_PROJECT_DOCUMENTS || "tblHdcIy11FwCLCE",
     // 更新履歴テーブル
     DOCUMENT_HISTORY: process.env.LARK_TABLE_DOCUMENT_HISTORY || "tblOi19V3t3XO2Te",
+    // 工事仕様書テーブル
+    CONSTRUCTION_SPEC: process.env.LARK_TABLE_CONSTRUCTION_SPEC || "tbl1ICzfUixpGqDy",
     // 社員マスタテーブル
     EMPLOYEES: process.env.LARK_TABLE_EMPLOYEES || "tblXpm1d05ovRf1y",
     // 機能マスタテーブル
@@ -37,6 +39,7 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   QUALITY_ISSUES: "project",
   PROJECT_DOCUMENTS: "project",
   DOCUMENT_HISTORY: "project",
+  CONSTRUCTION_SPEC: "project",
   // マスタ用Base
   EMPLOYEES: "master",
   FEATURE_MASTER: "master",

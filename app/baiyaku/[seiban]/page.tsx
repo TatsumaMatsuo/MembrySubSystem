@@ -29,6 +29,7 @@ import {
   TrendingUp,
   ClipboardList,
   MapPin,
+  HardHat,
 } from "lucide-react";
 import {
   PieChart,
@@ -56,6 +57,7 @@ import type {
   DocumentHistory,
   OperationType,
   CostAnalysisData,
+  ConstructionSpec,
 } from "@/types";
 import { DOCUMENT_CATEGORIES } from "@/lib/lark-tables";
 import PdfThumbnail from "@/components/PdfThumbnail";
@@ -80,6 +82,9 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [ganttData, setGanttData] = useState<GanttChartData | null>(null);
   const [costAnalysisData, setCostAnalysisData] = useState<CostAnalysisData | null>(null);
   const [loadingCostAnalysis, setLoadingCostAnalysis] = useState(false);
+  const [constructionSpec, setConstructionSpec] = useState<ConstructionSpec | null>(null);
+  const [loadingConstructionSpec, setLoadingConstructionSpec] = useState(false);
+  const [collapsedConstructionSections, setCollapsedConstructionSections] = useState<Set<string>>(new Set());
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [loadingAiAnalysis, setLoadingAiAnalysis] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -121,6 +126,19 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
         newSet.delete(dept);
       } else {
         newSet.add(dept);
+      }
+      return newSet;
+    });
+  };
+
+  // 工事仕様書セクションの折りたたみ状態を切り替え
+  const toggleConstructionSection = (section: string) => {
+    setCollapsedConstructionSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(section)) {
+        newSet.delete(section);
+      } else {
+        newSet.add(section);
       }
       return newSet;
     });
@@ -511,6 +529,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
 
   const menuItems: { id: MenuItemType; label: string; icon: React.ReactNode; color: string; activeColor: string }[] = [
     { id: "baiyaku-detail", label: "売約詳細情報", icon: <ClipboardList className="w-5 h-5" />, color: "text-indigo-500", activeColor: "text-indigo-600" },
+    { id: "construction-detail", label: "工事詳細情報", icon: <HardHat className="w-5 h-5" />, color: "text-amber-500", activeColor: "text-amber-600" },
     { id: "customer-requests", label: "顧客要求事項変更履歴", icon: <FileText className="w-5 h-5" />, color: "text-blue-500", activeColor: "text-blue-600" },
     { id: "quality-issues", label: "不具合情報", icon: <AlertTriangle className="w-5 h-5" />, color: "text-orange-500", activeColor: "text-orange-600" },
     { id: "gantt-chart", label: "ガントチャート", icon: <Calendar className="w-5 h-5" />, color: "text-emerald-500", activeColor: "text-emerald-600" },
@@ -552,6 +571,23 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     }
   };
 
+  // 工事仕様書データ取得
+  const fetchConstructionSpec = async () => {
+    if (constructionSpec) return;
+    setLoadingConstructionSpec(true);
+    try {
+      const response = await fetch(`/api/construction-spec?seiban=${encodeURIComponent(seiban)}`);
+      const data = await response.json();
+      if (data.success) {
+        setConstructionSpec(data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching construction spec:", error);
+    } finally {
+      setLoadingConstructionSpec(false);
+    }
+  };
+
   // メニュー切替時にデータを取得
   useEffect(() => {
     if (activeMenu === "baiyaku-detail" && !baiyakuDetail && !loadingBaiyakuDetail) {
@@ -559,6 +595,9 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     }
     if (activeMenu === "cost-analysis" && !costAnalysisData && !loadingCostAnalysis) {
       fetchCostAnalysis();
+    }
+    if (activeMenu === "construction-detail" && !constructionSpec && !loadingConstructionSpec) {
+      fetchConstructionSpec();
     }
   }, [activeMenu]);
 
@@ -1529,6 +1568,530 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
               ) : (
                 <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
                   原価データがありません
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 工事詳細情報 */}
+          {activeMenu === "construction-detail" && (
+            <div className="space-y-4">
+              {loadingConstructionSpec ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+                  <span className="ml-3 text-gray-600">工事仕様書を読み込み中...</span>
+                </div>
+              ) : constructionSpec ? (
+                <>
+                  {/* 基本情報（常に表示） */}
+                  <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <div className="px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500">
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                        <HardHat className="w-5 h-5" />
+                        工事仕様書
+                      </h3>
+                    </div>
+                    <div className="p-6">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <span className="text-sm text-gray-500">受注製番</span>
+                          <p className="font-semibold">{constructionSpec.seiban}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-500">製番名</span>
+                          <p className="font-semibold">{constructionSpec.seiban_name || "-"}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-500">営業担当者</span>
+                          <p className="font-semibold">{constructionSpec.sales_person || "-"}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-500">作成日</span>
+                          <p className="font-semibold">{constructionSpec.created_date || "-"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 提出書類セクション（折りたたみ可能） */}
+                  <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <button
+                      onClick={() => toggleConstructionSection("documents")}
+                      className="w-full px-6 py-3 bg-red-50 border-b flex items-center justify-between hover:bg-red-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        {collapsedConstructionSections.has("documents") ? (
+                          <ChevronRight className="w-5 h-5 text-red-600" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-red-600" />
+                        )}
+                        <h4 className="font-bold text-red-800">提出書類セクション</h4>
+                      </div>
+                      <span className="text-sm text-red-600">
+                        {constructionSpec.documents.safety_documents ? "安全書類あり" : ""}
+                      </span>
+                    </button>
+                    {!collapsedConstructionSections.has("documents") && (
+                      <div className="p-6 space-y-4">
+                        {constructionSpec.documents.project_name && (
+                          <div className="p-3 bg-amber-50 rounded-lg">
+                            <span className="text-sm text-gray-500">工事名称</span>
+                            <p className="font-semibold text-amber-800">{constructionSpec.documents.project_name}</p>
+                          </div>
+                        )}
+                        <div className="border rounded-lg p-4">
+                          <h5 className="font-semibold text-gray-700 mb-3">申請書関連</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">確認申請</span>
+                              <p className={`font-medium ${constructionSpec.documents.confirmation_required ? "text-orange-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.confirmation_required ? "有" : "無"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">申請図面作成</span>
+                              <p className={`font-medium ${constructionSpec.documents.drawing_creation ? "text-orange-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.drawing_creation ? "必要" : "不要"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">計算書作成</span>
+                              <p className={`font-medium ${constructionSpec.documents.calculation_creation ? "text-orange-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.calculation_creation ? "必要" : "不要"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">消防手続き</span>
+                              <p className="font-medium">{constructionSpec.documents.fire_procedure_jurisdiction}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="border rounded-lg p-4">
+                          <h5 className="font-semibold text-gray-700 mb-3">ミルシートおよび出荷証明書</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">鋼材</span>
+                              <p className={`font-medium ${constructionSpec.documents.steel_required ? "text-green-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.steel_required ? "必要" : "不要"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">原反</span>
+                              <p className={`font-medium ${constructionSpec.documents.raw_material_required ? "text-green-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.raw_material_required ? "必要" : "不要"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">資材</span>
+                              <p className={`font-medium ${constructionSpec.documents.material_required ? "text-green-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.material_required ? "必要" : "不要"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">メッキ試験報告書</span>
+                              <p className={`font-medium ${constructionSpec.documents.plating_test_report_required ? "text-green-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.plating_test_report_required ? "必要" : "不要"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        {constructionSpec.documents.main_contractor && (
+                          <div className="border rounded-lg p-4">
+                            <h5 className="font-semibold text-gray-700 mb-3">元請け情報</h5>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-500">元請け名</span>
+                                <p className="font-medium">{constructionSpec.documents.main_contractor}</p>
+                              </div>
+                              {constructionSpec.documents.designer && (
+                                <div>
+                                  <span className="text-gray-500">設計者</span>
+                                  <p className="font-medium">{constructionSpec.documents.designer}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        <div className="border rounded-lg p-4">
+                          <h5 className="font-semibold text-gray-700 mb-3">製作・施工要領書</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">鉄骨製作要領書</span>
+                              <p className={`font-medium ${constructionSpec.documents.steel_frame_manual ? "text-orange-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.steel_frame_manual ? "必要" : "不要"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">膜製作要領書</span>
+                              <p className={`font-medium ${constructionSpec.documents.membrane_manual ? "text-orange-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.membrane_manual ? "必要" : "不要"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">施工要領書</span>
+                              <p className={`font-medium ${constructionSpec.documents.construction_manual ? "text-orange-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.construction_manual ? "必要" : "不要"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">施工計画書</span>
+                              <p className={`font-medium ${constructionSpec.documents.construction_plan ? "text-orange-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.construction_plan ? "必要" : "不要"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="border rounded-lg p-4">
+                          <h5 className="font-semibold text-gray-700 mb-3">工程写真</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">鉄骨製作工程</span>
+                              <p className={`font-medium ${constructionSpec.documents.steel_production_photo ? "text-orange-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.steel_production_photo ? "必要" : "不要"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">膜製作工程</span>
+                              <p className={`font-medium ${constructionSpec.documents.membrane_production_photo ? "text-orange-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.membrane_production_photo ? "必要" : "不要"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">現場施工工程</span>
+                              <p className={`font-medium ${constructionSpec.documents.site_construction_photo ? "text-orange-600" : "text-gray-400"}`}>
+                                {constructionSpec.documents.site_construction_photo ? "必要" : "不要"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        {constructionSpec.documents.safety_documents && (
+                          <div className="border rounded-lg p-4 bg-red-50">
+                            <h5 className="font-semibold text-red-700 mb-3">安全書類</h5>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-500">工事請負</span>
+                                <p className="font-medium">{constructionSpec.documents.contract_type}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">請負何次</span>
+                                <p className="font-medium">{constructionSpec.documents.subcontract_level}次</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">工事種別</span>
+                                <p className="font-medium">{constructionSpec.documents.work_category}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">書式</span>
+                                <p className="font-medium">{constructionSpec.documents.safety_document_format}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">提出方法</span>
+                                <p className="font-medium">{constructionSpec.documents.submission_method}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">提出部数</span>
+                                <p className="font-medium">{constructionSpec.documents.submission_count}部</p>
+                              </div>
+                              <div className="md:col-span-2">
+                                <span className="text-gray-500">提出期限</span>
+                                <p className="font-semibold text-red-600">{constructionSpec.documents.submission_deadline || "-"}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 工事項目セクション（折りたたみ可能） */}
+                  <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <button
+                      onClick={() => toggleConstructionSection("construction")}
+                      className="w-full px-6 py-3 bg-amber-50 border-b flex items-center justify-between hover:bg-amber-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        {collapsedConstructionSections.has("construction") ? (
+                          <ChevronRight className="w-5 h-5 text-amber-600" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-amber-600" />
+                        )}
+                        <h4 className="font-bold text-amber-800">工事項目セクション</h4>
+                      </div>
+                    </button>
+                    {!collapsedConstructionSections.has("construction") && (
+                      <div className="p-6 space-y-4">
+                        <div className="border rounded-lg p-4">
+                          <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                            基礎工事
+                          </h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">所掌</span>
+                              <p className={`font-medium ${constructionSpec.foundation.jurisdiction === "所掌" ? "text-green-600" : "text-gray-600"}`}>
+                                {constructionSpec.foundation.jurisdiction}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">発注状況</span>
+                              <p className="font-medium">{constructionSpec.foundation.order_status}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">基礎工事種別</span>
+                              <p className="font-medium">{constructionSpec.foundation.foundation_type}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">土間工事</span>
+                              <p className={`font-medium ${constructionSpec.foundation.floor_work ? "text-green-600" : "text-gray-400"}`}>
+                                {constructionSpec.foundation.floor_work ? "有" : "無"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="border rounded-lg p-4">
+                          <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                            アンカー関連
+                          </h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">アンカーボルト所掌</span>
+                              <p className={`font-medium ${constructionSpec.anchor.bolt_jurisdiction === "所掌" ? "text-green-600" : "text-gray-600"}`}>
+                                {constructionSpec.anchor.bolt_jurisdiction}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">ボルト種別</span>
+                              <p className="font-medium">{constructionSpec.anchor.bolt_type}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">テンプレート製作</span>
+                              <p className={`font-medium ${constructionSpec.anchor.template_production ? "text-green-600" : "text-gray-400"}`}>
+                                {constructionSpec.anchor.template_production ? "有" : "無"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">製作枚数</span>
+                              <p className="font-medium">{constructionSpec.anchor.template_count || 0} 枚</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="border rounded-lg p-4">
+                          <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                            運搬・梱包
+                          </h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">所掌</span>
+                              <p className={`font-medium ${constructionSpec.transportation.jurisdiction === "所掌" ? "text-green-600" : "text-gray-600"}`}>
+                                {constructionSpec.transportation.jurisdiction}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">10t搬入</span>
+                              <p className={`font-medium ${constructionSpec.transportation.ten_ton_available ? "text-green-600" : "text-red-500"}`}>
+                                {constructionSpec.transportation.ten_ton_available ? "可" : "不可"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">運搬方法</span>
+                              <p className="font-medium">{constructionSpec.transportation.transport_method}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">台数</span>
+                              <p className="font-medium">10t: {constructionSpec.transportation.ten_ton_count}台 / 4t: {constructionSpec.transportation.four_ton_count}台</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="border rounded-lg p-4">
+                          <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                            現場施工
+                          </h5>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">所掌</span>
+                              <p className={`font-medium ${constructionSpec.site_construction.jurisdiction === "所掌" ? "text-green-600" : "text-gray-600"}`}>
+                                {constructionSpec.site_construction.jurisdiction}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">既設建物との取合工事</span>
+                              <p className={`font-medium ${constructionSpec.site_construction.existing_building_work ? "text-orange-600" : "text-gray-400"}`}>
+                                {constructionSpec.site_construction.existing_building_work ? "必要" : "不要"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">建て方重機</span>
+                              <p className="font-medium">{constructionSpec.site_construction.crane_tonnage}t × {constructionSpec.site_construction.crane_count_per_day}台/日 × {constructionSpec.site_construction.crane_days}日</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">作業車種別</span>
+                              <p className="font-medium">{constructionSpec.site_construction.work_vehicle_type}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">作業車</span>
+                              <p className="font-medium">{constructionSpec.site_construction.work_vehicle_count_per_day}台/日 × {constructionSpec.site_construction.work_vehicle_days}日</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="border rounded-lg p-4">
+                          <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                            現場環境
+                          </h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">車両スペース</span>
+                              <p className={`font-medium ${constructionSpec.site_environment.vehicle_space ? "text-green-600" : "text-red-500"}`}>
+                                {constructionSpec.site_environment.vehicle_space ? "有" : "無"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">重機設置スペース</span>
+                              <p className={`font-medium ${constructionSpec.site_environment.heavy_equipment_space ? "text-green-600" : "text-red-500"}`}>
+                                {constructionSpec.site_environment.heavy_equipment_space ? "有" : "無"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">障害物</span>
+                              <p className={`font-medium ${constructionSpec.site_environment.obstacle ? "text-red-500" : "text-green-600"}`}>
+                                {constructionSpec.site_environment.obstacle ? "有" : "無"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">電源貸与</span>
+                              <p className={`font-medium ${constructionSpec.site_environment.power_available ? "text-green-600" : "text-red-500"}`}>
+                                {constructionSpec.site_environment.power_available ? "可" : "不可"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">地面状況</span>
+                              <p className="font-medium">{constructionSpec.site_environment.ground_condition}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">入場教育</span>
+                              <p className={`font-medium ${constructionSpec.site_environment.entry_education ? "text-orange-600" : "text-gray-400"}`}>
+                                {constructionSpec.site_environment.entry_education ? "必要" : "不要"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">朝礼</span>
+                              <p className="font-medium">
+                                {constructionSpec.site_environment.morning_meeting ? `有 ${constructionSpec.site_environment.morning_meeting_time || ""}` : "無"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">土間養生</span>
+                              <p className="font-medium">
+                                {constructionSpec.site_environment.floor_protection ? `必要 (${constructionSpec.site_environment.floor_protection_area}㎡)` : "不要"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="border rounded-lg p-4">
+                            <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                              <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                              電気工事
+                            </h5>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-500">所掌</span>
+                                <p className={`font-medium ${constructionSpec.electrical.jurisdiction === "所掌" ? "text-green-600" : "text-gray-600"}`}>
+                                  {constructionSpec.electrical.jurisdiction}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">1次工事</span>
+                                <p className="font-medium">{constructionSpec.electrical.primary_work}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">2次工事</span>
+                                <p className="font-medium">{constructionSpec.electrical.secondary_work}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">照明工事</span>
+                                <p className="font-medium">{constructionSpec.electrical.lighting_work}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="border rounded-lg p-4">
+                            <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                              <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                              消防設備
+                            </h5>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-500">所掌</span>
+                                <p className={`font-medium ${constructionSpec.fire_protection.jurisdiction === "所掌" ? "text-green-600" : "text-gray-600"}`}>
+                                  {constructionSpec.fire_protection.jurisdiction}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">発注状況</span>
+                                <p className="font-medium">{constructionSpec.fire_protection.order_status}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 特記事項・仕様セクション（折りたたみ可能） */}
+                  <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <button
+                      onClick={() => toggleConstructionSection("special")}
+                      className="w-full px-6 py-3 bg-blue-50 border-b flex items-center justify-between hover:bg-blue-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        {collapsedConstructionSections.has("special") ? (
+                          <ChevronRight className="w-5 h-5 text-blue-600" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-blue-600" />
+                        )}
+                        <h4 className="font-bold text-blue-800">特記事項・仕様セクション</h4>
+                      </div>
+                    </button>
+                    {!collapsedConstructionSections.has("special") && (
+                      <div className="p-6 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="border rounded-lg p-4">
+                            <h5 className="font-semibold text-gray-700 mb-2">製作について</h5>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">メッキ塗装</span>
+                                <span className={constructionSpec.special_notes.plating_required ? "text-green-600 font-medium" : "text-gray-400"}>
+                                  {constructionSpec.special_notes.plating_required ? "有" : "無"}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">膜種類</span>
+                                <span className="font-medium">{constructionSpec.special_notes.membrane_type || "-"}</span>
+                              </div>
+                            </div>
+                            {constructionSpec.special_notes.production_notes && (
+                              <div className="mt-3 p-2 bg-gray-50 rounded text-sm text-gray-600">
+                                {constructionSpec.special_notes.production_notes}
+                              </div>
+                            )}
+                          </div>
+                          <div className="border rounded-lg p-4">
+                            <h5 className="font-semibold text-gray-700 mb-2">その他特記事項</h5>
+                            <div className="text-sm text-gray-600">
+                              {constructionSpec.special_notes.other_notes || constructionSpec.preparation.items || "特記事項なし"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+                  工事仕様書データがありません
                 </div>
               )}
             </div>

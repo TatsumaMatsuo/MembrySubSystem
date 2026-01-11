@@ -115,6 +115,7 @@ export type MenuItemType =
   | "quality-issues"
   | "gantt-chart"
   | "cost-analysis"
+  | "construction-detail"
   | "documents";
 
 /**
@@ -378,4 +379,165 @@ export interface UserMenuPermissions {
   denied_menus: string[];         // 明示的に拒否されたメニューID
   denied_programs: string[];      // 明示的に拒否されたプログラムID
   source: "user" | "group";       // 権限ソース
+}
+
+/**
+ * 工事仕様書の型定義
+ */
+export interface ConstructionSpec {
+  // 基本情報
+  seiban: string;                    // 受注製番
+  seiban_name: string;               // 製番名
+  form_number: string;               // フォーム番号
+  issue_date: string;                // 発行日・版数
+  created_date: string;              // 作成日
+  sales_person: string;              // 営業担当者
+  issue_department: string;          // 発行部署
+
+  // 基礎工事
+  foundation: {
+    jurisdiction: string;            // 所掌（所掌/所掌外）
+    order_status: string;            // 発注状況
+    order_destination: string;       // 発注先
+    foundation_type: string;         // 基礎工事種別（布基礎等）
+    floor_work: boolean;             // 土間工事有無
+    comment: string;                 // コメント
+  };
+
+  // アンカー関連
+  anchor: {
+    bolt_jurisdiction: string;       // アンカーボルト所掌
+    bolt_type: string;               // ボルト種別
+    template_production: boolean;    // テンプレート製作有無
+    template_count: number;          // テンプレート製作枚数
+    anchor_set_jurisdiction: string; // アンカーセット所掌
+  };
+
+  // 運搬・梱包
+  transportation: {
+    jurisdiction: string;            // 所掌
+    ten_ton_available: boolean;      // 10t搬入可否
+    transport_method: string;        // 運搬方法
+    ten_ton_count: number;           // 10t台数
+    four_ton_count: number;          // 4t台数
+    comment: string;
+  };
+
+  // 現場施工
+  site_construction: {
+    jurisdiction: string;
+    existing_building_work: boolean; // 既設建物との取合工事
+    crane_jurisdiction: string;      // 建て方重機所掌
+    crane_tonnage: number;           // 重機t数
+    crane_count_per_day: number;     // 台数/日
+    crane_days: number;              // 日数
+    crane_comment: string;
+    work_vehicle_jurisdiction: string; // 作業車所掌
+    work_vehicle_type: string;       // 作業車種別
+    work_vehicle_count_per_day: number;
+    work_vehicle_days: number;
+    work_vehicle_comment: string;
+  };
+
+  // 現場環境
+  site_environment: {
+    vehicle_space: boolean;          // 車両スペース有無
+    heavy_equipment_space: boolean;  // 重機設置スペース有無
+    vehicle_space_comment: string;
+    obstacle: boolean;               // 車両スペース障害物
+    obstacle_comment: string;
+    power_available: boolean;        // 電源の貸与可否
+    power_comment: string;
+    ground_condition: string;        // 地面状況
+    ground_comment: string;
+    entry_education: boolean;        // 入場教育必要
+    morning_meeting: boolean;        // 朝礼有無
+    morning_meeting_time: string;    // 朝礼時刻
+    floor_exists: boolean;           // 土間の有無
+    floor_protection: boolean;       // 土間養生必要
+    floor_protection_area: number;   // 養生㎡数
+    logo_required: boolean;          // ロゴマーク貼付
+  };
+
+  // 電気工事
+  electrical: {
+    jurisdiction: string;
+    primary_work: string;            // 1次工事
+    secondary_work: string;          // 2次工事
+    lighting_work: string;           // 照明工事
+    order_status: string;
+    order_destination: string;
+    comment: string;
+  };
+
+  // 消防設備
+  fire_protection: {
+    jurisdiction: string;
+    order_status: string;
+    order_destination: string;
+    comment: string;
+  };
+
+  // 張替
+  replacement: {
+    previous_membrane: string;       // 張替前膜材
+    previous_replacement_date: string; // 前回張替日
+  };
+
+  // 特記事項
+  special_notes: {
+    production_notes: string;        // 製作について特記
+    steel_frame_notes: string;       // 鉄骨製作について
+    membrane_notes: string;          // 膜製作について
+    plating_required: boolean;       // メッキ塗装について
+    membrane_type: string;           // 膜種類（例: クローザーV3）
+    construction_notes: string;      // 施工について特記
+    other_notes: string;             // その他特記事項
+  };
+
+  // 準備品
+  preparation: {
+    items: string;                   // 準備品
+    comment: string;
+  };
+
+  // 提出書類
+  documents: {
+    project_name: string;            // 工事名称
+    confirmation_required: boolean;  // 確認申請
+    application_creation: boolean;   // 申請書作成
+    application_submission: boolean; // 申請書提出
+    drawing_creation: boolean;       // 申請図面作成
+    calculation_creation: boolean;   // 計算書作成
+    fire_procedure_jurisdiction: string; // 消防手続き所掌
+    mill_sheet_required: boolean;    // ミルシートおよび出荷証明書
+    steel_required: boolean;         // 鋼材
+    raw_material_required: boolean;  // 原反
+    material_required: boolean;      // 資材
+    plating_test_report_required: boolean; // メッキ試験報告書
+    main_contractor: string;         // 元請け名
+    designer: string;                // 設計者
+    steel_frame_category: boolean;   // 鉄骨製作区分
+    steel_frame_manual: boolean;     // 鉄骨製作要領書
+    membrane_category: boolean;      // 膜製作区分
+    membrane_manual: boolean;        // 膜製作要領書
+    construction_manual: boolean;    // 施工要領書
+    construction_plan: boolean;      // 施工計画書
+    photo_required: boolean;         // 工程写真
+    steel_production_photo: boolean; // 鉄骨製作工程
+    membrane_production_photo: boolean; // 膜製作工程
+    site_construction_photo: boolean; // 現場施工工程
+    constructor: string;             // 施工者
+    factory_inspection: boolean;     // 工場立会
+    non_destructive: boolean;        // 非破壊
+    coating_thickness: boolean;      // 塗装膜厚
+    safety_documents: boolean;       // 安全書類
+    contract_type: string;           // 工事請負
+    subcontract_level: number;       // 請負何次
+    work_category: string;           // 工事種別
+    safety_document_format: string;  // 安全書類書式
+    submission_method: string;       // 提出方法
+    submission_count: number;        // 提出部数
+    submission_deadline: string;     // 提出期限
+  };
 }

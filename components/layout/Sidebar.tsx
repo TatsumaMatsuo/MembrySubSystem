@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -25,132 +25,68 @@ import {
   FileSpreadsheet,
   Cog,
   Link2,
+  Loader2,
+  LucideIcon,
 } from "lucide-react";
+import { PermittedMenuStructure, MenuDisplayMaster, FunctionPlacementMaster } from "@/types";
 
-// 部門メニュー定義
-export interface MenuItem {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  href?: string;
-  children?: MenuItem[];
+// アイコンマッピング
+const ICON_MAP: Record<string, LucideIcon> = {
+  Home,
+  Briefcase,
+  PenTool,
+  Factory,
+  ClipboardList,
+  Wrench,
+  Truck,
+  Monitor,
+  FileText,
+  Settings,
+  Building2,
+  Database,
+  Shield,
+  Users,
+  BarChart3,
+  Upload,
+  FileSpreadsheet,
+  Cog,
+  Link2,
+};
+
+// アイコン色マッピング（第1階層用）
+const ICON_COLORS: Record<string, string> = {
+  Home: "text-indigo-500",
+  Briefcase: "text-emerald-500",
+  PenTool: "text-blue-500",
+  Factory: "text-orange-500",
+  ClipboardList: "text-purple-500",
+  Wrench: "text-amber-500",
+  Truck: "text-cyan-500",
+  Monitor: "text-pink-500",
+  Building2: "text-slate-500",
+  Database: "text-gray-600",
+  Upload: "text-teal-500",
+  Cog: "text-slate-600",
+  Shield: "text-gray-500",
+  FileText: "text-indigo-400",
+  BarChart3: "text-emerald-400",
+  FileSpreadsheet: "text-teal-400",
+  Users: "text-gray-500",
+  Link2: "text-slate-500",
+};
+
+// アイコンを取得
+function getIcon(iconName?: string, isChild = false): React.ReactNode {
+  const IconComponent = iconName ? ICON_MAP[iconName] : Home;
+  if (!IconComponent) return <Home className="w-5 h-5 text-gray-500" />;
+
+  const colorClass = isChild
+    ? ICON_COLORS[iconName || ""] || "text-gray-400"
+    : ICON_COLORS[iconName || ""] || "text-gray-500";
+  const sizeClass = isChild ? "w-4 h-4" : "w-5 h-5";
+
+  return <IconComponent className={`${sizeClass} ${colorClass}`} />;
 }
-
-export const DEPARTMENT_MENUS: MenuItem[] = [
-  {
-    id: "common",
-    label: "共通",
-    icon: <Home className="w-5 h-5 text-indigo-500" />,
-    children: [
-      {
-        id: "baiyaku",
-        label: "売約情報",
-        icon: <FileText className="w-4 h-4 text-indigo-400" />,
-        href: "/",
-      },
-      {
-        id: "data-upload",
-        label: "データアップロード",
-        icon: <Upload className="w-4 h-4 text-indigo-400" />,
-        children: [
-          {
-            id: "upload-order-backlog",
-            label: "受注残情報",
-            icon: <FileSpreadsheet className="w-4 h-4 text-indigo-300" />,
-            href: "/upload/order-backlog",
-          },
-        ],
-      },
-      {
-        id: "system-settings",
-        label: "システム設定",
-        icon: <Cog className="w-4 h-4 text-indigo-400" />,
-        children: [
-          {
-            id: "data-mapping",
-            label: "データマッピング",
-            icon: <Link2 className="w-4 h-4 text-indigo-300" />,
-            href: "/settings/data-mapping",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: "soumu",
-    label: "総務部",
-    icon: <Building2 className="w-5 h-5 text-slate-500" />,
-    children: [],
-  },
-  {
-    id: "eigyo",
-    label: "営業部",
-    icon: <Briefcase className="w-5 h-5 text-emerald-500" />,
-    children: [
-      {
-        id: "sales-analysis",
-        label: "売上分析",
-        icon: <BarChart3 className="w-4 h-4 text-emerald-400" />,
-        href: "/eigyo/sales-analysis",
-      },
-    ],
-  },
-  {
-    id: "sekkei",
-    label: "設計部",
-    icon: <PenTool className="w-5 h-5 text-blue-500" />,
-    children: [],
-  },
-  {
-    id: "seizou",
-    label: "製造部",
-    icon: <Factory className="w-5 h-5 text-orange-500" />,
-    children: [],
-  },
-  {
-    id: "seisan",
-    label: "生産管理部",
-    icon: <ClipboardList className="w-5 h-5 text-purple-500" />,
-    children: [],
-  },
-  {
-    id: "koumu",
-    label: "工務課",
-    icon: <Wrench className="w-5 h-5 text-amber-500" />,
-    children: [],
-  },
-  {
-    id: "unyu",
-    label: "運輸部",
-    icon: <Truck className="w-5 h-5 text-cyan-500" />,
-    children: [],
-  },
-  {
-    id: "systemhouse",
-    label: "システムハウス",
-    icon: <Monitor className="w-5 h-5 text-pink-500" />,
-    children: [],
-  },
-  {
-    id: "master",
-    label: "マスタ",
-    icon: <Database className="w-5 h-5 text-gray-600" />,
-    children: [
-      {
-        id: "permission-settings",
-        label: "権限設定",
-        icon: <Shield className="w-4 h-4 text-gray-500" />,
-        href: "/master/permissions",
-      },
-      {
-        id: "user-management",
-        label: "ユーザー管理",
-        icon: <Users className="w-4 h-4 text-gray-500" />,
-        href: "/master/users",
-      },
-    ],
-  },
-];
 
 interface SidebarProps {
   collapsed?: boolean;
@@ -166,7 +102,38 @@ export function Sidebar({
   isPopover = false,
 }: SidebarProps) {
   const pathname = usePathname();
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(["common"]);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+  const [menuStructure, setMenuStructure] = useState<PermittedMenuStructure[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // メニュー構造を取得
+  useEffect(() => {
+    fetchMenuStructure();
+  }, []);
+
+  const fetchMenuStructure = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/menu-permission");
+      const data = await response.json();
+
+      if (data.success && data.data?.menuStructure) {
+        setMenuStructure(data.data.menuStructure);
+        // 最初のメニューを展開
+        if (data.data.menuStructure.length > 0) {
+          setExpandedMenus([data.data.menuStructure[0].menu.menu_id]);
+        }
+      } else {
+        setError("メニューの取得に失敗しました");
+      }
+    } catch (err) {
+      console.error("Failed to fetch menu structure:", err);
+      setError("メニューの取得に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleMenu = (menuId: string) => {
     setExpandedMenus((prev) =>
@@ -188,66 +155,145 @@ export function Sidebar({
     }
   };
 
-  const renderMenuItem = (item: MenuItem, depth = 0) => {
+  // 第1階層メニューをレンダリング
+  const renderLevel1Menu = (item: PermittedMenuStructure) => {
     const hasChildren = item.children && item.children.length > 0;
-    const isExpanded = expandedMenus.includes(item.id);
-    const active = isActive(item.href);
+    const isExpanded = expandedMenus.includes(item.menu.menu_id);
 
     return (
-      <div key={item.id}>
-        {item.href && !hasChildren ? (
-          <Link
-            href={item.href}
-            onClick={handleLinkClick}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-              depth > 0 ? "ml-4" : ""
-            } ${
-              active
-                ? "bg-indigo-100 text-indigo-700 font-semibold"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            {item.icon}
-            {!collapsed && <span className="text-sm">{item.label}</span>}
-          </Link>
-        ) : (
-          <button
-            onClick={() => hasChildren && toggleMenu(item.id)}
-            className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-              depth > 0 ? "ml-4" : ""
-            } ${
-              hasChildren && isExpanded
-                ? "bg-gray-100 text-gray-900"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              {item.icon}
-              {!collapsed && (
-                <span className="text-sm font-medium">{item.label}</span>
-              )}
-            </div>
-            {!collapsed && hasChildren && (
-              <span className="text-gray-400">
-                {isExpanded ? (
-                  <ChevronDown className="w-4 h-4" />
-                ) : (
-                  <ChevronRight className="w-4 h-4" />
-                )}
-              </span>
+      <div key={item.menu.menu_id}>
+        <button
+          onClick={() => hasChildren && toggleMenu(item.menu.menu_id)}
+          className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+            hasChildren && isExpanded
+              ? "bg-gray-100 text-gray-900"
+              : "text-gray-700 hover:bg-gray-100"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            {getIcon(item.menu.icon)}
+            {!collapsed && (
+              <span className="text-sm font-medium">{item.menu.menu_name}</span>
             )}
-          </button>
-        )}
+          </div>
+          {!collapsed && hasChildren && (
+            <span className="text-gray-400">
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </span>
+          )}
+        </button>
 
-        {/* サブメニュー */}
+        {/* 第2階層メニュー */}
         {hasChildren && isExpanded && !collapsed && (
           <div className="mt-1 space-y-1">
-            {item.children!.map((child) => renderMenuItem(child, depth + 1))}
+            {item.children.map((child) => renderLevel2Menu(child))}
           </div>
         )}
       </div>
     );
   };
+
+  // 第2階層メニューをレンダリング
+  const renderLevel2Menu = (child: { menu: MenuDisplayMaster; programs: FunctionPlacementMaster[] }) => {
+    const hasPrograms = child.programs && child.programs.length > 0;
+
+    // プログラムが1つだけの場合は直接リンク
+    if (hasPrograms && child.programs.length === 1) {
+      const program = child.programs[0];
+      const active = isActive(program.url_path);
+      return (
+        <Link
+          key={child.menu.menu_id}
+          href={program.url_path}
+          onClick={handleLinkClick}
+          className={`flex items-center gap-3 px-3 py-2.5 ml-4 rounded-lg transition-all duration-200 ${
+            active
+              ? "bg-indigo-100 text-indigo-700 font-semibold"
+              : "text-gray-700 hover:bg-gray-100"
+          }`}
+        >
+          {getIcon(child.menu.icon, true)}
+          <span className="text-sm">{child.menu.menu_name}</span>
+        </Link>
+      );
+    }
+
+    // プログラムが複数ある場合は展開可能
+    if (hasPrograms) {
+      const isExpanded = expandedMenus.includes(child.menu.menu_id);
+      return (
+        <div key={child.menu.menu_id}>
+          <button
+            onClick={() => toggleMenu(child.menu.menu_id)}
+            className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 ml-4 rounded-lg transition-all duration-200 ${
+              isExpanded ? "bg-gray-50 text-gray-900" : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              {getIcon(child.menu.icon, true)}
+              <span className="text-sm">{child.menu.menu_name}</span>
+            </div>
+            <span className="text-gray-400">
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </span>
+          </button>
+
+          {/* プログラム一覧 */}
+          {isExpanded && (
+            <div className="mt-1 space-y-1">
+              {child.programs.map((program) => {
+                const active = isActive(program.url_path);
+                return (
+                  <Link
+                    key={program.program_id}
+                    href={program.url_path}
+                    onClick={handleLinkClick}
+                    className={`flex items-center gap-3 px-3 py-2 ml-8 rounded-lg transition-all duration-200 ${
+                      active
+                        ? "bg-indigo-100 text-indigo-700 font-semibold"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className="text-sm">{program.program_name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // ローディング表示
+  const renderLoading = () => (
+    <div className="flex items-center justify-center py-8">
+      <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+    </div>
+  );
+
+  // エラー表示
+  const renderError = () => (
+    <div className="px-3 py-4 text-center">
+      <p className="text-sm text-red-500">{error}</p>
+      <button
+        onClick={fetchMenuStructure}
+        className="mt-2 text-xs text-indigo-600 hover:underline"
+      >
+        再読み込み
+      </button>
+    </div>
+  );
 
   // POPモードの場合はヘッダーなしでメニューのみ表示
   if (isPopover) {
@@ -255,7 +301,9 @@ export function Sidebar({
       <div className="h-full flex flex-col bg-white">
         {/* メニュー */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {DEPARTMENT_MENUS.map((menu) => renderMenuItem(menu))}
+          {loading && renderLoading()}
+          {error && renderError()}
+          {!loading && !error && menuStructure.map((menu) => renderLevel1Menu(menu))}
         </nav>
 
         {/* フッター */}
@@ -293,7 +341,9 @@ export function Sidebar({
 
         {/* メニュー */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {DEPARTMENT_MENUS.map((menu) => renderMenuItem(menu))}
+          {loading && renderLoading()}
+          {error && renderError()}
+          {!loading && !error && menuStructure.map((menu) => renderLevel1Menu(menu))}
         </nav>
 
         {/* フッター */}

@@ -10,7 +10,7 @@ export async function getEmployees(searchTerm?: string): Promise<Employee[]> {
   let filter: string | undefined;
 
   if (searchTerm) {
-    filter = `OR(FIND("${searchTerm}", CurrentValue.[${EMPLOYEE_FIELDS.employee_name}]) > 0, FIND("${searchTerm}", CurrentValue.[${EMPLOYEE_FIELDS.email}]) > 0)`;
+    filter = `OR(FIND("${searchTerm}", CurrentValue.[${EMPLOYEE_FIELDS.employee_id}]) > 0, FIND("${searchTerm}", CurrentValue.[${EMPLOYEE_FIELDS.employee_name}]) > 0, FIND("${searchTerm}", CurrentValue.[${EMPLOYEE_FIELDS.email}]) > 0)`;
   }
 
   const response = await getBaseRecords(tables.EMPLOYEES, {

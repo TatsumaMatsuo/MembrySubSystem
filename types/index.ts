@@ -205,44 +205,100 @@ export interface UserPermission {
   備考?: string;
 }
 
+
+// ========================================
+// メニュー権限システム（新）
+// ========================================
+
 /**
- * ロールマスタの型定義
+ * メニュー表示マスタの型定義
  */
-export interface RoleMaster {
+export interface MenuDisplayMaster {
   record_id: string;
-  ロールID: string;
-  ロール名: string;
-  説明?: string;
-  有効フラグ: boolean;
+  menu_id: string;           // メニューID（例: M001, M001-01）
+  menu_name: string;         // メニュー名
+  level: number;             // 階層レベル（1 or 2）
+  parent_menu_id?: string;   // 親メニューID（第2階層のみ）
+  sort_order: number;        // 表示順
+  icon?: string;             // lucide-reactアイコン名
+  is_active: boolean;        // 有効フラグ
 }
 
 /**
- * ロール権限の型定義
+ * 機能配置マスタの型定義
  */
-export interface RolePermission {
+export interface FunctionPlacementMaster {
   record_id: string;
-  ロール: string[];  // リンクフィールド
-  対象機能: string[];  // リンクフィールド
-  権限レベル: PermissionLevel;
+  program_id: string;        // プログラムID（例: PGM001）
+  program_name: string;      // プログラム名称
+  menu_id: string;           // 配置メニューID（第2階層）
+  url_path: string;          // URLパス（例: /upload/order-backlog）
+  sort_order: number;        // 表示順
+  description?: string;      // 説明
+  is_active: boolean;        // 有効フラグ
 }
 
 /**
- * ユーザーロールの型定義
+ * 権限対象種別
  */
-export interface UserRole {
+export type PermissionTargetType = "menu" | "program";
+
+/**
+ * グループ権限マスタの型定義
+ */
+export interface GroupPermissionMaster {
   record_id: string;
-  ユーザーメール: string;
-  割当ロール: string[];  // リンクフィールド
-  割当日?: number;
+  group_id: string;          // LarkグループID
+  group_name: string;        // グループ名
+  target_type: PermissionTargetType; // 対象種別
+  target_id: string;         // メニューID or プログラムID
+  is_allowed: boolean;       // 許可フラグ
+  updated_at?: number;       // 更新日時
 }
 
 /**
- * 権限チェック結果の型定義
+ * 個別権限マスタの型定義
  */
-export interface PermissionCheckResult {
-  featureId: string;
-  level: PermissionLevel;
-  canEdit: boolean;
-  canView: boolean;
-  isHidden: boolean;
+export interface UserPermissionMaster {
+  record_id: string;
+  employee_id: string;       // 社員ID
+  employee_name: string;     // 社員名
+  target_type: PermissionTargetType; // 対象種別
+  target_id: string;         // メニューID or プログラムID
+  is_allowed: boolean;       // 許可フラグ
+  updated_at?: number;       // 更新日時
+}
+
+/**
+ * メニュー構造（階層付き）
+ */
+export interface MenuStructure {
+  menu: MenuDisplayMaster;
+  children: MenuDisplayMaster[];
+  programs: FunctionPlacementMaster[];
+}
+
+/**
+ * 権限付きメニュー構造
+ */
+export interface PermittedMenuStructure {
+  menu: MenuDisplayMaster;
+  children: {
+    menu: MenuDisplayMaster;
+    programs: FunctionPlacementMaster[];
+  }[];
+}
+
+/**
+ * ユーザー権限情報
+ */
+export interface UserMenuPermissions {
+  employee_id: string;
+  employee_name: string;
+  group_ids: string[];
+  permitted_menus: string[];      // 許可されたメニューID
+  permitted_programs: string[];   // 許可されたプログラムID
+  denied_menus: string[];         // 明示的に拒否されたメニューID
+  denied_programs: string[];      // 明示的に拒否されたプログラムID
+  source: "user" | "group";       // 権限ソース
 }

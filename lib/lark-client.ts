@@ -26,6 +26,11 @@ export const larkClient = {
     if (!client) throw new Error("Lark client not initialized");
     return client.bitable;
   },
+  get contact() {
+    const client = getLarkClient();
+    if (!client) throw new Error("Lark client not initialized");
+    return client.contact;
+  },
 };
 
 export function getLarkBaseToken(): string {
@@ -79,9 +84,13 @@ export async function getBaseRecords(tableId: string, params?: {
   }
 }
 
-export async function createBaseRecord(tableId: string, fields: Record<string, any>, baseToken?: string) {
+export async function createBaseRecord(
+  tableId: string,
+  fields: Record<string, any>,
+  options?: { baseToken?: string }
+) {
   try {
-    const appToken = baseToken || getLarkBaseToken();
+    const appToken = options?.baseToken || getLarkBaseToken();
     const response = await larkClient.bitable.appTableRecord.create({
       path: {
         app_token: appToken,
@@ -89,10 +98,6 @@ export async function createBaseRecord(tableId: string, fields: Record<string, a
       },
       data: { fields },
     });
-
-    if (response.code !== 0) {
-      throw new Error(`Lark API error: ${response.msg || 'Unknown error'} (code: ${response.code})`);
-    }
 
     return response;
   } catch (error) {
@@ -104,25 +109,175 @@ export async function createBaseRecord(tableId: string, fields: Record<string, a
 export async function updateBaseRecord(
   tableId: string,
   recordId: string,
-  fields: Record<string, any>
+  fields: Record<string, any>,
+  options?: { baseToken?: string }
 ) {
   try {
+    const appToken = options?.baseToken || getLarkBaseToken();
     const response = await larkClient.bitable.appTableRecord.update({
       path: {
-        app_token: getLarkBaseToken(),
+        app_token: appToken,
         table_id: tableId,
         record_id: recordId,
       },
       data: { fields },
     });
 
+    return response;
+  } catch (error) {
+    console.error("Error updating Lark Base record:", error);
+    throw error;
+  }
+}
+
+export async function deleteBaseRecord(
+  tableId: string,
+  recordId: string,
+  options?: { baseToken?: string }
+) {
+  try {
+    const appToken = options?.baseToken || getLarkBaseToken();
+    const response = await larkClient.bitable.appTableRecord.delete({
+      path: {
+        app_token: appToken,
+        table_id: tableId,
+        record_id: recordId,
+      },
+    });
+
+    return response;
+  } catch (error) {
+    console.error("Error deleting Lark Base record:", error);
+    throw error;
+  }
+}
+
+/**
+ * Lark部門一覧を取得（子部門取得）
+ */
+export async function getDepartments(parentDepartmentId?: string) {
+  try {
+    // department_idはパスパラメータとして必要
+    const parentId = parentDepartmentId || "0";
+
+    const response = await larkClient.contact.department.children({
+      path: {
+        department_id: parentId,
+      },
+      params: {
+        department_id_type: "open_department_id",
+        page_size: 50,
+        fetch_child: true, // 全ての子孫部門を取得
+      },
+    });
+
+    console.log("[lark-client] getDepartments Response:", {
+      code: response.code,
+      msg: response.msg,
+      items_count: response.data?.items?.length,
+      parent_id: parentId,
+    });
+
+    // code 0 でなければエラーメッセージを詳細に出力
     if (response.code !== 0) {
-      throw new Error(`Lark API error: ${response.msg || 'Unknown error'} (code: ${response.code})`);
+      console.error("[lark-client] getDepartments Error:", response);
     }
 
     return response;
   } catch (error) {
-    console.error("Error updating Lark Base record:", error);
+    console.error("Error fetching Lark departments:", error);
+    throw error;
+  }
+}
+
+/**
+ * Lark部門一覧を取得（listメソッド使用）
+ */
+export async function listAllDepartments() {
+  try {
+    // 全部門をリストで取得
+    const allDepartments: any[] = [];
+    let pageToken: string | undefined;
+
+    do {
+      const response = await larkClient.contact.department.list({
+        params: {
+          department_id_type: "open_department_id",
+          parent_department_id: "0",
+          fetch_child: true,
+          page_size: 50,
+          page_token: pageToken,
+        },
+      });
+
+      console.log("[lark-client] listAllDepartments Response:", {
+        code: response.code,
+        msg: response.msg,
+        items_count: response.data?.items?.length,
+        has_more: response.data?.has_more,
+      });
+
+      if (response.code === 0 && response.data?.items) {
+        allDepartments.push(...response.data.items);
+        pageToken = response.data.has_more ? response.data.page_token : undefined;
+      } else {
+        console.error("[lark-client] listAllDepartments Error:", response);
+        break;
+      }
+    } while (pageToken);
+
+    return {
+      code: 0,
+      data: { items: allDepartments },
+    };
+  } catch (error) {
+    console.error("Error listing Lark departments:", error);
+    throw error;
+  }
+}
+
+/**
+ * Lark部門詳細を取得
+ */
+export async function getDepartmentInfo(departmentId: string) {
+  try {
+    const response = await larkClient.contact.department.get({
+      path: {
+        department_id: departmentId,
+      },
+      params: {
+        department_id_type: "open_department_id",
+      },
+    });
+
+    return response;
+  } catch (error) {
+    console.error("Error fetching Lark department info:", error);
+    throw error;
+  }
+}
+
+/**
+ * Larkグループ一覧を取得
+ */
+export async function getGroups(pageSize: number = 100) {
+  try {
+    const response = await larkClient.contact.group.list({
+      params: {
+        page_size: pageSize,
+        type: 1, // 1: 普通グループ
+      },
+    });
+
+    console.log("[lark-client] getGroups Response:", {
+      code: response.code,
+      msg: response.msg,
+      items_count: response.data?.grouplist?.length,
+    });
+
+    return response;
+  } catch (error) {
+    console.error("Error fetching Lark groups:", error);
     throw error;
   }
 }

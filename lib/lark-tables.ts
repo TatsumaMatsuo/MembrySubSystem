@@ -22,12 +22,6 @@ export function getLarkTables() {
     FEATURE_MASTER: process.env.LARK_TABLE_FEATURE_MASTER || "tbloM14bI5lBJCgT",
     // ユーザー権限テーブル
     USER_PERMISSIONS: process.env.LARK_TABLE_USER_PERMISSIONS || "tbl0qPqlC88kaUeZ",
-    // ロールマスタテーブル
-    ROLE_MASTER: process.env.LARK_TABLE_ROLE_MASTER || "tblXyJIyHv4fcyD7",
-    // ロール権限テーブル
-    ROLE_PERMISSIONS: process.env.LARK_TABLE_ROLE_PERMISSIONS || "tbl6QGbCV9U4xdc0",
-    // ユーザーロールテーブル
-    USER_ROLES: process.env.LARK_TABLE_USER_ROLES || "tblk4XGgWlLy0uey",
   };
 }
 
@@ -47,9 +41,6 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   EMPLOYEES: "master",
   FEATURE_MASTER: "master",
   USER_PERMISSIONS: "master",
-  ROLE_MASTER: "master",
-  ROLE_PERMISSIONS: "master",
-  USER_ROLES: "master",
 };
 
 /**
@@ -194,34 +185,6 @@ export const USER_PERMISSION_FIELDS = {
   granted_at: "付与日時",
   expires_at: "有効期限",
   notes: "備考",
-} as const;
-
-/**
- * ロールマスタテーブルのフィールド定義
- */
-export const ROLE_MASTER_FIELDS = {
-  role_id: "ロールID",
-  role_name: "ロール名",
-  description: "説明",
-  is_active: "有効フラグ",
-} as const;
-
-/**
- * ロール権限テーブルのフィールド定義
- */
-export const ROLE_PERMISSION_FIELDS = {
-  role_id: "ロール",
-  feature_id: "対象機能",
-  permission_level: "権限レベル",
-} as const;
-
-/**
- * ユーザーロールテーブルのフィールド定義
- */
-export const USER_ROLE_FIELDS = {
-  user_email: "ユーザーメール",
-  role_id: "割当ロール",
-  assigned_at: "割当日",
 } as const;
 
 /**

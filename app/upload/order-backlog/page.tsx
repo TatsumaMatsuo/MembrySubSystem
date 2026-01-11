@@ -13,6 +13,7 @@ import {
   Loader2,
   Settings,
   ChevronDown,
+  StopCircle,
 } from "lucide-react";
 import { DataMappingConfig } from "@/types/data-mapping";
 
@@ -45,7 +46,9 @@ export default function OrderBacklogUploadPage() {
   const [result, setResult] = useState<UploadResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressState | null>(null);
+  const [cancelled, setCancelled] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // マッピング設定を読み込み
   useEffect(() => {
@@ -104,9 +107,13 @@ export default function OrderBacklogUploadPage() {
       return;
     }
 
+    // AbortControllerを作成
+    abortControllerRef.current = new AbortController();
+
     setLoading(true);
     setError(null);
     setResult(null);
+    setCancelled(false);
     setProgress({ current: 0, total: 0, inserted: 0, updated: 0, percentage: 0 });
 
     try {
@@ -118,6 +125,7 @@ export default function OrderBacklogUploadPage() {
       const response = await fetch("/api/upload/generic", {
         method: "POST",
         body: formData,
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) {
@@ -177,10 +185,22 @@ export default function OrderBacklogUploadPage() {
         }
       }
     } catch (err) {
-      setError("アップロード中にエラーが発生しました");
-      console.error(err);
+      if (err instanceof Error && err.name === "AbortError") {
+        setCancelled(true);
+        // キャンセル時は現在の進捗を保持
+      } else {
+        setError("アップロード中にエラーが発生しました");
+        console.error(err);
+      }
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
   };
 
@@ -211,6 +231,7 @@ export default function OrderBacklogUploadPage() {
     setResult(null);
     setError(null);
     setProgress(null);
+    setCancelled(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -359,12 +380,16 @@ export default function OrderBacklogUploadPage() {
               {progress && (
                 <div className="mt-4 space-y-2">
                   <div className="flex justify-between text-sm text-gray-600">
-                    <span>処理中...</span>
+                    <span>{cancelled ? "中断しました" : "処理中..."}</span>
                     <span>{progress.current} / {progress.total} 件 ({progress.percentage}%)</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300 ease-out"
+                      className={`h-full transition-all duration-300 ease-out ${
+                        cancelled
+                          ? "bg-gradient-to-r from-orange-400 to-orange-500"
+                          : "bg-gradient-to-r from-indigo-500 to-purple-500"
+                      }`}
                       style={{ width: `${progress.percentage}%` }}
                     />
                   </div>
@@ -376,6 +401,23 @@ export default function OrderBacklogUploadPage() {
                       更新: <span className="font-bold">{progress.updated}</span>
                     </span>
                   </div>
+                  {/* ストップボタン */}
+                  {loading && !cancelled && (
+                    <div className="flex justify-center mt-2">
+                      <button
+                        onClick={handleStop}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg"
+                      >
+                        <StopCircle className="w-5 h-5" />
+                        処理を中断
+                      </button>
+                    </div>
+                  )}
+                  {cancelled && (
+                    <div className="text-center text-orange-600 text-sm font-medium">
+                      処理が中断されました。{progress.current}件まで反映済みです。
+                    </div>
+                  )}
                 </div>
               )}
 

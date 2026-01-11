@@ -44,13 +44,13 @@ import PdfThumbnail from "@/components/PdfThumbnail";
 import { ImageDiff } from "@/components/ImageDiff";
 
 interface PageProps {
-  params: { seibanId: string };
+  params: { seiban: string };
 }
 
 export default function BaiyakuDetailPage({ params }: PageProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const seiban = decodeURIComponent(params.seibanId);
+  const seiban = decodeURIComponent(params.seiban);
 
   const [baiyaku, setBaiyaku] = useState<BaiyakuInfo | null>(null);
   const [activeMenu, setActiveMenu] = useState<MenuItemType>("customer-requests");
@@ -574,7 +574,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                 <Menu className="w-5 h-5" />
               </button>
               <button
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/baiyaku/kensaku")}
                 className="flex items-center gap-1.5 text-white/90 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-all duration-200 text-sm"
               >
                 <ArrowLeft className="w-4 h-4" />

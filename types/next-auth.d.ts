@@ -9,6 +9,8 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       employeeId?: string | null;
+      employeeName?: string | null;
+      department?: string | null;
       membershipType?: MembershipType | null;
     };
     accessToken?: string;
@@ -25,6 +27,8 @@ declare module "next-auth/jwt" {
     accessToken?: string;
     refreshToken?: string;
     employeeId?: string | null;
+    employeeName?: string | null;
+    department?: string | null;
     membershipType?: MembershipType | null;
     email?: string;
   }

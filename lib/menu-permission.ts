@@ -257,12 +257,11 @@ export async function buildPermittedMenuStructure(
       }
     }
 
-    if (permittedChildren.length > 0) {
-      result.push({
-        menu: menu1,
-        children: permittedChildren,
-      });
-    }
+    // 2階層がなくても1階層目は表示（権限があれば）
+    result.push({
+      menu: menu1,
+      children: permittedChildren,
+    });
   }
 
   return result;

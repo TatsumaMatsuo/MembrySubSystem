@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
@@ -95,6 +95,14 @@ interface SidebarProps {
   isPopover?: boolean;
 }
 
+// キャッシュキー
+const MENU_CACHE_KEY = "membry_menu_structure";
+const EXPANDED_CACHE_KEY = "membry_expanded_menus";
+const CACHE_DURATION = 5 * 60 * 1000; // 5分
+
+// メニュー構造のグローバルキャッシュ（同一セッション内で共有）
+let globalMenuCache: { data: PermittedMenuStructure[]; timestamp: number } | null = null;
+
 export function Sidebar({
   collapsed = false,
   onToggle,
@@ -106,10 +114,78 @@ export function Sidebar({
   const [menuStructure, setMenuStructure] = useState<PermittedMenuStructure[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const initializedRef = useRef(false);
 
-  // メニュー構造を取得
+  // 展開状態をlocalStorageに保存
+  const saveExpandedState = (expanded: string[]) => {
+    try {
+      localStorage.setItem(EXPANDED_CACHE_KEY, JSON.stringify(expanded));
+    } catch (e) {
+      // localStorage unavailable
+    }
+  };
+
+  // 展開状態をlocalStorageから復元
+  const loadExpandedState = (): string[] | null => {
+    try {
+      const cached = localStorage.getItem(EXPANDED_CACHE_KEY);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      // localStorage unavailable
+    }
+    return null;
+  };
+
+  // メニュー構造をキャッシュから取得またはAPI呼び出し
   useEffect(() => {
-    fetchMenuStructure();
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    const loadMenu = async () => {
+      // グローバルキャッシュをチェック
+      if (globalMenuCache && Date.now() - globalMenuCache.timestamp < CACHE_DURATION) {
+        setMenuStructure(globalMenuCache.data);
+        // 保存された展開状態を復元
+        const savedExpanded = loadExpandedState();
+        if (savedExpanded && savedExpanded.length > 0) {
+          setExpandedMenus(savedExpanded);
+        } else if (globalMenuCache.data.length > 0) {
+          setExpandedMenus([globalMenuCache.data[0].menu.menu_id]);
+        }
+        setLoading(false);
+        return;
+      }
+
+      // sessionStorageをチェック
+      try {
+        const cached = sessionStorage.getItem(MENU_CACHE_KEY);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < CACHE_DURATION) {
+            setMenuStructure(data);
+            globalMenuCache = { data, timestamp };
+            // 保存された展開状態を復元
+            const savedExpanded = loadExpandedState();
+            if (savedExpanded && savedExpanded.length > 0) {
+              setExpandedMenus(savedExpanded);
+            } else if (data.length > 0) {
+              setExpandedMenus([data[0].menu.menu_id]);
+            }
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (e) {
+        // sessionStorage unavailable
+      }
+
+      // APIから取得
+      await fetchMenuStructure();
+    };
+
+    loadMenu();
   }, []);
 
   const fetchMenuStructure = async () => {
@@ -119,10 +195,26 @@ export function Sidebar({
       const data = await response.json();
 
       if (data.success && data.data?.menuStructure) {
-        setMenuStructure(data.data.menuStructure);
-        // 最初のメニューを展開
-        if (data.data.menuStructure.length > 0) {
-          setExpandedMenus([data.data.menuStructure[0].menu.menu_id]);
+        const menuData = data.data.menuStructure;
+        setMenuStructure(menuData);
+
+        // キャッシュに保存
+        const cacheData = { data: menuData, timestamp: Date.now() };
+        globalMenuCache = cacheData;
+        try {
+          sessionStorage.setItem(MENU_CACHE_KEY, JSON.stringify(cacheData));
+        } catch (e) {
+          // sessionStorage unavailable
+        }
+
+        // 保存された展開状態を復元、なければ最初のメニューを展開
+        const savedExpanded = loadExpandedState();
+        if (savedExpanded && savedExpanded.length > 0) {
+          setExpandedMenus(savedExpanded);
+        } else if (menuData.length > 0) {
+          const initialExpanded = [menuData[0].menu.menu_id];
+          setExpandedMenus(initialExpanded);
+          saveExpandedState(initialExpanded);
         }
       } else {
         setError("メニューの取得に失敗しました");
@@ -136,11 +228,14 @@ export function Sidebar({
   };
 
   const toggleMenu = (menuId: string) => {
-    setExpandedMenus((prev) =>
-      prev.includes(menuId)
+    setExpandedMenus((prev) => {
+      const newExpanded = prev.includes(menuId)
         ? prev.filter((id) => id !== menuId)
-        : [...prev, menuId]
-    );
+        : [...prev, menuId];
+      // 展開状態を保存
+      saveExpandedState(newExpanded);
+      return newExpanded;
+    });
   };
 
   const isActive = (href?: string) => {
@@ -167,7 +262,9 @@ export function Sidebar({
           className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
             hasChildren && isExpanded
               ? "bg-gray-100 text-gray-900"
-              : "text-gray-700 hover:bg-gray-100"
+              : hasChildren
+              ? "text-gray-700 hover:bg-gray-100 cursor-pointer"
+              : "text-gray-400 cursor-default"
           }`}
         >
           <div className="flex items-center gap-3">
@@ -184,6 +281,9 @@ export function Sidebar({
                 <ChevronRight className="w-4 h-4" />
               )}
             </span>
+          )}
+          {!collapsed && !hasChildren && (
+            <span className="text-xs text-gray-300">-</span>
           )}
         </button>
 

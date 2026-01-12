@@ -34,6 +34,9 @@ export async function GET(request: NextRequest) {
         app_token: baseToken,
         table_id: tables.CONSTRUCTION_SPEC,
       },
+      params: {
+        page_size: 1,
+      },
       data: {
         filter: {
           conjunction: "and",
@@ -45,7 +48,6 @@ export async function GET(request: NextRequest) {
             },
           ],
         },
-        page_size: 1,
       },
     });
 

@@ -153,6 +153,80 @@ export async function deleteBaseRecord(
 }
 
 /**
+ * Lark Bitable テーブルのフィールドメタデータを取得
+ * 複数選択フィールドのオプションID→テキストマッピング取得用
+ */
+export async function getTableFields(tableId: string, baseToken?: string) {
+  try {
+    const appToken = baseToken || getLarkBaseToken();
+    const response = await larkClient.bitable.appTableField.list({
+      path: {
+        app_token: appToken,
+        table_id: tableId,
+      },
+      params: {
+        page_size: 100,
+      },
+    });
+
+    console.log("[lark-client] getTableFields Response:", {
+      code: response.code,
+      msg: response.msg,
+      items_count: response.data?.items?.length,
+    });
+
+    return response;
+  } catch (error) {
+    console.error("Error fetching Lark table fields:", error);
+    throw error;
+  }
+}
+
+/**
+ * 複数選択フィールドのオプションマッピングを取得
+ */
+export async function getMultiSelectOptions(
+  tableId: string,
+  fieldName: string,
+  baseToken?: string
+): Promise<Map<string, string>> {
+  const optionMap = new Map<string, string>();
+  try {
+    const response = await getTableFields(tableId, baseToken);
+    if (response.code === 0 && response.data?.items) {
+      // デバッグ: 全フィールド名を出力
+      const fieldNames = response.data.items.map((f: any) => f.field_name);
+      console.log("[lark-client] Available fields:", fieldNames.slice(0, 20));
+
+      const field = response.data.items.find((f: any) => f.field_name === fieldName);
+      if (field) {
+        console.log("[lark-client] Found field:", {
+          name: field.field_name,
+          type: field.type,
+          property: field.property,
+        });
+        if (field.property?.options) {
+          for (const option of field.property.options) {
+            if (option.id && option.name) {
+              optionMap.set(option.id, option.name);
+            }
+          }
+        }
+      } else {
+        console.log("[lark-client] Field not found:", fieldName);
+      }
+    }
+    console.log("[lark-client] getMultiSelectOptions:", {
+      fieldName,
+      optionCount: optionMap.size,
+    });
+  } catch (error) {
+    console.error("Error getting multi-select options:", error);
+  }
+  return optionMap;
+}
+
+/**
  * Lark部門一覧を取得（子部門取得）
  */
 export async function getDepartments(parentDepartmentId?: string) {

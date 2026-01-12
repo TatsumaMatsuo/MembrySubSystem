@@ -4,6 +4,23 @@ import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 // テーブルID（製番原価データ）
 const TABLE_ID = "tbl7lMDstBVYxQKd";
 
+// シンプルなインメモリキャッシュ（TTL: 5分）
+const cache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5分
+
+function getCachedData(key: string): any | null {
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  cache.delete(key);
+  return null;
+}
+
+function setCachedData(key: string, data: any): void {
+  cache.set(key, { data, timestamp: Date.now() });
+}
+
 // 期から日付範囲を計算（期初は8月）
 // 50期 = 2026/08/01 ～ 2027/07/31
 function getPeriodDateRange(period: number): { start: string; end: string } {
@@ -85,35 +102,53 @@ export async function GET(request: NextRequest) {
   const fromPeriod = parseInt(searchParams.get("fromPeriod") || String(getCurrentPeriod()), 10);
   const toPeriod = parseInt(searchParams.get("toPeriod") || String(getCurrentPeriod()), 10);
 
+  // キャッシュキー
+  const cacheKey = `sales-analysis:${fromPeriod}:${toPeriod}`;
+  const cachedResult = getCachedData(cacheKey);
+  if (cachedResult) {
+    return NextResponse.json(cachedResult);
+  }
+
   try {
+    // 全期間の最小開始日〜最大終了日を計算（1回のAPI呼び出しで取得）
+    const overallDateRange = {
+      start: getPeriodDateRange(fromPeriod).start,
+      end: getPeriodDateRange(toPeriod).end,
+    };
+
+    // Lark Baseからデータ取得（APIフィルタリング + ページネーション対応）
+    let allRecords: SalesRecord[] = [];
+    let pageToken: string | undefined;
+
+    // API側で日付範囲フィルタリング（大幅なデータ削減）
+    const dateFilter = `AND(CurrentValue.[受注日] >= "${overallDateRange.start}", CurrentValue.[受注日] <= "${overallDateRange.end}")`;
+
+    do {
+      const response = await client.bitable.appTableRecord.list({
+        path: {
+          app_token: getLarkBaseToken(),
+          table_id: TABLE_ID,
+        },
+        params: {
+          page_size: 500,
+          page_token: pageToken,
+          filter: dateFilter,
+        },
+      });
+
+      if (response.data?.items) {
+        allRecords = allRecords.concat(response.data.items as SalesRecord[]);
+      }
+      pageToken = response.data?.page_token;
+    } while (pageToken);
+
+    // 期間別に集計結果を生成
     const results: PeriodSummary[] = [];
 
     for (let period = fromPeriod; period <= toPeriod; period++) {
       const dateRange = getPeriodDateRange(period);
 
-      // Lark Baseからデータ取得（ページネーション対応）
-      let allRecords: SalesRecord[] = [];
-      let pageToken: string | undefined;
-
-      do {
-        const response = await client.bitable.appTableRecord.list({
-          path: {
-            app_token: getLarkBaseToken(),
-            table_id: TABLE_ID,
-          },
-          params: {
-            page_size: 500,
-            page_token: pageToken,
-          },
-        });
-
-        if (response.data?.items) {
-          allRecords = allRecords.concat(response.data.items as SalesRecord[]);
-        }
-        pageToken = response.data?.page_token;
-      } while (pageToken);
-
-      // 期間でフィルタリング（受注日ベース）
+      // メモリ内で期間フィルタリング（既にAPIでフィルタ済みなので高速）
       const periodRecords = allRecords.filter((record) => {
         const juchuDate = record.fields.受注日;
         if (!juchuDate || juchuDate.trim() === "" || juchuDate === "　") return false;
@@ -197,11 +232,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({
+    const responseData = {
       success: true,
       currentPeriod: getCurrentPeriod(),
       data: results,
-    });
+    };
+
+    // 結果をキャッシュに保存
+    setCachedData(cacheKey, responseData);
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error("Sales analysis error:", error);
     return NextResponse.json(

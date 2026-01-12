@@ -24,6 +24,8 @@ export function getLarkTables() {
     FEATURE_MASTER: process.env.LARK_TABLE_FEATURE_MASTER || "tbloM14bI5lBJCgT",
     // ユーザー権限テーブル
     USER_PERMISSIONS: process.env.LARK_TABLE_USER_PERMISSIONS || "tbl0qPqlC88kaUeZ",
+    // 全社KPIテーブル
+    COMPANY_KPI: process.env.LARK_TABLE_COMPANY_KPI || "",
   };
 }
 
@@ -44,6 +46,8 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   EMPLOYEES: "master",
   FEATURE_MASTER: "master",
   USER_PERMISSIONS: "master",
+  // プロジェクトBase
+  COMPANY_KPI: "project",
 };
 
 /**
@@ -222,4 +226,41 @@ export const FEATURE_TYPES = {
   menu: "menu",
   feature: "feature",
   action: "action",
+} as const;
+
+/**
+ * 全社KPIテーブルのフィールド定義
+ */
+export const COMPANY_KPI_FIELDS = {
+  // 基本情報
+  period: "期",
+  // 売上目標
+  sales_target: "売上目標",
+  monthly_sales_target: "月次売上目標",
+  // 損益計算書ベース
+  cost_of_sales: "売上原価目標",
+  cost_of_sales_rate: "売上原価率",
+  sga_expenses: "販管費目標",
+  sga_rate: "販管費率",
+  operating_income: "営業利益目標",
+  operating_income_rate: "営業利益率",
+  // 限界利益ベース
+  variable_cost: "変動費目標",
+  variable_cost_rate: "変動費率",
+  marginal_profit: "限界利益目標",
+  marginal_profit_rate: "限界利益率",
+  fixed_cost: "固定費目標",
+  fixed_cost_rate: "固定費率",
+  ordinary_income: "経常利益目標",
+  ordinary_income_rate: "経常利益率",
+  // 製造・外注
+  manufacturing_cost_rate: "製造原価率目標",
+  execution_budget_rate: "実行予算率目標",
+  outsourcing_rate: "外注発注率目標",
+  // その他計画
+  headcount_plan: "人員計画",
+  capital_investment: "設備投資計画",
+  advertising_budget: "広告販促費",
+  // 備考
+  notes: "備考",
 } as const;

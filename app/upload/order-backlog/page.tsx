@@ -244,10 +244,10 @@ export default function OrderBacklogUploadPage() {
         <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
           <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
             <FileSpreadsheet className="w-6 h-6 text-indigo-500" />
-            受注残情報アップロード
+            データアップロード
           </h1>
           <p className="text-sm text-gray-500">
-            共通 &gt; データアップロード &gt; 受注残情報
+            共通 &gt; データアップロード
           </p>
         </div>
 

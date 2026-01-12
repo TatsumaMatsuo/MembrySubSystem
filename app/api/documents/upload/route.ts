@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Readable } from "stream";
 import { getLarkClient, getLarkBaseToken, getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
 import { getLarkTables } from "@/lib/lark-tables";
 
@@ -27,6 +28,9 @@ export async function POST(request: NextRequest) {
 
     const tables = getLarkTables();
     const fileBuffer = Buffer.from(await file.arrayBuffer());
+
+    // BufferをReadable Streamに変換（Lark SDKはStreamを要求する）
+    const fileStream = Readable.from(fileBuffer);
 
     // テーブルのフィールド情報を取得
     const tableInfoResponse = await client.bitable.appTableField.list({
@@ -75,7 +79,7 @@ export async function POST(request: NextRequest) {
         parent_type: "bitable_file",
         parent_node: getLarkBaseToken(),
         size: file.size,
-        file: fileBuffer as any, // Buffer型をファイルとして渡す
+        file: fileStream as any, // Readable Streamとして渡す
       },
     });
 

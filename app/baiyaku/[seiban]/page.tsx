@@ -148,7 +148,9 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const recordHistory = async (
     docType: string,
     operationType: OperationType,
-    fileName: string
+    fileName: string,
+    beforeFileToken?: string,
+    afterFileToken?: string
   ) => {
     try {
       await fetch("/api/documents/history", {
@@ -160,6 +162,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
           operationType,
           fileName,
           operator: session?.user?.name || session?.user?.email || "不明",
+          beforeFileToken,
+          afterFileToken,
         }),
       });
     } catch (error) {
@@ -299,9 +303,11 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       const data = await response.json();
 
       if (data.success) {
-        // 履歴を記録
+        // 履歴を記録（差替えの場合は変更前のトークン、新規アップロードしたトークンを渡す）
         const operationType: OperationType = uploadTarget.replace ? "差替" : "追加";
-        await recordHistory(uploadTarget.docType, operationType, file.name);
+        const beforeToken = uploadTarget.replace ? uploadTarget.targetFileToken : undefined;
+        const afterToken = data.data?.fileToken;
+        await recordHistory(uploadTarget.docType, operationType, file.name, beforeToken, afterToken);
         alert(`「${file.name}」をアップロードしました`);
         // ドキュメント一覧を再取得
         const docsResponse = await fetch(`/api/documents?seiban=${encodeURIComponent(seiban)}`);

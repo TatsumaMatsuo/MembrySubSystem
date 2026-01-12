@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { seiban, documentType, operationType, fileName, operator, notes } = body;
+    const { seiban, documentType, operationType, fileName, operator, notes, beforeFileToken, afterFileToken } = body;
 
     if (!seiban || !documentType || !operationType || !fileName) {
       return NextResponse.json(
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     const tables = getLarkTables();
-    const fields = {
+    const fields: Record<string, unknown> = {
       [DOCUMENT_HISTORY_FIELDS.seiban]: seiban,
       [DOCUMENT_HISTORY_FIELDS.document_type]: documentType,
       [DOCUMENT_HISTORY_FIELDS.operation_type]: operationType,
@@ -114,6 +114,14 @@ export async function POST(request: NextRequest) {
       [DOCUMENT_HISTORY_FIELDS.operated_at]: Date.now(),
       [DOCUMENT_HISTORY_FIELDS.notes]: notes || "",
     };
+
+    // 変更前/変更後の画像をfile_tokenで添付
+    if (beforeFileToken) {
+      fields[DOCUMENT_HISTORY_FIELDS.before_image] = [{ file_token: beforeFileToken }];
+    }
+    if (afterFileToken) {
+      fields[DOCUMENT_HISTORY_FIELDS.after_image] = [{ file_token: afterFileToken }];
+    }
 
     const baseToken = getBaseTokenForTable("DOCUMENT_HISTORY");
     const response = await createBaseRecord(tables.DOCUMENT_HISTORY, fields, { baseToken });

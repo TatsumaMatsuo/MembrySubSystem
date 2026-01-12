@@ -119,25 +119,15 @@ const OFFICE_NAMES = [
 // optionMapがあればオプションIDをテキストに変換
 function extractOfficeFromDepartment(
   departmentValue: any,
-  optionMap?: Map<string, string>,
-  debug = false
+  optionMap?: Map<string, string>
 ): string {
-  if (debug) {
-    console.log("部署フィールド値:", JSON.stringify(departmentValue, null, 2));
-  }
   let departments = extractMultiSelectValues(departmentValue);
 
   // オプションIDをテキストに変換
   if (optionMap && optionMap.size > 0) {
     departments = departments.map((id) => optionMap.get(id) || id);
-    if (debug) {
-      console.log("ID→テキスト変換後:", departments);
-    }
   }
 
-  if (debug) {
-    console.log("抽出された部署:", departments);
-  }
   // 営業所名に一致するものを探す
   for (const dept of departments) {
     // 完全一致
@@ -272,11 +262,10 @@ export async function GET(request: NextRequest) {
   const toPeriod = parseInt(searchParams.get("toPeriod") || String(getCurrentPeriod()), 10);
 
   const cacheKey = `sales-dashboard:${fromPeriod}:${toPeriod}`;
-  // デバッグのため一時的にキャッシュ無効化
-  // const cachedResult = getCachedData(cacheKey);
-  // if (cachedResult) {
-  //   return NextResponse.json(cachedResult);
-  // }
+  const cachedResult = getCachedData(cacheKey);
+  if (cachedResult) {
+    return NextResponse.json(cachedResult);
+  }
 
   try {
     // Lark組織構造から部署IDと部署名のマッピングを取得
@@ -294,15 +283,9 @@ export async function GET(request: NextRequest) {
             departmentMap.set(String(deptId), deptName);
           }
         }
-        console.log("部署マッピング取得成功:", departmentMap.size, "件");
-        // 最初の5件をデバッグ出力
-        const entries = Array.from(departmentMap.entries()).slice(0, 10);
-        console.log("部署マッピング例:", entries);
-      } else {
-        console.log("部署一覧取得失敗:", deptResponse);
       }
     } catch (e) {
-      console.error("部署マッピング取得エラー:", e);
+      // 部署マッピング取得失敗時は空のまま継続
     }
 
     const overallDateRange = {
@@ -366,7 +349,6 @@ export async function GET(request: NextRequest) {
 
       let totalCount = 0;
       let totalAmount = 0;
-      let debugLogged = false;
 
       periodRecords.forEach((record) => {
         const amount = parseFloat(String(record.fields.受注金額 || 0)) || 0;
@@ -374,18 +356,10 @@ export async function GET(request: NextRequest) {
         const monthIndex = getFiscalMonthIndex(juchuDateStr);
         const quarter = getQuarter(monthIndex);
 
-        // 最初のレコードでデバッグ出力
-        if (!debugLogged && record.fields.部署) {
-          console.log("=== 部署フィールドデバッグ ===");
-          console.log("部署 raw:", JSON.stringify(record.fields.部署, null, 2));
-          console.log("営業所 raw:", JSON.stringify(record.fields.営業所, null, 2));
-          debugLogged = true;
-        }
-
         const tantousha = extractTextValue(record.fields.担当者) || "未設定";
         // 部署フィールド（リンクテーブル参照）から営業所を判定、なければ営業所フィールドを使用
         const eigyosho = record.fields.部署
-          ? extractOfficeFromDepartment(record.fields.部署, departmentMap, !debugLogged)
+          ? extractOfficeFromDepartment(record.fields.部署, departmentMap)
           : extractTextValue(record.fields.営業所) || "未設定";
         const pjCategory = extractTextValue(record.fields.PJ区分) || "未分類";
         const industry = extractTextValue(record.fields.産業分類) || "未分類";

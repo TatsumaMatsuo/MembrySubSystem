@@ -22,6 +22,9 @@ import {
   AreaChart,
   Area,
   ComposedChart,
+  ScatterChart,
+  Scatter,
+  ZAxis,
 } from "recharts";
 import {
   BarChart3,
@@ -3760,59 +3763,125 @@ export default function BIDashboardPage() {
               {activeTab === "category" && (
                 <>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* PJ区分 */}
+                    {/* PJ区分 バブルチャート */}
                     <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                      <h3 className="text-base font-bold mb-4 text-gray-800">PJ区分別売上</h3>
+                      <h3 className="text-base font-bold mb-4 text-gray-800 flex items-center gap-2">
+                        PJ区分別 売上・利益分析
+                        <span className="text-xs font-normal text-gray-500">（上位10件・横軸: 売上高、縦軸: 粗利、円の大きさ: 件数）</span>
+                      </h3>
                       <div className="h-80">
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={currentData.pjCategorySummary.slice(0, 10)} layout="vertical">
+                          <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis type="number" tickFormatter={(v) => formatAmount(v)} />
-                            <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11 }} />
-                            <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, ""]} />
-                            <Bar dataKey="amount" fill={COLORS.primary} />
-                          </BarChart>
+                            <XAxis
+                              type="number"
+                              dataKey="amount"
+                              name="売上高"
+                              tickFormatter={(v) => formatAmount(v)}
+                              tick={{ fontSize: 10 }}
+                              label={{ value: "売上高", position: "bottom", offset: 0, fontSize: 11 }}
+                            />
+                            <YAxis
+                              type="number"
+                              dataKey="profit"
+                              name="粗利"
+                              tickFormatter={(v) => formatAmount(v)}
+                              tick={{ fontSize: 10 }}
+                              label={{ value: "粗利", angle: -90, position: "insideLeft", fontSize: 11 }}
+                            />
+                            <ZAxis
+                              type="number"
+                              dataKey="count"
+                              range={[100, 1500]}
+                              name="件数"
+                            />
+                            <Tooltip
+                              cursor={{ strokeDasharray: "3 3" }}
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const data = payload[0].payload;
+                                  const profitRate = data.amount > 0 ? (data.profit / data.amount) * 100 : 0;
+                                  return (
+                                    <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+                                      <p className="font-bold text-gray-800 mb-2">{data.name}</p>
+                                      <p className="text-blue-600">売上高: <span className="font-medium">{data.amount.toLocaleString()}円</span></p>
+                                      <p className="text-green-600">粗利: <span className="font-medium">{data.profit.toLocaleString()}円</span></p>
+                                      <p className={`font-bold ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
+                                        粗利率: {profitRate.toFixed(1)}%
+                                      </p>
+                                      <p className="text-orange-600">件数: <span className="font-medium">{data.count}件</span></p>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                            <Scatter
+                              name="PJ区分"
+                              data={currentData.pjCategorySummary.filter(d => d.amount > 0).slice(0, 10)}
+                              fill={COLORS.primary}
+                            >
+                              {currentData.pjCategorySummary.filter(d => d.amount > 0).slice(0, 10).map((_, i) => (
+                                <Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                              ))}
+                            </Scatter>
+                          </ScatterChart>
                         </ResponsiveContainer>
+                      </div>
+                      {/* 凡例 */}
+                      <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                        {currentData.pjCategorySummary.filter(d => d.amount > 0).slice(0, 10).map((item, i) => (
+                          <div key={item.name} className="flex items-center gap-1 text-xs">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                            />
+                            <span className="text-gray-600">{item.name}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
-                    {/* WEB新規 */}
+                    {/* PJ区分 売上高 TOP5 3年間推移 */}
                     <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                      <h3 className="text-base font-bold mb-4 text-gray-800">WEB新規区分</h3>
-                      <div className="h-80 flex items-center">
-                        <ResponsiveContainer width="60%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={currentData.webNewSummary.map((d) => ({ name: d.name, value: d.amount }))}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={60}
-                              outerRadius={100}
-                              paddingAngle={3}
-                              dataKey="value"
-                              nameKey="name"
-                            >
-                              {currentData.webNewSummary.map((_, i) => (
-                                <Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, ""]} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="w-40 space-y-2">
-                          {currentData.webNewSummary.map((item, i) => (
-                            <div key={item.name} className="flex items-center gap-2">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
-                              />
-                              <div className="flex-1">
-                                <div className="text-sm font-medium text-gray-700">{item.name}</div>
-                                <div className="text-xs text-gray-500">{formatAmount(item.amount)}円</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                      <h3 className="text-base font-bold mb-4 text-gray-800">PJ区分 売上高TOP5 3期比較</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                              <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">PJ区分</th>
+                              <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">{selectedPeriod - 2}期</th>
+                              <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">{selectedPeriod - 1}期</th>
+                              <th className="px-3 py-2 text-right text-xs font-bold text-blue-700">{selectedPeriod}期</th>
+                              <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">前年比</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {currentData.pjCategorySummary.slice(0, 5).map((category, i) => {
+                              const prev1Data = data.find(d => d.period === selectedPeriod - 1);
+                              const prev2Data = data.find(d => d.period === selectedPeriod - 2);
+                              const prev1Amount = prev1Data?.pjCategorySummary.find(c => c.name === category.name)?.amount || 0;
+                              const prev2Amount = prev2Data?.pjCategorySummary.find(c => c.name === category.name)?.amount || 0;
+                              const yoyChange = prev1Amount > 0 ? ((category.amount - prev1Amount) / prev1Amount) * 100 : 0;
+                              return (
+                                <tr key={category.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                                  <td className="px-3 py-2 text-xs font-medium text-gray-800">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                      {category.name}
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-2 text-xs text-right text-gray-600">{formatAmount(prev2Amount)}円</td>
+                                  <td className="px-3 py-2 text-xs text-right text-gray-600">{formatAmount(prev1Amount)}円</td>
+                                  <td className="px-3 py-2 text-xs text-right text-blue-600 font-bold">{formatAmount(category.amount)}円</td>
+                                  <td className={`px-3 py-2 text-xs text-right font-bold ${yoyChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                    {prev1Amount > 0 ? `${yoyChange >= 0 ? "+" : ""}${yoyChange.toFixed(1)}%` : "-"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   </div>

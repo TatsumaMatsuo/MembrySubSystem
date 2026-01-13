@@ -80,6 +80,214 @@ interface SalesAreaData {
   }[];
 }
 
+interface SalesOfficeData {
+  period: number;
+  selectedOffice: string;
+  selectedOfficeData: {
+    office: string;
+    amount: number;
+    profit: number;
+    profitRate: number;
+    count: number;
+    avgUnitPrice: number;
+    yearlyBudget: number;
+    achievementRate: number;
+    ytdBudgetAmount: number;
+    ytdAchievementRate: number;
+    yoyAmountChange: number;
+    yoyProfitChange: number;
+    salesPersons: {
+      name: string;
+      amount: number;
+      profit: number;
+      profitRate: number;
+      count: number;
+    }[];
+    quarterlyData: {
+      quarter: string;
+      amount: number;
+      profit: number;
+    }[];
+  } | null;
+  officeSummary: {
+    office: string;
+    amount: number;
+    profit: number;
+    profitRate: number;
+    count: number;
+  }[];
+  companyKPI: {
+    salesTarget: number;
+    costOfSalesRate: number;
+  } | null;
+}
+
+interface SalesPersonData {
+  period: number;
+  selectedPerson: string;
+  selectedOffice: string;
+  selectedPersonData: {
+    name: string;
+    office: string;
+    amount: number;
+    profit: number;
+    profitRate: number;
+    count: number;
+    avgUnitPrice: number;
+    yearlyBudget: number;
+    achievementRate: number;
+    ytdBudgetAmount: number;
+    ytdAchievementRate: number;
+    yoyAmountChange: number;
+    yoyProfitChange: number;
+    targetProfitRate: number;
+    quarterlyData: {
+      quarter: string;
+      amount: number;
+      profit: number;
+    }[];
+  } | null;
+  salesPersonSummary: {
+    name: string;
+    office: string;
+    amount: number;
+    profit: number;
+    profitRate: number;
+    count: number;
+  }[];
+  companyKPI: {
+    salesTarget: number;
+    costOfSalesRate: number;
+  } | null;
+}
+
+function buildSalesOfficePrompt(data: SalesOfficeData): string {
+  const topOffices = [...data.officeSummary].sort((a, b) => b.amount - a.amount).slice(0, 5);
+
+  if (data.selectedOfficeData) {
+    const od = data.selectedOfficeData;
+    const topPersons = od.salesPersons.slice(0, 3);
+
+    return `あなたは製造業の売上分析専門家です。以下の営業所別売上データを分析し、営業所長向けの分析レポートを日本語で作成してください。
+
+## 第${data.period}期 ${od.office} 売上データ
+
+### 営業所実績
+- 売上金額: ${formatCurrency(od.amount)}
+- 受注件数: ${od.count}件
+- 粗利: ${formatCurrency(od.profit)}
+- 粗利率: ${od.profitRate.toFixed(1)}%
+- 平均単価: ${formatCurrency(od.avgUnitPrice)}
+
+### 予算対比
+- 年間予算: ${formatCurrency(od.yearlyBudget)}
+- 達成率: ${od.achievementRate.toFixed(1)}%
+- 累計予算達成率: ${od.ytdAchievementRate.toFixed(1)}%
+
+### 前年比較
+- 売上前年比: ${od.yoyAmountChange >= 0 ? '+' : ''}${od.yoyAmountChange.toFixed(1)}%
+- 粗利前年比: ${od.yoyProfitChange >= 0 ? '+' : ''}${od.yoyProfitChange.toFixed(1)}%
+
+### 担当者別実績（上位）
+${topPersons.map((p, i) => `${i + 1}. ${p.name}: ${formatCurrency(p.amount)}（${p.count}件, 粗利率${p.profitRate.toFixed(1)}%）`).join('\n')}
+
+### 四半期推移
+${od.quarterlyData.map(q => `- ${q.quarter}: ${formatCurrency(q.amount)}（粗利: ${formatCurrency(q.profit)}）`).join('\n')}
+
+## 出力形式
+以下の観点から250文字程度で${od.office}の分析を記述してください：
+
+1. **予算達成状況**: 現在の進捗と課題
+2. **収益性**: 粗利率の評価と改善点
+3. **担当者分析**: 好調・不調の担当者と特徴
+4. **アクションポイント**: 具体的な改善提案
+
+文章形式で自然に記述し、数値を含めて説明してください。`;
+  }
+
+  return `あなたは製造業の売上分析専門家です。以下の営業所別売上データを分析し、営業部長向けの分析レポートを日本語で作成してください。
+
+## 第${data.period}期 営業所別売上データ
+
+### 営業所別ランキング
+${topOffices.map((o, i) => `${i + 1}. ${o.office}: ${formatCurrency(o.amount)}（${o.count}件, 粗利率${o.profitRate.toFixed(1)}%）`).join('\n')}
+
+${data.companyKPI ? `### 全社KPI
+- 目標売上: ${formatCurrency(data.companyKPI.salesTarget)}
+- 目標売上原価率: ${data.companyKPI.costOfSalesRate}%` : ''}
+
+## 出力形式
+以下の観点から250文字程度で営業所全体の分析を記述してください：
+
+1. **営業所別パフォーマンス**: 好調・不調の営業所とその特徴
+2. **収益性分析**: 営業所間の粗利率差と要因推測
+3. **改善提案**: 営業所間のベストプラクティス共有ポイント
+
+文章形式で自然に記述し、数値を含めて説明してください。`;
+}
+
+function buildSalesPersonPrompt(data: SalesPersonData): string {
+  const topPersons = [...data.salesPersonSummary].sort((a, b) => b.amount - a.amount).slice(0, 5);
+
+  if (data.selectedPersonData) {
+    const pd = data.selectedPersonData;
+
+    return `あなたは製造業の売上分析専門家です。以下の担当者別売上データを分析し、個人向けの分析レポートを日本語で作成してください。
+
+## 第${data.period}期 ${pd.name}（${pd.office}）売上データ
+
+### 個人実績
+- 売上金額: ${formatCurrency(pd.amount)}
+- 受注件数: ${pd.count}件
+- 粗利: ${formatCurrency(pd.profit)}
+- 粗利率: ${pd.profitRate.toFixed(1)}%（目標: ${pd.targetProfitRate.toFixed(1)}%）
+- 平均単価: ${formatCurrency(pd.avgUnitPrice)}
+
+### 予算対比
+- 年間予算: ${formatCurrency(pd.yearlyBudget)}
+- 達成率: ${pd.achievementRate.toFixed(1)}%
+- 累計予算達成率: ${pd.ytdAchievementRate.toFixed(1)}%
+
+### 前年比較
+- 売上前年比: ${pd.yoyAmountChange >= 0 ? '+' : ''}${pd.yoyAmountChange.toFixed(1)}%
+- 粗利前年比: ${pd.yoyProfitChange >= 0 ? '+' : ''}${pd.yoyProfitChange.toFixed(1)}%
+
+### 四半期推移
+${pd.quarterlyData.map(q => `- ${q.quarter}: ${formatCurrency(q.amount)}（粗利: ${formatCurrency(q.profit)}）`).join('\n')}
+
+## 出力形式
+以下の観点から250文字程度で${pd.name}の分析を記述してください：
+
+1. **予算達成状況**: 現在の進捗と年度末見込み
+2. **収益性**: 粗利率の目標対比と改善点
+3. **強み・改善点**: 四半期推移から見える特徴
+4. **具体的アドバイス**: 個人として取り組むべきこと
+
+励ましを含めた建設的なトーンで記述してください。`;
+  }
+
+  return `あなたは製造業の売上分析専門家です。以下の担当者別売上データを分析し、営業マネージャー向けの分析レポートを日本語で作成してください。
+
+## 第${data.period}期 担当者別売上データ
+${data.selectedOffice !== "全営業所" ? `（${data.selectedOffice}所属）` : ""}
+
+### 担当者別ランキング
+${topPersons.map((p, i) => `${i + 1}. ${p.name}（${p.office}）: ${formatCurrency(p.amount)}（${p.count}件, 粗利率${p.profitRate.toFixed(1)}%）`).join('\n')}
+
+${data.companyKPI ? `### 全社KPI
+- 目標売上: ${formatCurrency(data.companyKPI.salesTarget)}
+- 目標売上原価率: ${data.companyKPI.costOfSalesRate}%` : ''}
+
+## 出力形式
+以下の観点から250文字程度で担当者全体の分析を記述してください：
+
+1. **パフォーマンス分析**: 好調・不調の担当者とその特徴
+2. **収益性分析**: 担当者間の粗利率差と要因推測
+3. **育成ポイント**: チームとして取り組むべき改善点
+
+文章形式で自然に記述し、数値を含めて説明してください。`;
+}
+
 function buildSalesAreaPrompt(data: SalesAreaData): string {
   const topOffices = [...data.officeSummary].sort((a, b) => b.amount - a.amount).slice(0, 3);
   const yoyGrowth = data.comparison.prevAmount > 0 ? ((data.totalAmount / data.comparison.prevAmount) - 1) * 100 : 0;
@@ -198,6 +406,12 @@ export async function POST(request: NextRequest) {
         break;
       case "sales-area":
         prompt = buildSalesAreaPrompt(data as SalesAreaData);
+        break;
+      case "sales-office":
+        prompt = buildSalesOfficePrompt(data as SalesOfficeData);
+        break;
+      case "sales-person":
+        prompt = buildSalesPersonPrompt(data as SalesPersonData);
         break;
       default:
         return NextResponse.json(

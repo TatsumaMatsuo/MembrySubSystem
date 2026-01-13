@@ -4,9 +4,9 @@ import { getLarkClient, getLarkBaseToken, listAllDepartments } from "@/lib/lark-
 // テーブルID（売上データ）
 const TABLE_ID = "tbl65w6u6J72QFoz";
 
-// シンプルなインメモリキャッシュ（TTL: 5分）
+// シンプルなインメモリキャッシュ（TTL: 30分に延長）
 const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 30 * 60 * 1000;
 
 function getCachedData(key: string): any | null {
   const cached = cache.get(key);

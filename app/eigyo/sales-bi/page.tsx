@@ -436,9 +436,106 @@ function AchievementGauge({ actual, budget, label }: { actual: number; budget: n
   );
 }
 
+// スケルトンコンポーネント
+function SkeletonPulse({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <div className={`animate-pulse bg-gray-200 rounded ${className || ""}`} style={style} />
+  );
+}
+
+function KPICardSkeleton() {
+  return (
+    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+      <div className="flex items-center justify-between mb-2">
+        <SkeletonPulse className="h-4 w-20" />
+        <SkeletonPulse className="h-10 w-10 rounded-lg" />
+      </div>
+      <div className="flex items-end gap-2">
+        <SkeletonPulse className="h-8 w-32" />
+        <SkeletonPulse className="h-4 w-8 mb-1" />
+      </div>
+      <div className="mt-3 pt-3 border-t border-gray-100">
+        <div className="flex justify-between items-center mb-2">
+          <SkeletonPulse className="h-3 w-24" />
+          <SkeletonPulse className="h-3 w-16" />
+        </div>
+        <SkeletonPulse className="h-2 w-full rounded-full" />
+      </div>
+      <div className="flex items-center gap-1 mt-3">
+        <SkeletonPulse className="h-4 w-4" />
+        <SkeletonPulse className="h-4 w-24" />
+      </div>
+    </div>
+  );
+}
+
+function ChartSkeleton({ title }: { title: string }) {
+  const barHeights = [45, 60, 35, 70, 55, 80, 40, 65, 50, 75, 45, 60];
+  return (
+    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+      <div className="flex items-center gap-2 mb-4">
+        <SkeletonPulse className="h-5 w-5" />
+        <span className="text-base font-bold text-gray-400">{title}</span>
+      </div>
+      <div className="h-72 flex items-end justify-between gap-2 px-4">
+        {barHeights.map((height, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            <SkeletonPulse
+              className="w-full rounded-t"
+              style={{ height: `${height}%` }}
+            />
+            <SkeletonPulse className="h-3 w-6" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+      <SkeletonPulse className="h-6 w-40 mb-4" />
+      <div className="space-y-3">
+        {[...Array(rows)].map((_, i) => (
+          <div key={i} className="flex items-center gap-4">
+            <SkeletonPulse className="h-4 w-24" />
+            <SkeletonPulse className="h-4 flex-1" />
+            <SkeletonPulse className="h-4 w-20" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-4">
+      {/* KPIカード */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICardSkeleton />
+        <KPICardSkeleton />
+        <KPICardSkeleton />
+        <KPICardSkeleton />
+      </div>
+      {/* チャート */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ChartSkeleton title="月次売上推移を読み込み中..." />
+        <ChartSkeleton title="四半期推移を読み込み中..." />
+      </div>
+      {/* テーブル */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <TableSkeleton rows={5} />
+        <TableSkeleton rows={5} />
+      </div>
+    </div>
+  );
+}
+
 export default function BIDashboardPage() {
   const { data: session } = useSession();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PeriodDashboard[]>([]);
   const [currentPeriod, setCurrentPeriod] = useState(50);
@@ -458,10 +555,18 @@ export default function BIDashboardPage() {
   // AI分析（エリア別タブ用）
   const [areaAiAnalysis, setAreaAiAnalysis] = useState<string>("");
   const [isAreaAnalyzing, setIsAreaAnalyzing] = useState(false);
+  // AI分析（営業所別タブ用）
+  const [officeAiAnalysis, setOfficeAiAnalysis] = useState<string>("");
+  const [isOfficeAnalyzing, setIsOfficeAnalyzing] = useState(false);
+  // AI分析（担当者別タブ用）
+  const [personAiAnalysis, setPersonAiAnalysis] = useState<string>("");
+  const [isPersonAnalyzing, setIsPersonAnalyzing] = useState(false);
   // 全社KPI折りたたみ
   const [isKPIExpanded, setIsKPIExpanded] = useState(true);
   // エリア選択（エリア別タブ用）
   const [selectedArea, setSelectedArea] = useState<string>("all");
+  // 営業所詳細選択（営業所別タブ用）
+  const [selectedOfficeForDetail, setSelectedOfficeForDetail] = useState<string>("");
 
   // ログインユーザーの社員名
   const loggedInEmployeeName = (session?.user as any)?.employeeName || "";
@@ -922,6 +1027,406 @@ export default function BIDashboardPage() {
     return currentData.salesPersonSummary.find((sp) => sp.name === selectedSalesPerson);
   }, [currentData, selectedSalesPerson]);
 
+  // 営業所詳細データ（営業所別タブ用）
+  const selectedOfficeDetailData = useMemo(() => {
+    if (!selectedOfficeForDetail || !currentData) return null;
+
+    const officeSummary = currentData.officeSummary.find((o) => o.name === selectedOfficeForDetail);
+    if (!officeSummary) return null;
+
+    // 所属担当者を取得
+    const salesPersons = currentData.salesPersonSummary.filter((sp) => sp.office === selectedOfficeForDetail);
+
+    // 月次データを担当者から集計
+    const monthlyData = Array.from({ length: 12 }, (_, i) => {
+      const monthData = { month: currentData.monthlyData[i]?.month || `${i + 1}月`, monthIndex: i, count: 0, amount: 0, cost: 0, profit: 0 };
+      salesPersons.forEach((sp) => {
+        const spMonth = sp.monthlyData[i];
+        if (spMonth) {
+          monthData.count += spMonth.count;
+          monthData.amount += spMonth.amount;
+          monthData.cost += spMonth.cost;
+          monthData.profit += spMonth.profit;
+        }
+      });
+      return monthData;
+    });
+
+    // 累計データ作成
+    let cumAmount = 0, cumProfit = 0, cumCost = 0, cumCount = 0;
+    const cumulativeData = monthlyData.map((m) => {
+      cumAmount += m.amount;
+      cumProfit += m.profit;
+      cumCost += m.cost;
+      cumCount += m.count;
+      return { ...m, amount: cumAmount, profit: cumProfit, cost: cumCost, count: cumCount };
+    });
+
+    // 3期比較データ作成
+    const getPeriodOfficeMonthlyData = (period: number) => {
+      const periodData = data.find((d) => d.period === period);
+      if (!periodData) return Array(12).fill({ amount: 0, profit: 0 });
+      const persons = periodData.salesPersonSummary.filter((sp) => sp.office === selectedOfficeForDetail);
+      return Array.from({ length: 12 }, (_, i) => {
+        let amount = 0, profit = 0;
+        persons.forEach((sp) => {
+          if (sp.monthlyData[i]) {
+            amount += sp.monthlyData[i].amount;
+            profit += sp.monthlyData[i].profit;
+          }
+        });
+        return { amount, profit };
+      });
+    };
+
+    const prevPeriodData = getPeriodOfficeMonthlyData(selectedPeriod - 1);
+    const prev2PeriodData = getPeriodOfficeMonthlyData(selectedPeriod - 2);
+
+    const salesTrendData = monthlyData.map((m, i) => ({
+      month: m.month,
+      [`${selectedPeriod}期`]: m.amount,
+      [`${selectedPeriod - 1}期`]: prevPeriodData[i]?.amount || 0,
+      [`${selectedPeriod - 2}期`]: prev2PeriodData[i]?.amount || 0,
+    }));
+
+    const profitTrendData = monthlyData.map((m, i) => ({
+      month: m.month,
+      [`${selectedPeriod}期`]: m.profit,
+      [`${selectedPeriod - 1}期`]: prevPeriodData[i]?.profit || 0,
+      [`${selectedPeriod - 2}期`]: prev2PeriodData[i]?.profit || 0,
+    }));
+
+    // 四半期データ
+    const quarterlyData = [0, 1, 2, 3].map((q) => {
+      const startIdx = q * 3;
+      const qData = monthlyData.slice(startIdx, startIdx + 3);
+      return {
+        quarter: `Q${q + 1}`,
+        amount: qData.reduce((sum, m) => sum + m.amount, 0),
+        profit: qData.reduce((sum, m) => sum + m.profit, 0),
+        cost: qData.reduce((sum, m) => sum + m.cost, 0),
+        count: qData.reduce((sum, m) => sum + m.count, 0),
+      };
+    });
+
+    // 予算データ
+    const officeBudget = budget?.officeBudgets?.find((b) => b.office === selectedOfficeForDetail);
+    const yearlyBudget = officeBudget?.yearlyBudget || 0;
+    const monthlyBudget = officeBudget?.monthlyBudget || Array(12).fill(0);
+
+    // YTD累計予算（実績がある最後の月まで）
+    let lastMonthWithData = -1;
+    for (let i = 0; i < monthlyData.length; i++) {
+      if (monthlyData[i].count > 0) {
+        lastMonthWithData = i;
+      }
+    }
+    const ytdBudgetAmount = lastMonthWithData >= 0
+      ? monthlyBudget.slice(0, lastMonthWithData + 1).reduce((a: number, b: number) => a + b, 0)
+      : 0;
+    const lastMonthLabel = lastMonthWithData >= 0 ? monthlyData[lastMonthWithData].month : "";
+
+    // YTD実績（累計）
+    const ytdActualAmount = lastMonthWithData >= 0
+      ? cumulativeData[lastMonthWithData]?.amount || 0
+      : 0;
+
+    // 粗利予算計算（全社KPIの粗利率目標を適用）
+    const targetProfitRate = companyKPI ? 100 - companyKPI.costOfSalesRate : 30;
+    const yearlyProfitBudget = yearlyBudget * (targetProfitRate / 100);
+    const ytdProfitBudget = ytdBudgetAmount * (targetProfitRate / 100);
+
+    // 前年比較データ
+    const previousPeriodData = data.find((d) => d.period === selectedPeriod - 1);
+    const prevOfficeSummary = previousPeriodData?.officeSummary.find((o) => o.name === selectedOfficeForDetail);
+
+    // 3年分平均単価
+    const avgUnitPrices = [selectedPeriod, selectedPeriod - 1, selectedPeriod - 2]
+      .map((period) => {
+        const periodData = data.find((d) => d.period === period);
+        const officeData = periodData?.officeSummary.find((o) => o.name === selectedOfficeForDetail);
+        if (!officeData || officeData.count === 0) return null;
+        return { period, value: officeData.amount / officeData.count };
+      })
+      .filter((item): item is { period: number; value: number } => item !== null);
+
+    // 月次比較データ（粗利・原価積み上げ + 予算ライン用）
+    const monthlyComparisonData = monthlyData.map((m, i) => ({
+      month: m.month,
+      粗利: m.profit,
+      原価: m.cost,
+      予算: monthlyBudget[i] || 0,
+    }));
+
+    // 累計比較データ（粗利・原価積み上げ + 予算累計ライン用）
+    let cumBudget = 0;
+    const cumulativeComparisonData = cumulativeData.map((c, i) => {
+      cumBudget += monthlyBudget[i] || 0;
+      return {
+        month: c.month,
+        粗利: c.profit,
+        原価: c.cost,
+        予算累計: cumBudget,
+      };
+    });
+
+    // 四半期比較データ（粗利・原価積み上げ + 予算ライン用）
+    const quarterlyBudget = [0, 1, 2, 3].map((q) => {
+      const startIdx = q * 3;
+      return monthlyBudget.slice(startIdx, startIdx + 3).reduce((a: number, b: number) => a + b, 0);
+    });
+    const quarterlyComparisonData = quarterlyData.map((q, i) => ({
+      quarter: q.quarter,
+      粗利: q.profit,
+      原価: q.cost,
+      売上: q.amount,
+      予算: quarterlyBudget[i] || 0,
+    }));
+
+    // 3期分四半期売上推移データ（折れ線グラフ用）
+    const getOfficeQuarterlyData = (period: number) => {
+      const periodData = data.find((d) => d.period === period);
+      if (!periodData) return [0, 0, 0, 0];
+      const persons = periodData.salesPersonSummary.filter((sp) => sp.office === selectedOfficeForDetail);
+      return [0, 1, 2, 3].map((q) => {
+        const startIdx = q * 3;
+        let total = 0;
+        persons.forEach((sp) => {
+          for (let i = startIdx; i < startIdx + 3 && i < 12; i++) {
+            if (sp.monthlyData[i]) {
+              total += sp.monthlyData[i].amount;
+            }
+          }
+        });
+        return total;
+      });
+    };
+    const period2Quarterly = getOfficeQuarterlyData(selectedPeriod - 1);
+    const period3Quarterly = getOfficeQuarterlyData(selectedPeriod - 2);
+    const quarterlySalesTrendData = quarterlyData.map((q, i) => ({
+      quarter: q.quarter,
+      [`${selectedPeriod}期`]: q.amount,
+      [`${selectedPeriod - 1}期`]: period2Quarterly[i] || 0,
+      [`${selectedPeriod - 2}期`]: period3Quarterly[i] || 0,
+    }));
+
+    return {
+      office: selectedOfficeForDetail,
+      ...officeSummary,
+      profitRate: officeSummary.amount > 0 ? (officeSummary.profit / officeSummary.amount) * 100 : 0,
+      avgUnitPrice: officeSummary.count > 0 ? officeSummary.amount / officeSummary.count : 0,
+      avgUnitPrices,
+      salesPersons,
+      monthlyData,
+      cumulativeData,
+      monthlyComparisonData,
+      cumulativeComparisonData,
+      salesTrendData,
+      profitTrendData,
+      quarterlyData,
+      quarterlyComparisonData,
+      quarterlySalesTrendData,
+      yearlyBudget,
+      monthlyBudget,
+      ytdBudgetAmount,
+      ytdActualAmount,
+      lastMonthLabel,
+      yearlyProfitBudget,
+      ytdProfitBudget,
+      targetProfitRate,
+      achievementRate: yearlyBudget > 0 ? (officeSummary.amount / yearlyBudget) * 100 : 0,
+      ytdAchievementRate: ytdBudgetAmount > 0 ? (ytdActualAmount / ytdBudgetAmount) * 100 : 0,
+      prevAmount: prevOfficeSummary?.amount || 0,
+      prevProfit: prevOfficeSummary?.profit || 0,
+      yoyAmountChange: prevOfficeSummary?.amount ? ((officeSummary.amount - prevOfficeSummary.amount) / prevOfficeSummary.amount) * 100 : 0,
+      yoyProfitChange: prevOfficeSummary?.profit ? ((officeSummary.profit - prevOfficeSummary.profit) / prevOfficeSummary.profit) * 100 : 0,
+    };
+  }, [currentData, data, selectedOfficeForDetail, selectedPeriod, budget, companyKPI]);
+
+  // 担当者詳細データ拡張（担当者別タブ用）
+  const selectedPersonDetailData = useMemo(() => {
+    if (!selectedSalesPerson || !currentData?.salesPersonSummary) return null;
+
+    const personData = currentData.salesPersonSummary.find((sp) => sp.name === selectedSalesPerson);
+    if (!personData) return null;
+
+    // 累計データ作成
+    let cumAmount = 0, cumProfit = 0, cumCost = 0, cumCount = 0;
+    const cumulativeData = personData.monthlyData.map((m) => {
+      cumAmount += m.amount;
+      cumProfit += m.profit;
+      cumCost += m.cost;
+      cumCount += m.count;
+      return { ...m, amount: cumAmount, profit: cumProfit, cost: cumCost, count: cumCount };
+    });
+
+    // 3期比較データ作成
+    const getPeriodPersonMonthlyData = (period: number) => {
+      const periodData = data.find((d) => d.period === period);
+      const person = periodData?.salesPersonSummary.find((sp) => sp.name === selectedSalesPerson);
+      return person?.monthlyData || Array(12).fill({ amount: 0, profit: 0, count: 0 });
+    };
+
+    const prevPeriodData = getPeriodPersonMonthlyData(selectedPeriod - 1);
+    const prev2PeriodData = getPeriodPersonMonthlyData(selectedPeriod - 2);
+
+    const salesTrendData = personData.monthlyData.map((m, i) => ({
+      month: m.month,
+      [`${selectedPeriod}期`]: m.amount,
+      [`${selectedPeriod - 1}期`]: prevPeriodData[i]?.amount || 0,
+      [`${selectedPeriod - 2}期`]: prev2PeriodData[i]?.amount || 0,
+    }));
+
+    const profitTrendData = personData.monthlyData.map((m, i) => ({
+      month: m.month,
+      [`${selectedPeriod}期`]: m.profit,
+      [`${selectedPeriod - 1}期`]: prevPeriodData[i]?.profit || 0,
+      [`${selectedPeriod - 2}期`]: prev2PeriodData[i]?.profit || 0,
+    }));
+
+    // 四半期データ
+    const quarterlyData = [0, 1, 2, 3].map((q) => {
+      const startIdx = q * 3;
+      const qData = personData.monthlyData.slice(startIdx, startIdx + 3);
+      return {
+        quarter: `Q${q + 1}`,
+        amount: qData.reduce((sum, m) => sum + m.amount, 0),
+        profit: qData.reduce((sum, m) => sum + m.profit, 0),
+        cost: qData.reduce((sum, m) => sum + m.cost, 0),
+        count: qData.reduce((sum, m) => sum + m.count, 0),
+      };
+    });
+
+    // 予算データ
+    const personBudget = budget?.salesPersonBudgets?.find((b) => b.salesPerson === selectedSalesPerson);
+    const yearlyBudget = personBudget?.yearlyBudget || 0;
+    const monthlyBudget = personBudget?.monthlyBudget || Array(12).fill(0);
+
+    // YTD累計予算（実績がある最後の月まで）
+    let lastMonthWithData = -1;
+    for (let i = 0; i < personData.monthlyData.length; i++) {
+      if (personData.monthlyData[i].count > 0) {
+        lastMonthWithData = i;
+      }
+    }
+    const ytdBudgetAmount = lastMonthWithData >= 0
+      ? monthlyBudget.slice(0, lastMonthWithData + 1).reduce((a: number, b: number) => a + b, 0)
+      : 0;
+    const lastMonthLabel = lastMonthWithData >= 0 ? personData.monthlyData[lastMonthWithData].month : "";
+
+    // YTD実績（累計）
+    const ytdActualAmount = lastMonthWithData >= 0
+      ? cumulativeData[lastMonthWithData]?.amount || 0
+      : 0;
+
+    // 粗利予算計算（全社KPIの粗利率目標を適用）
+    const targetProfitRate = companyKPI ? 100 - companyKPI.costOfSalesRate : 30;
+    const yearlyProfitBudget = yearlyBudget * (targetProfitRate / 100);
+    const ytdProfitBudget = ytdBudgetAmount * (targetProfitRate / 100);
+
+    // 3年分平均単価
+    const avgUnitPrices = [selectedPeriod, selectedPeriod - 1, selectedPeriod - 2]
+      .map((period) => {
+        const periodData = data.find((d) => d.period === period);
+        const person = periodData?.salesPersonSummary.find((sp) => sp.name === selectedSalesPerson);
+        if (!person || person.count === 0) return null;
+        return { period, value: person.amount / person.count };
+      })
+      .filter((item): item is { period: number; value: number } => item !== null);
+
+    // 月次比較データ（粗利・原価積み上げ + 予算ライン用）
+    const monthlyComparisonData = personData.monthlyData.map((m, i) => ({
+      month: m.month,
+      粗利: m.profit,
+      原価: m.cost,
+      予算: monthlyBudget[i] || 0,
+    }));
+
+    // 累計比較データ（粗利・原価積み上げ + 予算累計ライン用）
+    let cumBudget = 0;
+    const cumulativeComparisonData = cumulativeData.map((c, i) => {
+      cumBudget += monthlyBudget[i] || 0;
+      return {
+        month: c.month,
+        粗利: c.profit,
+        原価: c.cost,
+        予算累計: cumBudget,
+      };
+    });
+
+    // 四半期比較データ（粗利・原価積み上げ + 予算ライン用）
+    const quarterlyBudget = [0, 1, 2, 3].map((q) => {
+      const startIdx = q * 3;
+      return monthlyBudget.slice(startIdx, startIdx + 3).reduce((a: number, b: number) => a + b, 0);
+    });
+    const quarterlyComparisonData = quarterlyData.map((q, i) => ({
+      quarter: q.quarter,
+      粗利: q.profit,
+      原価: q.cost,
+      売上: q.amount,
+      予算: quarterlyBudget[i] || 0,
+    }));
+
+    // 3期分四半期売上推移データ（折れ線グラフ用）
+    const getPersonQuarterlyData = (period: number) => {
+      const periodData = data.find((d) => d.period === period);
+      const person = periodData?.salesPersonSummary.find((sp) => sp.name === selectedSalesPerson);
+      if (!person?.monthlyData) return [0, 0, 0, 0];
+      return [0, 1, 2, 3].map((q) => {
+        const startIdx = q * 3;
+        return person.monthlyData.slice(startIdx, startIdx + 3).reduce((sum, m) => sum + m.amount, 0);
+      });
+    };
+    const period2Quarterly = getPersonQuarterlyData(selectedPeriod - 1);
+    const period3Quarterly = getPersonQuarterlyData(selectedPeriod - 2);
+    const quarterlySalesTrendData = quarterlyData.map((q, i) => ({
+      quarter: q.quarter,
+      [`${selectedPeriod}期`]: q.amount,
+      [`${selectedPeriod - 1}期`]: period2Quarterly[i] || 0,
+      [`${selectedPeriod - 2}期`]: period3Quarterly[i] || 0,
+    }));
+
+    // 前年比較データ
+    const previousPeriodData = data.find((d) => d.period === selectedPeriod - 1);
+    const prevPersonData = previousPeriodData?.salesPersonSummary.find((sp) => sp.name === selectedSalesPerson);
+
+    return {
+      ...personData,
+      profitRate: personData.amount > 0 ? (personData.profit / personData.amount) * 100 : 0,
+      avgUnitPrice: personData.count > 0 ? personData.amount / personData.count : 0,
+      avgUnitPrices,
+      cumulativeData,
+      salesTrendData,
+      profitTrendData,
+      quarterlyData,
+      quarterlyComparisonData,
+      quarterlySalesTrendData,
+      monthlyComparisonData,
+      cumulativeComparisonData,
+      yearlyBudget,
+      monthlyBudget,
+      ytdBudgetAmount,
+      ytdActualAmount,
+      lastMonthLabel,
+      yearlyProfitBudget,
+      ytdProfitBudget,
+      targetProfitRate,
+      achievementRate: yearlyBudget > 0 ? (personData.amount / yearlyBudget) * 100 : 0,
+      ytdAchievementRate: ytdBudgetAmount > 0 ? (ytdActualAmount / ytdBudgetAmount) * 100 : 0,
+      prevAmount: prevPersonData?.amount || 0,
+      prevProfit: prevPersonData?.profit || 0,
+      yoyAmountChange: prevPersonData?.amount ? ((personData.amount - prevPersonData.amount) / prevPersonData.amount) * 100 : 0,
+      yoyProfitChange: prevPersonData?.profit ? ((personData.profit - prevPersonData.profit) / prevPersonData.profit) * 100 : 0,
+    };
+  }, [currentData, data, selectedSalesPerson, selectedPeriod, budget, companyKPI]);
+
+  // 営業所→担当者へのドリルダウン
+  const handleDrilldownToPerson = (personName: string) => {
+    setActiveTab("salesperson");
+    setSelectedOffice(selectedOfficeForDetail);
+    setSelectedSalesPerson(personName);
+  };
+
   return (
     <MainLayout>
       <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden">
@@ -1046,11 +1551,7 @@ export default function BIDashboardPage() {
             </div>
           )}
 
-          {loading && (
-            <div className="flex items-center justify-center py-12">
-              <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
-            </div>
-          )}
+          {loading && <DashboardSkeleton />}
 
           {!loading && currentData && (
             <>
@@ -1987,26 +2488,463 @@ export default function BIDashboardPage() {
               {/* 営業所別タブ */}
               {activeTab === "office" && (
                 <>
+                  {/* 営業所選択 */}
                   <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                    <h3 className="text-base font-bold mb-4 text-gray-800">営業所別売上ランキング</h3>
-                    <div className="h-96">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={currentData.officeSummary.slice(0, 15)} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis type="number" tickFormatter={(v) => formatAmount(v)} />
-                          <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11 }} />
-                          <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, ""]} />
-                          <Bar dataKey="amount" fill={COLORS.primary}>
-                            {currentData.officeSummary.slice(0, 15).map((_, i) => (
-                              <Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                        <Building2 className="w-5 h-5 text-blue-500" />
+                        営業所別分析
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={selectedOfficeForDetail}
+                          onChange={(e) => setSelectedOfficeForDetail(e.target.value)}
+                          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
+                        >
+                          <option value="">営業所を選択してください</option>
+                          {currentData.officeSummary.map((office) => (
+                            <option key={office.name} value={office.name}>{office.name}</option>
+                          ))}
+                        </select>
+                        {selectedOfficeForDetail && (
+                          <button
+                            onClick={() => setSelectedOfficeForDetail("")}
+                            className="px-3 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all"
+                          >
+                            クリア
+                          </button>
+                        )}
+                      </div>
                     </div>
+
+                    {/* 営業所詳細（選択時） */}
+                    {selectedOfficeDetailData ? (
+                      <div className="space-y-4">
+                        {/* KPIカード */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm text-gray-600">売上金額</span>
+                              <span className={`text-xs font-bold ${selectedOfficeDetailData.yoyAmountChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                {selectedOfficeDetailData.yoyAmountChange >= 0 ? "+" : ""}{selectedOfficeDetailData.yoyAmountChange.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="text-2xl font-bold text-indigo-600">{formatAmount(selectedOfficeDetailData.amount)}円</div>
+                            {selectedOfficeDetailData.yearlyBudget > 0 && (
+                              <div className="mt-2 space-y-1">
+                                <div className="flex justify-between text-xs text-gray-500">
+                                  <span>年間予算: {formatAmount(selectedOfficeDetailData.yearlyBudget)}円</span>
+                                  <span className={`font-bold ${selectedOfficeDetailData.achievementRate >= 100 ? "text-green-600" : selectedOfficeDetailData.achievementRate >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                    {selectedOfficeDetailData.achievementRate.toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${selectedOfficeDetailData.achievementRate >= 100 ? "bg-green-500" : selectedOfficeDetailData.achievementRate >= 80 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${Math.min(selectedOfficeDetailData.achievementRate, 100)}%` }} />
+                                </div>
+                                {selectedOfficeDetailData.ytdBudgetAmount > 0 && (
+                                  <>
+                                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                      <span>累計予算{selectedOfficeDetailData.lastMonthLabel ? `（${selectedOfficeDetailData.lastMonthLabel}まで）` : ""}: {formatAmount(selectedOfficeDetailData.ytdBudgetAmount)}円</span>
+                                      <span className={`font-bold ${selectedOfficeDetailData.ytdAchievementRate >= 100 ? "text-green-600" : selectedOfficeDetailData.ytdAchievementRate >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                        {selectedOfficeDetailData.ytdAchievementRate.toFixed(1)}%
+                                      </span>
+                                    </div>
+                                    <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                      <div className={`h-full rounded-full ${selectedOfficeDetailData.ytdAchievementRate >= 100 ? "bg-green-500" : selectedOfficeDetailData.ytdAchievementRate >= 80 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${Math.min(selectedOfficeDetailData.ytdAchievementRate, 100)}%` }} />
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm text-gray-600">粗利</span>
+                              <span className={`text-xs font-bold ${selectedOfficeDetailData.yoyProfitChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                {selectedOfficeDetailData.yoyProfitChange >= 0 ? "+" : ""}{selectedOfficeDetailData.yoyProfitChange.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="text-2xl font-bold text-emerald-600">{formatAmount(selectedOfficeDetailData.profit)}円</div>
+                            {selectedOfficeDetailData.yearlyProfitBudget > 0 && (
+                              <div className="mt-2 space-y-1">
+                                <div className="flex justify-between text-xs text-gray-500">
+                                  <span>年間粗利予算: {formatAmount(selectedOfficeDetailData.yearlyProfitBudget)}円</span>
+                                  <span className={`font-bold ${(selectedOfficeDetailData.profit / selectedOfficeDetailData.yearlyProfitBudget) * 100 >= 100 ? "text-green-600" : (selectedOfficeDetailData.profit / selectedOfficeDetailData.yearlyProfitBudget) * 100 >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                    {((selectedOfficeDetailData.profit / selectedOfficeDetailData.yearlyProfitBudget) * 100).toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${(selectedOfficeDetailData.profit / selectedOfficeDetailData.yearlyProfitBudget) * 100 >= 100 ? "bg-green-500" : (selectedOfficeDetailData.profit / selectedOfficeDetailData.yearlyProfitBudget) * 100 >= 80 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${Math.min((selectedOfficeDetailData.profit / selectedOfficeDetailData.yearlyProfitBudget) * 100, 100)}%` }} />
+                                </div>
+                                {selectedOfficeDetailData.ytdProfitBudget > 0 && (
+                                  <>
+                                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                      <span>累計粗利予算{selectedOfficeDetailData.lastMonthLabel ? `（${selectedOfficeDetailData.lastMonthLabel}まで）` : ""}: {formatAmount(selectedOfficeDetailData.ytdProfitBudget)}円</span>
+                                      <span className={`font-bold ${(selectedOfficeDetailData.profit / selectedOfficeDetailData.ytdProfitBudget) * 100 >= 100 ? "text-green-600" : (selectedOfficeDetailData.profit / selectedOfficeDetailData.ytdProfitBudget) * 100 >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                        {((selectedOfficeDetailData.profit / selectedOfficeDetailData.ytdProfitBudget) * 100).toFixed(1)}%
+                                      </span>
+                                    </div>
+                                    <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                      <div className={`h-full rounded-full ${(selectedOfficeDetailData.profit / selectedOfficeDetailData.ytdProfitBudget) * 100 >= 100 ? "bg-green-500" : (selectedOfficeDetailData.profit / selectedOfficeDetailData.ytdProfitBudget) * 100 >= 80 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${Math.min((selectedOfficeDetailData.profit / selectedOfficeDetailData.ytdProfitBudget) * 100, 100)}%` }} />
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm text-gray-600">粗利率</span>
+                            </div>
+                            <div className={`text-2xl font-bold ${selectedOfficeDetailData.profitRate >= selectedOfficeDetailData.targetProfitRate ? "text-green-600" : selectedOfficeDetailData.profitRate >= selectedOfficeDetailData.targetProfitRate - 5 ? "text-yellow-600" : "text-red-600"}`}>
+                              {selectedOfficeDetailData.profitRate.toFixed(1)}%
+                            </div>
+                            {selectedOfficeDetailData.targetProfitRate > 0 && (
+                              <div className="mt-2">
+                                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                  <span>目標: {selectedOfficeDetailData.targetProfitRate.toFixed(1)}%</span>
+                                  <span className={`font-bold ${selectedOfficeDetailData.profitRate >= selectedOfficeDetailData.targetProfitRate ? "text-green-600" : "text-red-600"}`}>
+                                    {selectedOfficeDetailData.profitRate >= selectedOfficeDetailData.targetProfitRate ? "+" : ""}{(selectedOfficeDetailData.profitRate - selectedOfficeDetailData.targetProfitRate).toFixed(1)}pt
+                                  </span>
+                                </div>
+                                <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden relative">
+                                  <div className="absolute h-full w-0.5 bg-purple-600 z-10" style={{ left: `${Math.min(selectedOfficeDetailData.targetProfitRate, 100)}%` }} />
+                                  <div className={`h-full rounded-full ${selectedOfficeDetailData.profitRate >= selectedOfficeDetailData.targetProfitRate ? "bg-green-500" : "bg-red-500"}`} style={{ width: `${Math.min(selectedOfficeDetailData.profitRate, 100)}%` }} />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm text-gray-600">受注件数</span>
+                            </div>
+                            <div className="text-2xl font-bold text-orange-600">{selectedOfficeDetailData.count.toLocaleString()}件</div>
+                            <div className="mt-2 text-xs text-gray-500">
+                              平均単価: {formatAmount(selectedOfficeDetailData.avgUnitPrice)}円
+                            </div>
+                            {selectedOfficeDetailData.avgUnitPrices && selectedOfficeDetailData.avgUnitPrices.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-orange-100">
+                                <div className="text-[10px] text-gray-500 mb-1">平均単価（3年間）</div>
+                                <div className="flex gap-1">
+                                  {selectedOfficeDetailData.avgUnitPrices.map((item, i) => (
+                                    <div key={item.period} className={`flex-1 text-center py-1 rounded ${i === 0 ? "bg-orange-100" : "bg-gray-100"}`}>
+                                      <div className="text-[9px] text-gray-400">{item.period}期</div>
+                                      <div className={`text-[10px] font-bold ${i === 0 ? "text-orange-600" : "text-gray-600"}`}>
+                                        {formatAmount(item.value)}円
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 月次推移・累計グラフ */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="text-sm font-bold text-gray-700 mb-3">月次売上推移（粗利・原価構成）</h4>
+                            <div className="h-64">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart data={selectedOfficeDetailData.monthlyComparisonData}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                  <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                                  <Tooltip
+                                    content={({ active, payload, label }) => {
+                                      if (active && payload && payload.length) {
+                                        const profit = payload.find((p) => p.dataKey === "粗利")?.value as number || 0;
+                                        const cost = payload.find((p) => p.dataKey === "原価")?.value as number || 0;
+                                        const budgetVal = payload.find((p) => p.dataKey === "予算")?.value as number || 0;
+                                        const total = profit + cost;
+                                        const profitRate = total > 0 ? (profit / total) * 100 : 0;
+                                        const achievementRate = budgetVal > 0 ? (total / budgetVal) * 100 : 0;
+                                        return (
+                                          <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+                                            <p className="font-bold text-gray-800 mb-2">{label}</p>
+                                            <p className="text-sm text-gray-600">売上: <span className="font-medium">{total.toLocaleString()}円</span></p>
+                                            <p className="text-sm text-green-600">粗利: <span className="font-medium">{profit.toLocaleString()}円</span></p>
+                                            <p className="text-sm text-orange-600">原価: <span className="font-medium">{cost.toLocaleString()}円</span></p>
+                                            <p className={`text-sm font-bold mt-1 ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
+                                              粗利率: {profitRate.toFixed(1)}%
+                                            </p>
+                                            {budgetVal > 0 && (
+                                              <>
+                                                <hr className="my-2 border-gray-200" />
+                                                <p className="text-sm text-purple-600">予算: <span className="font-medium">{budgetVal.toLocaleString()}円</span></p>
+                                                <p className={`text-sm font-bold ${achievementRate >= 100 ? "text-green-600" : achievementRate >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                                  達成率: {achievementRate.toFixed(1)}%
+                                                </p>
+                                              </>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    }}
+                                  />
+                                  <Legend />
+                                  <Bar dataKey="原価" stackId="a" fill={COLORS.cost} name="原価" />
+                                  <Bar dataKey="粗利" stackId="a" fill={COLORS.profit} name="粗利" />
+                                  <Line type="monotone" dataKey="予算" stroke={COLORS.budget} strokeWidth={2} dot={false} name="予算" />
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="text-sm font-bold text-gray-700 mb-3">累計売上推移（粗利・原価構成）</h4>
+                            <div className="h-64">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart data={selectedOfficeDetailData.cumulativeComparisonData}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                  <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                                  <Tooltip
+                                    content={({ active, payload, label }) => {
+                                      if (active && payload && payload.length) {
+                                        const profit = payload.find((p) => p.dataKey === "粗利")?.value as number || 0;
+                                        const cost = payload.find((p) => p.dataKey === "原価")?.value as number || 0;
+                                        const budgetVal = payload.find((p) => p.dataKey === "予算累計")?.value as number || 0;
+                                        const total = profit + cost;
+                                        const profitRate = total > 0 ? (profit / total) * 100 : 0;
+                                        const achievementRate = budgetVal > 0 ? (total / budgetVal) * 100 : 0;
+                                        return (
+                                          <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+                                            <p className="font-bold text-gray-800 mb-2">{label}</p>
+                                            <p className="text-sm text-gray-600">累計売上: <span className="font-medium">{total.toLocaleString()}円</span></p>
+                                            <p className="text-sm text-green-600">累計粗利: <span className="font-medium">{profit.toLocaleString()}円</span></p>
+                                            <p className="text-sm text-orange-600">累計原価: <span className="font-medium">{cost.toLocaleString()}円</span></p>
+                                            <p className={`text-sm font-bold mt-1 ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
+                                              粗利率: {profitRate.toFixed(1)}%
+                                            </p>
+                                            {budgetVal > 0 && (
+                                              <>
+                                                <hr className="my-2 border-gray-200" />
+                                                <p className="text-sm text-purple-600">累計予算: <span className="font-medium">{budgetVal.toLocaleString()}円</span></p>
+                                                <p className={`text-sm font-bold ${achievementRate >= 100 ? "text-green-600" : achievementRate >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                                  達成率: {achievementRate.toFixed(1)}%
+                                                </p>
+                                              </>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    }}
+                                  />
+                                  <Legend />
+                                  <Bar dataKey="原価" stackId="a" fill={COLORS.cost} name="原価" />
+                                  <Bar dataKey="粗利" stackId="a" fill={COLORS.profit} name="粗利" />
+                                  <Line type="monotone" dataKey="予算累計" stroke={COLORS.budget} strokeWidth={2} dot={false} name="予算累計" />
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 3期比較グラフ */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="text-sm font-bold text-gray-700 mb-3">売上推移（3期比較）</h4>
+                            <div className="h-64">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={selectedOfficeDetailData.salesTrendData}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                  <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                                  <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, ""]} />
+                                  <Legend />
+                                  <Line type="monotone" dataKey={`${selectedPeriod}期`} stroke={COLORS.primary} strokeWidth={2} dot={{ r: 3 }} />
+                                  <Line type="monotone" dataKey={`${selectedPeriod - 1}期`} stroke={COLORS.secondary} strokeWidth={2} dot={{ r: 3 }} />
+                                  <Line type="monotone" dataKey={`${selectedPeriod - 2}期`} stroke={COLORS.quaternary} strokeWidth={2} dot={{ r: 3 }} />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="text-sm font-bold text-gray-700 mb-3">粗利推移（3期比較）</h4>
+                            <div className="h-64">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={selectedOfficeDetailData.profitTrendData}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                  <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                                  <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, ""]} />
+                                  <Legend />
+                                  <Line type="monotone" dataKey={`${selectedPeriod}期`} stroke={COLORS.profit} strokeWidth={2} dot={{ r: 3 }} />
+                                  <Line type="monotone" dataKey={`${selectedPeriod - 1}期`} stroke={COLORS.secondary} strokeWidth={2} dot={{ r: 3 }} />
+                                  <Line type="monotone" dataKey={`${selectedPeriod - 2}期`} stroke={COLORS.quaternary} strokeWidth={2} dot={{ r: 3 }} />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 四半期グラフ（2列） */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                          {/* 四半期売上（粗利・原価構成） */}
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-green-500" />
+                              四半期売上（粗利・原価構成）
+                            </h4>
+                            <div className="h-48">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart data={selectedOfficeDetailData.quarterlyComparisonData}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="quarter" tick={{ fontSize: 11 }} />
+                                  <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                                  <Tooltip
+                                    content={({ active, payload, label }) => {
+                                      if (active && payload && payload.length) {
+                                        const profit = payload.find((p) => p.dataKey === "粗利")?.value as number || 0;
+                                        const cost = payload.find((p) => p.dataKey === "原価")?.value as number || 0;
+                                        const budgetVal = payload.find((p) => p.dataKey === "予算")?.value as number || 0;
+                                        const total = profit + cost;
+                                        const profitRate = total > 0 ? (profit / total) * 100 : 0;
+                                        const achievementRate = budgetVal > 0 ? (total / budgetVal) * 100 : 0;
+                                        return (
+                                          <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+                                            <p className="font-bold text-gray-800 mb-2">{label}</p>
+                                            <p className="text-gray-600">売上: <span className="font-medium">{total.toLocaleString()}円</span></p>
+                                            <p className="text-green-600">粗利: <span className="font-medium">{profit.toLocaleString()}円</span></p>
+                                            <p className="text-orange-600">原価: <span className="font-medium">{cost.toLocaleString()}円</span></p>
+                                            <p className={`font-bold mt-1 ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
+                                              粗利率: {profitRate.toFixed(1)}%
+                                            </p>
+                                            {budgetVal > 0 && (
+                                              <>
+                                                <hr className="my-2 border-gray-200" />
+                                                <p className="text-purple-600">予算: <span className="font-medium">{budgetVal.toLocaleString()}円</span></p>
+                                                <p className={`font-bold ${achievementRate >= 100 ? "text-green-600" : achievementRate >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                                  達成率: {achievementRate.toFixed(1)}%
+                                                </p>
+                                              </>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    }}
+                                  />
+                                  <Legend />
+                                  <Bar dataKey="原価" stackId="a" fill={COLORS.cost} name="原価" />
+                                  <Bar dataKey="粗利" stackId="a" fill={COLORS.profit} name="粗利" />
+                                  <Line type="monotone" dataKey="予算" stroke={COLORS.budget} strokeWidth={2} dot={{ r: 3 }} name="予算" />
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+
+                          {/* 四半期売上推移（3期比較） */}
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-indigo-500" />
+                              四半期売上推移（3期比較）
+                            </h4>
+                            <div className="h-48">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={selectedOfficeDetailData.quarterlySalesTrendData}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="quarter" tick={{ fontSize: 11 }} />
+                                  <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                                  <Tooltip formatter={(v, name) => [`${(v as number).toLocaleString()}円`, name]} />
+                                  <Legend />
+                                  <Line
+                                    type="monotone"
+                                    dataKey={`${selectedPeriod}期`}
+                                    stroke={COLORS.primary}
+                                    strokeWidth={3}
+                                    dot={{ r: 4 }}
+                                    activeDot={{ r: 6 }}
+                                  />
+                                  <Line
+                                    type="monotone"
+                                    dataKey={`${selectedPeriod - 1}期`}
+                                    stroke={COLORS.secondary}
+                                    strokeWidth={2}
+                                    dot={{ r: 3 }}
+                                  />
+                                  <Line
+                                    type="monotone"
+                                    dataKey={`${selectedPeriod - 2}期`}
+                                    stroke={COLORS.denary}
+                                    strokeWidth={2}
+                                    strokeDasharray="5 5"
+                                    dot={{ r: 2 }}
+                                  />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 所属担当者一覧（ドリルダウン） */}
+                        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                          <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-3">
+                            <h4 className="text-sm font-bold text-white">所属担当者（クリックで詳細へ）</h4>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-700">担当者</th>
+                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">売上金額</th>
+                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">粗利</th>
+                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">粗利率</th>
+                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">件数</th>
+                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">構成比</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {selectedOfficeDetailData.salesPersons
+                                  .sort((a, b) => b.amount - a.amount)
+                                  .map((person, i) => {
+                                    const profitRate = person.amount > 0 ? (person.profit / person.amount) * 100 : 0;
+                                    const shareRate = selectedOfficeDetailData.amount > 0 ? (person.amount / selectedOfficeDetailData.amount) * 100 : 0;
+                                    return (
+                                      <tr
+                                        key={person.name}
+                                        onClick={() => handleDrilldownToPerson(person.name)}
+                                        className={`cursor-pointer hover:bg-indigo-50 transition-colors ${i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}
+                                      >
+                                        <td className="px-4 py-2 text-sm font-medium text-indigo-600 hover:underline">{person.name}</td>
+                                        <td className="px-4 py-2 text-sm text-right text-gray-700">{formatAmount(person.amount)}円</td>
+                                        <td className="px-4 py-2 text-sm text-right text-green-600">{formatAmount(person.profit)}円</td>
+                                        <td className={`px-4 py-2 text-sm text-right font-bold ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
+                                          {profitRate.toFixed(1)}%
+                                        </td>
+                                        <td className="px-4 py-2 text-sm text-right text-gray-700">{person.count}件</td>
+                                        <td className="px-4 py-2 text-sm text-right text-gray-700">{shareRate.toFixed(1)}%</td>
+                                      </tr>
+                                    );
+                                  })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* 営業所未選択時：ランキング表示 */
+                      <div className="h-96">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={currentData.officeSummary.slice(0, 15)} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis type="number" tickFormatter={(v) => formatAmount(v)} />
+                            <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11 }} />
+                            <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, ""]} />
+                            <Bar dataKey="amount" fill={COLORS.primary}>
+                              {currentData.officeSummary.slice(0, 15).map((_, i) => (
+                                <Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
                   </div>
 
-                  {/* 営業所別詳細テーブル */}
+                  {/* 営業所別詳細テーブル（常時表示） */}
                   <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
                     <div className="bg-gradient-to-r from-blue-500 to-indigo-500 px-4 py-3">
                       <h3 className="text-base font-bold text-white">営業所別 詳細データ</h3>
@@ -2032,8 +2970,12 @@ export default function BIDashboardPage() {
                             const officeBudgetAmount = officeBudget?.yearlyBudget || 0;
                             const achievementRate = officeBudgetAmount > 0 ? (office.amount / officeBudgetAmount) * 100 : 0;
                             return (
-                              <tr key={office.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                                <td className="px-4 py-3 text-sm font-medium text-gray-800">{office.name}</td>
+                              <tr
+                                key={office.name}
+                                onClick={() => setSelectedOfficeForDetail(office.name)}
+                                className={`cursor-pointer hover:bg-blue-50 transition-colors ${selectedOfficeForDetail === office.name ? "bg-blue-100" : i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}
+                              >
+                                <td className="px-4 py-3 text-sm font-medium text-blue-600 hover:underline">{office.name}</td>
                                 <td className="px-4 py-3 text-sm text-right text-gray-700">
                                   {formatAmount(office.amount)}円
                                 </td>
@@ -2061,6 +3003,107 @@ export default function BIDashboardPage() {
                         </tbody>
                       </table>
                     </div>
+                  </div>
+
+                  {/* AI分析（営業所別） */}
+                  <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-purple-500" />
+                        AI営業所分析
+                      </h3>
+                      <button
+                        onClick={async () => {
+                          if (!currentData) return;
+                          setIsOfficeAnalyzing(true);
+                          setOfficeAiAnalysis("");
+                          try {
+                            const analysisData = {
+                              period: selectedPeriod,
+                              selectedOffice: selectedOfficeForDetail || "全営業所",
+                              selectedOfficeData: selectedOfficeDetailData ? {
+                                office: selectedOfficeDetailData.office,
+                                amount: selectedOfficeDetailData.amount,
+                                profit: selectedOfficeDetailData.profit,
+                                profitRate: selectedOfficeDetailData.profitRate,
+                                count: selectedOfficeDetailData.count,
+                                avgUnitPrice: selectedOfficeDetailData.avgUnitPrice,
+                                yearlyBudget: selectedOfficeDetailData.yearlyBudget,
+                                achievementRate: selectedOfficeDetailData.achievementRate,
+                                ytdBudgetAmount: selectedOfficeDetailData.ytdBudgetAmount,
+                                ytdAchievementRate: selectedOfficeDetailData.ytdAchievementRate,
+                                yoyAmountChange: selectedOfficeDetailData.yoyAmountChange,
+                                yoyProfitChange: selectedOfficeDetailData.yoyProfitChange,
+                                salesPersons: selectedOfficeDetailData.salesPersons.slice(0, 5).map((sp: { name: string; amount: number; profit: number; count: number }) => ({
+                                  name: sp.name,
+                                  amount: sp.amount,
+                                  profit: sp.profit,
+                                  profitRate: sp.amount > 0 ? (sp.profit / sp.amount) * 100 : 0,
+                                  count: sp.count,
+                                })),
+                                quarterlyData: selectedOfficeDetailData.quarterlyData,
+                              } : null,
+                              officeSummary: currentData.officeSummary.slice(0, 10).map(o => ({
+                                office: o.name,
+                                amount: o.amount,
+                                profit: o.profit,
+                                profitRate: o.amount > 0 ? (o.profit / o.amount) * 100 : 0,
+                                count: o.count,
+                              })),
+                              companyKPI: companyKPI ? {
+                                salesTarget: companyKPI.salesTarget * 1000,
+                                costOfSalesRate: companyKPI.costOfSalesRate,
+                              } : null,
+                            };
+                            const res = await fetch("/api/ai-analysis", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ type: "sales-office", data: analysisData }),
+                            });
+                            const result = await res.json();
+                            if (result.success) {
+                              setOfficeAiAnalysis(result.analysis);
+                            } else {
+                              setOfficeAiAnalysis("分析の取得に失敗しました。");
+                            }
+                          } catch (e) {
+                            setOfficeAiAnalysis("分析中にエラーが発生しました。");
+                          } finally {
+                            setIsOfficeAnalyzing(false);
+                          }
+                        }}
+                        disabled={isOfficeAnalyzing}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 transition-all"
+                      >
+                        {isOfficeAnalyzing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            分析中...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            AI分析を実行
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    {officeAiAnalysis ? (
+                      <div className="prose prose-sm max-w-none">
+                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-4 whitespace-pre-wrap text-sm text-gray-700 leading-relaxed">
+                          {officeAiAnalysis}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-400">
+                        <Sparkles className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">
+                          {selectedOfficeForDetail
+                            ? `「AI分析を実行」で${selectedOfficeForDetail}の詳細分析を行います`
+                            : "「AI分析を実行」ボタンを押すと、営業所別データをAIが分析します"}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -2126,43 +3169,391 @@ export default function BIDashboardPage() {
                   </div>
 
                   {/* 担当者個人の詳細（担当者選択時） */}
-                  {selectedPersonData && (
+                  {selectedPersonDetailData && (
                     <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
                       <h3 className="text-base font-bold mb-4 text-gray-800 flex items-center gap-2">
                         <User className="w-5 h-5 text-indigo-500" />
-                        {selectedPersonData.name} の売上詳細
-                        <span className="text-sm font-normal text-gray-500">（{selectedPersonData.office}）</span>
+                        {selectedPersonDetailData.name} の売上詳細
+                        <span className="text-sm font-normal text-gray-500">（{selectedPersonDetailData.office}）</span>
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4">
-                          <div className="text-sm text-gray-500">売上金額</div>
-                          <div className="text-2xl font-bold text-indigo-600">{formatAmount(selectedPersonData.amount)}円</div>
+
+                      {/* KPIカード */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                        {/* 売上金額 */}
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-gray-600">売上金額</span>
+                            <span className={`text-xs font-bold ${selectedPersonDetailData.yoyAmountChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                              前年比 {selectedPersonDetailData.yoyAmountChange >= 0 ? "+" : ""}{selectedPersonDetailData.yoyAmountChange.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="text-2xl font-bold text-indigo-600">{formatAmount(selectedPersonDetailData.amount)}円</div>
+                          {selectedPersonDetailData.yearlyBudget > 0 && (
+                            <div className="mt-2 space-y-1">
+                              <div className="flex justify-between text-xs text-gray-500">
+                                <span>年間予算: {formatAmount(selectedPersonDetailData.yearlyBudget)}円</span>
+                                <span className={`font-bold ${selectedPersonDetailData.achievementRate >= 100 ? "text-green-600" : selectedPersonDetailData.achievementRate >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                  {selectedPersonDetailData.achievementRate.toFixed(1)}%
+                                </span>
+                              </div>
+                              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${selectedPersonDetailData.achievementRate >= 100 ? "bg-green-500" : selectedPersonDetailData.achievementRate >= 80 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${Math.min(selectedPersonDetailData.achievementRate, 100)}%` }} />
+                              </div>
+                              {selectedPersonDetailData.ytdBudgetAmount > 0 && (
+                                <>
+                                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                    <span>累計予算{selectedPersonDetailData.lastMonthLabel ? `（${selectedPersonDetailData.lastMonthLabel}まで）` : ""}: {formatAmount(selectedPersonDetailData.ytdBudgetAmount)}円</span>
+                                    <span className={`font-bold ${selectedPersonDetailData.ytdAchievementRate >= 100 ? "text-green-600" : selectedPersonDetailData.ytdAchievementRate >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                      {selectedPersonDetailData.ytdAchievementRate.toFixed(1)}%
+                                    </span>
+                                  </div>
+                                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full ${selectedPersonDetailData.ytdAchievementRate >= 100 ? "bg-green-500" : selectedPersonDetailData.ytdAchievementRate >= 80 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${Math.min(selectedPersonDetailData.ytdAchievementRate, 100)}%` }} />
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4">
-                          <div className="text-sm text-gray-500">受注件数</div>
-                          <div className="text-2xl font-bold text-emerald-600">{selectedPersonData.count.toLocaleString()}件</div>
+
+                        {/* 粗利 */}
+                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-gray-600">粗利</span>
+                            <span className={`text-xs font-bold ${selectedPersonDetailData.yoyProfitChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                              前年比 {selectedPersonDetailData.yoyProfitChange >= 0 ? "+" : ""}{selectedPersonDetailData.yoyProfitChange.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="text-2xl font-bold text-emerald-600">{formatAmount(selectedPersonDetailData.profit)}円</div>
+                          {selectedPersonDetailData.yearlyProfitBudget > 0 && (
+                            <div className="mt-2 space-y-1">
+                              <div className="flex justify-between text-xs text-gray-500">
+                                <span>年間粗利予算: {formatAmount(selectedPersonDetailData.yearlyProfitBudget)}円</span>
+                                <span className={`font-bold ${(selectedPersonDetailData.profit / selectedPersonDetailData.yearlyProfitBudget * 100) >= 100 ? "text-green-600" : (selectedPersonDetailData.profit / selectedPersonDetailData.yearlyProfitBudget * 100) >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                  {(selectedPersonDetailData.profit / selectedPersonDetailData.yearlyProfitBudget * 100).toFixed(1)}%
+                                </span>
+                              </div>
+                              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${(selectedPersonDetailData.profit / selectedPersonDetailData.yearlyProfitBudget * 100) >= 100 ? "bg-green-500" : (selectedPersonDetailData.profit / selectedPersonDetailData.yearlyProfitBudget * 100) >= 80 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${Math.min(selectedPersonDetailData.profit / selectedPersonDetailData.yearlyProfitBudget * 100, 100)}%` }} />
+                              </div>
+                              {selectedPersonDetailData.ytdProfitBudget > 0 && (
+                                <>
+                                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                    <span>累計粗利予算{selectedPersonDetailData.lastMonthLabel ? `（${selectedPersonDetailData.lastMonthLabel}まで）` : ""}: {formatAmount(selectedPersonDetailData.ytdProfitBudget)}円</span>
+                                    {(() => {
+                                      const ytdProfit = selectedPersonDetailData.cumulativeData[selectedPersonDetailData.cumulativeData.findIndex((c: { month: string }) => c.month === selectedPersonDetailData.lastMonthLabel)]?.profit || 0;
+                                      const ytdProfitAchRate = selectedPersonDetailData.ytdProfitBudget > 0 ? (ytdProfit / selectedPersonDetailData.ytdProfitBudget * 100) : 0;
+                                      return (
+                                        <span className={`font-bold ${ytdProfitAchRate >= 100 ? "text-green-600" : ytdProfitAchRate >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                          {ytdProfitAchRate.toFixed(1)}%
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                    {(() => {
+                                      const ytdProfit = selectedPersonDetailData.cumulativeData[selectedPersonDetailData.cumulativeData.findIndex((c: { month: string }) => c.month === selectedPersonDetailData.lastMonthLabel)]?.profit || 0;
+                                      const ytdProfitAchRate = selectedPersonDetailData.ytdProfitBudget > 0 ? (ytdProfit / selectedPersonDetailData.ytdProfitBudget * 100) : 0;
+                                      return (
+                                        <div className={`h-full rounded-full ${ytdProfitAchRate >= 100 ? "bg-green-500" : ytdProfitAchRate >= 80 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${Math.min(ytdProfitAchRate, 100)}%` }} />
+                                      );
+                                    })()}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-4">
-                          <div className="text-sm text-gray-500">平均単価</div>
-                          <div className="text-2xl font-bold text-purple-600">
-                            {formatAmount(selectedPersonData.count > 0 ? selectedPersonData.amount / selectedPersonData.count : 0)}円
+
+                        {/* 粗利率 */}
+                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-gray-600">粗利率</span>
+                            <span className="text-xs text-purple-600">目標: {selectedPersonDetailData.targetProfitRate.toFixed(1)}%</span>
+                          </div>
+                          <div className="flex items-end gap-2">
+                            <div className={`text-2xl font-bold ${selectedPersonDetailData.profitRate >= selectedPersonDetailData.targetProfitRate ? "text-green-600" : selectedPersonDetailData.profitRate >= selectedPersonDetailData.targetProfitRate * 0.9 ? "text-yellow-600" : "text-red-600"}`}>
+                              {selectedPersonDetailData.profitRate.toFixed(1)}%
+                            </div>
+                            <div className={`text-sm mb-1 ${selectedPersonDetailData.profitRate >= selectedPersonDetailData.targetProfitRate ? "text-green-600" : "text-red-600"}`}>
+                              ({selectedPersonDetailData.profitRate >= selectedPersonDetailData.targetProfitRate ? "+" : ""}{(selectedPersonDetailData.profitRate - selectedPersonDetailData.targetProfitRate).toFixed(1)}pt)
+                            </div>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-purple-100">
+                            <div className="relative h-3 bg-gray-200 rounded-full overflow-visible">
+                              <div
+                                className={`absolute h-full rounded-full transition-all ${selectedPersonDetailData.profitRate >= selectedPersonDetailData.targetProfitRate ? "bg-green-500" : selectedPersonDetailData.profitRate >= selectedPersonDetailData.targetProfitRate * 0.9 ? "bg-yellow-500" : "bg-red-500"}`}
+                                style={{ width: `${Math.min(selectedPersonDetailData.profitRate / 50 * 100, 100)}%` }}
+                              />
+                              <div
+                                className="absolute w-0.5 h-5 bg-purple-800 -top-1"
+                                style={{ left: `${selectedPersonDetailData.targetProfitRate / 50 * 100}%` }}
+                                title={`目標: ${selectedPersonDetailData.targetProfitRate}%`}
+                              />
+                            </div>
+                            <div className="flex justify-between mt-1 text-xs text-gray-500">
+                              <span>0%</span>
+                              <span>50%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 受注件数 */}
+                        <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-100">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-gray-600">受注件数</span>
+                          </div>
+                          <div className="text-2xl font-bold text-orange-600">{selectedPersonDetailData.count.toLocaleString()}件</div>
+                          <div className="mt-2 text-xs text-gray-500">
+                            平均単価: {formatAmount(selectedPersonDetailData.avgUnitPrice)}円
+                          </div>
+                          {selectedPersonDetailData.avgUnitPrices.length > 1 && (
+                            <div className="mt-3 pt-3 border-t border-orange-100">
+                              <div className="text-xs text-gray-600 mb-2">平均単価推移（3期）</div>
+                              <div className="space-y-1">
+                                {selectedPersonDetailData.avgUnitPrices.map((item: { period: number; value: number }) => (
+                                  <div key={item.period} className="flex justify-between text-xs">
+                                    <span className={item.period === selectedPeriod ? "font-bold text-orange-600" : "text-gray-500"}>{item.period}期</span>
+                                    <span className={item.period === selectedPeriod ? "font-bold text-orange-600" : "text-gray-600"}>{formatAmount(item.value)}円</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 月次売上推移（粗利・原価構成） */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-blue-500" />
+                            月次売上推移（粗利・原価構成）
+                          </h4>
+                          <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <ComposedChart data={selectedPersonDetailData.monthlyComparisonData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                                <Tooltip
+                                  content={({ active, payload, label }) => {
+                                    if (active && payload && payload.length) {
+                                      const profit = payload.find((p) => p.dataKey === "粗利")?.value as number || 0;
+                                      const cost = payload.find((p) => p.dataKey === "原価")?.value as number || 0;
+                                      const budgetVal = payload.find((p) => p.dataKey === "予算")?.value as number || 0;
+                                      const total = profit + cost;
+                                      const profitRate = total > 0 ? (profit / total) * 100 : 0;
+                                      const achievementRate = budgetVal > 0 ? (total / budgetVal) * 100 : 0;
+                                      return (
+                                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+                                          <p className="font-bold text-gray-800 mb-2">{label}</p>
+                                          <p className="text-gray-600">売上: <span className="font-medium">{total.toLocaleString()}円</span></p>
+                                          <p className="text-green-600">粗利: <span className="font-medium">{profit.toLocaleString()}円</span></p>
+                                          <p className="text-orange-600">原価: <span className="font-medium">{cost.toLocaleString()}円</span></p>
+                                          <p className={`font-bold mt-1 ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
+                                            粗利率: {profitRate.toFixed(1)}%
+                                          </p>
+                                          {budgetVal > 0 && (
+                                            <>
+                                              <hr className="my-2 border-gray-200" />
+                                              <p className="text-purple-600">予算: <span className="font-medium">{budgetVal.toLocaleString()}円</span></p>
+                                              <p className={`font-bold ${achievementRate >= 100 ? "text-green-600" : achievementRate >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                                達成率: {achievementRate.toFixed(1)}%
+                                              </p>
+                                            </>
+                                          )}
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  }}
+                                />
+                                <Legend />
+                                <Bar dataKey="原価" stackId="a" fill={COLORS.cost} name="原価" />
+                                <Bar dataKey="粗利" stackId="a" fill={COLORS.profit} name="粗利" />
+                                <Line type="monotone" dataKey="予算" stroke={COLORS.budget} strokeWidth={2} dot={{ r: 3 }} name="予算" />
+                              </ComposedChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* 累計売上推移（粗利・原価構成） */}
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-indigo-500" />
+                            累計売上推移（粗利・原価構成）
+                          </h4>
+                          <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <ComposedChart data={selectedPersonDetailData.cumulativeComparisonData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                                <Tooltip
+                                  content={({ active, payload, label }) => {
+                                    if (active && payload && payload.length) {
+                                      const profit = payload.find((p) => p.dataKey === "粗利")?.value as number || 0;
+                                      const cost = payload.find((p) => p.dataKey === "原価")?.value as number || 0;
+                                      const budgetVal = payload.find((p) => p.dataKey === "予算累計")?.value as number || 0;
+                                      const total = profit + cost;
+                                      const profitRate = total > 0 ? (profit / total) * 100 : 0;
+                                      const achievementRate = budgetVal > 0 ? (total / budgetVal) * 100 : 0;
+                                      return (
+                                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+                                          <p className="font-bold text-gray-800 mb-2">{label}（累計）</p>
+                                          <p className="text-gray-600">売上累計: <span className="font-medium">{total.toLocaleString()}円</span></p>
+                                          <p className="text-green-600">粗利累計: <span className="font-medium">{profit.toLocaleString()}円</span></p>
+                                          <p className="text-orange-600">原価累計: <span className="font-medium">{cost.toLocaleString()}円</span></p>
+                                          <p className={`font-bold mt-1 ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
+                                            粗利率: {profitRate.toFixed(1)}%
+                                          </p>
+                                          {budgetVal > 0 && (
+                                            <>
+                                              <hr className="my-2 border-gray-200" />
+                                              <p className="text-purple-600">予算累計: <span className="font-medium">{budgetVal.toLocaleString()}円</span></p>
+                                              <p className={`font-bold ${achievementRate >= 100 ? "text-green-600" : achievementRate >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                                達成率: {achievementRate.toFixed(1)}%
+                                              </p>
+                                            </>
+                                          )}
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  }}
+                                />
+                                <Legend />
+                                <Bar dataKey="原価" stackId="a" fill={COLORS.cost} name="原価" />
+                                <Bar dataKey="粗利" stackId="a" fill={COLORS.profit} name="粗利" />
+                                <Line type="monotone" dataKey="予算累計" stroke={COLORS.budget} strokeWidth={2} dot={{ r: 3 }} name="予算累計" />
+                              </ComposedChart>
+                            </ResponsiveContainer>
                           </div>
                         </div>
                       </div>
-                      {/* 月次推移グラフ */}
-                      <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={selectedPersonData.monthlyData}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                            <YAxis yAxisId="left" tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 11 }} />
-                            <YAxis yAxisId="right" orientation="right" />
-                            <Tooltip formatter={(v, name) => [name === "件数" ? `${v}件` : `${(v as number).toLocaleString()}円`, name]} />
-                            <Legend />
-                            <Bar yAxisId="left" dataKey="amount" name="売上金額" fill={COLORS.primary} />
-                            <Line yAxisId="right" type="monotone" dataKey="count" name="件数" stroke={COLORS.tertiary} strokeWidth={2} />
-                          </ComposedChart>
-                        </ResponsiveContainer>
+
+                      {/* 3期比較グラフ */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <BarChart3 className="w-4 h-4 text-blue-500" />
+                            売上推移（3期比較）
+                          </h4>
+                          <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={selectedPersonDetailData.salesTrendData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                                <Tooltip formatter={(v, name) => [`${(v as number).toLocaleString()}円`, name]} />
+                                <Legend />
+                                <Line type="monotone" dataKey={`${selectedPeriod}期`} stroke={COLORS.primary} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                                <Line type="monotone" dataKey={`${selectedPeriod - 1}期`} stroke={COLORS.secondary} strokeWidth={2} dot={{ r: 3 }} />
+                                <Line type="monotone" dataKey={`${selectedPeriod - 2}期`} stroke={COLORS.denary} strokeWidth={2} strokeDasharray="5 5" dot={{ r: 2 }} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <BarChart3 className="w-4 h-4 text-green-500" />
+                            粗利推移（3期比較）
+                          </h4>
+                          <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={selectedPersonDetailData.profitTrendData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                                <Tooltip formatter={(v, name) => [`${(v as number).toLocaleString()}円`, name]} />
+                                <Legend />
+                                <Line type="monotone" dataKey={`${selectedPeriod}期`} stroke={COLORS.profit} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                                <Line type="monotone" dataKey={`${selectedPeriod - 1}期`} stroke={COLORS.secondary} strokeWidth={2} dot={{ r: 3 }} />
+                                <Line type="monotone" dataKey={`${selectedPeriod - 2}期`} stroke={COLORS.denary} strokeWidth={2} strokeDasharray="5 5" dot={{ r: 2 }} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 四半期グラフ（2列） */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* 四半期売上（粗利・原価構成） */}
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-green-500" />
+                            四半期売上（粗利・原価構成）
+                          </h4>
+                          <div className="h-48">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <ComposedChart data={selectedPersonDetailData.quarterlyComparisonData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="quarter" tick={{ fontSize: 11 }} />
+                                <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                                <Tooltip
+                                  content={({ active, payload, label }) => {
+                                    if (active && payload && payload.length) {
+                                      const profit = payload.find((p) => p.dataKey === "粗利")?.value as number || 0;
+                                      const cost = payload.find((p) => p.dataKey === "原価")?.value as number || 0;
+                                      const budgetVal = payload.find((p) => p.dataKey === "予算")?.value as number || 0;
+                                      const total = profit + cost;
+                                      const profitRate = total > 0 ? (profit / total) * 100 : 0;
+                                      const achievementRate = budgetVal > 0 ? (total / budgetVal) * 100 : 0;
+                                      return (
+                                        <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+                                          <p className="font-bold text-gray-800 mb-2">{label}</p>
+                                          <p className="text-gray-600">売上: <span className="font-medium">{total.toLocaleString()}円</span></p>
+                                          <p className="text-green-600">粗利: <span className="font-medium">{profit.toLocaleString()}円</span></p>
+                                          <p className="text-orange-600">原価: <span className="font-medium">{cost.toLocaleString()}円</span></p>
+                                          <p className={`font-bold mt-1 ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
+                                            粗利率: {profitRate.toFixed(1)}%
+                                          </p>
+                                          {budgetVal > 0 && (
+                                            <>
+                                              <hr className="my-2 border-gray-200" />
+                                              <p className="text-purple-600">予算: <span className="font-medium">{budgetVal.toLocaleString()}円</span></p>
+                                              <p className={`font-bold ${achievementRate >= 100 ? "text-green-600" : achievementRate >= 80 ? "text-yellow-600" : "text-red-600"}`}>
+                                                達成率: {achievementRate.toFixed(1)}%
+                                              </p>
+                                            </>
+                                          )}
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  }}
+                                />
+                                <Legend />
+                                <Bar dataKey="原価" stackId="a" fill={COLORS.cost} name="原価" />
+                                <Bar dataKey="粗利" stackId="a" fill={COLORS.profit} name="粗利" />
+                                <Line type="monotone" dataKey="予算" stroke={COLORS.budget} strokeWidth={2} dot={{ r: 3 }} name="予算" />
+                              </ComposedChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* 四半期売上推移（3期比較） */}
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-indigo-500" />
+                            四半期売上推移（3期比較）
+                          </h4>
+                          <div className="h-48">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart data={selectedPersonDetailData.quarterlySalesTrendData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="quarter" tick={{ fontSize: 11 }} />
+                                <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                                <Tooltip formatter={(v, name) => [`${(v as number).toLocaleString()}円`, name]} />
+                                <Legend />
+                                <Line type="monotone" dataKey={`${selectedPeriod}期`} stroke={COLORS.primary} strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                                <Line type="monotone" dataKey={`${selectedPeriod - 1}期`} stroke={COLORS.secondary} strokeWidth={2} dot={{ r: 3 }} />
+                                <Line type="monotone" dataKey={`${selectedPeriod - 2}期`} stroke={COLORS.denary} strokeWidth={2} strokeDasharray="5 5" dot={{ r: 2 }} />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -2264,6 +3655,104 @@ export default function BIDashboardPage() {
                       </div>
                     </>
                   )}
+
+                  {/* AI分析（担当者別） */}
+                  <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-purple-500" />
+                        AI担当者分析
+                      </h3>
+                      <button
+                        onClick={async () => {
+                          if (!currentData) return;
+                          setIsPersonAnalyzing(true);
+                          setPersonAiAnalysis("");
+                          try {
+                            const analysisData = {
+                              period: selectedPeriod,
+                              selectedPerson: selectedSalesPerson || "全担当者",
+                              selectedOffice: selectedOffice || "全営業所",
+                              selectedPersonData: selectedPersonDetailData ? {
+                                name: selectedPersonDetailData.name,
+                                office: selectedPersonDetailData.office,
+                                amount: selectedPersonDetailData.amount,
+                                profit: selectedPersonDetailData.profit,
+                                profitRate: selectedPersonDetailData.profitRate,
+                                count: selectedPersonDetailData.count,
+                                avgUnitPrice: selectedPersonDetailData.avgUnitPrice,
+                                yearlyBudget: selectedPersonDetailData.yearlyBudget,
+                                achievementRate: selectedPersonDetailData.achievementRate,
+                                ytdBudgetAmount: selectedPersonDetailData.ytdBudgetAmount,
+                                ytdAchievementRate: selectedPersonDetailData.ytdAchievementRate,
+                                yoyAmountChange: selectedPersonDetailData.yoyAmountChange,
+                                yoyProfitChange: selectedPersonDetailData.yoyProfitChange,
+                                targetProfitRate: selectedPersonDetailData.targetProfitRate,
+                                quarterlyData: selectedPersonDetailData.quarterlyData,
+                              } : null,
+                              salesPersonSummary: filteredSalesPersonSummary.slice(0, 10).map(p => ({
+                                name: p.name,
+                                office: p.office,
+                                amount: p.amount,
+                                profit: p.profit,
+                                profitRate: p.amount > 0 ? (p.profit / p.amount) * 100 : 0,
+                                count: p.count,
+                              })),
+                              companyKPI: companyKPI ? {
+                                salesTarget: companyKPI.salesTarget * 1000,
+                                costOfSalesRate: companyKPI.costOfSalesRate,
+                              } : null,
+                            };
+                            const res = await fetch("/api/ai-analysis", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ type: "sales-person", data: analysisData }),
+                            });
+                            const result = await res.json();
+                            if (result.success) {
+                              setPersonAiAnalysis(result.analysis);
+                            } else {
+                              setPersonAiAnalysis("分析の取得に失敗しました。");
+                            }
+                          } catch (e) {
+                            setPersonAiAnalysis("分析中にエラーが発生しました。");
+                          } finally {
+                            setIsPersonAnalyzing(false);
+                          }
+                        }}
+                        disabled={isPersonAnalyzing}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 transition-all"
+                      >
+                        {isPersonAnalyzing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            分析中...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            AI分析を実行
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    {personAiAnalysis ? (
+                      <div className="prose prose-sm max-w-none">
+                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-4 whitespace-pre-wrap text-sm text-gray-700 leading-relaxed">
+                          {personAiAnalysis}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-400">
+                        <Sparkles className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">
+                          {selectedSalesPerson
+                            ? `「AI分析を実行」で${selectedSalesPerson}の詳細分析を行います`
+                            : "「AI分析を実行」ボタンを押すと、担当者別データをAIが分析します"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 

@@ -161,6 +161,46 @@ interface SalesPersonData {
   } | null;
 }
 
+interface DeficitAnalysisData {
+  period: number;
+  totalCount: number;
+  totalLoss: number;
+  avgLoss: number;
+  deficitRate: number;
+  highRiskPjCategories: string[];
+  highRiskCustomers: string[];
+  commonFactors: string[];
+  seasonalPattern: string | null;
+  byPjCategory: {
+    name: string;
+    count: number;
+    loss: number;
+    avgProfitRate: number;
+  }[];
+  byTantousha: {
+    name: string;
+    office: string;
+    count: number;
+    loss: number;
+  }[];
+  byCustomer: {
+    name: string;
+    count: number;
+    loss: number;
+  }[];
+  monthlyTrend: {
+    month: string;
+    count: number;
+    loss: number;
+  }[];
+  recommendations: string[];
+  yearlyTrend: {
+    period: number;
+    count: number;
+    loss: number;
+  }[];
+}
+
 function buildSalesOfficePrompt(data: SalesOfficeData): string {
   const topOffices = [...data.officeSummary].sort((a, b) => b.amount - a.amount).slice(0, 5);
 
@@ -330,6 +370,107 @@ ${data.monthlyTrend.map(m => `- ${m.month}: ${formatCurrency(m.amount)}（粗利
 文章形式で自然に記述し、数値を含めて説明してください。`;
 }
 
+function buildDeficitAnalysisPrompt(data: DeficitAnalysisData): string {
+  const topCategories = data.byPjCategory.slice(0, 3);
+  const topTantousha = data.byTantousha.slice(0, 3);
+  const topCustomers = data.byCustomer.slice(0, 3);
+
+  // 年度別トレンドの分析
+  const yearlyTrendText = data.yearlyTrend.length > 1
+    ? data.yearlyTrend.map((y, i) => {
+        const prevYear = i > 0 ? data.yearlyTrend[i - 1] : null;
+        const countChange = prevYear && prevYear.count > 0 ? ((y.count - prevYear.count) / prevYear.count * 100).toFixed(1) : null;
+        const lossChange = prevYear && prevYear.loss > 0 ? ((y.loss - prevYear.loss) / prevYear.loss * 100).toFixed(1) : null;
+        return `- 第${y.period}期: ${y.count}件 / ${formatCurrency(y.loss)}${countChange ? ` (前年比: 件数${countChange}%, 金額${lossChange}%)` : ''}`;
+      }).join('\n')
+    : '年度別データなし';
+
+  return `あなたは製造業の収益改善コンサルタントです。以下の赤字案件データを分析し、経営者・営業マネージャー向けの改善レポートを日本語で作成してください。
+
+## 重要：製造業特有の赤字要因について
+この会社は産業機械・設備メーカーです。赤字案件の根本原因を分析する際は、以下の製造業特有の要因を必ず考慮してください：
+
+### 技術的要因
+- **設計不具合**: 設計段階でのミス、仕様の見落とし、技術的な見積もり誤差
+- **製造不具合による再作成**: 加工ミス、組立エラー、品質不良による作り直し
+- **検査体制の不備**: 検査工程の抜け、検査基準の曖昧さ、出荷前検査の不足
+- **仕様変更対応**: 顧客からの追加要求や仕様変更への対応コスト
+- **試作・調整コスト**: 新規案件での予想外の調整工数
+
+### 営業・見積要因
+- **見積精度不足**: 原価見積もりの甘さ、工数見積もりの誤差
+- **価格競争による受注**: 無理な値引きでの受注
+- **顧客との認識齟齬**: 仕様・納期・品質基準の認識のずれ
+
+### 外注・外部要因
+- **外注製作の管理不足**: 外注先の品質管理不備、納期遅延、コミュニケーション不足
+- **外注先の技術力不足**: 外注先の加工精度・技術レベルの問題
+- **材料費高騰**: 受注時と製造時の原材料価格差
+- **外注費増加**: 協力会社への発注コスト増
+
+## 第${data.period}期 赤字案件データ
+
+### 赤字案件概要
+- 赤字案件数: ${data.totalCount}件
+- 赤字総額: ${formatCurrency(data.totalLoss)}
+- 平均赤字額: ${formatCurrency(data.avgLoss)}
+- 全案件に対する赤字率: ${data.deficitRate.toFixed(1)}%
+
+### 年度別推移（3期比較）
+${yearlyTrendText}
+
+### PJ区分別 赤字ワースト
+${topCategories.map((c, i) => `${i + 1}. ${c.name}: ${c.count}件 / ${formatCurrency(c.loss)}（平均粗利率: ${c.avgProfitRate.toFixed(1)}%）`).join('\n')}
+
+### 担当者別 赤字ワースト
+${topTantousha.map((t, i) => `${i + 1}. ${t.name}（${t.office}）: ${t.count}件 / ${formatCurrency(t.loss)}`).join('\n')}
+
+### 顧客別 赤字ワースト
+${topCustomers.map((c, i) => `${i + 1}. ${c.name}: ${c.count}件 / ${formatCurrency(c.loss)}`).join('\n')}
+
+### 高リスクPJ区分
+${data.highRiskPjCategories.length > 0 ? data.highRiskPjCategories.join(', ') : 'なし'}
+
+### 赤字リピート顧客
+${data.highRiskCustomers.length > 0 ? data.highRiskCustomers.join(', ') : 'なし'}
+
+### 共通要因（システム分析結果）
+${data.commonFactors.length > 0 ? data.commonFactors.map(f => `- ${f}`).join('\n') : '特定なし'}
+
+${data.seasonalPattern ? `### 季節性パターン\n${data.seasonalPattern}` : ''}
+
+### 月次推移
+${data.monthlyTrend.filter(m => m.count > 0).map(m => `- ${m.month}: ${m.count}件 / ${formatCurrency(m.loss)}`).join('\n')}
+
+## 出力形式
+以下の観点から500文字程度で赤字案件の分析と改善提案を記述してください：
+
+1. **現状評価**: 赤字案件の深刻度、年度推移からの傾向
+
+2. **根本原因分析**: PJ区分・担当者・顧客の傾向から推測される原因
+   - 設計不具合や製造不具合の可能性を検討
+   - 見積精度や営業プロセスの問題を検討
+   - 特定の顧客・案件タイプでの繰り返しパターンを分析
+
+3. **優先対策**: 最も効果的な改善策（具体的に）
+   - 設計レビュー強化、製造品質向上の観点を含める
+   - 検査体制の強化（工程内検査、出荷前検査の徹底）
+   - 外注製作の管理体制強化（外注先の選定・評価・品質管理）
+   - 見積プロセスの改善策を提案
+
+4. **予防策**: 今後の赤字発生を防ぐための仕組み提案
+   - 受注前のリスク評価チェックリスト
+   - 設計・製造段階での早期警告システム
+   - 検査基準の明確化と検査記録の徹底
+   - 外注先の定期評価制度と品質監査
+   - 原価管理の強化策
+
+5. **アクションプラン**: 今すぐ取り組むべき3つのアクション
+
+建設的かつ具体的なトーンで記述してください。数値を根拠として示し、実行可能な提案を行ってください。
+設計不具合や製造品質問題の可能性がある場合は、具体的な改善策を提案してください。`;
+}
+
 function buildSalesOverviewPrompt(data: SalesOverviewData): string {
   const topRegion = [...data.regionSummary].sort((a, b) => b.amount - a.amount)[0];
   const topOffices = [...data.officeSummary].sort((a, b) => b.amount - a.amount).slice(0, 3);
@@ -412,6 +553,9 @@ export async function POST(request: NextRequest) {
         break;
       case "sales-person":
         prompt = buildSalesPersonPrompt(data as SalesPersonData);
+        break;
+      case "deficit-analysis":
+        prompt = buildDeficitAnalysisPrompt(data as DeficitAnalysisData);
         break;
       default:
         return NextResponse.json(

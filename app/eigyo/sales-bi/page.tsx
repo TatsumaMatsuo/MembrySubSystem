@@ -282,17 +282,15 @@ function calcChange(current: number, previous: number): { value: number; trend: 
 }
 
 // タブ定義
-type TabType = "overview" | "region" | "office" | "salesperson" | "category" | "industry" | "budget" | "deficit";
+type TabType = "overview" | "region" | "office" | "salesperson" | "category" | "budget";
 
 const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
-  { id: "overview", label: "概要", icon: <BarChart3 className="w-4 h-4" /> },
-  { id: "region", label: "エリア別", icon: <MapPin className="w-4 h-4" /> },
-  { id: "office", label: "営業所別", icon: <Building2 className="w-4 h-4" /> },
-  { id: "salesperson", label: "担当者別", icon: <User className="w-4 h-4" /> },
-  { id: "category", label: "PJ区分別", icon: <Filter className="w-4 h-4" /> },
-  { id: "industry", label: "産業別", icon: <Users className="w-4 h-4" /> },
-  { id: "budget", label: "予実管理", icon: <Target className="w-4 h-4" /> },
-  { id: "deficit", label: "赤字案件", icon: <AlertTriangle className="w-4 h-4" /> },
+  { id: "overview", label: "概要", icon: <BarChart3 className="w-3 h-3" /> },
+  { id: "region", label: "エリア別", icon: <MapPin className="w-3 h-3" /> },
+  { id: "office", label: "営業所別", icon: <Building2 className="w-3 h-3" /> },
+  { id: "salesperson", label: "担当者別", icon: <User className="w-3 h-3" /> },
+  { id: "category", label: "集計区分別", icon: <Filter className="w-3 h-3" /> },
+  { id: "budget", label: "予実管理", icon: <Target className="w-3 h-3" /> },
 ];
 
 // タブ名マップ
@@ -301,10 +299,8 @@ const TAB_NAMES: Record<TabType, string> = {
   region: "エリア別分析",
   office: "営業所別分析",
   salesperson: "担当者別分析",
-  category: "PJ区分別分析",
-  industry: "産業別分析",
+  category: "集計区分別分析",
   budget: "予実管理",
-  deficit: "赤字案件分析",
 };
 
 // 印刷ボタンコンポーネント
@@ -683,6 +679,10 @@ export default function BIDashboardPage() {
   const [selectedArea, setSelectedArea] = useState<string>("all");
   // 営業所詳細選択（営業所別タブ用）
   const [selectedOfficeForDetail, setSelectedOfficeForDetail] = useState<string>("");
+  // PJ区分詳細データ折りたたみ（デフォルト: 折りたたみ）
+  const [isPjCategoryDetailExpanded, setIsPjCategoryDetailExpanded] = useState(false);
+  // 産業分類別詳細データ折りたたみ（デフォルト: 折りたたみ）
+  const [isIndustryDetailExpanded, setIsIndustryDetailExpanded] = useState(false);
 
   // ログインユーザーの社員名
   const loggedInEmployeeName = (session?.user as any)?.employeeName || "";
@@ -1547,22 +1547,22 @@ export default function BIDashboardPage() {
     <MainLayout>
       <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden print:h-auto print:overflow-visible print:bg-white">
         {/* ヘッダー - 印刷時非表示 */}
-        <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white no-print">
+        <div className="flex-shrink-0 px-4 py-2 border-b border-gray-200 bg-white no-print">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <Gauge className="w-6 h-6 text-blue-500" />
+              <h1 className="text-lg font-bold text-gray-800 flex items-center gap-1">
+                <Gauge className="w-5 h-5 text-blue-500" />
                 売上BI
+                <span className="text-xs font-normal text-gray-500 ml-2">営業部</span>
               </h1>
-              <p className="text-sm text-gray-500">営業部 &gt; 売上BI</p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-600">期間:</label>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <label className="text-xs font-medium text-gray-600">期間:</label>
                 <select
                   value={selectedPeriod}
                   onChange={(e) => setSelectedPeriod(parseInt(e.target.value))}
-                  className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {Array.from({ length: 10 }, (_, i) => currentPeriod - 5 + i).map((p) => (
                     <option key={p} value={p}>
@@ -1574,9 +1574,9 @@ export default function BIDashboardPage() {
               <button
                 onClick={fetchData}
                 disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition-all shadow-md"
+                className="flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold rounded hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition-all shadow-sm"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
                 更新
               </button>
             </div>
@@ -1584,10 +1584,10 @@ export default function BIDashboardPage() {
 
           {/* 全社KPI（折りたたみ可能） */}
           {companyKPI && (
-            <div className="mt-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200 overflow-hidden">
+            <div className="mt-2 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200 overflow-hidden">
               <button
                 onClick={() => setIsKPIExpanded(!isKPIExpanded)}
-                className="w-full flex items-center justify-between p-3 hover:bg-purple-100/50 transition-colors"
+                className="w-full flex items-center justify-between px-3 py-1.5 hover:bg-purple-100/50 transition-colors"
               >
                 <div className="flex items-center gap-2">
                   <Target className="w-4 h-4 text-purple-600" />
@@ -1600,37 +1600,37 @@ export default function BIDashboardPage() {
                 )}
               </button>
               {isKPIExpanded && (
-                <div className="px-3 pb-3">
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 text-xs">
-                    <div className="bg-white/80 rounded-lg p-2">
+                <div className="px-2 pb-2">
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 text-xs">
+                    <div className="bg-white/80 rounded p-1.5">
                       <div className="text-gray-500">売上目標</div>
                       <div className="font-bold text-gray-800">{formatAmount(companyKPI.salesTarget * 1000)}円</div>
                     </div>
-                    <div className="bg-white/80 rounded-lg p-2">
+                    <div className="bg-white/80 rounded p-1.5">
                       <div className="text-gray-500">売上原価率</div>
                       <div className="font-bold text-orange-600">{companyKPI.costOfSalesRate}%</div>
                     </div>
-                    <div className="bg-white/80 rounded-lg p-2">
+                    <div className="bg-white/80 rounded p-1.5">
                       <div className="text-gray-500">販管費率</div>
                       <div className="font-bold text-blue-600">{companyKPI.sgaRate}%</div>
                     </div>
-                    <div className="bg-white/80 rounded-lg p-2">
+                    <div className="bg-white/80 rounded p-1.5">
                       <div className="text-gray-500">営業利益率</div>
                       <div className="font-bold text-green-600">{companyKPI.operatingIncomeRate}%</div>
                     </div>
-                    <div className="bg-white/80 rounded-lg p-2">
+                    <div className="bg-white/80 rounded p-1.5">
                       <div className="text-gray-500">製造原価率</div>
                       <div className="font-bold text-amber-600">{companyKPI.manufacturingCostRate}%</div>
                     </div>
-                    <div className="bg-white/80 rounded-lg p-2">
+                    <div className="bg-white/80 rounded p-1.5">
                       <div className="text-gray-500">実行予算率</div>
                       <div className="font-bold text-cyan-600">{companyKPI.executionBudgetRate}%</div>
                     </div>
-                    <div className="bg-white/80 rounded-lg p-2">
+                    <div className="bg-white/80 rounded p-1.5">
                       <div className="text-gray-500">外注発注率</div>
                       <div className="font-bold text-pink-600">{companyKPI.outsourcingRate}%</div>
                     </div>
-                    <div className="bg-white/80 rounded-lg p-2">
+                    <div className="bg-white/80 rounded p-1.5">
                       <div className="text-gray-500">経常利益率</div>
                       <div className="font-bold text-purple-600">{companyKPI.ordinaryIncomeRate}%</div>
                     </div>
@@ -1641,14 +1641,14 @@ export default function BIDashboardPage() {
           )}
 
           {/* タブ */}
-          <div className="flex gap-1 mt-4 overflow-x-auto">
+          <div className="flex gap-1 mt-2 overflow-x-auto">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
                   activeTab === tab.id
-                    ? "bg-blue-600 text-white shadow-md"
+                    ? "bg-blue-600 text-white shadow-sm"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
@@ -3939,7 +3939,7 @@ export default function BIDashboardPage() {
                     {/* PJ区分 バブルチャート */}
                     <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
                       <h3 className="text-base font-bold mb-4 text-gray-800 flex items-center gap-2">
-                        PJ区分別 売上・利益分析
+                        PJ区分 売上・利益分析
                         <span className="text-xs font-normal text-gray-500">（上位10件・横軸: 売上高、縦軸: 粗利、円の大きさ: 件数）</span>
                       </h3>
                       <div className="h-80">
@@ -4015,129 +4015,65 @@ export default function BIDashboardPage() {
                       </div>
                     </div>
 
-                    {/* PJ区分 売上高 TOP5 3年間推移 */}
+                    {/* PJ区分 売上高 TOP5 3期比較（表） */}
                     <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
                       <h3 className="text-base font-bold mb-4 text-gray-800">PJ区分 売上高TOP5 3期比較</h3>
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                              <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">PJ区分</th>
-                              <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">{selectedPeriod - 2}期</th>
-                              <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">{selectedPeriod - 1}期</th>
-                              <th className="px-3 py-2 text-right text-xs font-bold text-blue-700">{selectedPeriod}期</th>
-                              <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">前年比</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {currentData.pjCategorySummary.slice(0, 5).map((category, i) => {
-                              const prev1Data = data.find(d => d.period === selectedPeriod - 1);
-                              const prev2Data = data.find(d => d.period === selectedPeriod - 2);
-                              const prev1Amount = prev1Data?.pjCategorySummary.find(c => c.name === category.name)?.amount || 0;
-                              const prev2Amount = prev2Data?.pjCategorySummary.find(c => c.name === category.name)?.amount || 0;
-                              const yoyChange = prev1Amount > 0 ? ((category.amount - prev1Amount) / prev1Amount) * 100 : 0;
-                              return (
-                                <tr key={category.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                                  <td className="px-3 py-2 text-xs font-medium text-gray-800">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                                      {category.name}
-                                    </div>
-                                  </td>
-                                  <td className="px-3 py-2 text-xs text-right text-gray-600">{formatAmount(prev2Amount)}円</td>
-                                  <td className="px-3 py-2 text-xs text-right text-gray-600">{formatAmount(prev1Amount)}円</td>
-                                  <td className="px-3 py-2 text-xs text-right text-blue-600 font-bold">{formatAmount(category.amount)}円</td>
-                                  <td className={`px-3 py-2 text-xs text-right font-bold ${yoyChange >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                    {prev1Amount > 0 ? `${yoyChange >= 0 ? "+" : ""}${yoyChange.toFixed(1)}%` : "-"}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 県別 */}
-                  <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                    <h3 className="text-base font-bold mb-4 text-gray-800">納入先県別売上 TOP15</h3>
-                    <div className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={currentData.prefectureSummary.slice(0, 15)}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={60} />
-                          <YAxis tickFormatter={(v) => formatAmount(v)} />
-                          <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, ""]} />
-                          <Bar dataKey="amount" fill={COLORS.quaternary}>
-                            {currentData.prefectureSummary.slice(0, 15).map((_, i) => (
-                              <Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* WEB新規 月別売上推移 */}
-                  <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                    <h3 className="text-base font-bold mb-4 text-gray-800 flex items-center gap-2">
-                      WEB新規 月別売上推移
-                      <span className="text-xs font-normal text-gray-500">（Web新規・TEL新規 vs 通常）</span>
-                    </h3>
-                    <div className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={currentData.webNewMonthlyData || []}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                          <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
-                          <Tooltip
-                            formatter={(value: number, name: string) => {
-                              const label = name === "webNew" ? "WEB新規売上" : "通常売上";
-                              return [`${value.toLocaleString()}円`, label];
-                            }}
-                            labelFormatter={(label) => `${label}`}
-                          />
-                          <Legend
-                            formatter={(value) => value === "webNew" ? "WEB新規" : "通常"}
-                          />
-                          <Bar dataKey="webNew" name="webNew" fill="#22c55e" stackId="sales" />
-                          <Bar dataKey="normal" name="normal" fill="#3b82f6" stackId="sales" />
-                        </ComposedChart>
-                      </ResponsiveContainer>
-                    </div>
-                    {/* WEB新規サマリー */}
-                    <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
                       {(() => {
-                        const webNewData = currentData.webNewMonthlyData || [];
-                        const webNewTotal = webNewData.reduce((sum, d) => sum + d.webNew, 0);
-                        const webNewCount = webNewData.reduce((sum, d) => sum + d.webNewCount, 0);
-                        const normalTotal = webNewData.reduce((sum, d) => sum + d.normal, 0);
-                        const normalCount = webNewData.reduce((sum, d) => sum + d.normalCount, 0);
-                        const webNewRate = (webNewTotal + normalTotal) > 0 ? (webNewTotal / (webNewTotal + normalTotal)) * 100 : 0;
+                        // 各期のTOP5を取得し、重複を除いて統合
+                        const prev2Data = data.find(d => d.period === selectedPeriod - 2);
+                        const prev1Data = data.find(d => d.period === selectedPeriod - 1);
+
+                        const top5Current = currentData.pjCategorySummary.slice(0, 5).map(c => c.name);
+                        const top5Prev1 = prev1Data?.pjCategorySummary.slice(0, 5).map(c => c.name) || [];
+                        const top5Prev2 = prev2Data?.pjCategorySummary.slice(0, 5).map(c => c.name) || [];
+
+                        // 重複を除いて統合
+                        const allCategories = [...new Set([...top5Prev2, ...top5Prev1, ...top5Current])];
+
+                        // 表データ作成
+                        const tableData = allCategories.map(cat => {
+                          const p2Amount = prev2Data?.pjCategorySummary.find(c => c.name === cat)?.amount || 0;
+                          const p1Amount = prev1Data?.pjCategorySummary.find(c => c.name === cat)?.amount || 0;
+                          const p0Amount = currentData.pjCategorySummary.find(c => c.name === cat)?.amount || 0;
+                          const yoyChange = p1Amount > 0 ? ((p0Amount - p1Amount) / p1Amount) * 100 : 0;
+                          return { name: cat, p2Amount, p1Amount, p0Amount, yoyChange };
+                        }).sort((a, b) => b.p0Amount - a.p0Amount);
+
                         return (
                           <>
-                            <div className="bg-green-50 rounded-lg p-3 text-center">
-                              <p className="text-xs text-green-600 font-medium">WEB新規 売上合計</p>
-                              <p className="text-lg font-bold text-green-700">{formatAmount(webNewTotal)}円</p>
-                              <p className="text-xs text-green-500">{webNewCount}件</p>
+                            <div className="overflow-x-auto">
+                              <table className="w-full">
+                                <thead className="bg-gray-50 border-b border-gray-200">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">PJ区分</th>
+                                    <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">{selectedPeriod - 2}期</th>
+                                    <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">{selectedPeriod - 1}期</th>
+                                    <th className="px-3 py-2 text-right text-xs font-bold text-blue-700">{selectedPeriod}期</th>
+                                    <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">前年比</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {tableData.map((row, i) => (
+                                    <tr key={row.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                                      <td className="px-3 py-2 text-xs font-medium text-gray-800">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                          {row.name}
+                                        </div>
+                                      </td>
+                                      <td className="px-3 py-2 text-xs text-right text-gray-600">{formatAmount(row.p2Amount)}円</td>
+                                      <td className="px-3 py-2 text-xs text-right text-gray-600">{formatAmount(row.p1Amount)}円</td>
+                                      <td className="px-3 py-2 text-xs text-right text-blue-600 font-bold">{formatAmount(row.p0Amount)}円</td>
+                                      <td className={`px-3 py-2 text-xs text-right font-bold ${row.yoyChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                        {row.p1Amount > 0 ? `${row.yoyChange >= 0 ? "+" : ""}${row.yoyChange.toFixed(1)}%` : "-"}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
-                            <div className="bg-blue-50 rounded-lg p-3 text-center">
-                              <p className="text-xs text-blue-600 font-medium">通常 売上合計</p>
-                              <p className="text-lg font-bold text-blue-700">{formatAmount(normalTotal)}円</p>
-                              <p className="text-xs text-blue-500">{normalCount}件</p>
-                            </div>
-                            <div className="bg-purple-50 rounded-lg p-3 text-center">
-                              <p className="text-xs text-purple-600 font-medium">WEB新規 比率</p>
-                              <p className="text-lg font-bold text-purple-700">{webNewRate.toFixed(1)}%</p>
-                              <p className="text-xs text-purple-500">売上ベース</p>
-                            </div>
-                            <div className="bg-orange-50 rounded-lg p-3 text-center">
-                              <p className="text-xs text-orange-600 font-medium">WEB新規 件数比率</p>
-                              <p className="text-lg font-bold text-orange-700">
-                                {(webNewCount + normalCount) > 0 ? ((webNewCount / (webNewCount + normalCount)) * 100).toFixed(1) : 0}%
-                              </p>
-                              <p className="text-xs text-orange-500">件数ベース</p>
+                            <div className="mt-2 text-xs text-gray-500 text-center">
+                              ※ 各期のTOP5を統合（{allCategories.length}カテゴリ）
                             </div>
                           </>
                         );
@@ -4145,128 +4081,373 @@ export default function BIDashboardPage() {
                     </div>
                   </div>
 
-                  {/* PJ区分別詳細テーブル */}
+                  {/* PJ区分詳細データ（折りたたみ可能） */}
                   <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-                    <div className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
-                      <h3 className="text-base font-bold text-white">PJ区分別 詳細データ</h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">PJ区分</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">売上金額</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">粗利</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">粗利率</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">受注件数</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">構成比</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {currentData.pjCategorySummary.map((category, i) => {
-                            const profitRate = category.amount > 0 ? (category.profit / category.amount) * 100 : 0;
-                            return (
-                              <tr key={category.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                                <td className="px-4 py-3 text-sm font-medium text-gray-800">{category.name}</td>
-                                <td className="px-4 py-3 text-sm text-right text-gray-700">
-                                  {formatAmount(category.amount)}円
-                                </td>
-                                <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">
-                                  {formatAmount(category.profit)}円
-                                </td>
-                                <td className={`px-4 py-3 text-sm text-right font-bold ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
-                                  {profitRate.toFixed(1)}%
-                                </td>
-                                <td className="px-4 py-3 text-sm text-right text-gray-700">
-                                  {category.count.toLocaleString()}件
-                                </td>
-                                <td className="px-4 py-3 text-sm text-right text-gray-700">
-                                  {((category.amount / currentData.totalAmount) * 100).toFixed(1)}%
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* 産業別タブ */}
-              {activeTab === "industry" && (
-                <>
-                  {/* 印刷ボタン */}
-                  <div className="flex justify-end mb-4 no-print">
-                    <PrintButton
-                      tabName={TAB_NAMES.industry}
-                      period={selectedPeriod}
-                      dateRange={currentData.dateRange}
-                    />
-                  </div>
-                  <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                    <h3 className="text-base font-bold mb-4 text-gray-800">産業分類別売上</h3>
-                    <div className="h-96">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={currentData.industrySummary.slice(0, 15)} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis type="number" tickFormatter={(v) => formatAmount(v)} />
-                          <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 11 }} />
-                          <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, ""]} />
-                          <Bar dataKey="amount" fill={COLORS.quinary}>
-                            {currentData.industrySummary.slice(0, 15).map((_, i) => (
-                              <Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
+                    <button
+                      onClick={() => setIsPjCategoryDetailExpanded(!isPjCategoryDetailExpanded)}
+                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3 flex items-center justify-between hover:from-blue-600 hover:to-cyan-600 transition-colors"
+                    >
+                      <h3 className="text-base font-bold text-white">PJ区分 詳細データ</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-blue-100">{isPjCategoryDetailExpanded ? "折りたたむ" : "展開する"}</span>
+                        {isPjCategoryDetailExpanded ? (
+                          <ChevronUp className="w-5 h-5 text-white" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-white" />
+                        )}
+                      </div>
+                    </button>
+                    {isPjCategoryDetailExpanded && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">PJ区分</th>
+                              <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">売上金額</th>
+                              <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">粗利</th>
+                              <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">粗利率</th>
+                              <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">受注件数</th>
+                              <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">構成比</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {currentData.pjCategorySummary.map((category, i) => {
+                              const profitRate = category.amount > 0 ? (category.profit / category.amount) * 100 : 0;
+                              return (
+                                <tr key={category.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{category.name}</td>
+                                  <td className="px-4 py-3 text-sm text-right text-gray-700">
+                                    {formatAmount(category.amount)}円
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">
+                                    {formatAmount(category.profit)}円
+                                  </td>
+                                  <td className={`px-4 py-3 text-sm text-right font-bold ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
+                                    {profitRate.toFixed(1)}%
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-right text-gray-700">
+                                    {category.count.toLocaleString()}件
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-right text-gray-700">
+                                    {((category.amount / currentData.totalAmount) * 100).toFixed(1)}%
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
 
-                  {/* 産業別詳細テーブル */}
+                  {/* 県別 TOP5 & WEB新規 横並びレイアウト */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* 県別 TOP5 3期比較（表） */}
+                    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                      <h3 className="text-base font-bold mb-4 text-gray-800">納入先県別売上 TOP5 3期比較</h3>
+                    {(() => {
+                      // 各期のTOP5を取得し、重複を除いて統合
+                      const prev2Data = data.find(d => d.period === selectedPeriod - 2);
+                      const prev1Data = data.find(d => d.period === selectedPeriod - 1);
+
+                      const top5Current = currentData.prefectureSummary.slice(0, 5).map(c => c.name);
+                      const top5Prev1 = prev1Data?.prefectureSummary.slice(0, 5).map(c => c.name) || [];
+                      const top5Prev2 = prev2Data?.prefectureSummary.slice(0, 5).map(c => c.name) || [];
+
+                      // 重複を除いて統合
+                      const allPrefectures = [...new Set([...top5Prev2, ...top5Prev1, ...top5Current])];
+
+                      // 表データ作成
+                      const tableData = allPrefectures.map(pref => {
+                        const p2Amount = prev2Data?.prefectureSummary.find(c => c.name === pref)?.amount || 0;
+                        const p1Amount = prev1Data?.prefectureSummary.find(c => c.name === pref)?.amount || 0;
+                        const p0Amount = currentData.prefectureSummary.find(c => c.name === pref)?.amount || 0;
+                        const yoyChange = p1Amount > 0 ? ((p0Amount - p1Amount) / p1Amount) * 100 : 0;
+                        return { name: pref, p2Amount, p1Amount, p0Amount, yoyChange };
+                      }).sort((a, b) => b.p0Amount - a.p0Amount);
+
+                      return (
+                        <>
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                  <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">県名</th>
+                                  <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">{selectedPeriod - 2}期</th>
+                                  <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">{selectedPeriod - 1}期</th>
+                                  <th className="px-3 py-2 text-right text-xs font-bold text-blue-700">{selectedPeriod}期</th>
+                                  <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">前年比</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {tableData.map((row, i) => (
+                                  <tr key={row.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                                    <td className="px-3 py-2 text-xs font-medium text-gray-800">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                        {row.name}
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-2 text-xs text-right text-gray-600">{formatAmount(row.p2Amount)}円</td>
+                                    <td className="px-3 py-2 text-xs text-right text-gray-600">{formatAmount(row.p1Amount)}円</td>
+                                    <td className="px-3 py-2 text-xs text-right text-blue-600 font-bold">{formatAmount(row.p0Amount)}円</td>
+                                    <td className={`px-3 py-2 text-xs text-right font-bold ${row.yoyChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                      {row.p1Amount > 0 ? `${row.yoyChange >= 0 ? "+" : ""}${row.yoyChange.toFixed(1)}%` : "-"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div className="mt-2 text-xs text-gray-500 text-center">
+                            ※ 各期のTOP5を統合（{allPrefectures.length}県）
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+
+                    {/* WEB新規 月別売上推移 */}
+                    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                      <h3 className="text-base font-bold mb-4 text-gray-800">WEB新規 月別売上推移</h3>
+                    {(() => {
+                      const webNewData = currentData.webNewMonthlyData || [];
+                      // 累計データを作成
+                      let cumulative = 0;
+                      const chartData = webNewData.map(d => {
+                        cumulative += d.webNew;
+                        return {
+                          month: d.month,
+                          webNew: d.webNew,
+                          cumulative: cumulative,
+                        };
+                      });
+                      const webNewTotal = webNewData.reduce((sum, d) => sum + d.webNew, 0);
+                      const webNewCount = webNewData.reduce((sum, d) => sum + d.webNewCount, 0);
+
+                      return (
+                        <>
+                          <div className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <ComposedChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                                <YAxis
+                                  yAxisId="left"
+                                  tickFormatter={(v) => formatAmount(v)}
+                                  tick={{ fontSize: 10 }}
+                                  orientation="left"
+                                />
+                                <YAxis
+                                  yAxisId="right"
+                                  tickFormatter={(v) => formatAmount(v)}
+                                  tick={{ fontSize: 10 }}
+                                  orientation="right"
+                                />
+                                <Tooltip
+                                  formatter={(value, name) => {
+                                    const label = name === "webNew" ? "月次売上" : "累計売上";
+                                    return [`${Number(value).toLocaleString()}円`, label];
+                                  }}
+                                />
+                                <Legend
+                                  formatter={(value) => value === "webNew" ? "月次売上" : "累計売上"}
+                                />
+                                <Bar yAxisId="left" dataKey="webNew" name="webNew" fill="#22c55e" />
+                                <Line
+                                  yAxisId="right"
+                                  type="monotone"
+                                  dataKey="cumulative"
+                                  name="cumulative"
+                                  stroke="#3b82f6"
+                                  strokeWidth={2}
+                                  dot={{ r: 4 }}
+                                />
+                              </ComposedChart>
+                            </ResponsiveContainer>
+                          </div>
+                          {/* WEB新規サマリー */}
+                          <div className="mt-4 grid grid-cols-3 gap-3">
+                            <div className="bg-green-50 rounded-lg p-3 text-center">
+                              <p className="text-xs text-green-600 font-medium">WEB新規 売上合計</p>
+                              <p className="text-lg font-bold text-green-700">{formatAmount(webNewTotal)}円</p>
+                            </div>
+                            <div className="bg-blue-50 rounded-lg p-3 text-center">
+                              <p className="text-xs text-blue-600 font-medium">WEB新規 件数</p>
+                              <p className="text-lg font-bold text-blue-700">{webNewCount}件</p>
+                            </div>
+                            <div className="bg-purple-50 rounded-lg p-3 text-center">
+                              <p className="text-xs text-purple-600 font-medium">平均単価</p>
+                              <p className="text-lg font-bold text-purple-700">
+                                {webNewCount > 0 ? formatAmount(Math.round(webNewTotal / webNewCount)) : 0}円
+                              </p>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                    </div>
+                  </div>
+
+                  {/* 産業分類別売上 TOP5（円グラフ & 3期比較） */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* 円グラフ */}
+                    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                      <h3 className="text-base font-bold mb-4 text-gray-800">産業分類別売上 TOP5</h3>
+                      <div className="h-72">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={currentData.industrySummary.slice(0, 5)}
+                              dataKey="amount"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={80}
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              labelLine={{ stroke: "#666", strokeWidth: 1 }}
+                            >
+                              {currentData.industrySummary.slice(0, 5).map((_, i) => (
+                                <Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, "売上"]} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="flex flex-wrap justify-center gap-2 mt-2">
+                        {currentData.industrySummary.slice(0, 5).map((item, i) => (
+                          <div key={item.name} className="flex items-center gap-1 text-xs">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <span className="text-gray-600">{item.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 3期比較表 */}
+                    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                      <h3 className="text-base font-bold mb-4 text-gray-800">産業分類別売上 TOP5 3期比較</h3>
+                      {(() => {
+                        // 各期のTOP5を取得し、重複を除いて統合
+                        const prev2Data = data.find(d => d.period === selectedPeriod - 2);
+                        const prev1Data = data.find(d => d.period === selectedPeriod - 1);
+
+                        const top5Current = currentData.industrySummary.slice(0, 5).map(c => c.name);
+                        const top5Prev1 = prev1Data?.industrySummary.slice(0, 5).map(c => c.name) || [];
+                        const top5Prev2 = prev2Data?.industrySummary.slice(0, 5).map(c => c.name) || [];
+
+                        // 重複を除いて統合
+                        const allIndustries = [...new Set([...top5Prev2, ...top5Prev1, ...top5Current])];
+
+                        // 表データ作成
+                        const tableData = allIndustries.map(ind => {
+                          const p2Amount = prev2Data?.industrySummary.find(c => c.name === ind)?.amount || 0;
+                          const p1Amount = prev1Data?.industrySummary.find(c => c.name === ind)?.amount || 0;
+                          const p0Amount = currentData.industrySummary.find(c => c.name === ind)?.amount || 0;
+                          const yoyChange = p1Amount > 0 ? ((p0Amount - p1Amount) / p1Amount) * 100 : 0;
+                          return { name: ind, p2Amount, p1Amount, p0Amount, yoyChange };
+                        }).sort((a, b) => b.p0Amount - a.p0Amount);
+
+                        return (
+                          <>
+                            <div className="overflow-x-auto">
+                              <table className="w-full">
+                                <thead className="bg-gray-50 border-b border-gray-200">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">産業分類</th>
+                                    <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">{selectedPeriod - 2}期</th>
+                                    <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">{selectedPeriod - 1}期</th>
+                                    <th className="px-3 py-2 text-right text-xs font-bold text-blue-700">{selectedPeriod}期</th>
+                                    <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">前年比</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {tableData.map((row, i) => (
+                                    <tr key={row.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                                      <td className="px-3 py-2 text-xs font-medium text-gray-800">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                          {row.name}
+                                        </div>
+                                      </td>
+                                      <td className="px-3 py-2 text-xs text-right text-gray-600">{formatAmount(row.p2Amount)}円</td>
+                                      <td className="px-3 py-2 text-xs text-right text-gray-600">{formatAmount(row.p1Amount)}円</td>
+                                      <td className="px-3 py-2 text-xs text-right text-blue-600 font-bold">{formatAmount(row.p0Amount)}円</td>
+                                      <td className={`px-3 py-2 text-xs text-right font-bold ${row.yoyChange >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                        {row.p1Amount > 0 ? `${row.yoyChange >= 0 ? "+" : ""}${row.yoyChange.toFixed(1)}%` : "-"}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <div className="mt-2 text-xs text-gray-500 text-center">
+                              ※ 各期のTOP5を統合（{allIndustries.length}分類）
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* 産業分類別詳細テーブル（折りたたみ可能） */}
                   <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-                    <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-3">
+                    <button
+                      onClick={() => setIsIndustryDetailExpanded(!isIndustryDetailExpanded)}
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-3 flex items-center justify-between hover:from-green-600 hover:to-emerald-600 transition-colors"
+                    >
                       <h3 className="text-base font-bold text-white">産業分類別 詳細データ</h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">産業分類</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">売上金額</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">粗利</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">粗利率</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">受注件数</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">構成比</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {currentData.industrySummary.map((industry, i) => {
-                            const profitRate = industry.amount > 0 ? (industry.profit / industry.amount) * 100 : 0;
-                            return (
-                              <tr key={industry.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                                <td className="px-4 py-3 text-sm font-medium text-gray-800">{industry.name}</td>
-                                <td className="px-4 py-3 text-sm text-right text-gray-700">
-                                  {formatAmount(industry.amount)}円
-                                </td>
-                                <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">
-                                  {formatAmount(industry.profit)}円
-                                </td>
-                                <td className={`px-4 py-3 text-sm text-right font-bold ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
-                                  {profitRate.toFixed(1)}%
-                                </td>
-                                <td className="px-4 py-3 text-sm text-right text-gray-700">
-                                  {industry.count.toLocaleString()}件
-                                </td>
-                                <td className="px-4 py-3 text-sm text-right text-gray-700">
-                                  {((industry.amount / currentData.totalAmount) * 100).toFixed(1)}%
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-green-100">{isIndustryDetailExpanded ? "折りたたむ" : "展開する"}</span>
+                        {isIndustryDetailExpanded ? (
+                          <ChevronUp className="w-5 h-5 text-white" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-white" />
+                        )}
+                      </div>
+                    </button>
+                    {isIndustryDetailExpanded && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">産業分類</th>
+                              <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">売上金額</th>
+                              <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">粗利</th>
+                              <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">粗利率</th>
+                              <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">受注件数</th>
+                              <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">構成比</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {currentData.industrySummary.map((industry, i) => {
+                              const profitRate = industry.amount > 0 ? (industry.profit / industry.amount) * 100 : 0;
+                              return (
+                                <tr key={industry.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                                  <td className="px-4 py-3 text-sm font-medium text-gray-800">{industry.name}</td>
+                                  <td className="px-4 py-3 text-sm text-right text-gray-700">
+                                    {formatAmount(industry.amount)}円
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">
+                                    {formatAmount(industry.profit)}円
+                                  </td>
+                                  <td className={`px-4 py-3 text-sm text-right font-bold ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
+                                    {profitRate.toFixed(1)}%
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-right text-gray-700">
+                                    {industry.count.toLocaleString()}件
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-right text-gray-700">
+                                    {((industry.amount / currentData.totalAmount) * 100).toFixed(1)}%
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -4413,362 +4594,6 @@ export default function BIDashboardPage() {
                   </div>
                 </>
               )}
-            </>
-          )}
-
-          {/* 赤字案件タブ */}
-          {activeTab === "deficit" && currentData?.deficitAnalysis && (
-            <>
-              {/* 印刷ボタン */}
-              <div className="flex justify-end mb-4 no-print">
-                <PrintButton
-                  tabName={TAB_NAMES.deficit}
-                  period={selectedPeriod}
-                  dateRange={currentData.dateRange}
-                />
-              </div>
-              {/* 赤字案件サマリーKPI */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-xl shadow-lg p-4 text-white">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-red-100">赤字案件数</span>
-                    <AlertTriangle className="w-5 h-5 text-red-200" />
-                  </div>
-                  <div className="text-2xl font-bold">{currentData.deficitAnalysis.totalCount}件</div>
-                  <div className="text-sm text-red-200 mt-1">
-                    全体の{currentData.deficitAnalysis.patterns.avgDeficitRate.toFixed(1)}%
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl shadow-lg p-4 text-white">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-orange-100">赤字総額</span>
-                    <TrendingDown className="w-5 h-5 text-orange-200" />
-                  </div>
-                  <div className="text-2xl font-bold">{formatAmount(currentData.deficitAnalysis.totalLoss)}円</div>
-                  <div className="text-sm text-orange-200 mt-1">損失合計</div>
-                </div>
-                <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg p-4 text-white">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-purple-100">平均赤字額</span>
-                    <Gauge className="w-5 h-5 text-purple-200" />
-                  </div>
-                  <div className="text-2xl font-bold">
-                    {currentData.deficitAnalysis.totalCount > 0
-                      ? formatAmount(currentData.deficitAnalysis.totalLoss / currentData.deficitAnalysis.totalCount)
-                      : "0"}
-                    円
-                  </div>
-                  <div className="text-sm text-purple-200 mt-1">1件あたり</div>
-                </div>
-                <div className="bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl shadow-lg p-4 text-white">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-slate-300">高リスク区分</span>
-                    <Shield className="w-5 h-5 text-slate-300" />
-                  </div>
-                  <div className="text-2xl font-bold">
-                    {currentData.deficitAnalysis.patterns.highRiskPjCategories.length}件
-                  </div>
-                  <div className="text-sm text-slate-300 mt-1">要注意PJ区分</div>
-                </div>
-              </div>
-
-              {/* 傾向分析・対策セクション */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                {/* 傾向分析 */}
-                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-                  <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3">
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5" />
-                      傾向分析
-                    </h3>
-                  </div>
-                  <div className="p-4 space-y-4">
-                    {/* 共通要因 */}
-                    {currentData.deficitAnalysis.patterns.commonFactors.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-bold text-gray-700 mb-2">共通要因</h4>
-                        <ul className="space-y-2">
-                          {currentData.deficitAnalysis.patterns.commonFactors.map((factor, i) => (
-                            <li
-                              key={i}
-                              className="flex items-start gap-2 text-sm text-gray-600 bg-amber-50 p-2 rounded-lg"
-                            >
-                              <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                              {factor}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* 高リスクPJ区分 */}
-                    {currentData.deficitAnalysis.patterns.highRiskPjCategories.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-bold text-gray-700 mb-2">高リスクPJ区分</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {currentData.deficitAnalysis.patterns.highRiskPjCategories.map((cat) => (
-                            <span
-                              key={cat}
-                              className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-full"
-                            >
-                              {cat}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 高リスク顧客 */}
-                    {currentData.deficitAnalysis.patterns.highRiskCustomers.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-bold text-gray-700 mb-2">赤字リピート顧客</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {currentData.deficitAnalysis.patterns.highRiskCustomers.map((cust) => (
-                            <span
-                              key={cust}
-                              className="px-3 py-1 bg-orange-100 text-orange-700 text-sm font-medium rounded-full"
-                            >
-                              {cust}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 季節性パターン */}
-                    {currentData.deficitAnalysis.patterns.seasonalPattern && (
-                      <div className="bg-blue-50 p-3 rounded-lg">
-                        <h4 className="text-sm font-bold text-blue-700 mb-1">季節性パターン</h4>
-                        <p className="text-sm text-blue-600">
-                          {currentData.deficitAnalysis.patterns.seasonalPattern}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 対策提案 */}
-                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-                  <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-3">
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      <Lightbulb className="w-5 h-5" />
-                      対策提案
-                    </h3>
-                  </div>
-                  <div className="p-4">
-                    <ul className="space-y-3">
-                      {currentData.deficitAnalysis.recommendations.map((rec, i) => (
-                        <li
-                          key={i}
-                          className="flex items-start gap-3 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border border-emerald-100"
-                        >
-                          <div className="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
-                            {i + 1}
-                          </div>
-                          <p className="text-sm text-gray-700 leading-relaxed">{rec}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* グラフセクション */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                {/* 月別赤字推移 */}
-                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-                  <div className="bg-gradient-to-r from-red-500 to-rose-500 px-4 py-3">
-                    <h3 className="text-base font-bold text-white">月別赤字推移</h3>
-                  </div>
-                  <div className="p-4" style={{ height: 300 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart data={currentData.deficitAnalysis.byMonth}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis yAxisId="left" tickFormatter={(v) => formatAmount(v)} />
-                        <YAxis yAxisId="right" orientation="right" />
-                        <Tooltip
-                          formatter={(v, name) => [
-                            name === "件数" ? `${v}件` : `${(v as number).toLocaleString()}円`,
-                            name,
-                          ]}
-                        />
-                        <Legend />
-                        <Bar yAxisId="left" dataKey="loss" name="損失額" fill="#ef4444" />
-                        <Line
-                          yAxisId="right"
-                          type="monotone"
-                          dataKey="count"
-                          name="件数"
-                          stroke="#f97316"
-                          strokeWidth={2}
-                        />
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                {/* PJ区分別赤字 */}
-                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-                  <div className="bg-gradient-to-r from-purple-500 to-indigo-500 px-4 py-3">
-                    <h3 className="text-base font-bold text-white">PJ区分別赤字</h3>
-                  </div>
-                  <div className="p-4" style={{ height: 300 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={currentData.deficitAnalysis.byPjCategory.slice(0, 8)}
-                        layout="vertical"
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" tickFormatter={(v) => formatAmount(v)} />
-                        <YAxis type="category" dataKey="name" width={100} />
-                        <Tooltip
-                          formatter={(v, name) => [
-                            name === "件数"
-                              ? `${v}件`
-                              : name === "平均粗利率"
-                              ? `${(v as number).toFixed(1)}%`
-                              : `${(v as number).toLocaleString()}円`,
-                            name,
-                          ]}
-                        />
-                        <Legend />
-                        <Bar dataKey="loss" name="損失額" fill="#8b5cf6" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
-
-              {/* 担当者別・顧客別 */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                {/* 担当者別赤字 */}
-                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-500 to-indigo-500 px-4 py-3">
-                    <h3 className="text-base font-bold text-white">担当者別赤字TOP10</h3>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">担当者</th>
-                          <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">営業所</th>
-                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">件数</th>
-                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">損失額</th>
-                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">平均粗利率</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {currentData.deficitAnalysis.byTantousha.slice(0, 10).map((t, i) => (
-                          <tr key={t.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                            <td className="px-4 py-3 text-sm font-medium text-gray-800">{t.name}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{t.office}</td>
-                            <td className="px-4 py-3 text-sm text-right text-gray-700">{t.count}件</td>
-                            <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">
-                              -{formatAmount(t.loss)}円
-                            </td>
-                            <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">
-                              {t.avgProfitRate.toFixed(1)}%
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* 顧客別赤字 */}
-                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-                  <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-3">
-                    <h3 className="text-base font-bold text-white">顧客別赤字TOP10</h3>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">顧客名</th>
-                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">件数</th>
-                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">損失額</th>
-                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">平均粗利率</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {currentData.deficitAnalysis.byCustomer.slice(0, 10).map((c, i) => (
-                          <tr key={c.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                            <td className="px-4 py-3 text-sm font-medium text-gray-800 max-w-[200px] truncate">
-                              {c.name}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-right text-gray-700">{c.count}件</td>
-                            <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">
-                              -{formatAmount(c.loss)}円
-                            </td>
-                            <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">
-                              {c.avgProfitRate.toFixed(1)}%
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              {/* 赤字案件一覧 */}
-              <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-slate-600 to-slate-700 px-4 py-3">
-                  <h3 className="text-base font-bold text-white">赤字案件一覧（損失額順）</h3>
-                </div>
-                <div className="overflow-x-auto max-h-[500px]">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
-                      <tr>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-gray-700">製番</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-gray-700">売上日</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-gray-700">得意先</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-gray-700">担当者</th>
-                        <th className="px-3 py-3 text-left text-xs font-bold text-gray-700">PJ区分</th>
-                        <th className="px-3 py-3 text-right text-xs font-bold text-gray-700">売上</th>
-                        <th className="px-3 py-3 text-right text-xs font-bold text-gray-700">原価</th>
-                        <th className="px-3 py-3 text-right text-xs font-bold text-gray-700">粗利</th>
-                        <th className="px-3 py-3 text-right text-xs font-bold text-gray-700">粗利率</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {currentData.deficitAnalysis.records.map((r, i) => (
-                        <tr
-                          key={`${r.seiban}-${i}`}
-                          className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}
-                        >
-                          <td className="px-3 py-2 text-xs font-mono text-gray-700">{r.seiban || "-"}</td>
-                          <td className="px-3 py-2 text-xs text-gray-600">{r.salesDate}</td>
-                          <td className="px-3 py-2 text-xs text-gray-700 max-w-[150px] truncate" title={r.customer}>
-                            {r.customer}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-700">{r.tantousha}</td>
-                          <td className="px-3 py-2 text-xs text-gray-600">{r.pjCategory}</td>
-                          <td className="px-3 py-2 text-xs text-right text-gray-700">
-                            {r.amount.toLocaleString()}円
-                          </td>
-                          <td className="px-3 py-2 text-xs text-right text-gray-700">
-                            {r.cost.toLocaleString()}円
-                          </td>
-                          <td className="px-3 py-2 text-xs text-right text-red-600 font-medium">
-                            {r.profit.toLocaleString()}円
-                          </td>
-                          <td className="px-3 py-2 text-xs text-right text-red-600 font-medium">
-                            {r.profitRate.toFixed(1)}%
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {currentData.deficitAnalysis.records.length === 100 && (
-                  <div className="px-4 py-2 bg-gray-50 text-sm text-gray-500 text-center border-t">
-                    上位100件を表示しています
-                  </div>
-                )}
-              </div>
             </>
           )}
 

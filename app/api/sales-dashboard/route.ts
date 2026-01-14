@@ -574,7 +574,8 @@ export async function GET(request: NextRequest) {
             webNewMonthlyMap.set(monthIndex, { webNew: 0, webNewCount: 0, normal: 0, normalCount: 0 });
           }
           const wnm = webNewMonthlyMap.get(monthIndex)!;
-          const isWebNew = webNew === "Web新規" || webNew === "TEL新規";
+          // WEB新規は値が「1」のものが対象
+          const isWebNew = webNew === "1";
           if (isWebNew) {
             wnm.webNew += amount;
             wnm.webNewCount++;

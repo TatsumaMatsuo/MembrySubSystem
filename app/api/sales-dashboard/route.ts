@@ -254,6 +254,47 @@ interface OfficeSalesPersons {
   salesPersons: string[];
 }
 
+// 赤字案件
+interface DeficitRecord {
+  seiban: string;          // 製番
+  salesDate: string;       // 売上日
+  customer: string;        // 得意先
+  tantousha: string;       // 担当者
+  office: string;          // 営業所
+  pjCategory: string;      // PJ区分
+  industry: string;        // 産業分類
+  amount: number;          // 売上金額
+  cost: number;            // 原価
+  profit: number;          // 粗利（マイナス）
+  profitRate: number;      // 粗利率
+}
+
+// 赤字案件分析
+interface DeficitAnalysis {
+  // 赤字案件一覧
+  records: DeficitRecord[];
+  // 集計
+  totalCount: number;
+  totalAmount: number;
+  totalLoss: number;       // 損失合計（絶対値）
+  // 分析軸別集計
+  byPjCategory: { name: string; count: number; loss: number; avgProfitRate: number }[];
+  byTantousha: { name: string; office: string; count: number; loss: number; avgProfitRate: number }[];
+  byCustomer: { name: string; count: number; loss: number; avgProfitRate: number }[];
+  byMonth: { month: string; monthIndex: number; count: number; loss: number }[];
+  byIndustry: { name: string; count: number; loss: number; avgProfitRate: number }[];
+  // 傾向分析
+  patterns: {
+    highRiskPjCategories: string[];      // 赤字率が高いPJ区分
+    highRiskCustomers: string[];         // 赤字頻度が高い顧客
+    seasonalPattern: string | null;      // 季節性パターン
+    avgDeficitRate: number;              // 全体の赤字率
+    commonFactors: string[];             // 共通要因
+  };
+  // 対策提案
+  recommendations: string[];
+}
+
 interface PeriodDashboard {
   period: number;
   dateRange: { start: string; end: string };
@@ -280,10 +321,21 @@ interface PeriodDashboard {
   prefectureSummary: DimensionSummary[];
   // WEB新規別
   webNewSummary: DimensionSummary[];
+  // WEB新規 月別推移
+  webNewMonthlyData: {
+    month: string;
+    monthIndex: number;
+    webNew: number;      // Web新規売上
+    webNewCount: number; // Web新規件数
+    normal: number;      // 通常売上
+    normalCount: number; // 通常件数
+  }[];
   // 営業担当者別
   salesPersonSummary: SalesPersonSummary[];
   // 営業所別担当者リスト
   officeSalesPersons: OfficeSalesPersons[];
+  // 赤字案件分析
+  deficitAnalysis: DeficitAnalysis;
 }
 
 export async function GET(request: NextRequest) {
@@ -371,6 +423,8 @@ export async function GET(request: NextRequest) {
       const industryMap = new Map<string, SummaryData>();
       const prefectureMap = new Map<string, SummaryData>();
       const webNewMap = new Map<string, SummaryData>();
+      // WEB新規 月別集計
+      const webNewMonthlyMap = new Map<number, { webNew: number; webNewCount: number; normal: number; normalCount: number }>();
       // 営業担当者別集計
       const salesPersonMap = new Map<string, {
         office: string;
@@ -514,6 +568,22 @@ export async function GET(request: NextRequest) {
         wn.cost += cost;
         wn.profit += profit;
 
+        // WEB新規 月別集計
+        if (monthIndex >= 0) {
+          if (!webNewMonthlyMap.has(monthIndex)) {
+            webNewMonthlyMap.set(monthIndex, { webNew: 0, webNewCount: 0, normal: 0, normalCount: 0 });
+          }
+          const wnm = webNewMonthlyMap.get(monthIndex)!;
+          const isWebNew = webNew === "Web新規" || webNew === "TEL新規";
+          if (isWebNew) {
+            wnm.webNew += amount;
+            wnm.webNewCount++;
+          } else {
+            wnm.normal += amount;
+            wnm.normalCount++;
+          }
+        }
+
         // 営業担当者別集計
         if (!salesPersonMap.has(tantousha)) {
           salesPersonMap.set(tantousha, {
@@ -642,6 +712,263 @@ export async function GET(request: NextRequest) {
         }))
         .sort((a, b) => a.office.localeCompare(b.office));
 
+      // ========== 赤字案件分析 ==========
+      const deficitRecords: DeficitRecord[] = [];
+      const deficitByPjCategory = new Map<string, { count: number; loss: number; totalAmount: number; totalProfit: number }>();
+      const deficitByTantousha = new Map<string, { office: string; count: number; loss: number; totalAmount: number; totalProfit: number }>();
+      const deficitByCustomer = new Map<string, { count: number; loss: number; totalAmount: number; totalProfit: number }>();
+      const deficitByMonth = new Map<number, { count: number; loss: number }>();
+      const deficitByIndustry = new Map<string, { count: number; loss: number; totalAmount: number; totalProfit: number }>();
+
+      // PJ区分ごとの全体件数（赤字率計算用）
+      const totalByPjCategory = new Map<string, number>();
+      const totalByCustomer = new Map<string, number>();
+
+      // 赤字案件を抽出・集計
+      periodRecords.forEach((record) => {
+        const amount = parseFloat(String(record.fields.金額 || 0)) || 0;
+        const cost = parseFloat(String(record.fields.実績_原価計 || record.fields.予定_原価計 || 0)) || 0;
+        const profit = amount - cost;
+        const profitRate = amount > 0 ? (profit / amount) * 100 : 0;
+
+        const uriageDateStr = extractTextValue(record.fields.売上日);
+        const monthIndex = getFiscalMonthIndex(uriageDateStr);
+        const tantousha = extractTextValue(record.fields.担当者) || "未設定";
+        let eigyosho = record.fields.部課
+          ? extractOfficeFromDepartment(record.fields.部課, departmentMap)
+          : "未設定";
+        if (tantousha === HQ_SALES_PERSON) {
+          eigyosho = "本社";
+        }
+        const pjCategory = extractTextValue(record.fields.PJ区分) || "未分類";
+        const industry = extractTextValue(record.fields.産業分類) || "未分類";
+        const customer = extractTextValue(record.fields.得意先) || "未設定";
+        const seiban = extractTextValue(record.fields.製番) || "";
+
+        // 全体件数をカウント
+        totalByPjCategory.set(pjCategory, (totalByPjCategory.get(pjCategory) || 0) + 1);
+        totalByCustomer.set(customer, (totalByCustomer.get(customer) || 0) + 1);
+
+        // 赤字案件のみ集計
+        if (profit < 0) {
+          const loss = Math.abs(profit);
+
+          deficitRecords.push({
+            seiban,
+            salesDate: uriageDateStr,
+            customer,
+            tantousha,
+            office: eigyosho,
+            pjCategory,
+            industry,
+            amount,
+            cost,
+            profit,
+            profitRate,
+          });
+
+          // PJ区分別
+          if (!deficitByPjCategory.has(pjCategory)) {
+            deficitByPjCategory.set(pjCategory, { count: 0, loss: 0, totalAmount: 0, totalProfit: 0 });
+          }
+          const pjData = deficitByPjCategory.get(pjCategory)!;
+          pjData.count++;
+          pjData.loss += loss;
+          pjData.totalAmount += amount;
+          pjData.totalProfit += profit;
+
+          // 担当者別
+          if (!deficitByTantousha.has(tantousha)) {
+            deficitByTantousha.set(tantousha, { office: eigyosho, count: 0, loss: 0, totalAmount: 0, totalProfit: 0 });
+          }
+          const tanData = deficitByTantousha.get(tantousha)!;
+          tanData.count++;
+          tanData.loss += loss;
+          tanData.totalAmount += amount;
+          tanData.totalProfit += profit;
+
+          // 顧客別
+          if (!deficitByCustomer.has(customer)) {
+            deficitByCustomer.set(customer, { count: 0, loss: 0, totalAmount: 0, totalProfit: 0 });
+          }
+          const custData = deficitByCustomer.get(customer)!;
+          custData.count++;
+          custData.loss += loss;
+          custData.totalAmount += amount;
+          custData.totalProfit += profit;
+
+          // 月別
+          if (monthIndex >= 0) {
+            if (!deficitByMonth.has(monthIndex)) {
+              deficitByMonth.set(monthIndex, { count: 0, loss: 0 });
+            }
+            const monthData = deficitByMonth.get(monthIndex)!;
+            monthData.count++;
+            monthData.loss += loss;
+          }
+
+          // 産業別
+          if (!deficitByIndustry.has(industry)) {
+            deficitByIndustry.set(industry, { count: 0, loss: 0, totalAmount: 0, totalProfit: 0 });
+          }
+          const indData = deficitByIndustry.get(industry)!;
+          indData.count++;
+          indData.loss += loss;
+          indData.totalAmount += amount;
+          indData.totalProfit += profit;
+        }
+      });
+
+      // 赤字案件を損失額降順にソート
+      deficitRecords.sort((a, b) => a.profit - b.profit);
+
+      // 集計配列化
+      const byPjCategory = Array.from(deficitByPjCategory.entries())
+        .map(([name, data]) => ({
+          name,
+          count: data.count,
+          loss: data.loss,
+          avgProfitRate: data.totalAmount > 0 ? (data.totalProfit / data.totalAmount) * 100 : 0,
+        }))
+        .sort((a, b) => b.loss - a.loss);
+
+      const byTantousha = Array.from(deficitByTantousha.entries())
+        .map(([name, data]) => ({
+          name,
+          office: data.office,
+          count: data.count,
+          loss: data.loss,
+          avgProfitRate: data.totalAmount > 0 ? (data.totalProfit / data.totalAmount) * 100 : 0,
+        }))
+        .sort((a, b) => b.loss - a.loss);
+
+      const byCustomer = Array.from(deficitByCustomer.entries())
+        .map(([name, data]) => ({
+          name,
+          count: data.count,
+          loss: data.loss,
+          avgProfitRate: data.totalAmount > 0 ? (data.totalProfit / data.totalAmount) * 100 : 0,
+        }))
+        .sort((a, b) => b.loss - a.loss);
+
+      const byMonth = Array.from({ length: 12 }, (_, i) => ({
+        month: getFiscalMonthName(i),
+        monthIndex: i,
+        count: deficitByMonth.get(i)?.count || 0,
+        loss: deficitByMonth.get(i)?.loss || 0,
+      }));
+
+      const byIndustry = Array.from(deficitByIndustry.entries())
+        .map(([name, data]) => ({
+          name,
+          count: data.count,
+          loss: data.loss,
+          avgProfitRate: data.totalAmount > 0 ? (data.totalProfit / data.totalAmount) * 100 : 0,
+        }))
+        .sort((a, b) => b.loss - a.loss);
+
+      // 傾向分析
+      const avgDeficitRate = totalCount > 0 ? (deficitRecords.length / totalCount) * 100 : 0;
+
+      // 高リスクPJ区分（赤字率が平均より高いもの）
+      const highRiskPjCategories = byPjCategory
+        .filter((pj) => {
+          const totalPj = totalByPjCategory.get(pj.name) || 0;
+          const deficitRate = totalPj > 0 ? (pj.count / totalPj) * 100 : 0;
+          return deficitRate > avgDeficitRate && pj.count >= 2;
+        })
+        .slice(0, 5)
+        .map((pj) => pj.name);
+
+      // 高リスク顧客（赤字が複数回発生）
+      const highRiskCustomers = byCustomer
+        .filter((c) => c.count >= 2)
+        .slice(0, 5)
+        .map((c) => c.name);
+
+      // 季節性パターン検出
+      const monthlyDeficitCounts = byMonth.map((m) => m.count);
+      const maxMonth = monthlyDeficitCounts.indexOf(Math.max(...monthlyDeficitCounts));
+      const seasonalPattern = monthlyDeficitCounts[maxMonth] >= 3
+        ? `${getFiscalMonthName(maxMonth)}に赤字案件が集中する傾向`
+        : null;
+
+      // 共通要因の特定
+      const commonFactors: string[] = [];
+      if (byPjCategory.length > 0 && byPjCategory[0].count >= 3) {
+        commonFactors.push(`PJ区分「${byPjCategory[0].name}」での赤字が多発`);
+      }
+      if (byCustomer.length > 0 && byCustomer[0].count >= 3) {
+        commonFactors.push(`顧客「${byCustomer[0].name}」での赤字が多発`);
+      }
+      if (avgDeficitRate > 5) {
+        commonFactors.push(`赤字率${avgDeficitRate.toFixed(1)}%は業界平均より高い水準`);
+      }
+
+      // 対策提案
+      const recommendations: string[] = [];
+      if (highRiskPjCategories.length > 0) {
+        recommendations.push(`高リスクPJ区分（${highRiskPjCategories.join("、")}）の見積精度向上を検討`);
+      }
+      if (highRiskCustomers.length > 0) {
+        recommendations.push(`リピート赤字顧客への価格交渉・取引条件見直しを推奨`);
+      }
+      if (byTantousha.length > 0) {
+        const topDeficitPerson = byTantousha[0];
+        if (topDeficitPerson.count >= 3) {
+          recommendations.push(`${topDeficitPerson.name}氏の案件について原価管理の強化を検討`);
+        }
+      }
+      if (seasonalPattern) {
+        recommendations.push(`${seasonalPattern}のため、該当時期の受注判断を慎重に`);
+      }
+      if (deficitRecords.length > 0) {
+        const avgLoss = deficitRecords.reduce((sum, r) => sum + Math.abs(r.profit), 0) / deficitRecords.length;
+        if (avgLoss > 500000) {
+          recommendations.push(`平均赤字額${formatAmount(avgLoss)}と高額のため、大型案件の原価精査を強化`);
+        }
+      }
+      if (recommendations.length === 0) {
+        recommendations.push("現状の赤字率は許容範囲内です。継続的なモニタリングを推奨");
+      }
+
+      // 金額フォーマット関数（ローカル）
+      function formatAmount(amount: number): string {
+        if (amount >= 100000000) return `${(amount / 100000000).toFixed(1)}億`;
+        if (amount >= 10000) return `${Math.round(amount / 10000)}万`;
+        return amount.toLocaleString();
+      }
+
+      // WEB新規 月別推移データ配列化
+      const webNewMonthlyData = Array.from({ length: 12 }, (_, i) => ({
+        month: getFiscalMonthName(i),
+        monthIndex: i,
+        webNew: webNewMonthlyMap.get(i)?.webNew || 0,
+        webNewCount: webNewMonthlyMap.get(i)?.webNewCount || 0,
+        normal: webNewMonthlyMap.get(i)?.normal || 0,
+        normalCount: webNewMonthlyMap.get(i)?.normalCount || 0,
+      }));
+
+      const deficitAnalysis: DeficitAnalysis = {
+        records: deficitRecords.slice(0, 100), // 上位100件のみ
+        totalCount: deficitRecords.length,
+        totalAmount: deficitRecords.reduce((sum, r) => sum + r.amount, 0),
+        totalLoss: deficitRecords.reduce((sum, r) => sum + Math.abs(r.profit), 0),
+        byPjCategory,
+        byTantousha,
+        byCustomer: byCustomer.slice(0, 20), // 上位20件
+        byMonth,
+        byIndustry: byIndustry.slice(0, 15), // 上位15件
+        patterns: {
+          highRiskPjCategories,
+          highRiskCustomers,
+          seasonalPattern,
+          avgDeficitRate,
+          commonFactors,
+        },
+        recommendations,
+      };
+
       results.push({
         period,
         dateRange,
@@ -658,8 +985,10 @@ export async function GET(request: NextRequest) {
         industrySummary: toSummaryArray(industryMap),
         prefectureSummary: toSummaryArray(prefectureMap),
         webNewSummary: toSummaryArray(webNewMap),
+        webNewMonthlyData,
         salesPersonSummary,
         officeSalesPersons,
+        deficitAnalysis,
       });
     }
 

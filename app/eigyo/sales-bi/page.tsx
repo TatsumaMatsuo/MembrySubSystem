@@ -46,6 +46,11 @@ import {
   Sparkles,
   Loader2,
   ChevronUp,
+  AlertTriangle,
+  AlertCircle,
+  Lightbulb,
+  Shield,
+  Printer,
 } from "lucide-react";
 
 // 型定義
@@ -99,6 +104,42 @@ interface OfficeSalesPersons {
   salesPersons: string[];
 }
 
+// 赤字案件
+interface DeficitRecord {
+  seiban: string;
+  salesDate: string;
+  customer: string;
+  tantousha: string;
+  office: string;
+  pjCategory: string;
+  industry: string;
+  amount: number;
+  cost: number;
+  profit: number;
+  profitRate: number;
+}
+
+// 赤字案件分析
+interface DeficitAnalysis {
+  records: DeficitRecord[];
+  totalCount: number;
+  totalAmount: number;
+  totalLoss: number;
+  byPjCategory: { name: string; count: number; loss: number; avgProfitRate: number }[];
+  byTantousha: { name: string; office: string; count: number; loss: number; avgProfitRate: number }[];
+  byCustomer: { name: string; count: number; loss: number; avgProfitRate: number }[];
+  byMonth: { month: string; monthIndex: number; count: number; loss: number }[];
+  byIndustry: { name: string; count: number; loss: number; avgProfitRate: number }[];
+  patterns: {
+    highRiskPjCategories: string[];
+    highRiskCustomers: string[];
+    seasonalPattern: string | null;
+    avgDeficitRate: number;
+    commonFactors: string[];
+  };
+  recommendations: string[];
+}
+
 interface PeriodDashboard {
   period: number;
   dateRange: { start: string; end: string };
@@ -115,8 +156,17 @@ interface PeriodDashboard {
   industrySummary: DimensionSummary[];
   prefectureSummary: DimensionSummary[];
   webNewSummary: DimensionSummary[];
+  webNewMonthlyData: {
+    month: string;
+    monthIndex: number;
+    webNew: number;
+    webNewCount: number;
+    normal: number;
+    normalCount: number;
+  }[];
   salesPersonSummary: SalesPersonSummary[];
   officeSalesPersons: OfficeSalesPersons[];
+  deficitAnalysis?: DeficitAnalysis;
 }
 
 interface OfficeBudget {
@@ -232,7 +282,7 @@ function calcChange(current: number, previous: number): { value: number; trend: 
 }
 
 // タブ定義
-type TabType = "overview" | "region" | "office" | "salesperson" | "category" | "industry" | "budget";
+type TabType = "overview" | "region" | "office" | "salesperson" | "category" | "industry" | "budget" | "deficit";
 
 const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: "overview", label: "概要", icon: <BarChart3 className="w-4 h-4" /> },
@@ -242,7 +292,70 @@ const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: "category", label: "PJ区分別", icon: <Filter className="w-4 h-4" /> },
   { id: "industry", label: "産業別", icon: <Users className="w-4 h-4" /> },
   { id: "budget", label: "予実管理", icon: <Target className="w-4 h-4" /> },
+  { id: "deficit", label: "赤字案件", icon: <AlertTriangle className="w-4 h-4" /> },
 ];
+
+// タブ名マップ
+const TAB_NAMES: Record<TabType, string> = {
+  overview: "概要",
+  region: "エリア別分析",
+  office: "営業所別分析",
+  salesperson: "担当者別分析",
+  category: "PJ区分別分析",
+  industry: "産業別分析",
+  budget: "予実管理",
+  deficit: "赤字案件分析",
+};
+
+// 印刷ボタンコンポーネント
+function PrintButton({
+  tabName,
+  period,
+  dateRange
+}: {
+  tabName: string;
+  period: number;
+  dateRange?: { start: string; end: string };
+}) {
+  const handlePrint = () => {
+    // 印刷用ヘッダーを動的に追加
+    const printHeader = document.createElement('div');
+    printHeader.id = 'print-header-dynamic';
+    printHeader.className = 'print-header hidden print:block';
+    printHeader.innerHTML = `
+      <h1>売上BIダッシュボード - ${tabName}</h1>
+      <div class="print-date">
+        第${period}期 ${dateRange ? `(${dateRange.start} 〜 ${dateRange.end})` : ''} |
+        印刷日: ${new Date().toLocaleDateString('ja-JP')}
+      </div>
+    `;
+
+    // 既存のヘッダーを削除して新しいものを追加
+    const existing = document.getElementById('print-header-dynamic');
+    if (existing) existing.remove();
+    document.body.insertBefore(printHeader, document.body.firstChild);
+
+    // 印刷実行
+    window.print();
+
+    // 印刷後にヘッダーを削除
+    setTimeout(() => {
+      const header = document.getElementById('print-header-dynamic');
+      if (header) header.remove();
+    }, 1000);
+  };
+
+  return (
+    <button
+      onClick={handlePrint}
+      className="no-print flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm"
+      title="このタブをA4縦で印刷"
+    >
+      <Printer className="w-4 h-4" />
+      <span>印刷</span>
+    </button>
+  );
+}
 
 // KPIカードコンポーネント
 function KPICard({
@@ -1432,9 +1545,9 @@ export default function BIDashboardPage() {
 
   return (
     <MainLayout>
-      <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden">
-        {/* ヘッダー */}
-        <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
+      <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden print:h-auto print:overflow-visible print:bg-white">
+        {/* ヘッダー - 印刷時非表示 */}
+        <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white no-print">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -1547,7 +1660,7 @@ export default function BIDashboardPage() {
         </div>
 
         {/* メインコンテンツ */}
-        <main className="flex-1 overflow-y-auto p-4 space-y-4">
+        <main className="flex-1 overflow-y-auto p-4 space-y-4 print:overflow-visible print:p-0">
           {error && (
             <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg text-sm font-medium">
               {error}
@@ -1561,10 +1674,22 @@ export default function BIDashboardPage() {
               {/* 概要タブ */}
               {activeTab === "overview" && (
                 <>
+                  {/* 印刷ボタン */}
+                  <div className="flex justify-end mb-4 no-print">
+                    <PrintButton
+                      tabName={TAB_NAMES.overview}
+                      period={selectedPeriod}
+                      dateRange={currentData.dateRange}
+                    />
+                  </div>
                   {/* KPIカード */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <KPICard
-                      title="売上金額"
+                  <div className="print-section">
+                    <div className="hidden print:block mb-2">
+                      <h2 className="text-lg font-bold text-gray-800 border-b-2 border-gray-300 pb-1">KPI サマリー</h2>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <KPICard
+                        title="売上金額"
                       value={formatAmount(currentData.totalAmount)}
                       unit="円"
                       change={ytdComparison ? calcChange(ytdComparison.currentAmount, ytdComparison.previousAmount) : undefined}
@@ -1610,15 +1735,20 @@ export default function BIDashboardPage() {
                       color="orange"
                       avgUnitPrices={avgUnitPrices}
                     />
+                    </div>
                   </div>
 
-                  {/* 月次推移グラフ */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                      <h3 className="text-base font-bold mb-4 text-gray-800 flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-blue-500" />
-                        月次売上推移（粗利・原価構成）
-                      </h3>
+                  {/* 月次推移グラフ - 印刷時は改ページ */}
+                  <div className="print-break-before print-section">
+                    <div className="hidden print:block mb-2">
+                      <h2 className="text-lg font-bold text-gray-800 border-b-2 border-gray-300 pb-1">月次・累計売上推移</h2>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print:grid-cols-1">
+                      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                        <h3 className="text-base font-bold mb-4 text-gray-800 flex items-center gap-2">
+                          <TrendingUp className="w-5 h-5 text-blue-500 print:hidden" />
+                          月次売上推移（粗利・原価構成）
+                        </h3>
                       <div className="h-72">
                         <ResponsiveContainer width="100%" height="100%">
                           <ComposedChart data={monthlyComparisonData}>
@@ -1718,16 +1848,21 @@ export default function BIDashboardPage() {
                           </ComposedChart>
                         </ResponsiveContainer>
                       </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* 3期分推移グラフ（折れ線） */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                      <h3 className="text-base font-bold mb-4 text-gray-800 flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-indigo-500" />
-                        売上推移（3期比較）
-                      </h3>
+                  {/* 3期分推移グラフ（折れ線） - 印刷時は改ページ */}
+                  <div className="print-break-before print-section">
+                    <div className="hidden print:block mb-2">
+                      <h2 className="text-lg font-bold text-gray-800 border-b-2 border-gray-300 pb-1">売上・粗利推移（3期比較）</h2>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print:grid-cols-1">
+                      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                        <h3 className="text-base font-bold mb-4 text-gray-800 flex items-center gap-2">
+                          <TrendingUp className="w-5 h-5 text-indigo-500 print:hidden" />
+                          売上推移（3期比較）
+                        </h3>
                       <div className="h-72">
                         <ResponsiveContainer width="100%" height="100%">
                           <LineChart data={salesTrendData}>
@@ -1803,16 +1938,21 @@ export default function BIDashboardPage() {
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* 四半期 & 地域 */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                      <h3 className="text-base font-bold mb-4 text-gray-800 flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-green-500" />
-                        四半期売上（粗利・原価構成）
-                      </h3>
+                  {/* 四半期 & 地域 - 印刷時は改ページ */}
+                  <div className="print-break-before print-section">
+                    <div className="hidden print:block mb-2">
+                      <h2 className="text-lg font-bold text-gray-800 border-b-2 border-gray-300 pb-1">四半期売上分析</h2>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print:grid-cols-1">
+                      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                        <h3 className="text-base font-bold mb-4 text-gray-800 flex items-center gap-2">
+                          <Calendar className="w-5 h-5 text-green-500 print:hidden" />
+                          四半期売上（粗利・原価構成）
+                        </h3>
                       <div className="h-72">
                         <ResponsiveContainer width="100%" height="100%">
                           <ComposedChart data={quarterlyComparisonData}>
@@ -1900,11 +2040,12 @@ export default function BIDashboardPage() {
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* AI分析 */}
-                  <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                  {/* AI分析 - 印刷時は非表示 */}
+                  <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100 no-print">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
                         <Sparkles className="w-5 h-5 text-purple-500" />
@@ -2001,6 +2142,14 @@ export default function BIDashboardPage() {
               {/* エリア別タブ */}
               {activeTab === "region" && (
                 <>
+                  {/* 印刷ボタン */}
+                  <div className="flex justify-end mb-4 no-print">
+                    <PrintButton
+                      tabName={TAB_NAMES.region}
+                      period={selectedPeriod}
+                      dateRange={currentData.dateRange}
+                    />
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {currentData.regionSummary.map((region) => {
                       const regionProfitRate = region.amount > 0 ? (region.profit / region.amount) * 100 : 0;
@@ -2491,6 +2640,14 @@ export default function BIDashboardPage() {
               {/* 営業所別タブ */}
               {activeTab === "office" && (
                 <>
+                  {/* 印刷ボタン */}
+                  <div className="flex justify-end mb-4 no-print">
+                    <PrintButton
+                      tabName={TAB_NAMES.office}
+                      period={selectedPeriod}
+                      dateRange={currentData.dateRange}
+                    />
+                  </div>
                   {/* 営業所選択 */}
                   <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
                     <div className="flex items-center justify-between mb-4">
@@ -2498,7 +2655,7 @@ export default function BIDashboardPage() {
                         <Building2 className="w-5 h-5 text-blue-500" />
                         営業所別分析
                       </h3>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 no-print">
                         <select
                           value={selectedOfficeForDetail}
                           onChange={(e) => setSelectedOfficeForDetail(e.target.value)}
@@ -3114,8 +3271,16 @@ export default function BIDashboardPage() {
               {/* 営業担当者別タブ */}
               {activeTab === "salesperson" && (
                 <>
+                  {/* 印刷ボタン */}
+                  <div className="flex justify-end mb-4 no-print">
+                    <PrintButton
+                      tabName={TAB_NAMES.salesperson}
+                      period={selectedPeriod}
+                      dateRange={currentData.dateRange}
+                    />
+                  </div>
                   {/* フィルター */}
-                  <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                  <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100 no-print">
                     <h3 className="text-base font-bold mb-4 text-gray-800 flex items-center gap-2">
                       <Filter className="w-5 h-5 text-blue-500" />
                       抽出条件
@@ -3762,6 +3927,14 @@ export default function BIDashboardPage() {
               {/* 区分別タブ */}
               {activeTab === "category" && (
                 <>
+                  {/* 印刷ボタン */}
+                  <div className="flex justify-end mb-4 no-print">
+                    <PrintButton
+                      tabName={TAB_NAMES.category}
+                      period={selectedPeriod}
+                      dateRange={currentData.dateRange}
+                    />
+                  </div>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* PJ区分 バブルチャート */}
                     <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
@@ -3906,6 +4079,72 @@ export default function BIDashboardPage() {
                     </div>
                   </div>
 
+                  {/* WEB新規 月別売上推移 */}
+                  <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                    <h3 className="text-base font-bold mb-4 text-gray-800 flex items-center gap-2">
+                      WEB新規 月別売上推移
+                      <span className="text-xs font-normal text-gray-500">（Web新規・TEL新規 vs 通常）</span>
+                    </h3>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={currentData.webNewMonthlyData || []}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                          <YAxis tickFormatter={(v) => formatAmount(v)} tick={{ fontSize: 10 }} />
+                          <Tooltip
+                            formatter={(value: number, name: string) => {
+                              const label = name === "webNew" ? "WEB新規売上" : "通常売上";
+                              return [`${value.toLocaleString()}円`, label];
+                            }}
+                            labelFormatter={(label) => `${label}`}
+                          />
+                          <Legend
+                            formatter={(value) => value === "webNew" ? "WEB新規" : "通常"}
+                          />
+                          <Bar dataKey="webNew" name="webNew" fill="#22c55e" stackId="sales" />
+                          <Bar dataKey="normal" name="normal" fill="#3b82f6" stackId="sales" />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                    {/* WEB新規サマリー */}
+                    <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {(() => {
+                        const webNewData = currentData.webNewMonthlyData || [];
+                        const webNewTotal = webNewData.reduce((sum, d) => sum + d.webNew, 0);
+                        const webNewCount = webNewData.reduce((sum, d) => sum + d.webNewCount, 0);
+                        const normalTotal = webNewData.reduce((sum, d) => sum + d.normal, 0);
+                        const normalCount = webNewData.reduce((sum, d) => sum + d.normalCount, 0);
+                        const webNewRate = (webNewTotal + normalTotal) > 0 ? (webNewTotal / (webNewTotal + normalTotal)) * 100 : 0;
+                        return (
+                          <>
+                            <div className="bg-green-50 rounded-lg p-3 text-center">
+                              <p className="text-xs text-green-600 font-medium">WEB新規 売上合計</p>
+                              <p className="text-lg font-bold text-green-700">{formatAmount(webNewTotal)}円</p>
+                              <p className="text-xs text-green-500">{webNewCount}件</p>
+                            </div>
+                            <div className="bg-blue-50 rounded-lg p-3 text-center">
+                              <p className="text-xs text-blue-600 font-medium">通常 売上合計</p>
+                              <p className="text-lg font-bold text-blue-700">{formatAmount(normalTotal)}円</p>
+                              <p className="text-xs text-blue-500">{normalCount}件</p>
+                            </div>
+                            <div className="bg-purple-50 rounded-lg p-3 text-center">
+                              <p className="text-xs text-purple-600 font-medium">WEB新規 比率</p>
+                              <p className="text-lg font-bold text-purple-700">{webNewRate.toFixed(1)}%</p>
+                              <p className="text-xs text-purple-500">売上ベース</p>
+                            </div>
+                            <div className="bg-orange-50 rounded-lg p-3 text-center">
+                              <p className="text-xs text-orange-600 font-medium">WEB新規 件数比率</p>
+                              <p className="text-lg font-bold text-orange-700">
+                                {(webNewCount + normalCount) > 0 ? ((webNewCount / (webNewCount + normalCount)) * 100).toFixed(1) : 0}%
+                              </p>
+                              <p className="text-xs text-orange-500">件数ベース</p>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
                   {/* PJ区分別詳細テーブル */}
                   <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
                     <div className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-3">
@@ -3957,6 +4196,14 @@ export default function BIDashboardPage() {
               {/* 産業別タブ */}
               {activeTab === "industry" && (
                 <>
+                  {/* 印刷ボタン */}
+                  <div className="flex justify-end mb-4 no-print">
+                    <PrintButton
+                      tabName={TAB_NAMES.industry}
+                      period={selectedPeriod}
+                      dateRange={currentData.dateRange}
+                    />
+                  </div>
                   <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
                     <h3 className="text-base font-bold mb-4 text-gray-800">産業分類別売上</h3>
                     <div className="h-96">
@@ -4027,6 +4274,14 @@ export default function BIDashboardPage() {
               {/* 予実管理タブ */}
               {activeTab === "budget" && budget && (
                 <>
+                  {/* 印刷ボタン */}
+                  <div className="flex justify-end mb-4 no-print">
+                    <PrintButton
+                      tabName={TAB_NAMES.budget}
+                      period={selectedPeriod}
+                      dateRange={currentData.dateRange}
+                    />
+                  </div>
                   {/* 達成率ゲージ */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <AchievementGauge
@@ -4158,6 +4413,362 @@ export default function BIDashboardPage() {
                   </div>
                 </>
               )}
+            </>
+          )}
+
+          {/* 赤字案件タブ */}
+          {activeTab === "deficit" && currentData?.deficitAnalysis && (
+            <>
+              {/* 印刷ボタン */}
+              <div className="flex justify-end mb-4 no-print">
+                <PrintButton
+                  tabName={TAB_NAMES.deficit}
+                  period={selectedPeriod}
+                  dateRange={currentData.dateRange}
+                />
+              </div>
+              {/* 赤字案件サマリーKPI */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-xl shadow-lg p-4 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-red-100">赤字案件数</span>
+                    <AlertTriangle className="w-5 h-5 text-red-200" />
+                  </div>
+                  <div className="text-2xl font-bold">{currentData.deficitAnalysis.totalCount}件</div>
+                  <div className="text-sm text-red-200 mt-1">
+                    全体の{currentData.deficitAnalysis.patterns.avgDeficitRate.toFixed(1)}%
+                  </div>
+                </div>
+                <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-xl shadow-lg p-4 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-orange-100">赤字総額</span>
+                    <TrendingDown className="w-5 h-5 text-orange-200" />
+                  </div>
+                  <div className="text-2xl font-bold">{formatAmount(currentData.deficitAnalysis.totalLoss)}円</div>
+                  <div className="text-sm text-orange-200 mt-1">損失合計</div>
+                </div>
+                <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg p-4 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-purple-100">平均赤字額</span>
+                    <Gauge className="w-5 h-5 text-purple-200" />
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {currentData.deficitAnalysis.totalCount > 0
+                      ? formatAmount(currentData.deficitAnalysis.totalLoss / currentData.deficitAnalysis.totalCount)
+                      : "0"}
+                    円
+                  </div>
+                  <div className="text-sm text-purple-200 mt-1">1件あたり</div>
+                </div>
+                <div className="bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl shadow-lg p-4 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-slate-300">高リスク区分</span>
+                    <Shield className="w-5 h-5 text-slate-300" />
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {currentData.deficitAnalysis.patterns.highRiskPjCategories.length}件
+                  </div>
+                  <div className="text-sm text-slate-300 mt-1">要注意PJ区分</div>
+                </div>
+              </div>
+
+              {/* 傾向分析・対策セクション */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                {/* 傾向分析 */}
+                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                  <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3">
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5" />
+                      傾向分析
+                    </h3>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    {/* 共通要因 */}
+                    {currentData.deficitAnalysis.patterns.commonFactors.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-700 mb-2">共通要因</h4>
+                        <ul className="space-y-2">
+                          {currentData.deficitAnalysis.patterns.commonFactors.map((factor, i) => (
+                            <li
+                              key={i}
+                              className="flex items-start gap-2 text-sm text-gray-600 bg-amber-50 p-2 rounded-lg"
+                            >
+                              <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                              {factor}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* 高リスクPJ区分 */}
+                    {currentData.deficitAnalysis.patterns.highRiskPjCategories.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-700 mb-2">高リスクPJ区分</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {currentData.deficitAnalysis.patterns.highRiskPjCategories.map((cat) => (
+                            <span
+                              key={cat}
+                              className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-full"
+                            >
+                              {cat}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 高リスク顧客 */}
+                    {currentData.deficitAnalysis.patterns.highRiskCustomers.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-700 mb-2">赤字リピート顧客</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {currentData.deficitAnalysis.patterns.highRiskCustomers.map((cust) => (
+                            <span
+                              key={cust}
+                              className="px-3 py-1 bg-orange-100 text-orange-700 text-sm font-medium rounded-full"
+                            >
+                              {cust}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 季節性パターン */}
+                    {currentData.deficitAnalysis.patterns.seasonalPattern && (
+                      <div className="bg-blue-50 p-3 rounded-lg">
+                        <h4 className="text-sm font-bold text-blue-700 mb-1">季節性パターン</h4>
+                        <p className="text-sm text-blue-600">
+                          {currentData.deficitAnalysis.patterns.seasonalPattern}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 対策提案 */}
+                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                  <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-3">
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Lightbulb className="w-5 h-5" />
+                      対策提案
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <ul className="space-y-3">
+                      {currentData.deficitAnalysis.recommendations.map((rec, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-3 p-3 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border border-emerald-100"
+                        >
+                          <div className="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                            {i + 1}
+                          </div>
+                          <p className="text-sm text-gray-700 leading-relaxed">{rec}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* グラフセクション */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                {/* 月別赤字推移 */}
+                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                  <div className="bg-gradient-to-r from-red-500 to-rose-500 px-4 py-3">
+                    <h3 className="text-base font-bold text-white">月別赤字推移</h3>
+                  </div>
+                  <div className="p-4" style={{ height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={currentData.deficitAnalysis.byMonth}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis yAxisId="left" tickFormatter={(v) => formatAmount(v)} />
+                        <YAxis yAxisId="right" orientation="right" />
+                        <Tooltip
+                          formatter={(v, name) => [
+                            name === "件数" ? `${v}件` : `${(v as number).toLocaleString()}円`,
+                            name,
+                          ]}
+                        />
+                        <Legend />
+                        <Bar yAxisId="left" dataKey="loss" name="損失額" fill="#ef4444" />
+                        <Line
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="count"
+                          name="件数"
+                          stroke="#f97316"
+                          strokeWidth={2}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* PJ区分別赤字 */}
+                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                  <div className="bg-gradient-to-r from-purple-500 to-indigo-500 px-4 py-3">
+                    <h3 className="text-base font-bold text-white">PJ区分別赤字</h3>
+                  </div>
+                  <div className="p-4" style={{ height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={currentData.deficitAnalysis.byPjCategory.slice(0, 8)}
+                        layout="vertical"
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" tickFormatter={(v) => formatAmount(v)} />
+                        <YAxis type="category" dataKey="name" width={100} />
+                        <Tooltip
+                          formatter={(v, name) => [
+                            name === "件数"
+                              ? `${v}件`
+                              : name === "平均粗利率"
+                              ? `${(v as number).toFixed(1)}%`
+                              : `${(v as number).toLocaleString()}円`,
+                            name,
+                          ]}
+                        />
+                        <Legend />
+                        <Bar dataKey="loss" name="損失額" fill="#8b5cf6" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* 担当者別・顧客別 */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                {/* 担当者別赤字 */}
+                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-500 to-indigo-500 px-4 py-3">
+                    <h3 className="text-base font-bold text-white">担当者別赤字TOP10</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">担当者</th>
+                          <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">営業所</th>
+                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">件数</th>
+                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">損失額</th>
+                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">平均粗利率</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {currentData.deficitAnalysis.byTantousha.slice(0, 10).map((t, i) => (
+                          <tr key={t.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                            <td className="px-4 py-3 text-sm font-medium text-gray-800">{t.name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{t.office}</td>
+                            <td className="px-4 py-3 text-sm text-right text-gray-700">{t.count}件</td>
+                            <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">
+                              -{formatAmount(t.loss)}円
+                            </td>
+                            <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">
+                              {t.avgProfitRate.toFixed(1)}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 顧客別赤字 */}
+                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                  <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-3">
+                    <h3 className="text-base font-bold text-white">顧客別赤字TOP10</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">顧客名</th>
+                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">件数</th>
+                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">損失額</th>
+                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">平均粗利率</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {currentData.deficitAnalysis.byCustomer.slice(0, 10).map((c, i) => (
+                          <tr key={c.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                            <td className="px-4 py-3 text-sm font-medium text-gray-800 max-w-[200px] truncate">
+                              {c.name}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-right text-gray-700">{c.count}件</td>
+                            <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">
+                              -{formatAmount(c.loss)}円
+                            </td>
+                            <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">
+                              {c.avgProfitRate.toFixed(1)}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* 赤字案件一覧 */}
+              <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                <div className="bg-gradient-to-r from-slate-600 to-slate-700 px-4 py-3">
+                  <h3 className="text-base font-bold text-white">赤字案件一覧（損失額順）</h3>
+                </div>
+                <div className="overflow-x-auto max-h-[500px]">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-gray-700">製番</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-gray-700">売上日</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-gray-700">得意先</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-gray-700">担当者</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-gray-700">PJ区分</th>
+                        <th className="px-3 py-3 text-right text-xs font-bold text-gray-700">売上</th>
+                        <th className="px-3 py-3 text-right text-xs font-bold text-gray-700">原価</th>
+                        <th className="px-3 py-3 text-right text-xs font-bold text-gray-700">粗利</th>
+                        <th className="px-3 py-3 text-right text-xs font-bold text-gray-700">粗利率</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {currentData.deficitAnalysis.records.map((r, i) => (
+                        <tr
+                          key={`${r.seiban}-${i}`}
+                          className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}
+                        >
+                          <td className="px-3 py-2 text-xs font-mono text-gray-700">{r.seiban || "-"}</td>
+                          <td className="px-3 py-2 text-xs text-gray-600">{r.salesDate}</td>
+                          <td className="px-3 py-2 text-xs text-gray-700 max-w-[150px] truncate" title={r.customer}>
+                            {r.customer}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-700">{r.tantousha}</td>
+                          <td className="px-3 py-2 text-xs text-gray-600">{r.pjCategory}</td>
+                          <td className="px-3 py-2 text-xs text-right text-gray-700">
+                            {r.amount.toLocaleString()}円
+                          </td>
+                          <td className="px-3 py-2 text-xs text-right text-gray-700">
+                            {r.cost.toLocaleString()}円
+                          </td>
+                          <td className="px-3 py-2 text-xs text-right text-red-600 font-medium">
+                            {r.profit.toLocaleString()}円
+                          </td>
+                          <td className="px-3 py-2 text-xs text-right text-red-600 font-medium">
+                            {r.profitRate.toFixed(1)}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {currentData.deficitAnalysis.records.length === 100 && (
+                  <div className="px-4 py-2 bg-gray-50 text-sm text-gray-500 text-center border-t">
+                    上位100件を表示しています
+                  </div>
+                )}
+              </div>
             </>
           )}
 

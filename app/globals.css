@@ -36,3 +36,224 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
+
+/* ========================================
+   印刷用スタイル - A4縦向け最適化
+   ======================================== */
+@media print {
+  /* ページ設定 */
+  @page {
+    size: A4 portrait;
+    margin: 10mm 5mm;
+  }
+
+  /* 印刷時に非表示にする要素 */
+  .no-print,
+  .print-hide,
+  nav,
+  aside,
+  header:not(.print-header),
+  footer:not(.print-footer),
+  button:not(.print-show),
+  [data-no-print],
+  .sidebar,
+  .navigation,
+  .tab-buttons,
+  .refresh-button {
+    display: none !important;
+  }
+
+  /* 基本スタイル */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 10pt !important;
+    line-height: 1.4 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* コンテナ幅を最大に */
+  .print-container,
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 印刷コンテンツエリア */
+  .h-full, .h-screen {
+    height: auto !important;
+  }
+
+  /* カードのシャドウを削除 */
+  .shadow-lg,
+  .shadow-md,
+  .shadow-sm,
+  .shadow {
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* グラデーション背景を単色に */
+  [class*="bg-gradient"] {
+    background: #1f2937 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* テーブルの改ページ制御 */
+  table {
+    page-break-inside: auto !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
+  }
+
+  /* グリッドを印刷用に調整 */
+  .print-grid-1 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .print-grid-2 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* グラフコンテナの高さ調整 */
+  .recharts-wrapper {
+    max-height: 250px !important;
+    overflow: visible !important;
+  }
+
+  /* グラフ高さ調整 */
+  .h-72 {
+    height: 220px !important;
+  }
+
+  .h-80 {
+    height: 240px !important;
+  }
+
+  .h-96 {
+    height: 280px !important;
+  }
+
+  /* Rechartsグラフの印刷対応 */
+  .recharts-surface {
+    overflow: visible !important;
+  }
+
+  .recharts-wrapper svg {
+    overflow: visible !important;
+  }
+
+  /* ResponsiveContainerの固定サイズ */
+  .recharts-responsive-container {
+    width: 100% !important;
+    min-height: 200px !important;
+  }
+
+  /* グラフコンテナの印刷用スケール調整 */
+  .bg-white.rounded-xl {
+    transform: scale(0.95) !important;
+    transform-origin: top left !important;
+    margin-bottom: 10px !important;
+  }
+
+  /* 印刷ヘッダー */
+  .print-header {
+    display: block !important;
+    text-align: center;
+    padding: 8mm 0;
+    border-bottom: 2px solid #1f2937;
+    margin-bottom: 5mm;
+  }
+
+  .print-header h1 {
+    font-size: 16pt !important;
+    font-weight: bold !important;
+    margin: 0 !important;
+  }
+
+  .print-header .print-date {
+    font-size: 9pt !important;
+    color: #666 !important;
+    margin-top: 2mm !important;
+  }
+
+  /* セクション間のスペース */
+  .print-section {
+    margin-bottom: 5mm !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* KPIカードを横並びに */
+  .print-kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 3mm !important;
+  }
+
+  .print-kpi-card {
+    padding: 3mm !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 2mm !important;
+    text-align: center !important;
+  }
+
+  /* 改ページ制御 */
+  .print-break-before {
+    page-break-before: always !important;
+  }
+
+  .print-break-after {
+    page-break-after: always !important;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid !important;
+  }
+
+  /* テキストサイズ調整 */
+  h1, .text-2xl, .text-3xl {
+    font-size: 14pt !important;
+  }
+
+  h2, .text-xl {
+    font-size: 12pt !important;
+  }
+
+  h3, .text-lg {
+    font-size: 11pt !important;
+  }
+
+  .text-sm, .text-xs {
+    font-size: 8pt !important;
+  }
+
+  /* リンクのURL非表示 */
+  a[href]::after {
+    content: none !important;
+  }
+
+  /* スクロール領域を展開 */
+  .overflow-auto,
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .max-h-\\[500px\\] {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+}

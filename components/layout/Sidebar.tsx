@@ -401,6 +401,20 @@ export function Sidebar({
       <div className="h-full flex flex-col bg-white">
         {/* メニュー */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+          {/* TOPリンク（固定） */}
+          <Link
+            href="/top"
+            onClick={handleLinkClick}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+              isActive("/top")
+                ? "bg-indigo-100 text-indigo-700 font-semibold"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            {getIcon("Home")}
+            <span className="text-sm font-medium">TOP</span>
+          </Link>
+
           {loading && renderLoading()}
           {error && renderError()}
           {!loading && !error && menuStructure.map((menu) => renderLevel1Menu(menu))}
@@ -441,6 +455,20 @@ export function Sidebar({
 
         {/* メニュー */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+          {/* TOPリンク（固定） */}
+          <Link
+            href="/top"
+            onClick={handleLinkClick}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+              isActive("/top")
+                ? "bg-indigo-100 text-indigo-700 font-semibold"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            {getIcon("Home")}
+            {!collapsed && <span className="text-sm font-medium">TOP</span>}
+          </Link>
+
           {loading && renderLoading()}
           {error && renderError()}
           {!loading && !error && menuStructure.map((menu) => renderLevel1Menu(menu))}

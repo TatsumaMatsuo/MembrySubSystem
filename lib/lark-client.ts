@@ -9,11 +9,15 @@ export function getLarkClient(): lark.Client | null {
   }
 
   if (!_larkClient) {
+    // ドメイン判定: 環境変数で指定可能、デフォルトは国際版Lark
+    const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
+    console.log("[lark-client] Using domain:", larkDomain);
+
     _larkClient = new lark.Client({
       appId: process.env.LARK_APP_ID,
       appSecret: process.env.LARK_APP_SECRET,
       appType: lark.AppType.SelfBuild,
-      domain: "https://open.feishu.cn",  // 飛書 (Feishu)
+      domain: larkDomain,
     });
   }
 

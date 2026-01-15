@@ -347,11 +347,18 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const fromPeriod = parseInt(searchParams.get("fromPeriod") || String(getCurrentPeriod() - 2), 10);
   const toPeriod = parseInt(searchParams.get("toPeriod") || String(getCurrentPeriod()), 10);
+  const noCache = searchParams.get("noCache") === "true";
 
   const cacheKey = `sales-dashboard:${fromPeriod}:${toPeriod}`;
-  const cachedResult = getCachedData(cacheKey);
-  if (cachedResult) {
-    return NextResponse.json(cachedResult);
+  if (!noCache) {
+    const cachedResult = getCachedData(cacheKey);
+    if (cachedResult) {
+      return NextResponse.json(cachedResult);
+    }
+  } else {
+    // キャッシュクリア
+    cache.delete(cacheKey);
+    console.log(`[sales-dashboard] Cache cleared for ${cacheKey}`);
   }
 
   try {
@@ -382,6 +389,41 @@ export async function GET(request: NextRequest) {
 
     let allRecords: SalesRecord[] = [];
     let pageToken: string | undefined;
+    // テーブルの総レコード数を確認
+    let totalCount = 0;
+    let countPageToken: string | undefined;
+    do {
+      const countResponse = await client.bitable.appTableRecord.list({
+        path: {
+          app_token: getLarkBaseToken(),
+          table_id: TABLE_ID,
+        },
+        params: {
+          page_size: 500,
+          page_token: countPageToken,
+          field_names: JSON.stringify(["売上番号"]),
+        },
+      });
+      totalCount += countResponse.data?.items?.length || 0;
+      countPageToken = countResponse.data?.page_token;
+    } while (countPageToken);
+    console.log(`[sales-dashboard] DEBUG: Total records in table: ${totalCount}`);
+
+    // テーブルのフィールド定義を取得
+    const fieldListResponse = await client.bitable.appTableField.list({
+      path: {
+        app_token: getLarkBaseToken(),
+        table_id: TABLE_ID,
+      },
+      params: {
+        page_size: 100,
+      },
+    });
+    if (fieldListResponse.data?.items) {
+      const fieldNames = fieldListResponse.data.items.map((f: any) => f.field_name);
+      console.log(`[sales-dashboard] DEBUG: Table field definitions (${fieldNames.length}): ${fieldNames.join(", ")}`);
+    }
+
     const dateFilter = `AND(CurrentValue.[売上日] >= "${overallDateRange.start}", CurrentValue.[売上日] <= "${overallDateRange.end}")`;
 
     do {
@@ -402,6 +444,16 @@ export async function GET(request: NextRequest) {
       }
       pageToken = response.data?.page_token;
     } while (pageToken);
+
+    console.log(`[sales-dashboard] Total records fetched: ${allRecords.length}, Date range: ${overallDateRange.start} - ${overallDateRange.end}`);
+
+    // デバッグ: 売上日の生データを確認
+    const sampleDates = allRecords.slice(0, 10).map(r => ({
+      売上番号: extractTextValue(r.fields.売上番号),
+      売上日: r.fields.売上日,
+      売上日_raw: JSON.stringify(r.fields.売上日)
+    }));
+    console.log(`[sales-dashboard] Sample raw dates: ${JSON.stringify(sampleDates)}`);
 
     const results: PeriodDashboard[] = [];
 
@@ -628,6 +680,10 @@ export async function GET(request: NextRequest) {
         cost: monthlyMap.get(i)?.cost || 0,
         profit: monthlyMap.get(i)?.profit || 0,
       }));
+
+      // 月別件数をログ出力
+      const monthlyCountLog = monthlyData.map(m => `${m.month}:${m.count}`).join(", ");
+      console.log(`[sales-dashboard] Period ${period} monthly counts: ${monthlyCountLog}`);
 
       // 累計データ作成
       let cumCount = 0;

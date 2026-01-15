@@ -484,15 +484,15 @@ export default function OrderBacklogUploadPage() {
                     <p className="text-sm text-gray-600 mt-1">
                       設定: {result.configName}
                     </p>
-                    <div className="mt-3 grid grid-cols-3 gap-4">
+                    <div className="mt-3 grid grid-cols-4 gap-4">
                       <div className="bg-white rounded-lg p-3 text-center shadow-sm">
-                        <p className="text-sm text-gray-500">総行数</p>
+                        <p className="text-sm text-gray-500">処理行数</p>
                         <p className="text-2xl font-bold text-gray-800">
                           {result.totalRows}
                         </p>
                       </div>
                       <div className="bg-white rounded-lg p-3 text-center shadow-sm">
-                        <p className="text-sm text-gray-500">新規追加</p>
+                        <p className="text-sm text-gray-500">新規登録</p>
                         <p className="text-2xl font-bold text-green-600">
                           {result.inserted}
                         </p>
@@ -501,6 +501,12 @@ export default function OrderBacklogUploadPage() {
                         <p className="text-sm text-gray-500">更新</p>
                         <p className="text-2xl font-bold text-blue-600">
                           {result.updated}
+                        </p>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 text-center shadow-sm">
+                        <p className="text-sm text-gray-500">エラー</p>
+                        <p className={`text-2xl font-bold ${result.errors.length > 0 ? "text-red-600" : "text-gray-400"}`}>
+                          {result.errors.length}
                         </p>
                       </div>
                     </div>

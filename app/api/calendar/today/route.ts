@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
         errorMessage = "カレンダーへのアクセス権限がありません。Lark Appにcalendar:calendar:readonly権限（用户身份）が必要です。";
       } else if (calendarListResult.code === 190006) {
         errorMessage = "テナント設定エラー。管理者にお問い合わせください。";
-      } else if (calendarListResult.code === 99991663 || calendarListResult.code === 99991664) {
+      } else if (calendarListResult.code === 99991663 || calendarListResult.code === 99991664 || calendarListResult.code === 99991677) {
         errorMessage = "セッションが切れました。再ログインしてください。";
       }
 

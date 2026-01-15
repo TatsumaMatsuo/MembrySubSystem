@@ -153,6 +153,9 @@ interface DeficitRecord {
   profitRate: number;
 }
 
+// 回収必要売上額の計算（利益率35%で赤字を回収するために必要な売上）
+const RECOVERY_PROFIT_RATE = 0.35;
+
 interface PeriodDeficitData {
   period: number;
   dateRange: { start: string; end: string };
@@ -160,6 +163,7 @@ interface PeriodDeficitData {
   deficitCount: number;    // 赤字件数
   totalLoss: number;       // 損失合計
   avgDeficitRate: number;  // 赤字率
+  recoveryRequiredSales: number; // 回収必要売上額（利益率35%で計算）
   deficitAnalysis: {
     records: DeficitRecord[];
     totalCount: number;
@@ -479,13 +483,20 @@ export async function GET(request: NextRequest) {
         recommendations.push("現状の赤字率は許容範囲内です。継続的なモニタリングを推奨");
       }
 
+      const periodTotalLoss = deficitRecords.reduce((sum, r) => sum + Math.abs(r.profit), 0);
+      const periodDeficitAmount = deficitRecords.reduce((sum, r) => sum + r.amount, 0);
+      // 赤字案件分と合算して35%に戻す計算式
+      // 赤字案件の売上 + 赤字を回収するための追加売上
+      const recoveryRequiredSales = periodDeficitAmount + (periodTotalLoss / RECOVERY_PROFIT_RATE);
+
       results.push({
         period,
         dateRange,
         totalCount,
         deficitCount: deficitRecords.length,
-        totalLoss: deficitRecords.reduce((sum, r) => sum + Math.abs(r.profit), 0),
+        totalLoss: periodTotalLoss,
         avgDeficitRate,
+        recoveryRequiredSales,
         deficitAnalysis: {
           records: deficitRecords.slice(0, 100),
           totalCount: deficitRecords.length,

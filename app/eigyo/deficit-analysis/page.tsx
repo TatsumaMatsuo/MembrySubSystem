@@ -29,7 +29,11 @@ import {
   Printer,
   Sparkles,
   Loader2,
+  Target,
+  Home,
+  ChevronRight,
 } from "lucide-react";
+import Link from "next/link";
 
 // 型定義
 interface DeficitRecord {
@@ -69,6 +73,8 @@ interface DeficitAnalysis {
 interface PeriodData {
   period: number;
   dateRange: { start: string; end: string };
+  totalLoss?: number;
+  recoveryRequiredSales?: number; // 回収必要売上額（利益率35%で計算）
   deficitAnalysis?: DeficitAnalysis;
 }
 
@@ -226,12 +232,24 @@ export default function DeficitAnalysisPage() {
       <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-red-50 overflow-hidden print:h-auto print:overflow-visible print:bg-white">
         {/* ヘッダー */}
         <div className="flex-shrink-0 px-4 py-2 border-b border-gray-200 bg-white no-print">
+          {/* パンくずリスト */}
+          <div className="flex items-center gap-1 text-sm text-gray-500 mb-1">
+            <Link href="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+              <Home className="w-4 h-4" />
+              TOP
+            </Link>
+            <ChevronRight className="w-4 h-4" />
+            <Link href="/eigyo" className="hover:text-blue-600 transition-colors">
+              営業部
+            </Link>
+            <ChevronRight className="w-4 h-4" />
+            <span className="text-gray-700 font-medium">赤字案件分析</span>
+          </div>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-lg font-bold text-gray-800 flex items-center gap-1">
                 <AlertTriangle className="w-5 h-5 text-red-500" />
                 赤字案件分析
-                <span className="text-xs font-normal text-gray-500 ml-2">営業部</span>
               </h1>
             </div>
             <div className="flex items-center gap-3">
@@ -282,7 +300,7 @@ export default function DeficitAnalysisPage() {
               <div className="text-sm text-gray-500 mb-2">
                 第{selectedPeriod}期 ({data?.dateRange?.start} ～ {data?.dateRange?.end})
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                 <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-xl shadow-lg p-4 text-white">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-red-100">赤字案件数</span>
@@ -324,7 +342,78 @@ export default function DeficitAnalysisPage() {
                   </div>
                   <div className="text-sm text-slate-300 mt-1">要注意PJ区分</div>
                 </div>
+                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg p-4 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-emerald-100">回収必要売上</span>
+                    <Target className="w-5 h-5 text-emerald-200" />
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {formatAmount(data?.recoveryRequiredSales || (deficitAnalysis.totalAmount + deficitAnalysis.totalLoss / 0.35))}円
+                  </div>
+                  <div className="text-sm text-emerald-200 mt-1">利益率35%で回収</div>
+                </div>
               </div>
+
+              {/* 回収必要売上額 3期比較テーブル */}
+              {allData.length > 0 && (
+                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden mb-6">
+                  <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-3">
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Target className="w-5 h-5" />
+                      期別 回収必要売上額（利益率35%）
+                    </h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-bold text-gray-700">期</th>
+                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">赤字総額</th>
+                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">回収必要売上額</th>
+                          <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">前期比</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {allData
+                          .filter(d => d.deficitAnalysis)
+                          .sort((a, b) => a.period - b.period)
+                          .map((d, i, arr) => {
+                            const loss = d.deficitAnalysis?.totalLoss || 0;
+                            const amount = d.deficitAnalysis?.totalAmount || 0;
+                            const recovery = d.recoveryRequiredSales || (amount + loss / 0.35);
+                            const prevData = i > 0 ? arr[i - 1] : null;
+                            const prevRecovery = prevData ? (prevData.recoveryRequiredSales || ((prevData.deficitAnalysis?.totalAmount || 0) + (prevData.deficitAnalysis?.totalLoss || 0) / 0.35)) : 0;
+                            const change = i > 0 && prevRecovery > 0 ? ((recovery - prevRecovery) / prevRecovery * 100) : null;
+                            const isSelected = d.period === selectedPeriod;
+                            return (
+                              <tr key={d.period} className={isSelected ? "bg-emerald-50" : i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                                <td className={`px-4 py-3 text-sm font-medium ${isSelected ? "text-emerald-700" : "text-gray-800"}`}>
+                                  第{d.period}期
+                                  {isSelected && <span className="ml-2 text-xs bg-emerald-500 text-white px-2 py-0.5 rounded">選択中</span>}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-right text-red-600 font-medium">
+                                  -{formatAmount(loss)}円
+                                </td>
+                                <td className={`px-4 py-3 text-sm text-right font-bold ${isSelected ? "text-emerald-600" : "text-teal-600"}`}>
+                                  {formatAmount(recovery)}円
+                                </td>
+                                <td className="px-4 py-3 text-sm text-right">
+                                  {change !== null ? (
+                                    <span className={change >= 0 ? "text-red-500" : "text-green-500"}>
+                                      {change >= 0 ? "+" : ""}{change.toFixed(1)}%
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400">-</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* 3年間推移グラフ */}
               {allData.length > 0 && (
@@ -448,6 +537,69 @@ export default function DeficitAnalysisPage() {
                             );
                           })}
                       </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 回収必要売上額 3期推移グラフ */}
+              {allData.length > 0 && (
+                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden mb-6">
+                  <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-3">
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Target className="w-5 h-5" />
+                      回収必要売上額 3期推移（第{selectedPeriod - 2}期～第{selectedPeriod}期）
+                    </h3>
+                  </div>
+                  <div className="p-4" style={{ height: 320 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart
+                        data={allData
+                          .filter(d => d.deficitAnalysis)
+                          .sort((a, b) => a.period - b.period)
+                          .map(d => {
+                            const loss = d.deficitAnalysis?.totalLoss || 0;
+                            const amount = d.deficitAnalysis?.totalAmount || 0;
+                            const recovery = d.recoveryRequiredSales || (amount + loss / 0.35);
+                            return {
+                              period: `第${d.period}期`,
+                              赤字総額: loss,
+                              回収必要売上額: recovery,
+                            };
+                          })}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="period" />
+                        <YAxis tickFormatter={(v) => formatAmount(v)} />
+                        <Tooltip
+                          formatter={(v, name) => [`${formatAmount(v as number)}円`, name]}
+                        />
+                        <Legend />
+                        <Bar dataKey="赤字総額" fill="#f87171" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="回収必要売上額" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="px-4 pb-3 bg-emerald-50 border-t border-emerald-100">
+                    <div className="flex justify-between items-center">
+                      {allData
+                        .filter(d => d.deficitAnalysis)
+                        .sort((a, b) => a.period - b.period)
+                        .map((d) => {
+                          const loss = d.deficitAnalysis?.totalLoss || 0;
+                          const amount = d.deficitAnalysis?.totalAmount || 0;
+                          const recovery = d.recoveryRequiredSales || (amount + loss / 0.35);
+                          const isSelected = d.period === selectedPeriod;
+                          return (
+                            <div key={d.period} className={`text-center flex-1 px-2 py-2 rounded ${isSelected ? 'bg-emerald-100 ring-2 ring-emerald-300' : ''}`}>
+                              <div className="text-xs text-gray-500">第{d.period}期</div>
+                              <div className="text-xs text-red-500">赤字: {formatAmount(loss)}円</div>
+                              <div className={`text-sm font-bold ${isSelected ? 'text-emerald-700' : 'text-emerald-600'}`}>
+                                回収: {formatAmount(recovery)}円
+                              </div>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 </div>

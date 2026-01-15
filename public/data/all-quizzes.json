@@ -1,0 +1,5002 @@
+[
+  {
+    "quiz_id": "Q001",
+    "category": "会社情報",
+    "question": "山口産業株式会社の本社所在地はどこですか？",
+    "choice_a": "佐賀県多久市",
+    "choice_b": "福岡県福岡市",
+    "choice_c": "佐賀県佐賀市",
+    "correct_answer": "A",
+    "explanation": "山口産業株式会社の本社は佐賀県多久市多久町3555-120にあります。"
+  },
+  {
+    "quiz_id": "Q002",
+    "category": "会社情報",
+    "question": "山口産業株式会社の設立年はいつですか？",
+    "choice_a": "1972年",
+    "choice_b": "1976年",
+    "choice_c": "1980年",
+    "correct_answer": "B",
+    "explanation": "山口産業株式会社は1976年12月25日に設立されました。創業は1972年4月1日です。"
+  },
+  {
+    "quiz_id": "Q003",
+    "category": "会社情報",
+    "question": "山口産業株式会社のブランド名「Membry」の由来は何ですか？",
+    "choice_a": "Memory + Bright",
+    "choice_b": "Membrane + Brilliant",
+    "choice_c": "Member + Industry",
+    "correct_answer": "B",
+    "explanation": "Membryは「Membrane（膜）」と「Brilliant（輝く）」を組み合わせた造語です。"
+  },
+  {
+    "quiz_id": "Q004",
+    "category": "会社情報",
+    "question": "山口産業株式会社の2024年度売上高は約いくらですか？",
+    "choice_a": "約30億円",
+    "choice_b": "約42億円",
+    "choice_c": "約55億円",
+    "correct_answer": "B",
+    "explanation": "2024年度7月期の売上高実績は42億2千万円です。"
+  },
+  {
+    "quiz_id": "Q005",
+    "category": "会社情報",
+    "question": "山口産業株式会社の従業員数は約何人ですか？",
+    "choice_a": "約100人",
+    "choice_b": "約150人",
+    "choice_c": "約200人",
+    "correct_answer": "B",
+    "explanation": "従業員数は148人（男116人、女32人）です。"
+  },
+  {
+    "quiz_id": "Q006",
+    "category": "会社情報",
+    "question": "山口産業株式会社が取得しているISO認証はどれですか？",
+    "choice_a": "ISO14001",
+    "choice_b": "ISO9001",
+    "choice_c": "ISO27001",
+    "correct_answer": "B",
+    "explanation": "山口産業株式会社は2003年5月にISO9001認証を取得しています。"
+  },
+  {
+    "quiz_id": "Q007",
+    "category": "会社情報",
+    "question": "山口産業株式会社の代表者は誰ですか？",
+    "choice_a": "山口篤樹",
+    "choice_b": "山口太郎",
+    "choice_c": "山口健一",
+    "correct_answer": "A",
+    "explanation": "山口産業株式会社の代表者は山口篤樹氏です。"
+  },
+  {
+    "quiz_id": "Q008",
+    "category": "会社情報",
+    "question": "山口産業株式会社の資本金はいくらですか？",
+    "choice_a": "1千万円",
+    "choice_b": "2千万円",
+    "choice_c": "5千万円",
+    "correct_answer": "B",
+    "explanation": "山口産業株式会社の資本金は2千万円です。"
+  },
+  {
+    "quiz_id": "Q009",
+    "category": "会社情報",
+    "question": "山口産業株式会社の施工実績は何棟以上ですか？",
+    "choice_a": "1,000棟以上",
+    "choice_b": "2,000棟以上",
+    "choice_c": "3,000棟以上",
+    "correct_answer": "B",
+    "explanation": "山口産業株式会社は2,000棟以上の施工実績があります。"
+  },
+  {
+    "quiz_id": "Q010",
+    "category": "会社情報",
+    "question": "山口産業株式会社が取得した鉄骨製作工場の認定グレードは何ですか？",
+    "choice_a": "Sグレード",
+    "choice_b": "Mグレード",
+    "choice_c": "Hグレード",
+    "correct_answer": "B",
+    "explanation": "2018年12月に鉄骨製作工場のMグレード認定を取得しています。"
+  },
+  {
+    "quiz_id": "Q011",
+    "category": "会社情報",
+    "question": "山口産業株式会社のスローガンは何ですか？",
+    "choice_a": "膜で未来を創る",
+    "choice_b": "最前線に膜を張る",
+    "choice_c": "膜構造のパイオニア",
+    "correct_answer": "B",
+    "explanation": "山口産業株式会社のスローガンは「最前線に膜を張る」です。"
+  },
+  {
+    "quiz_id": "Q012",
+    "category": "会社情報",
+    "question": "山口産業株式会社の創業年はいつですか？",
+    "choice_a": "1970年",
+    "choice_b": "1972年",
+    "choice_c": "1975年",
+    "correct_answer": "B",
+    "explanation": "山口産業株式会社の創業は1972年4月1日です。"
+  },
+  {
+    "quiz_id": "Q013",
+    "category": "会社情報",
+    "question": "山口産業株式会社が持つ建設業の許可は何ですか？",
+    "choice_a": "一般建設業",
+    "choice_b": "特定建設業",
+    "choice_c": "簡易建設業",
+    "correct_answer": "B",
+    "explanation": "山口産業株式会社は特定建設業の許可を取得しています。"
+  },
+  {
+    "quiz_id": "Q014",
+    "category": "会社情報",
+    "question": "山口産業株式会社の全国営業所数は約いくつですか？",
+    "choice_a": "5営業所",
+    "choice_b": "9営業所",
+    "choice_c": "12営業所",
+    "correct_answer": "B",
+    "explanation": "山口産業株式会社は全国に9営業所を展開しています。"
+  },
+  {
+    "quiz_id": "Q015",
+    "category": "会社情報",
+    "question": "山口産業株式会社の工場数はいくつですか？",
+    "choice_a": "3工場",
+    "choice_b": "5工場",
+    "choice_c": "7工場",
+    "correct_answer": "B",
+    "explanation": "山口産業株式会社は5工場を展開しています。"
+  },
+  {
+    "quiz_id": "Q016",
+    "category": "産業用製品",
+    "question": "山口産業の規格化テント倉庫の商品名は何ですか？",
+    "choice_a": "スマートハウス",
+    "choice_b": "グリッドハウス",
+    "choice_c": "フレックスハウス",
+    "correct_answer": "B",
+    "explanation": "規格化テント倉庫は「Grid House（グリッドハウス）」という商品名です。"
+  },
+  {
+    "quiz_id": "Q017",
+    "category": "産業用製品",
+    "question": "グリッドハウスのサイズバリエーションは何種類以上ありますか？",
+    "choice_a": "20種類以上",
+    "choice_b": "33種類以上",
+    "choice_c": "50種類以上",
+    "correct_answer": "B",
+    "explanation": "グリッドハウスは33種類以上のサイズバリエーションが用意されています。"
+  },
+  {
+    "quiz_id": "Q018",
+    "category": "産業用製品",
+    "question": "グリッドハウスの共通軒高は何メートルですか？",
+    "choice_a": "4m",
+    "choice_b": "5m",
+    "choice_c": "6m",
+    "correct_answer": "B",
+    "explanation": "グリッドハウスの軒高は全サイズ共通で5mです。"
+  },
+  {
+    "quiz_id": "Q019",
+    "category": "産業用製品",
+    "question": "グリッドハウスの3つのPOINTに含まれないものはどれですか？",
+    "choice_a": "低コスト",
+    "choice_b": "短納期",
+    "choice_c": "大型化",
+    "correct_answer": "C",
+    "explanation": "グリッドハウスの3つのPOINTは「低コスト」「短納期」「高品質」です。"
+  },
+  {
+    "quiz_id": "Q020",
+    "category": "産業用製品",
+    "question": "テント倉庫の最大のメリットの一つは何ですか？",
+    "choice_a": "耐火性能",
+    "choice_b": "短納期・低コスト",
+    "choice_c": "防音性能",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は素材の特徴から短納期・低コストを両立できることが最大のメリットです。"
+  },
+  {
+    "quiz_id": "Q021",
+    "category": "産業用製品",
+    "question": "スライド式テントの特徴は何ですか？",
+    "choice_a": "屋根が回転する",
+    "choice_b": "屋根が可動する",
+    "choice_c": "壁が開閉する",
+    "correct_answer": "B",
+    "explanation": "スライド式テントは屋根が可動（スライド）する構造が特徴です。"
+  },
+  {
+    "quiz_id": "Q022",
+    "category": "産業用製品",
+    "question": "伸縮式テントの特徴は何ですか？",
+    "choice_a": "高さが変わる",
+    "choice_b": "サイズ調整可能",
+    "choice_c": "色が変わる",
+    "correct_answer": "B",
+    "explanation": "伸縮式テントはサイズを調整できる構造が特徴です。"
+  },
+  {
+    "quiz_id": "Q023",
+    "category": "産業用製品",
+    "question": "テント上屋は主にどのような用途で使われますか？",
+    "choice_a": "住宅用",
+    "choice_b": "作業現場用",
+    "choice_c": "店舗用",
+    "correct_answer": "B",
+    "explanation": "テント上屋は主に作業現場での使用を目的とした製品です。"
+  },
+  {
+    "quiz_id": "Q024",
+    "category": "産業用製品",
+    "question": "コンビネーション膜構造とは何ですか？",
+    "choice_a": "複数色の膜",
+    "choice_b": "複合素材仕様",
+    "choice_c": "複数層の膜",
+    "correct_answer": "B",
+    "explanation": "コンビネーション膜構造は複合素材を使用した仕様の製品です。"
+  },
+  {
+    "quiz_id": "Q025",
+    "category": "産業用製品",
+    "question": "シート間仕切りの主な用途は何ですか？",
+    "choice_a": "装飾用",
+    "choice_b": "空間分割用",
+    "choice_c": "断熱用",
+    "correct_answer": "B",
+    "explanation": "シート間仕切りは空間を分割するために使用されます。"
+  },
+  {
+    "quiz_id": "Q026",
+    "category": "産業用製品",
+    "question": "INNOLIFTとは何ですか？",
+    "choice_a": "エレベーター",
+    "choice_b": "車載フォークリフト",
+    "choice_c": "クレーン",
+    "correct_answer": "B",
+    "explanation": "INNOLIFTは車載フォークリフトの製品です。"
+  },
+  {
+    "quiz_id": "Q027",
+    "category": "産業用製品",
+    "question": "山口産業のネット製品に含まれないものはどれですか？",
+    "choice_a": "防鳥ネット",
+    "choice_b": "防風ネット",
+    "choice_c": "防水ネット",
+    "correct_answer": "C",
+    "explanation": "ネット製品には防鳥・防風・防球ネットがありますが、防水ネットはありません。"
+  },
+  {
+    "quiz_id": "Q028",
+    "category": "産業用製品",
+    "question": "テント倉庫が地震に強い理由は何ですか？",
+    "choice_a": "基礎が深い",
+    "choice_b": "構造が軽量",
+    "choice_c": "壁が厚い",
+    "correct_answer": "B",
+    "explanation": "膜構造は軽量のため、地震の際の揺れに強い構造となっています。"
+  },
+  {
+    "quiz_id": "Q029",
+    "category": "産業用製品",
+    "question": "産業用テントの主要メリットは何種類紹介されていますか？",
+    "choice_a": "8種類",
+    "choice_b": "12種類",
+    "choice_c": "15種類",
+    "correct_answer": "B",
+    "explanation": "産業用テントには12の主要メリットが紹介されています。"
+  },
+  {
+    "quiz_id": "Q030",
+    "category": "産業用製品",
+    "question": "レンタルテントの主な用途は何ですか？",
+    "choice_a": "永続利用",
+    "choice_b": "期間限定利用",
+    "choice_c": "展示用",
+    "correct_answer": "B",
+    "explanation": "レンタルテントは期間限定での利用を目的とした製品です。"
+  },
+  {
+    "quiz_id": "Q031",
+    "category": "農業・畜産用",
+    "question": "山口産業の農業・畜産用製品に含まれないものはどれですか？",
+    "choice_a": "テント畜舎",
+    "choice_b": "堆肥舎",
+    "choice_c": "温室ハウス",
+    "correct_answer": "C",
+    "explanation": "農業・畜産用製品には畜舎、堆肥舎、バイオマス施設、養殖施設がありますが、温室ハウスは含まれていません。"
+  },
+  {
+    "quiz_id": "Q032",
+    "category": "農業・畜産用",
+    "question": "テント畜舎の最大の特徴は何ですか？",
+    "choice_a": "完全自動化",
+    "choice_b": "低価格で理想の畜舎を実現",
+    "choice_c": "移動が可能",
+    "correct_answer": "B",
+    "explanation": "テント畜舎は膜構造の自由度により、低価格で理想の畜舎を実現できます。"
+  },
+  {
+    "quiz_id": "Q033",
+    "category": "農業・畜産用",
+    "question": "バイオマス施設にテント構造を採用するメリットは何ですか？",
+    "choice_a": "耐熱性",
+    "choice_b": "大スパンでの建設が可能",
+    "choice_c": "防音性",
+    "correct_answer": "B",
+    "explanation": "バイオマス施設では大スパンでの建設が可能で、大型機械の設置に対応できます。"
+  },
+  {
+    "quiz_id": "Q034",
+    "category": "農業・畜産用",
+    "question": "陸上養殖施設の膜構造のメリットは何ですか？",
+    "choice_a": "高断熱性",
+    "choice_b": "低コストで高耐久性",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "陸上養殖施設は低コストで高い耐久性を実現できます。"
+  },
+  {
+    "quiz_id": "Q035",
+    "category": "農業・畜産用",
+    "question": "膜構造の畜舎が実現する屋内環境の特徴は何ですか？",
+    "choice_a": "暗い空間",
+    "choice_b": "明るい空間",
+    "choice_c": "音響効果",
+    "correct_answer": "B",
+    "explanation": "膜素材は光を透過するため、明るい屋内空間を実現できます。"
+  },
+  {
+    "quiz_id": "Q036",
+    "category": "農業・畜産用",
+    "question": "堆肥舎に膜構造が適している理由は何ですか？",
+    "choice_a": "臭気遮断",
+    "choice_b": "自由度と素材特性",
+    "choice_c": "発熱機能",
+    "correct_answer": "B",
+    "explanation": "膜構造の自由度と素材の特性により、高効率で最適な堆肥舎の建設が可能です。"
+  },
+  {
+    "quiz_id": "Q037",
+    "category": "農業・畜産用",
+    "question": "山口産業の農業向け製品の対応地域はどこですか？",
+    "choice_a": "九州地方のみ",
+    "choice_b": "日本全国",
+    "choice_c": "西日本のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業は約50年の技術を活かし、日本全国で対応しています。"
+  },
+  {
+    "quiz_id": "Q038",
+    "category": "農業・畜産用",
+    "question": "農業用膜構造の施工期間の特徴は何ですか？",
+    "choice_a": "長期間",
+    "choice_b": "短期間",
+    "choice_c": "変動する",
+    "correct_answer": "B",
+    "explanation": "膜構造は短期間での施工が可能です。"
+  },
+  {
+    "quiz_id": "Q039",
+    "category": "農業・畜産用",
+    "question": "バイオマス施設で大開口出入口が必要な理由は何ですか？",
+    "choice_a": "換気のため",
+    "choice_b": "大型機械の搬入のため",
+    "choice_c": "採光のため",
+    "correct_answer": "B",
+    "explanation": "バイオマス施設では大型機械の搬入・搬出のため、大開口出入口が設置されます。"
+  },
+  {
+    "quiz_id": "Q040",
+    "category": "農業・畜産用",
+    "question": "農業用膜構造がコスト面で優れている理由は何ですか？",
+    "choice_a": "素材が安価",
+    "choice_b": "他工法より施工コストが低い",
+    "choice_c": "メンテナンス不要",
+    "correct_answer": "B",
+    "explanation": "膜構造は他の工法に比べてコストパフォーマンスが良く、施工コストを抑えられます。"
+  },
+  {
+    "quiz_id": "Q041",
+    "category": "商業用製品",
+    "question": "山口産業の商業用製品に含まれるドーム型製品は何ですか？",
+    "choice_a": "ドームテント",
+    "choice_b": "ドームハウス",
+    "choice_c": "ドームスペース",
+    "correct_answer": "A",
+    "explanation": "商業用製品にはドームテントが含まれています。"
+  },
+  {
+    "quiz_id": "Q042",
+    "category": "商業用製品",
+    "question": "球体テントの主な特徴は何ですか？",
+    "choice_a": "大容量収納",
+    "choice_b": "非日常的な空間演出",
+    "choice_c": "高断熱性",
+    "correct_answer": "B",
+    "explanation": "球体テントは非日常的な空間演出ができることが特徴です。"
+  },
+  {
+    "quiz_id": "Q043",
+    "category": "商業用製品",
+    "question": "シェードセイルの主な用途は何ですか？",
+    "choice_a": "雨除け",
+    "choice_b": "日差し・紫外線対策",
+    "choice_c": "防風",
+    "correct_answer": "B",
+    "explanation": "シェードセイルは日差しや紫外線対策のために使用されます。"
+  },
+  {
+    "quiz_id": "Q044",
+    "category": "商業用製品",
+    "question": "開閉式テントの特徴は何ですか？",
+    "choice_a": "壁が開閉する",
+    "choice_b": "屋根が開閉する",
+    "choice_c": "床が開閉する",
+    "correct_answer": "B",
+    "explanation": "開閉式テントは気軽に屋根の開閉ができる製品です。"
+  },
+  {
+    "quiz_id": "Q045",
+    "category": "商業用製品",
+    "question": "ふわふわコクーンは何用の製品ですか？",
+    "choice_a": "大人用休憩スペース",
+    "choice_b": "児童向け遊具",
+    "choice_c": "ペット用",
+    "correct_answer": "B",
+    "explanation": "ふわふわコクーンは児童向け遊具として設計されています。"
+  },
+  {
+    "quiz_id": "Q046",
+    "category": "商業用製品",
+    "question": "マルチブース Space+の設置時間は約何分ですか？",
+    "choice_a": "約15分",
+    "choice_b": "約30分",
+    "choice_c": "約60分",
+    "correct_answer": "B",
+    "explanation": "マルチブース Space+は約30分で設置可能な休憩スペースです。"
+  },
+  {
+    "quiz_id": "Q047",
+    "category": "商業用製品",
+    "question": "パラソル PROSTORの特徴は何ですか？",
+    "choice_a": "単一形状のみ",
+    "choice_b": "複数形状対応",
+    "choice_c": "自動開閉",
+    "correct_answer": "B",
+    "explanation": "パラソル PROSTORは複数形状に対応したシェード製品です。"
+  },
+  {
+    "quiz_id": "Q048",
+    "category": "商業用製品",
+    "question": "オーニングの特徴は何ですか？",
+    "choice_a": "軽量性のみ",
+    "choice_b": "機能性とデザイン性",
+    "choice_c": "耐火性のみ",
+    "correct_answer": "B",
+    "explanation": "オーニングは機能性とデザイン性を兼ね備えた製品です。"
+  },
+  {
+    "quiz_id": "Q049",
+    "category": "商業用製品",
+    "question": "スターシェードの特徴は何ですか？",
+    "choice_a": "伝統的デザイン",
+    "choice_b": "斬新なデザイン",
+    "choice_c": "無地デザイン",
+    "correct_answer": "B",
+    "explanation": "スターシェードは斬新なデザインの日除け製品です。"
+  },
+  {
+    "quiz_id": "Q050",
+    "category": "商業用製品",
+    "question": "サインの主な用途は何ですか？",
+    "choice_a": "室内装飾",
+    "choice_b": "集客用外部標識",
+    "choice_c": "案内板",
+    "correct_answer": "B",
+    "explanation": "サインは集客用の外部標識として使用されます。"
+  },
+  {
+    "quiz_id": "Q051",
+    "category": "イベント製品",
+    "question": "ヨーロピアンテントはどのようなイベントに最適ですか？",
+    "choice_a": "スポーツイベント",
+    "choice_b": "ウェディング",
+    "choice_c": "展示会",
+    "correct_answer": "B",
+    "explanation": "ヨーロピアンテントは結婚式などの格式高いイベントに最適な仮設テントです。"
+  },
+  {
+    "quiz_id": "Q052",
+    "category": "イベント製品",
+    "question": "スピアテントの名前の由来は何ですか？",
+    "choice_a": "速さ",
+    "choice_b": "槍のようなシャープなフォルム",
+    "choice_c": "強度",
+    "correct_answer": "B",
+    "explanation": "スピアテントは槍（spear）のようにシャープなフォルムが特徴です。"
+  },
+  {
+    "quiz_id": "Q053",
+    "category": "イベント製品",
+    "question": "ゆめテントの特徴は何ですか？",
+    "choice_a": "大型設計",
+    "choice_b": "ワンタッチ式で組み立て簡単",
+    "choice_c": "防水機能",
+    "correct_answer": "B",
+    "explanation": "ゆめテントはワンタッチ式で組み立てと解体が楽なイベントテントです。"
+  },
+  {
+    "quiz_id": "Q054",
+    "category": "イベント製品",
+    "question": "エアアーチの主な機能は何ですか？",
+    "choice_a": "日除け",
+    "choice_b": "存在感のある出入口を作る",
+    "choice_c": "照明",
+    "correct_answer": "B",
+    "explanation": "エアアーチは存在感のある出入口を作り、イベント会場に活気を生み出します。"
+  },
+  {
+    "quiz_id": "Q055",
+    "category": "イベント製品",
+    "question": "ヨーロピアンテントが演出できる空間は何に例えられていますか？",
+    "choice_a": "宮殿",
+    "choice_b": "映画のワンシーン",
+    "choice_c": "美術館",
+    "correct_answer": "B",
+    "explanation": "ヨーロピアンテントは映画のワンシーンのような華やかな空間演出が可能です。"
+  },
+  {
+    "quiz_id": "Q056",
+    "category": "イベント製品",
+    "question": "スピアテントの汎用性の特徴は何ですか？",
+    "choice_a": "屋内専用",
+    "choice_b": "大小さまざまなイベントに対応",
+    "choice_c": "野外専用",
+    "correct_answer": "B",
+    "explanation": "スピアテントは大小さまざまなイベント規模に対応できます。"
+  },
+  {
+    "quiz_id": "Q057",
+    "category": "イベント製品",
+    "question": "イベントテント製品は主に何種類ありますか？",
+    "choice_a": "3種類",
+    "choice_b": "4種類",
+    "choice_c": "5種類",
+    "correct_answer": "B",
+    "explanation": "イベントテントは主に4種類（ヨーロピアン、スピア、ゆめ、エアアーチ）があります。"
+  },
+  {
+    "quiz_id": "Q058",
+    "category": "イベント製品",
+    "question": "イベントテントの共通メリットに含まれるものはどれですか？",
+    "choice_a": "永久設置",
+    "choice_b": "建築の自由度",
+    "choice_c": "耐火性能",
+    "correct_answer": "B",
+    "explanation": "イベントテントは多様な機能性、建築の自由度、大型化への対応などが共通メリットです。"
+  },
+  {
+    "quiz_id": "Q059",
+    "category": "膜構造・技術",
+    "question": "膜構造建築の最大の特徴は何ですか？",
+    "choice_a": "重厚感",
+    "choice_b": "軽量で柔軟",
+    "choice_c": "高断熱",
+    "correct_answer": "B",
+    "explanation": "膜構造建築は軽量で柔軟な設計が可能なことが最大の特徴です。"
+  },
+  {
+    "quiz_id": "Q060",
+    "category": "膜構造・技術",
+    "question": "膜構造が地震に強い理由は何ですか？",
+    "choice_a": "基礎が深い",
+    "choice_b": "構造が軽量",
+    "choice_c": "補強材が多い",
+    "correct_answer": "B",
+    "explanation": "膜構造は軽量のため、地震の際の揺れに対して安全性が高いです。"
+  },
+  {
+    "quiz_id": "Q061",
+    "category": "膜構造・技術",
+    "question": "膜素材が屋内空間にもたらす効果は何ですか？",
+    "choice_a": "遮音効果",
+    "choice_b": "明るい空間",
+    "choice_c": "保温効果",
+    "correct_answer": "B",
+    "explanation": "膜素材は光を透過するため、自然光を取り込んだ明るい屋内空間を実現します。"
+  },
+  {
+    "quiz_id": "Q062",
+    "category": "膜構造・技術",
+    "question": "膜構造建築のコストパフォーマンスが良い理由は何ですか？",
+    "choice_a": "素材が最も安い",
+    "choice_b": "施工日数が短い",
+    "choice_c": "メンテナンス不要",
+    "correct_answer": "B",
+    "explanation": "膜構造は施工日数が短く、総合的なコストパフォーマンスに優れています。"
+  },
+  {
+    "quiz_id": "Q063",
+    "category": "膜構造・技術",
+    "question": "膜構造で大スパン建築が可能な理由は何ですか？",
+    "choice_a": "素材が硬い",
+    "choice_b": "構造が軽量",
+    "choice_c": "柱が多い",
+    "correct_answer": "B",
+    "explanation": "膜構造は軽量のため、柱なしで大きな空間（大スパン）を覆うことができます。"
+  },
+  {
+    "quiz_id": "Q064",
+    "category": "膜構造・技術",
+    "question": "膜構造のエネルギー効率が良い理由は何ですか？",
+    "choice_a": "発電機能",
+    "choice_b": "自然光の活用",
+    "choice_c": "蓄熱機能",
+    "correct_answer": "B",
+    "explanation": "膜素材は光を透過するため、日中は照明なしでも明るく、エネルギー効率が良いです。"
+  },
+  {
+    "quiz_id": "Q065",
+    "category": "膜構造・技術",
+    "question": "山口産業の膜構造技術の歴史は約何年ですか？",
+    "choice_a": "約30年",
+    "choice_b": "約50年",
+    "choice_c": "約70年",
+    "correct_answer": "B",
+    "explanation": "山口産業は約50年の膜素材・テント倉庫製造技術を持っています。"
+  },
+  {
+    "quiz_id": "Q066",
+    "category": "膜構造・技術",
+    "question": "膜構造建築の設計自由度が高い理由は何ですか？",
+    "choice_a": "規格が決まっている",
+    "choice_b": "素材が柔軟",
+    "choice_c": "自動設計",
+    "correct_answer": "B",
+    "explanation": "膜素材は柔軟なため、様々な形状やサイズの建築が可能です。"
+  },
+  {
+    "quiz_id": "Q067",
+    "category": "膜構造・技術",
+    "question": "膜構造建築の施工で重要な認証は何ですか？",
+    "choice_a": "ISO14001",
+    "choice_b": "ISO9001",
+    "choice_c": "ISO22000",
+    "correct_answer": "B",
+    "explanation": "品質管理の認証としてISO9001が重要で、山口産業も取得しています。"
+  },
+  {
+    "quiz_id": "Q068",
+    "category": "膜構造・技術",
+    "question": "膜構造の「多様な機能性」に含まれるものはどれですか？",
+    "choice_a": "発電機能",
+    "choice_b": "耐候性・透光性",
+    "choice_c": "自動洗浄",
+    "correct_answer": "B",
+    "explanation": "膜構造は耐候性、透光性、軽量性など多様な機能を持っています。"
+  },
+  {
+    "quiz_id": "Q069",
+    "category": "膜構造・技術",
+    "question": "膜構造建築の大型化が可能な理由は何ですか？",
+    "choice_a": "柱を増やせる",
+    "choice_b": "軽量で大スパン可能",
+    "choice_c": "素材が伸びる",
+    "correct_answer": "B",
+    "explanation": "膜構造は軽量のため、大スパンでの建設が可能で大型化に対応できます。"
+  },
+  {
+    "quiz_id": "Q070",
+    "category": "膜構造・技術",
+    "question": "膜構造のメンテナンス性の特徴は何ですか？",
+    "choice_a": "交換不可",
+    "choice_b": "部分交換可能",
+    "choice_c": "メンテナンス不要",
+    "correct_answer": "B",
+    "explanation": "膜構造は部分的な交換や補修が可能で、メンテナンス性に優れています。"
+  },
+  {
+    "quiz_id": "Q071",
+    "category": "業界知識",
+    "question": "テント倉庫の法的分類は何ですか？",
+    "choice_a": "仮設建築物",
+    "choice_b": "建築物",
+    "choice_c": "工作物",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は建築基準法上の建築物として扱われます。"
+  },
+  {
+    "quiz_id": "Q072",
+    "category": "業界知識",
+    "question": "テント倉庫の主な用途は何ですか？",
+    "choice_a": "住居",
+    "choice_b": "倉庫・作業場",
+    "choice_c": "店舗",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は主に倉庫や作業場として使用されます。"
+  },
+  {
+    "quiz_id": "Q073",
+    "category": "業界知識",
+    "question": "膜構造建築が普及し始めた時期はいつ頃ですか？",
+    "choice_a": "1950年代",
+    "choice_b": "1970年代",
+    "choice_c": "1990年代",
+    "correct_answer": "B",
+    "explanation": "日本での膜構造建築は1970年代から普及が始まりました。"
+  },
+  {
+    "quiz_id": "Q074",
+    "category": "業界知識",
+    "question": "テント倉庫の骨組みに使われる主な材料は何ですか？",
+    "choice_a": "木材",
+    "choice_b": "鉄骨",
+    "choice_c": "アルミ",
+    "correct_answer": "B",
+    "explanation": "テント倉庫の骨組みには主に鉄骨が使用されます。"
+  },
+  {
+    "quiz_id": "Q075",
+    "category": "業界知識",
+    "question": "膜構造建築の膜素材の主成分は何ですか？",
+    "choice_a": "綿",
+    "choice_b": "合成繊維",
+    "choice_c": "絹",
+    "correct_answer": "B",
+    "explanation": "膜構造の膜素材は主に合成繊維で作られています。"
+  },
+  {
+    "quiz_id": "Q076",
+    "category": "業界知識",
+    "question": "特定建設業の許可が必要な工事の規模はどのくらいですか？",
+    "choice_a": "500万円以上",
+    "choice_b": "4,500万円以上の下請発注",
+    "choice_c": "1億円以上",
+    "correct_answer": "B",
+    "explanation": "4,500万円以上（建築一式は7,000万円以上）の下請発注がある場合、特定建設業の許可が必要です。"
+  },
+  {
+    "quiz_id": "Q077",
+    "category": "業界知識",
+    "question": "鉄骨製作工場のMグレードはどのようなグレードですか？",
+    "choice_a": "最高グレード",
+    "choice_b": "中程度のグレード",
+    "choice_c": "入門グレード",
+    "correct_answer": "B",
+    "explanation": "Mグレードは鉄骨製作工場の中程度の品質認定で、一定以上の品質管理体制を持つ工場に与えられます。"
+  },
+  {
+    "quiz_id": "Q078",
+    "category": "業界知識",
+    "question": "テント倉庫の耐用年数は一般的にどのくらいですか？",
+    "choice_a": "5〜10年",
+    "choice_b": "10〜20年",
+    "choice_c": "30年以上",
+    "correct_answer": "B",
+    "explanation": "テント倉庫の膜素材の耐用年数は一般的に10〜20年程度です。"
+  },
+  {
+    "quiz_id": "Q079",
+    "category": "業界知識",
+    "question": "膜構造建築の設計に必要な資格は何ですか？",
+    "choice_a": "電気工事士",
+    "choice_b": "建築士",
+    "choice_c": "土木施工管理技士",
+    "correct_answer": "B",
+    "explanation": "膜構造建築も建築物のため、設計には建築士の資格が必要です。"
+  },
+  {
+    "quiz_id": "Q080",
+    "category": "業界知識",
+    "question": "テント倉庫の確認申請が必要なのはどのような場合ですか？",
+    "choice_a": "全ての場合",
+    "choice_b": "一定規模以上",
+    "choice_c": "申請不要",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は一定規模以上の場合、建築確認申請が必要です。"
+  },
+  {
+    "quiz_id": "Q081",
+    "category": "会社情報",
+    "question": "山口産業株式会社の本社がある佐賀県多久市はどの地方にありますか？",
+    "choice_a": "中国地方",
+    "choice_b": "九州地方",
+    "choice_c": "四国地方",
+    "correct_answer": "B",
+    "explanation": "佐賀県は九州地方に位置しています。"
+  },
+  {
+    "quiz_id": "Q082",
+    "category": "会社情報",
+    "question": "山口産業の主要事業分野は何ですか？",
+    "choice_a": "食品製造",
+    "choice_b": "膜構造建築",
+    "choice_c": "自動車部品",
+    "correct_answer": "B",
+    "explanation": "山口産業の主要事業は膜構造建築物、合成繊維資材、建設業です。"
+  },
+  {
+    "quiz_id": "Q083",
+    "category": "会社情報",
+    "question": "山口産業の営業所がある都市として正しいのはどれですか？",
+    "choice_a": "札幌",
+    "choice_b": "仙台",
+    "choice_c": "広島",
+    "correct_answer": "B",
+    "explanation": "山口産業は仙台に営業所を持っています。"
+  },
+  {
+    "quiz_id": "Q084",
+    "category": "会社情報",
+    "question": "山口産業が位置づける自社の強みは何ですか？",
+    "choice_a": "最安値保証",
+    "choice_b": "他社で不可能な案件も対応",
+    "choice_c": "24時間対応",
+    "correct_answer": "B",
+    "explanation": "山口産業は「他社で不可能な案件も解決できる」ことを強みとしています。"
+  },
+  {
+    "quiz_id": "Q085",
+    "category": "会社情報",
+    "question": "山口産業のISO9001認証取得年は何年ですか？",
+    "choice_a": "2000年",
+    "choice_b": "2003年",
+    "choice_c": "2006年",
+    "correct_answer": "B",
+    "explanation": "山口産業は2003年5月にISO9001認証を取得しました。"
+  },
+  {
+    "quiz_id": "Q086",
+    "category": "産業用製品",
+    "question": "テント倉庫の床面積が700㎡以上の場合、どの製品が対応できますか？",
+    "choice_a": "ゆめテント",
+    "choice_b": "グリッドハウス",
+    "choice_c": "スピアテント",
+    "correct_answer": "B",
+    "explanation": "グリッドハウスは700㎡以上の広さにも対応できます。"
+  },
+  {
+    "quiz_id": "Q087",
+    "category": "産業用製品",
+    "question": "テント倉庫の採光方法として正しいのはどれですか？",
+    "choice_a": "電気照明のみ",
+    "choice_b": "膜素材による自然光透過",
+    "choice_c": "窓ガラス設置",
+    "correct_answer": "B",
+    "explanation": "膜素材は光を透過するため、自然光による採光が可能です。"
+  },
+  {
+    "quiz_id": "Q088",
+    "category": "産業用製品",
+    "question": "スライド式テントが適している用途はどれですか？",
+    "choice_a": "永久倉庫",
+    "choice_b": "荷物の搬入出が多い場所",
+    "choice_c": "展示スペース",
+    "correct_answer": "B",
+    "explanation": "スライド式テントは屋根が開閉できるため、荷物の搬入出が多い場所に適しています。"
+  },
+  {
+    "quiz_id": "Q089",
+    "category": "産業用製品",
+    "question": "テント倉庫の基礎工事の特徴は何ですか？",
+    "choice_a": "大規模な基礎が必要",
+    "choice_b": "軽量のため基礎を軽減できる",
+    "choice_c": "基礎不要",
+    "correct_answer": "B",
+    "explanation": "膜構造は軽量のため、従来の建築物より基礎工事を軽減できます。"
+  },
+  {
+    "quiz_id": "Q090",
+    "category": "産業用製品",
+    "question": "テント倉庫の換気方法として一般的なのはどれですか？",
+    "choice_a": "全自動空調のみ",
+    "choice_b": "換気口や開口部の設置",
+    "choice_c": "換気不可",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は換気口や開口部を設置して自然換気を行うことが一般的です。"
+  },
+  {
+    "quiz_id": "Q091",
+    "category": "農業・畜産用",
+    "question": "畜舎に膜構造を採用するメリットとして正しいのはどれですか？",
+    "choice_a": "完全遮光",
+    "choice_b": "換気性能の向上",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "膜構造の畜舎は換気性能が良く、動物の健康維持に適しています。"
+  },
+  {
+    "quiz_id": "Q092",
+    "category": "農業・畜産用",
+    "question": "堆肥舎に求められる膜構造の特性は何ですか？",
+    "choice_a": "完全防水",
+    "choice_b": "通気性と耐候性",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "堆肥舎では通気性と耐候性が重要で、膜構造はこれらを実現できます。"
+  },
+  {
+    "quiz_id": "Q093",
+    "category": "農業・畜産用",
+    "question": "陸上養殖施設で膜構造が選ばれる理由は何ですか？",
+    "choice_a": "完全遮光可能",
+    "choice_b": "コストと耐久性のバランス",
+    "choice_c": "水密性",
+    "correct_answer": "B",
+    "explanation": "陸上養殖施設では低コストで高い耐久性を実現できる膜構造が選ばれます。"
+  },
+  {
+    "quiz_id": "Q094",
+    "category": "農業・畜産用",
+    "question": "バイオマス施設の膜構造で重要な要素は何ですか？",
+    "choice_a": "断熱性",
+    "choice_b": "大開口と大スパン",
+    "choice_c": "防音性",
+    "correct_answer": "B",
+    "explanation": "バイオマス施設では大型機械に対応するため、大開口と大スパンが重要です。"
+  },
+  {
+    "quiz_id": "Q095",
+    "category": "農業・畜産用",
+    "question": "農業用膜構造の耐久性を高める要素は何ですか？",
+    "choice_a": "厚い壁",
+    "choice_b": "UV耐性素材",
+    "choice_c": "二重構造",
+    "correct_answer": "B",
+    "explanation": "農業用膜構造ではUV（紫外線）耐性のある素材を使用することで耐久性を高めています。"
+  },
+  {
+    "quiz_id": "Q096",
+    "category": "商業用製品",
+    "question": "ドームテントのキャッチコピーは何ですか？",
+    "choice_a": "どこでも設置",
+    "choice_b": "人々の心を惹きつける",
+    "choice_c": "最強の耐久性",
+    "correct_answer": "B",
+    "explanation": "ドームテントは「あらゆるシーンで人々の心を惹きつける」設計とされています。"
+  },
+  {
+    "quiz_id": "Q097",
+    "category": "商業用製品",
+    "question": "マルチブース Space+の特徴として正しいのはどれですか？",
+    "choice_a": "永久設置型",
+    "choice_b": "移動が簡単",
+    "choice_c": "大規模専用",
+    "correct_answer": "B",
+    "explanation": "マルチブース Space+は約30分で設置可能で、移動も簡単な休憩スペースです。"
+  },
+  {
+    "quiz_id": "Q098",
+    "category": "商業用製品",
+    "question": "商業用膜構造製品の共通利点として正しいのはどれですか？",
+    "choice_a": "永久耐久",
+    "choice_b": "明るい屋内空間",
+    "choice_c": "完全防音",
+    "correct_answer": "B",
+    "explanation": "商業用製品は膜の透光性により明るい屋内空間を実現できます。"
+  },
+  {
+    "quiz_id": "Q099",
+    "category": "商業用製品",
+    "question": "シェードセイルの形状の特徴は何ですか？",
+    "choice_a": "円形のみ",
+    "choice_b": "帆のような形状",
+    "choice_c": "四角形のみ",
+    "correct_answer": "B",
+    "explanation": "シェードセイルは帆（セイル）のような形状が特徴的な日除け製品です。"
+  },
+  {
+    "quiz_id": "Q100",
+    "category": "商業用製品",
+    "question": "開閉式テントが適している場所はどこですか？",
+    "choice_a": "完全屋内",
+    "choice_b": "天候により開閉したい場所",
+    "choice_c": "地下空間",
+    "correct_answer": "B",
+    "explanation": "開閉式テントは天候に応じて屋根を開閉できるため、屋外スペースに適しています。"
+  },
+  {
+    "quiz_id": "Q101",
+    "category": "イベント製品",
+    "question": "ヨーロピアンテントの設置に最適な場所はどこですか？",
+    "choice_a": "工場内",
+    "choice_b": "屋外イベント会場",
+    "choice_c": "地下駐車場",
+    "correct_answer": "B",
+    "explanation": "ヨーロピアンテントは屋外のウェディングやイベント会場に最適です。"
+  },
+  {
+    "quiz_id": "Q102",
+    "category": "イベント製品",
+    "question": "ゆめテントの解体の特徴は何ですか？",
+    "choice_a": "専門業者必須",
+    "choice_b": "簡単に解体可能",
+    "choice_c": "解体不可",
+    "correct_answer": "B",
+    "explanation": "ゆめテントはワンタッチ式で組み立ても解体も簡単にできます。"
+  },
+  {
+    "quiz_id": "Q103",
+    "category": "イベント製品",
+    "question": "エアアーチがイベント会場に与える効果は何ですか？",
+    "choice_a": "静寂感",
+    "choice_b": "活気",
+    "choice_c": "厳粛さ",
+    "correct_answer": "B",
+    "explanation": "エアアーチはイベント会場に活気を生み出す効果があります。"
+  },
+  {
+    "quiz_id": "Q104",
+    "category": "イベント製品",
+    "question": "スピアテントの対応可能なイベント規模は？",
+    "choice_a": "小規模のみ",
+    "choice_b": "大小さまざま",
+    "choice_c": "大規模のみ",
+    "correct_answer": "B",
+    "explanation": "スピアテントは大小さまざまなイベント規模に対応できる汎用性があります。"
+  },
+  {
+    "quiz_id": "Q105",
+    "category": "イベント製品",
+    "question": "イベントテントの設置で重要な要素は何ですか？",
+    "choice_a": "永久基礎",
+    "choice_b": "短時間設営",
+    "choice_c": "重量",
+    "correct_answer": "B",
+    "explanation": "イベントテントは短時間で設営・撤去できることが重要な要素です。"
+  },
+  {
+    "quiz_id": "Q106",
+    "category": "膜構造・技術",
+    "question": "膜構造の透光性が活かされる用途は何ですか？",
+    "choice_a": "完全遮光が必要な倉庫",
+    "choice_b": "自然光を活用したい空間",
+    "choice_c": "暗室",
+    "correct_answer": "B",
+    "explanation": "膜構造の透光性は、自然光を活用したい空間で特に活かされます。"
+  },
+  {
+    "quiz_id": "Q107",
+    "category": "膜構造・技術",
+    "question": "膜構造建築の断熱対策として使われる方法は？",
+    "choice_a": "壁を厚くする",
+    "choice_b": "二重膜構造",
+    "choice_c": "冷暖房のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造の断熱には二重膜構造などの方法が使われます。"
+  },
+  {
+    "quiz_id": "Q108",
+    "category": "膜構造・技術",
+    "question": "膜構造の防火性能を高める方法は？",
+    "choice_a": "膜を厚くする",
+    "choice_b": "難燃性素材の使用",
+    "choice_c": "スプリンクラーのみ",
+    "correct_answer": "B",
+    "explanation": "膜構造の防火性能は難燃性素材を使用することで高められます。"
+  },
+  {
+    "quiz_id": "Q109",
+    "category": "膜構造・技術",
+    "question": "膜構造の張力について正しい説明はどれですか？",
+    "choice_a": "張力は不要",
+    "choice_b": "適切な張力が形状維持に重要",
+    "choice_c": "張力は最小化する",
+    "correct_answer": "B",
+    "explanation": "膜構造では適切な張力をかけることが形状維持と強度に重要です。"
+  },
+  {
+    "quiz_id": "Q110",
+    "category": "膜構造・技術",
+    "question": "膜素材のコーティングの目的は何ですか？",
+    "choice_a": "装飾のみ",
+    "choice_b": "耐候性・耐久性の向上",
+    "choice_c": "軽量化",
+    "correct_answer": "B",
+    "explanation": "膜素材にコーティングを施すことで耐候性や耐久性を向上させます。"
+  },
+  {
+    "quiz_id": "Q111",
+    "category": "業界知識",
+    "question": "テント倉庫の建築確認申請で必要な図面はどれですか？",
+    "choice_a": "配置図のみ",
+    "choice_b": "配置図・平面図・立面図など",
+    "choice_c": "写真のみ",
+    "correct_answer": "B",
+    "explanation": "建築確認申請には配置図、平面図、立面図など複数の図面が必要です。"
+  },
+  {
+    "quiz_id": "Q112",
+    "category": "業界知識",
+    "question": "膜構造建築の耐風性能を確保する方法は？",
+    "choice_a": "膜を緩める",
+    "choice_b": "適切な張力と固定",
+    "choice_c": "重りを載せる",
+    "correct_answer": "B",
+    "explanation": "膜構造の耐風性能は適切な張力と確実な固定により確保します。"
+  },
+  {
+    "quiz_id": "Q113",
+    "category": "業界知識",
+    "question": "テント倉庫の用途地域制限について正しいのはどれですか？",
+    "choice_a": "制限なし",
+    "choice_b": "建築基準法に基づく制限あり",
+    "choice_c": "工業地域のみ可能",
+    "correct_answer": "B",
+    "explanation": "テント倉庫も建築物として建築基準法の用途地域制限を受けます。"
+  },
+  {
+    "quiz_id": "Q114",
+    "category": "業界知識",
+    "question": "膜構造の設計で考慮すべき荷重はどれですか？",
+    "choice_a": "自重のみ",
+    "choice_b": "自重・風荷重・積雪荷重など",
+    "choice_c": "風荷重のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造の設計では自重、風荷重、積雪荷重など複数の荷重を考慮します。"
+  },
+  {
+    "quiz_id": "Q115",
+    "category": "業界知識",
+    "question": "テント倉庫の消防法上の扱いはどうなりますか？",
+    "choice_a": "適用外",
+    "choice_b": "防火対象物として規制対象",
+    "choice_c": "住宅と同じ扱い",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は消防法上の防火対象物として規制を受けます。"
+  },
+  {
+    "quiz_id": "Q116",
+    "category": "会社情報",
+    "question": "山口産業の電話番号の市外局番は何ですか？",
+    "choice_a": "092",
+    "choice_b": "0952",
+    "choice_c": "0955",
+    "correct_answer": "B",
+    "explanation": "山口産業の電話番号は0952-74-2525で、市外局番は0952（佐賀県）です。"
+  },
+  {
+    "quiz_id": "Q117",
+    "category": "会社情報",
+    "question": "山口産業が持つ建築事務所の等級は何ですか？",
+    "choice_a": "二級建築士事務所",
+    "choice_b": "一級建築士事務所",
+    "choice_c": "特級建築士事務所",
+    "correct_answer": "B",
+    "explanation": "山口産業は一級建築士事務所として登録されています。"
+  },
+  {
+    "quiz_id": "Q118",
+    "category": "会社情報",
+    "question": "山口産業の福岡の営業所がある都市はどこですか？",
+    "choice_a": "北九州市のみ",
+    "choice_b": "北九州市と福岡市",
+    "choice_c": "福岡市のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業は北九州と福岡の両方に営業所を持っています。"
+  },
+  {
+    "quiz_id": "Q119",
+    "category": "会社情報",
+    "question": "山口産業の従業員の男女比率はおよそどのくらいですか？",
+    "choice_a": "男性60%・女性40%",
+    "choice_b": "男性80%・女性20%",
+    "choice_c": "男性50%・女性50%",
+    "correct_answer": "B",
+    "explanation": "従業員148人中、男性116人（約78%）、女性32人（約22%）です。"
+  },
+  {
+    "quiz_id": "Q120",
+    "category": "会社情報",
+    "question": "山口産業の九州地方の営業所として正しいのはどれですか？",
+    "choice_a": "鹿児島営業所",
+    "choice_b": "宮崎営業所",
+    "choice_c": "長崎営業所",
+    "correct_answer": "B",
+    "explanation": "山口産業は宮崎に営業所を持っています。"
+  },
+  {
+    "quiz_id": "Q121",
+    "category": "産業用製品",
+    "question": "テント倉庫の屋根形状として一般的なのはどれですか？",
+    "choice_a": "平屋根",
+    "choice_b": "切妻屋根（山形）",
+    "choice_c": "ドーム屋根",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は切妻屋根（山形）が一般的です。"
+  },
+  {
+    "quiz_id": "Q122",
+    "category": "産業用製品",
+    "question": "テント倉庫の柱の種類として「コラム柱」の特徴は何ですか？",
+    "choice_a": "太くて重い",
+    "choice_b": "内部を広く使える",
+    "choice_c": "移動可能",
+    "correct_answer": "B",
+    "explanation": "コラム柱は内部をできるだけ広く使えるように設計された柱です。"
+  },
+  {
+    "quiz_id": "Q123",
+    "category": "産業用製品",
+    "question": "テント倉庫に通路屋根を併設する目的は何ですか？",
+    "choice_a": "装飾のため",
+    "choice_b": "雨に濡れないため",
+    "choice_c": "採光のため",
+    "correct_answer": "B",
+    "explanation": "通路屋根は移動時に雨に濡れないようにするために併設されます。"
+  },
+  {
+    "quiz_id": "Q124",
+    "category": "産業用製品",
+    "question": "テント倉庫の出入口として大開口が必要な理由は？",
+    "choice_a": "換気のため",
+    "choice_b": "車両や大型荷物の搬入のため",
+    "choice_c": "採光のため",
+    "correct_answer": "B",
+    "explanation": "大開口はフォークリフトなどの車両や大型荷物の搬入出のために必要です。"
+  },
+  {
+    "quiz_id": "Q125",
+    "category": "産業用製品",
+    "question": "グリッドハウスが自由設計より優れている点は何ですか？",
+    "choice_a": "デザインの自由度",
+    "choice_b": "より低コスト・短納期",
+    "choice_c": "より大型化",
+    "correct_answer": "B",
+    "explanation": "グリッドハウスは規格化により自由設計よりも低コスト・短納期を実現しています。"
+  },
+  {
+    "quiz_id": "Q126",
+    "category": "農業・畜産用",
+    "question": "畜舎の膜構造で動物の健康に良い効果は何ですか？",
+    "choice_a": "完全遮光",
+    "choice_b": "適度な採光と換気",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "膜構造の畜舎は適度な採光と換気により、動物の健康維持に良い効果があります。"
+  },
+  {
+    "quiz_id": "Q127",
+    "category": "農業・畜産用",
+    "question": "堆肥舎で膜構造を選ぶ経済的メリットは何ですか？",
+    "choice_a": "メンテナンス不要",
+    "choice_b": "建設コストの削減",
+    "choice_c": "補助金が多い",
+    "correct_answer": "B",
+    "explanation": "膜構造は他工法より建設コストを抑えられるため、経済的メリットがあります。"
+  },
+  {
+    "quiz_id": "Q128",
+    "category": "農業・畜産用",
+    "question": "陸上養殖施設での膜構造の温度管理の特徴は？",
+    "choice_a": "自動温度調整",
+    "choice_b": "外気温の影響を受けやすい",
+    "choice_c": "完全断熱",
+    "correct_answer": "B",
+    "explanation": "膜構造は断熱性が低いため、別途温度管理システムが必要な場合があります。"
+  },
+  {
+    "quiz_id": "Q129",
+    "category": "農業・畜産用",
+    "question": "バイオマス施設で大スパン構造が必要な理由は？",
+    "choice_a": "見た目のため",
+    "choice_b": "大型機械の設置と作業効率のため",
+    "choice_c": "法規制のため",
+    "correct_answer": "B",
+    "explanation": "バイオマス施設では大型機械の設置と効率的な作業のため、大スパン構造が必要です。"
+  },
+  {
+    "quiz_id": "Q130",
+    "category": "農業・畜産用",
+    "question": "農業用膜構造の施工における山口産業の強みは？",
+    "choice_a": "無料施工",
+    "choice_b": "約50年の技術と全国対応",
+    "choice_c": "最短1日施工",
+    "correct_answer": "B",
+    "explanation": "山口産業は約50年の技術を持ち、日本全国で対応できる体制があります。"
+  },
+  {
+    "quiz_id": "Q131",
+    "category": "商業用製品",
+    "question": "球体テントが適している場面はどれですか？",
+    "choice_a": "倉庫利用",
+    "choice_b": "グランピングや展示",
+    "choice_c": "住宅用",
+    "correct_answer": "B",
+    "explanation": "球体テントは非日常的な空間演出ができるため、グランピングや展示に適しています。"
+  },
+  {
+    "quiz_id": "Q132",
+    "category": "商業用製品",
+    "question": "シェードセイルの紫外線対策効果はどのくらいですか？",
+    "choice_a": "50%カット",
+    "choice_b": "高い遮蔽効果",
+    "choice_c": "効果なし",
+    "correct_answer": "B",
+    "explanation": "シェードセイルは日差しと紫外線を効果的に遮蔽します。"
+  },
+  {
+    "quiz_id": "Q133",
+    "category": "商業用製品",
+    "question": "ふわふわコクーンの設置場所として適しているのは？",
+    "choice_a": "工場",
+    "choice_b": "遊園地やショッピングモール",
+    "choice_c": "病院",
+    "correct_answer": "B",
+    "explanation": "児童向け遊具のため、遊園地やショッピングモールなどに適しています。"
+  },
+  {
+    "quiz_id": "Q134",
+    "category": "商業用製品",
+    "question": "オーニングとテントの違いは何ですか？",
+    "choice_a": "素材が違う",
+    "choice_b": "建物に取り付ける日除け",
+    "choice_c": "サイズが違う",
+    "correct_answer": "B",
+    "explanation": "オーニングは建物の外壁に取り付ける日除けで、独立型のテントとは異なります。"
+  },
+  {
+    "quiz_id": "Q135",
+    "category": "商業用製品",
+    "question": "商業用膜構造製品のエネルギー効率が良い理由は？",
+    "choice_a": "発電機能",
+    "choice_b": "自然光の活用で照明削減",
+    "choice_c": "断熱性能",
+    "correct_answer": "B",
+    "explanation": "膜の透光性により自然光を活用でき、照明エネルギーを削減できます。"
+  },
+  {
+    "quiz_id": "Q136",
+    "category": "イベント製品",
+    "question": "ヨーロピアンテントの雰囲気の特徴は？",
+    "choice_a": "モダン",
+    "choice_b": "華やかでエレガント",
+    "choice_c": "シンプル",
+    "correct_answer": "B",
+    "explanation": "ヨーロピアンテントは華やかでエレガントな雰囲気が特徴です。"
+  },
+  {
+    "quiz_id": "Q137",
+    "category": "イベント製品",
+    "question": "スピアテントの設置に必要な時間の特徴は？",
+    "choice_a": "1週間以上",
+    "choice_b": "比較的短時間",
+    "choice_c": "1ヶ月以上",
+    "correct_answer": "B",
+    "explanation": "イベント用テントは比較的短時間で設置できるよう設計されています。"
+  },
+  {
+    "quiz_id": "Q138",
+    "category": "イベント製品",
+    "question": "エアアーチの設営方法の特徴は？",
+    "choice_a": "ボルト固定",
+    "choice_b": "空気を入れて膨らませる",
+    "choice_c": "組み立て式",
+    "correct_answer": "B",
+    "explanation": "エアアーチは空気を入れて膨らませることで設営します。"
+  },
+  {
+    "quiz_id": "Q139",
+    "category": "イベント製品",
+    "question": "イベントテントの撤去が簡単であるメリットは？",
+    "choice_a": "コスト削減",
+    "choice_b": "原状回復が容易",
+    "choice_c": "再利用不可",
+    "correct_answer": "B",
+    "explanation": "撤去が簡単なため、イベント後の原状回復が容易にできます。"
+  },
+  {
+    "quiz_id": "Q140",
+    "category": "イベント製品",
+    "question": "ゆめテントが「お馴染み」と言われる理由は？",
+    "choice_a": "新製品だから",
+    "choice_b": "広く普及しているイベントテント",
+    "choice_c": "高級品だから",
+    "correct_answer": "B",
+    "explanation": "ゆめテントは広く普及している馴染みのあるイベントテントです。"
+  },
+  {
+    "quiz_id": "Q141",
+    "category": "膜構造・技術",
+    "question": "膜構造の接合方法として一般的なのは？",
+    "choice_a": "ボルト締め",
+    "choice_b": "溶着・縫製",
+    "choice_c": "接着剤のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造の接合には溶着（熱溶接）や縫製が一般的に使われます。"
+  },
+  {
+    "quiz_id": "Q142",
+    "category": "膜構造・技術",
+    "question": "膜素材の耐候性を確保する処理は？",
+    "choice_a": "塗装",
+    "choice_b": "コーティング処理",
+    "choice_c": "研磨",
+    "correct_answer": "B",
+    "explanation": "膜素材はコーティング処理により耐候性を確保しています。"
+  },
+  {
+    "quiz_id": "Q143",
+    "category": "膜構造・技術",
+    "question": "膜構造の排水設計で重要な点は？",
+    "choice_a": "平らな屋根",
+    "choice_b": "適切な勾配の確保",
+    "choice_c": "排水口なし",
+    "correct_answer": "B",
+    "explanation": "膜構造の排水には適切な勾配を設けて水がたまらないようにします。"
+  },
+  {
+    "quiz_id": "Q144",
+    "category": "膜構造・技術",
+    "question": "膜構造の強度を保つために重要な要素は？",
+    "choice_a": "膜の厚さのみ",
+    "choice_b": "張力と支持構造",
+    "choice_c": "色の選択",
+    "correct_answer": "B",
+    "explanation": "膜構造の強度は適切な張力と支持構造（フレーム）により保たれます。"
+  },
+  {
+    "quiz_id": "Q145",
+    "category": "膜構造・技術",
+    "question": "膜構造の設計寿命を延ばす方法は？",
+    "choice_a": "使用しない",
+    "choice_b": "定期的なメンテナンス",
+    "choice_c": "屋内設置のみ",
+    "correct_answer": "B",
+    "explanation": "定期的なメンテナンスにより膜構造の設計寿命を延ばすことができます。"
+  },
+  {
+    "quiz_id": "Q146",
+    "category": "業界知識",
+    "question": "テント倉庫の建築確認が不要な場合の条件は？",
+    "choice_a": "すべて必要",
+    "choice_b": "一定面積以下など条件あり",
+    "choice_c": "すべて不要",
+    "correct_answer": "B",
+    "explanation": "建築確認は一定面積以下など条件により不要な場合があります。"
+  },
+  {
+    "quiz_id": "Q147",
+    "category": "業界知識",
+    "question": "膜構造建築の構造計算で考慮する主な力は？",
+    "choice_a": "重力のみ",
+    "choice_b": "風圧力・積雪荷重など",
+    "choice_c": "地震力のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造の構造計算では風圧力、積雪荷重、自重などを考慮します。"
+  },
+  {
+    "quiz_id": "Q148",
+    "category": "業界知識",
+    "question": "テント倉庫の固定資産税の扱いは？",
+    "choice_a": "非課税",
+    "choice_b": "建築物として課税対象",
+    "choice_c": "動産として扱う",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は建築物として固定資産税の課税対象となります。"
+  },
+  {
+    "quiz_id": "Q149",
+    "category": "業界知識",
+    "question": "膜構造建築の防火区画について正しいのは？",
+    "choice_a": "不要",
+    "choice_b": "規模により必要",
+    "choice_c": "必ず必要",
+    "correct_answer": "B",
+    "explanation": "膜構造建築も規模や用途により防火区画が必要となる場合があります。"
+  },
+  {
+    "quiz_id": "Q150",
+    "category": "業界知識",
+    "question": "テント倉庫の採光計算について正しいのは？",
+    "choice_a": "不要",
+    "choice_b": "用途により必要",
+    "choice_c": "常に必要",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は用途（工場など）により採光計算が必要な場合があります。"
+  },
+  {
+    "quiz_id": "Q151",
+    "category": "会社情報",
+    "question": "山口産業の決算月は何月ですか？",
+    "choice_a": "3月",
+    "choice_b": "7月",
+    "choice_c": "12月",
+    "correct_answer": "B",
+    "explanation": "山口産業の決算は7月期（2024年度7月期実績として発表）です。"
+  },
+  {
+    "quiz_id": "Q152",
+    "category": "会社情報",
+    "question": "山口産業の関東地方の営業所はどこにありますか？",
+    "choice_a": "横浜",
+    "choice_b": "東京",
+    "choice_c": "千葉",
+    "correct_answer": "B",
+    "explanation": "山口産業は東京に営業所を持っています。"
+  },
+  {
+    "quiz_id": "Q153",
+    "category": "会社情報",
+    "question": "山口産業の中部地方の営業所はどこにありますか？",
+    "choice_a": "静岡",
+    "choice_b": "名古屋",
+    "choice_c": "新潟",
+    "correct_answer": "B",
+    "explanation": "山口産業は名古屋に営業所を持っています。"
+  },
+  {
+    "quiz_id": "Q154",
+    "category": "会社情報",
+    "question": "山口産業の近畿地方の営業所はどこにありますか？",
+    "choice_a": "京都",
+    "choice_b": "大阪",
+    "choice_c": "神戸",
+    "correct_answer": "B",
+    "explanation": "山口産業は大阪に営業所を持っています。"
+  },
+  {
+    "quiz_id": "Q155",
+    "category": "会社情報",
+    "question": "山口産業の佐賀県内の工場として正しいのは？",
+    "choice_a": "第3工場",
+    "choice_b": "北多久工場",
+    "choice_c": "佐賀工場",
+    "correct_answer": "B",
+    "explanation": "山口産業は佐賀県内に本社、第2工場、北多久工場を持っています。"
+  },
+  {
+    "quiz_id": "Q156",
+    "category": "産業用製品",
+    "question": "テント倉庫の標準的な構造形式は？",
+    "choice_a": "吊り構造",
+    "choice_b": "フレーム構造",
+    "choice_c": "壁式構造",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は鉄骨フレームに膜を張るフレーム構造が標準的です。"
+  },
+  {
+    "quiz_id": "Q157",
+    "category": "産業用製品",
+    "question": "テント倉庫の妻面（短辺側）の仕上げ方法は？",
+    "choice_a": "常にオープン",
+    "choice_b": "膜やシートで閉じる",
+    "choice_c": "コンクリート壁のみ",
+    "correct_answer": "B",
+    "explanation": "妻面は膜やシートで閉じることが一般的ですが、オープンにすることも可能です。"
+  },
+  {
+    "quiz_id": "Q158",
+    "category": "産業用製品",
+    "question": "テント倉庫のカラーバリエーションについて正しいのは？",
+    "choice_a": "白のみ",
+    "choice_b": "複数色から選択可能",
+    "choice_c": "透明のみ",
+    "correct_answer": "B",
+    "explanation": "膜素材は複数のカラーバリエーションがあり、選択可能です。"
+  },
+  {
+    "quiz_id": "Q159",
+    "category": "産業用製品",
+    "question": "テント倉庫の増設について正しいのは？",
+    "choice_a": "不可能",
+    "choice_b": "連結や増設が可能",
+    "choice_c": "新築のみ",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は連結や増設が比較的容易に行えます。"
+  },
+  {
+    "quiz_id": "Q160",
+    "category": "産業用製品",
+    "question": "テント倉庫の移設について正しいのは？",
+    "choice_a": "不可能",
+    "choice_b": "解体して移設可能",
+    "choice_c": "そのまま移動可能",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は解体して別の場所に移設することが可能です。"
+  },
+  {
+    "quiz_id": "Q161",
+    "category": "農業・畜産用",
+    "question": "牛舎に膜構造を採用する利点は？",
+    "choice_a": "遮音性",
+    "choice_b": "通気性と明るさ",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "牛舎では通気性の良さと明るい環境が牛の健康に良い影響を与えます。"
+  },
+  {
+    "quiz_id": "Q162",
+    "category": "農業・畜産用",
+    "question": "豚舎に膜構造が適している理由は？",
+    "choice_a": "遮光性",
+    "choice_b": "換気性能とコスト",
+    "choice_c": "防音性",
+    "correct_answer": "B",
+    "explanation": "豚舎では換気性能の良さと建設コストの低さが膜構造のメリットです。"
+  },
+  {
+    "quiz_id": "Q163",
+    "category": "農業・畜産用",
+    "question": "鶏舎に膜構造を使用する際の注意点は？",
+    "choice_a": "採光を避ける",
+    "choice_b": "温度管理システムの併用",
+    "choice_c": "完全密閉にする",
+    "correct_answer": "B",
+    "explanation": "鶏舎では膜構造の断熱性の低さを補うため、温度管理システムの併用が必要です。"
+  },
+  {
+    "quiz_id": "Q164",
+    "category": "農業・畜産用",
+    "question": "堆肥化施設で膜構造に求められる性能は？",
+    "choice_a": "完全密閉",
+    "choice_b": "耐腐食性と通気性",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "堆肥化施設では腐食に強く、適度な通気性のある膜構造が求められます。"
+  },
+  {
+    "quiz_id": "Q165",
+    "category": "農業・畜産用",
+    "question": "バイオガス発酵施設での膜構造の利点は？",
+    "choice_a": "発電機能",
+    "choice_b": "大空間の確保とコスト",
+    "choice_c": "完全遮光",
+    "correct_answer": "B",
+    "explanation": "バイオガス発酵施設では大空間を低コストで確保できることが利点です。"
+  },
+  {
+    "quiz_id": "Q166",
+    "category": "商業用製品",
+    "question": "グランピング施設に適した膜製品は？",
+    "choice_a": "テント倉庫",
+    "choice_b": "ドームテント・球体テント",
+    "choice_c": "シート間仕切り",
+    "correct_answer": "B",
+    "explanation": "グランピング施設には非日常感を演出できるドームテントや球体テントが適しています。"
+  },
+  {
+    "quiz_id": "Q167",
+    "category": "商業用製品",
+    "question": "カフェテラスに適した膜製品は？",
+    "choice_a": "テント倉庫",
+    "choice_b": "オーニング・シェードセイル",
+    "choice_c": "畜舎用テント",
+    "correct_answer": "B",
+    "explanation": "カフェテラスにはオーニングやシェードセイルが日除けとして適しています。"
+  },
+  {
+    "quiz_id": "Q168",
+    "category": "商業用製品",
+    "question": "ショッピングモールの中庭に適した膜構造は？",
+    "choice_a": "テント倉庫",
+    "choice_b": "膜屋根・シェードセイル",
+    "choice_c": "畜舎",
+    "correct_answer": "B",
+    "explanation": "ショッピングモールの中庭には膜屋根やシェードセイルが適しています。"
+  },
+  {
+    "quiz_id": "Q169",
+    "category": "商業用製品",
+    "question": "野外フードコートに適した膜製品は？",
+    "choice_a": "完全密閉テント",
+    "choice_b": "開閉式テント",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "野外フードコートには天候により開閉できる開閉式テントが適しています。"
+  },
+  {
+    "quiz_id": "Q170",
+    "category": "商業用製品",
+    "question": "ゴルフ練習場のカバーに適した膜構造は？",
+    "choice_a": "球体テント",
+    "choice_b": "膜屋根・ネット",
+    "choice_c": "エアアーチ",
+    "correct_answer": "B",
+    "explanation": "ゴルフ練習場には膜屋根やネット製品が適しています。"
+  },
+  {
+    "quiz_id": "Q171",
+    "category": "イベント製品",
+    "question": "企業の展示会ブースに適したテントは？",
+    "choice_a": "ヨーロピアンテント",
+    "choice_b": "スピアテント",
+    "choice_c": "畜舎テント",
+    "correct_answer": "B",
+    "explanation": "企業の展示会には汎用性の高いスピアテントが適しています。"
+  },
+  {
+    "quiz_id": "Q172",
+    "category": "イベント製品",
+    "question": "マラソン大会のスタート・ゴールに適した製品は？",
+    "choice_a": "ヨーロピアンテント",
+    "choice_b": "エアアーチ",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "マラソン大会のスタート・ゴールにはエアアーチが視認性が高く適しています。"
+  },
+  {
+    "quiz_id": "Q173",
+    "category": "イベント製品",
+    "question": "地域のお祭りに適したテントは？",
+    "choice_a": "ヨーロピアンテント",
+    "choice_b": "ゆめテント",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "地域のお祭りには設置が簡単なゆめテントが適しています。"
+  },
+  {
+    "quiz_id": "Q174",
+    "category": "イベント製品",
+    "question": "屋外ウェディングに最適なテントは？",
+    "choice_a": "ゆめテント",
+    "choice_b": "ヨーロピアンテント",
+    "choice_c": "エアアーチ",
+    "correct_answer": "B",
+    "explanation": "屋外ウェディングには華やかな雰囲気のヨーロピアンテントが最適です。"
+  },
+  {
+    "quiz_id": "Q175",
+    "category": "イベント製品",
+    "question": "フリーマーケットに適したテントは？",
+    "choice_a": "ヨーロピアンテント",
+    "choice_b": "ゆめテント",
+    "choice_c": "エアアーチ",
+    "correct_answer": "B",
+    "explanation": "フリーマーケットには簡単に設置・撤去できるゆめテントが適しています。"
+  },
+  {
+    "quiz_id": "Q176",
+    "category": "膜構造・技術",
+    "question": "膜構造の防汚性を高める処理は？",
+    "choice_a": "塗装",
+    "choice_b": "フッ素コーティング",
+    "choice_c": "ワックス",
+    "correct_answer": "B",
+    "explanation": "フッ素コーティングにより膜構造の防汚性を高めることができます。"
+  },
+  {
+    "quiz_id": "Q177",
+    "category": "膜構造・技術",
+    "question": "膜構造の遮熱性を高める方法は？",
+    "choice_a": "黒色の膜を使用",
+    "choice_b": "高反射率の膜を使用",
+    "choice_c": "透明の膜を使用",
+    "correct_answer": "B",
+    "explanation": "高反射率の膜を使用することで遮熱性を高めることができます。"
+  },
+  {
+    "quiz_id": "Q178",
+    "category": "膜構造・技術",
+    "question": "膜構造の音響性能について正しいのは？",
+    "choice_a": "完全防音",
+    "choice_b": "吸音効果がある素材もある",
+    "choice_c": "音を増幅する",
+    "correct_answer": "B",
+    "explanation": "膜素材の種類によっては吸音効果を持つものもあります。"
+  },
+  {
+    "quiz_id": "Q179",
+    "category": "膜構造・技術",
+    "question": "膜構造の照明計画で考慮すべき点は？",
+    "choice_a": "常に人工照明",
+    "choice_b": "自然光と人工照明のバランス",
+    "choice_c": "照明不要",
+    "correct_answer": "B",
+    "explanation": "膜の透光性を活かした自然光と人工照明のバランスが重要です。"
+  },
+  {
+    "quiz_id": "Q180",
+    "category": "膜構造・技術",
+    "question": "膜構造の結露対策として有効な方法は？",
+    "choice_a": "密閉する",
+    "choice_b": "換気と断熱の確保",
+    "choice_c": "加湿する",
+    "correct_answer": "B",
+    "explanation": "結露対策には適切な換気と断熱の確保が有効です。"
+  },
+  {
+    "quiz_id": "Q181",
+    "category": "業界知識",
+    "question": "テント倉庫の建蔽率の計算について正しいのは？",
+    "choice_a": "計算不要",
+    "choice_b": "通常の建築物と同様に計算",
+    "choice_c": "半分で計算",
+    "correct_answer": "B",
+    "explanation": "テント倉庫も通常の建築物と同様に建蔽率の計算が必要です。"
+  },
+  {
+    "quiz_id": "Q182",
+    "category": "業界知識",
+    "question": "テント倉庫の容積率の計算について正しいのは？",
+    "choice_a": "計算不要",
+    "choice_b": "通常の建築物と同様に計算",
+    "choice_c": "二倍で計算",
+    "correct_answer": "B",
+    "explanation": "テント倉庫も通常の建築物と同様に容積率の計算が必要です。"
+  },
+  {
+    "quiz_id": "Q183",
+    "category": "業界知識",
+    "question": "テント倉庫の高さ制限について正しいのは？",
+    "choice_a": "制限なし",
+    "choice_b": "用途地域により制限あり",
+    "choice_c": "10m以下のみ",
+    "correct_answer": "B",
+    "explanation": "テント倉庫も用途地域による高さ制限を受けます。"
+  },
+  {
+    "quiz_id": "Q184",
+    "category": "業界知識",
+    "question": "テント倉庫の敷地境界からの距離について正しいのは？",
+    "choice_a": "制限なし",
+    "choice_b": "建築基準法の規定に従う",
+    "choice_c": "1m以上必要",
+    "correct_answer": "B",
+    "explanation": "テント倉庫の敷地境界からの距離は建築基準法の規定に従います。"
+  },
+  {
+    "quiz_id": "Q185",
+    "category": "業界知識",
+    "question": "テント倉庫の避雷設備について正しいのは？",
+    "choice_a": "常に必要",
+    "choice_b": "高さにより必要",
+    "choice_c": "不要",
+    "correct_answer": "B",
+    "explanation": "テント倉庫も高さ20mを超える場合などは避雷設備が必要です。"
+  },
+  {
+    "quiz_id": "Q186",
+    "category": "会社情報",
+    "question": "山口産業の八女営業所がある県はどこですか？",
+    "choice_a": "佐賀県",
+    "choice_b": "福岡県",
+    "choice_c": "熊本県",
+    "correct_answer": "B",
+    "explanation": "八女市は福岡県にあり、山口産業の八女営業所は福岡県にあります。"
+  },
+  {
+    "quiz_id": "Q187",
+    "category": "会社情報",
+    "question": "山口産業の創業から2024年で何年目ですか？",
+    "choice_a": "約40年",
+    "choice_b": "約50年",
+    "choice_c": "約60年",
+    "correct_answer": "B",
+    "explanation": "1972年創業なので、2024年で約52年目（約50年）です。"
+  },
+  {
+    "quiz_id": "Q188",
+    "category": "会社情報",
+    "question": "山口産業が対応できない地域はありますか？",
+    "choice_a": "北海道は対応不可",
+    "choice_b": "日本全国対応可能",
+    "choice_c": "離島は対応不可",
+    "correct_answer": "B",
+    "explanation": "山口産業は日本全国で対応可能です。"
+  },
+  {
+    "quiz_id": "Q189",
+    "category": "会社情報",
+    "question": "山口産業の企業理念に関連するキーワードは？",
+    "choice_a": "利益最大化",
+    "choice_b": "テントへの愛情と革新",
+    "choice_c": "規模拡大",
+    "correct_answer": "B",
+    "explanation": "山口産業はテントへの愛情を持ち、革新を続けることを大切にしています。"
+  },
+  {
+    "quiz_id": "Q190",
+    "category": "会社情報",
+    "question": "山口産業の品質管理の特徴は？",
+    "choice_a": "外部委託",
+    "choice_b": "ISO認証工場での一貫生産",
+    "choice_c": "検査なし",
+    "correct_answer": "B",
+    "explanation": "山口産業はISO9001認証工場での一貫生産により品質を管理しています。"
+  },
+  {
+    "quiz_id": "Q191",
+    "category": "産業用製品",
+    "question": "テント倉庫の雨漏り対策として重要な点は？",
+    "choice_a": "膜を厚くする",
+    "choice_b": "接合部の適切な処理",
+    "choice_c": "傾斜をなくす",
+    "correct_answer": "B",
+    "explanation": "テント倉庫の雨漏り対策には接合部の適切な溶着や防水処理が重要です。"
+  },
+  {
+    "quiz_id": "Q192",
+    "category": "産業用製品",
+    "question": "テント倉庫内の照度を上げる方法は？",
+    "choice_a": "黒い膜を使用",
+    "choice_b": "透光性の高い膜や採光部を設置",
+    "choice_c": "窓を減らす",
+    "correct_answer": "B",
+    "explanation": "透光性の高い膜を使用するか、採光部を設けることで照度を上げられます。"
+  },
+  {
+    "quiz_id": "Q193",
+    "category": "産業用製品",
+    "question": "テント倉庫の荷重制限について正しいのは？",
+    "choice_a": "制限なし",
+    "choice_b": "床の耐荷重を考慮",
+    "choice_c": "1トンまで",
+    "correct_answer": "B",
+    "explanation": "テント倉庫内に置く物の重量は床の耐荷重を考慮する必要があります。"
+  },
+  {
+    "quiz_id": "Q194",
+    "category": "産業用製品",
+    "question": "テント倉庫に重機が出入りする場合の設計ポイントは？",
+    "choice_a": "小さい出入口",
+    "choice_b": "大型の開口部と床強度",
+    "choice_c": "窓の設置",
+    "correct_answer": "B",
+    "explanation": "重機が出入りする場合は大型の開口部と十分な床強度が必要です。"
+  },
+  {
+    "quiz_id": "Q195",
+    "category": "産業用製品",
+    "question": "テント倉庫の風対策として重要な点は？",
+    "choice_a": "軽くする",
+    "choice_b": "確実な基礎固定",
+    "choice_c": "開口部を増やす",
+    "correct_answer": "B",
+    "explanation": "テント倉庫の風対策には確実な基礎への固定が重要です。"
+  },
+  {
+    "quiz_id": "Q196",
+    "category": "農業・畜産用",
+    "question": "畜舎の臭気対策で膜構造が有利な点は？",
+    "choice_a": "臭気を吸収",
+    "choice_b": "換気性能が良い",
+    "choice_c": "完全遮断",
+    "correct_answer": "B",
+    "explanation": "膜構造は換気性能が良いため、臭気の滞留を防ぎやすいです。"
+  },
+  {
+    "quiz_id": "Q197",
+    "category": "農業・畜産用",
+    "question": "寒冷地での畜舎建設で注意すべき点は？",
+    "choice_a": "換気を止める",
+    "choice_b": "断熱対策と積雪荷重",
+    "choice_c": "透光性を上げる",
+    "correct_answer": "B",
+    "explanation": "寒冷地では断熱対策と積雪荷重への対応が重要です。"
+  },
+  {
+    "quiz_id": "Q198",
+    "category": "農業・畜産用",
+    "question": "夏場の畜舎で膜構造が有利な点は？",
+    "choice_a": "遮熱性",
+    "choice_b": "通気性の確保",
+    "choice_c": "蓄熱性",
+    "correct_answer": "B",
+    "explanation": "夏場は膜構造の通気性の良さが畜舎内の温度上昇を抑えるのに有利です。"
+  },
+  {
+    "quiz_id": "Q199",
+    "category": "農業・畜産用",
+    "question": "有機農業の堆肥舎に膜構造が選ばれる理由は？",
+    "choice_a": "高級感",
+    "choice_b": "コストパフォーマンスと機能性",
+    "choice_c": "ブランドイメージ",
+    "correct_answer": "B",
+    "explanation": "有機農業ではコストパフォーマンスと通気性などの機能性が重視されます。"
+  },
+  {
+    "quiz_id": "Q200",
+    "category": "農業・畜産用",
+    "question": "水産養殖施設で膜構造を選ぶメリットは？",
+    "choice_a": "水密性",
+    "choice_b": "大空間を低コストで確保",
+    "choice_c": "浮力",
+    "correct_answer": "B",
+    "explanation": "水産養殖施設では大きな水槽を収容する大空間を低コストで確保できます。"
+  },
+  {
+    "quiz_id": "Q201",
+    "category": "商業用製品",
+    "question": "リゾート施設に適した膜構造製品は？",
+    "choice_a": "テント倉庫",
+    "choice_b": "ドームテント",
+    "choice_c": "シート間仕切り",
+    "correct_answer": "B",
+    "explanation": "リゾート施設には非日常感を演出できるドームテントが適しています。"
+  },
+  {
+    "quiz_id": "Q202",
+    "category": "商業用製品",
+    "question": "プールサイドの日除けに適した製品は？",
+    "choice_a": "テント倉庫",
+    "choice_b": "シェードセイル",
+    "choice_c": "畜舎テント",
+    "correct_answer": "B",
+    "explanation": "プールサイドの日除けにはシェードセイルが適しています。"
+  },
+  {
+    "quiz_id": "Q203",
+    "category": "商業用製品",
+    "question": "ビアガーデンに適した膜構造は？",
+    "choice_a": "完全密閉テント",
+    "choice_b": "開閉式テントやオーニング",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "ビアガーデンには天候に応じて開閉できるテントやオーニングが適しています。"
+  },
+  {
+    "quiz_id": "Q204",
+    "category": "商業用製品",
+    "question": "キャンプ場のグランピング施設に人気の形状は？",
+    "choice_a": "四角形",
+    "choice_b": "ドーム型・球体型",
+    "choice_c": "三角形",
+    "correct_answer": "B",
+    "explanation": "グランピングにはドーム型や球体型のテントが非日常感があり人気です。"
+  },
+  {
+    "quiz_id": "Q205",
+    "category": "商業用製品",
+    "question": "スキー場のレストラン増設に適した膜構造は？",
+    "choice_a": "薄い膜のみ",
+    "choice_b": "断熱仕様の膜構造",
+    "choice_c": "開放型テント",
+    "correct_answer": "B",
+    "explanation": "スキー場では断熱性を確保した膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q206",
+    "category": "イベント製品",
+    "question": "音楽フェスに適したテントの特徴は？",
+    "choice_a": "小型で密閉",
+    "choice_b": "大型で開放的",
+    "choice_c": "完全遮音",
+    "correct_answer": "B",
+    "explanation": "音楽フェスには大勢が集まれる大型で開放的なテントが適しています。"
+  },
+  {
+    "quiz_id": "Q207",
+    "category": "イベント製品",
+    "question": "企業の新製品発表会に適したテントは？",
+    "choice_a": "畜舎テント",
+    "choice_b": "ヨーロピアンテント・スピアテント",
+    "choice_c": "農業用テント",
+    "correct_answer": "B",
+    "explanation": "新製品発表会には華やかさと汎用性のあるテントが適しています。"
+  },
+  {
+    "quiz_id": "Q208",
+    "category": "イベント製品",
+    "question": "スポーツイベントの本部テントに適した製品は？",
+    "choice_a": "球体テント",
+    "choice_b": "ゆめテント・スピアテント",
+    "choice_c": "エアアーチ",
+    "correct_answer": "B",
+    "explanation": "スポーツイベントの本部には設置が簡単なテントが適しています。"
+  },
+  {
+    "quiz_id": "Q209",
+    "category": "イベント製品",
+    "question": "フードトラックイベントの共有スペースに適した製品は？",
+    "choice_a": "畜舎",
+    "choice_b": "シェードセイル・ゆめテント",
+    "choice_c": "バイオマス施設",
+    "correct_answer": "B",
+    "explanation": "フードトラックイベントには簡易的に日陰を作れる製品が適しています。"
+  },
+  {
+    "quiz_id": "Q210",
+    "category": "イベント製品",
+    "question": "アートインスタレーションに適した膜構造は？",
+    "choice_a": "標準テント倉庫",
+    "choice_b": "自由な形状の膜構造",
+    "choice_c": "規格化テント",
+    "correct_answer": "B",
+    "explanation": "アートには膜構造の自由な形状デザインが活かされます。"
+  },
+  {
+    "quiz_id": "Q211",
+    "category": "膜構造・技術",
+    "question": "膜構造の寿命に影響する主な要因は？",
+    "choice_a": "色のみ",
+    "choice_b": "紫外線・気候・メンテナンス",
+    "choice_c": "サイズのみ",
+    "correct_answer": "B",
+    "explanation": "膜構造の寿命は紫外線、気候条件、メンテナンス状況などに影響されます。"
+  },
+  {
+    "quiz_id": "Q212",
+    "category": "膜構造・技術",
+    "question": "膜素材の張り替えが必要な兆候は？",
+    "choice_a": "新品時と同じ",
+    "choice_b": "劣化・変色・破れ",
+    "choice_c": "色が濃くなる",
+    "correct_answer": "B",
+    "explanation": "膜素材の劣化、変色、破れなどが張り替えのサインです。"
+  },
+  {
+    "quiz_id": "Q213",
+    "category": "膜構造・技術",
+    "question": "膜構造の清掃方法として適切なのは？",
+    "choice_a": "高圧洗浄のみ",
+    "choice_b": "専用洗剤と柔らかいブラシ",
+    "choice_c": "たわしでこする",
+    "correct_answer": "B",
+    "explanation": "膜構造の清掃には専用洗剤と柔らかいブラシを使用します。"
+  },
+  {
+    "quiz_id": "Q214",
+    "category": "膜構造・技術",
+    "question": "膜構造の補修が必要な場合の対応は？",
+    "choice_a": "全面張り替えのみ",
+    "choice_b": "部分補修も可能",
+    "choice_c": "補修不可",
+    "correct_answer": "B",
+    "explanation": "膜構造は部分的な補修も可能で、全面張り替えが常に必要なわけではありません。"
+  },
+  {
+    "quiz_id": "Q215",
+    "category": "膜構造・技術",
+    "question": "膜構造の定期点検で確認すべき項目は？",
+    "choice_a": "色だけ",
+    "choice_b": "張力・接合部・汚れ・損傷",
+    "choice_c": "重さだけ",
+    "correct_answer": "B",
+    "explanation": "定期点検では張力、接合部、汚れ、損傷などを確認します。"
+  },
+  {
+    "quiz_id": "Q216",
+    "category": "業界知識",
+    "question": "テント倉庫の耐用年数の目安は？",
+    "choice_a": "3〜5年",
+    "choice_b": "10〜20年",
+    "choice_c": "30年以上",
+    "correct_answer": "B",
+    "explanation": "テント倉庫の膜素材は適切なメンテナンスで10〜20年程度の耐用年数があります。"
+  },
+  {
+    "quiz_id": "Q217",
+    "category": "業界知識",
+    "question": "テント倉庫のフレームの耐用年数は？",
+    "choice_a": "膜と同じ",
+    "choice_b": "膜より長い（20〜30年以上）",
+    "choice_c": "膜より短い",
+    "correct_answer": "B",
+    "explanation": "鉄骨フレームは膜よりも長い耐用年数があります。"
+  },
+  {
+    "quiz_id": "Q218",
+    "category": "業界知識",
+    "question": "テント倉庫の減価償却期間の目安は？",
+    "choice_a": "5年",
+    "choice_b": "10〜15年程度",
+    "choice_c": "30年",
+    "correct_answer": "B",
+    "explanation": "テント倉庫の減価償却期間は構造や用途により10〜15年程度が目安です。"
+  },
+  {
+    "quiz_id": "Q219",
+    "category": "業界知識",
+    "question": "テント倉庫の保険加入について正しいのは？",
+    "choice_a": "保険対象外",
+    "choice_b": "火災保険などに加入可能",
+    "choice_c": "自動車保険で対応",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は建築物として火災保険などに加入可能です。"
+  },
+  {
+    "quiz_id": "Q220",
+    "category": "業界知識",
+    "question": "テント倉庫のリースやレンタルのメリットは？",
+    "choice_a": "永久使用",
+    "choice_b": "初期投資の軽減",
+    "choice_c": "メンテナンス全額負担",
+    "correct_answer": "B",
+    "explanation": "リースやレンタルは初期投資を軽減でき、一時的な需要に対応できます。"
+  },
+  {
+    "quiz_id": "Q221",
+    "category": "会社情報",
+    "question": "山口産業の製品設計で重視していることは？",
+    "choice_a": "低価格のみ",
+    "choice_b": "お客様の要望と使い勝手",
+    "choice_c": "デザインのみ",
+    "correct_answer": "B",
+    "explanation": "山口産業はお客様の要望を聞き、使い勝手の良い製品設計を重視しています。"
+  },
+  {
+    "quiz_id": "Q222",
+    "category": "会社情報",
+    "question": "山口産業が「他社で不可能」と言われた案件に対する姿勢は？",
+    "choice_a": "お断りする",
+    "choice_b": "挑戦して解決を目指す",
+    "choice_c": "代替案のみ提案",
+    "correct_answer": "B",
+    "explanation": "山口産業は他社で不可能と言われた案件にも挑戦し、解決を目指しています。"
+  },
+  {
+    "quiz_id": "Q223",
+    "category": "会社情報",
+    "question": "山口産業の施工対応エリアは？",
+    "choice_a": "九州のみ",
+    "choice_b": "日本全国",
+    "choice_c": "西日本のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業は全国に営業所を持ち、日本全国で施工対応しています。"
+  },
+  {
+    "quiz_id": "Q224",
+    "category": "会社情報",
+    "question": "山口産業の製品に対する姿勢を表す言葉は？",
+    "choice_a": "効率優先",
+    "choice_b": "テントへの愛情と革新",
+    "choice_c": "コスト削減",
+    "correct_answer": "B",
+    "explanation": "山口産業はテントへの愛情を持ち、常に革新を追求しています。"
+  },
+  {
+    "quiz_id": "Q225",
+    "category": "会社情報",
+    "question": "山口産業のモットーに近いのは？",
+    "choice_a": "安ければ良い",
+    "choice_b": "品質と顧客満足",
+    "choice_c": "早ければ良い",
+    "correct_answer": "B",
+    "explanation": "山口産業は品質と顧客満足を重視した製品づくりを行っています。"
+  },
+  {
+    "quiz_id": "Q226",
+    "category": "産業用製品",
+    "question": "物流倉庫にテント構造が選ばれる理由は？",
+    "choice_a": "高級感",
+    "choice_b": "短工期とコスト",
+    "choice_c": "完全防音",
+    "correct_answer": "B",
+    "explanation": "物流倉庫では短工期でコストを抑えられるテント構造が選ばれます。"
+  },
+  {
+    "quiz_id": "Q227",
+    "category": "産業用製品",
+    "question": "製造工場の増設にテント構造が適している理由は？",
+    "choice_a": "永久建築",
+    "choice_b": "迅速な対応と将来の変更対応",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "テント構造は迅速に増設でき、将来的な変更にも対応しやすいです。"
+  },
+  {
+    "quiz_id": "Q228",
+    "category": "産業用製品",
+    "question": "建設現場の仮設作業場にテントが適している理由は？",
+    "choice_a": "永久設置",
+    "choice_b": "設置・撤去の容易さ",
+    "choice_c": "完全防音",
+    "correct_answer": "B",
+    "explanation": "建設現場では設置と撤去が容易なテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q229",
+    "category": "産業用製品",
+    "question": "危険物倉庫にテント構造を使用する際の注意点は？",
+    "choice_a": "規制なし",
+    "choice_b": "消防法等の規制遵守",
+    "choice_c": "使用不可",
+    "correct_answer": "B",
+    "explanation": "危険物倉庫は消防法等の規制を遵守する必要があります。"
+  },
+  {
+    "quiz_id": "Q230",
+    "category": "産業用製品",
+    "question": "食品保管倉庫でテント構造を使用する際の配慮は？",
+    "choice_a": "特になし",
+    "choice_b": "衛生面と温度管理",
+    "choice_c": "装飾のみ",
+    "correct_answer": "B",
+    "explanation": "食品保管では衛生面と必要に応じて温度管理への配慮が必要です。"
+  },
+  {
+    "quiz_id": "Q231",
+    "category": "農業・畜産用",
+    "question": "馬場の覆いに膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "大スパンと自然光",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "馬場は大きな空間が必要で、自然光を取り入れられる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q232",
+    "category": "農業・畜産用",
+    "question": "農機具倉庫に膜構造が選ばれる理由は？",
+    "choice_a": "高級感",
+    "choice_b": "大開口と低コスト",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "農機具の出し入れに便利な大開口を低コストで実現できます。"
+  },
+  {
+    "quiz_id": "Q233",
+    "category": "農業・畜産用",
+    "question": "乾燥施設に膜構造を使用するメリットは？",
+    "choice_a": "保温性",
+    "choice_b": "通気性と採光",
+    "choice_c": "防水性",
+    "correct_answer": "B",
+    "explanation": "乾燥施設では通気性と採光が良い膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q234",
+    "category": "農業・畜産用",
+    "question": "きのこ栽培施設に膜構造を使用する際の考慮点は？",
+    "choice_a": "採光を増やす",
+    "choice_b": "遮光と温湿度管理",
+    "choice_c": "通気を止める",
+    "correct_answer": "B",
+    "explanation": "きのこ栽培では遮光と温湿度管理が重要で、適切な膜選定が必要です。"
+  },
+  {
+    "quiz_id": "Q235",
+    "category": "農業・畜産用",
+    "question": "農産物集荷場に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "大空間と車両アクセス",
+    "choice_c": "高断熱",
+    "correct_answer": "B",
+    "explanation": "集荷場には大空間と車両のアクセスしやすさが重要です。"
+  },
+  {
+    "quiz_id": "Q236",
+    "category": "商業用製品",
+    "question": "駐車場の日除けに適した膜構造は？",
+    "choice_a": "完全密閉テント",
+    "choice_b": "膜屋根・シェードセイル",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "駐車場には車を日差しから守る膜屋根やシェードセイルが適しています。"
+  },
+  {
+    "quiz_id": "Q237",
+    "category": "商業用製品",
+    "question": "フットサル場の屋根に膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "大スパンと採光",
+    "choice_c": "防音性",
+    "correct_answer": "B",
+    "explanation": "フットサル場は大きな空間が必要で、自然光も取り入れたいため膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q238",
+    "category": "商業用製品",
+    "question": "テニスコートの覆いに膜構造を選ぶメリットは？",
+    "choice_a": "完全密閉",
+    "choice_b": "大スパンと自然な明るさ",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "テニスコートの覆いには大スパンで自然光を取り入れられる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q239",
+    "category": "商業用製品",
+    "question": "道の駅の休憩スペースに適した膜構造は？",
+    "choice_a": "完全密閉倉庫",
+    "choice_b": "開放的な膜屋根",
+    "choice_c": "畜舎",
+    "correct_answer": "B",
+    "explanation": "道の駅には開放的で明るい膜屋根が適しています。"
+  },
+  {
+    "quiz_id": "Q240",
+    "category": "商業用製品",
+    "question": "ガソリンスタンドのキャノピーに膜構造が使われる理由は？",
+    "choice_a": "断熱性",
+    "choice_b": "大スパンとデザイン性",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "ガソリンスタンドには柱を減らした大スパンとデザイン性が求められます。"
+  },
+  {
+    "quiz_id": "Q241",
+    "category": "イベント製品",
+    "question": "花火大会の観覧席に適した膜構造は？",
+    "choice_a": "完全密閉テント",
+    "choice_b": "開放的なシェード",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "花火大会では空が見える開放的なシェードが適しています。"
+  },
+  {
+    "quiz_id": "Q242",
+    "category": "イベント製品",
+    "question": "野外コンサートのバックステージに適した製品は？",
+    "choice_a": "観客用大テント",
+    "choice_b": "機材保護用テント",
+    "choice_c": "エアアーチ",
+    "correct_answer": "B",
+    "explanation": "バックステージには機材を保護できるテントが必要です。"
+  },
+  {
+    "quiz_id": "Q243",
+    "category": "イベント製品",
+    "question": "スポーツ観戦イベントの応援エリアに適した製品は？",
+    "choice_a": "完全密閉テント",
+    "choice_b": "オープンな日除けテント",
+    "choice_c": "畜舎",
+    "correct_answer": "B",
+    "explanation": "スポーツ観戦には日除けがありつつ開放的なテントが適しています。"
+  },
+  {
+    "quiz_id": "Q244",
+    "category": "イベント製品",
+    "question": "サーカスの仮設会場に使われる膜構造の特徴は？",
+    "choice_a": "小型",
+    "choice_b": "大型で印象的な外観",
+    "choice_c": "四角形のみ",
+    "correct_answer": "B",
+    "explanation": "サーカスには大型で印象的な外観の膜構造が使われます。"
+  },
+  {
+    "quiz_id": "Q245",
+    "category": "イベント製品",
+    "question": "展示即売会に適したテントの特徴は？",
+    "choice_a": "窓なし",
+    "choice_b": "出入りしやすい開口部",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "展示即売会では来場者が出入りしやすい開口部が重要です。"
+  },
+  {
+    "quiz_id": "Q246",
+    "category": "膜構造・技術",
+    "question": "膜構造の騒音対策として有効な方法は？",
+    "choice_a": "膜を薄くする",
+    "choice_b": "遮音材の併用",
+    "choice_c": "開口部を増やす",
+    "correct_answer": "B",
+    "explanation": "膜構造の騒音対策には遮音材を併用することが有効です。"
+  },
+  {
+    "quiz_id": "Q247",
+    "category": "膜構造・技術",
+    "question": "膜構造の防虫対策として有効な方法は？",
+    "choice_a": "開口部を増やす",
+    "choice_b": "網戸や防虫網の設置",
+    "choice_c": "膜を厚くする",
+    "correct_answer": "B",
+    "explanation": "防虫対策には網戸や防虫網の設置が有効です。"
+  },
+  {
+    "quiz_id": "Q248",
+    "category": "膜構造・技術",
+    "question": "膜構造の防犯対策として有効な方法は？",
+    "choice_a": "膜を透明にする",
+    "choice_b": "施錠設備と照明の設置",
+    "choice_c": "開口部を増やす",
+    "correct_answer": "B",
+    "explanation": "防犯対策には適切な施錠設備と照明の設置が有効です。"
+  },
+  {
+    "quiz_id": "Q249",
+    "category": "膜構造・技術",
+    "question": "膜構造の鳥害対策として有効な方法は？",
+    "choice_a": "膜を厚くする",
+    "choice_b": "防鳥ネットの設置",
+    "choice_c": "開口部をなくす",
+    "correct_answer": "B",
+    "explanation": "鳥害対策には防鳥ネットの設置が有効です。"
+  },
+  {
+    "quiz_id": "Q250",
+    "category": "膜構造・技術",
+    "question": "膜構造の雪対策として重要な点は？",
+    "choice_a": "平らな屋根にする",
+    "choice_b": "適切な勾配と積雪荷重設計",
+    "choice_c": "膜を薄くする",
+    "correct_answer": "B",
+    "explanation": "雪対策には適切な屋根勾配と積雪荷重を考慮した設計が重要です。"
+  },
+  {
+    "quiz_id": "Q251",
+    "category": "業界知識",
+    "question": "テント倉庫の電気設備について正しいのは？",
+    "choice_a": "設置不可",
+    "choice_b": "照明やコンセントの設置可能",
+    "choice_c": "電気工事不要",
+    "correct_answer": "B",
+    "explanation": "テント倉庫にも照明やコンセントなどの電気設備を設置できます。"
+  },
+  {
+    "quiz_id": "Q252",
+    "category": "業界知識",
+    "question": "テント倉庫の給排水設備について正しいのは？",
+    "choice_a": "設置不可",
+    "choice_b": "用途に応じて設置可能",
+    "choice_c": "標準装備",
+    "correct_answer": "B",
+    "explanation": "テント倉庫にも用途に応じて給排水設備を設置できます。"
+  },
+  {
+    "quiz_id": "Q253",
+    "category": "業界知識",
+    "question": "テント倉庫の空調設備について正しいのは？",
+    "choice_a": "設置不可",
+    "choice_b": "必要に応じて設置可能",
+    "choice_c": "不要",
+    "correct_answer": "B",
+    "explanation": "テント倉庫にも必要に応じて空調設備を設置できます。"
+  },
+  {
+    "quiz_id": "Q254",
+    "category": "業界知識",
+    "question": "テント倉庫の消火設備について正しいのは？",
+    "choice_a": "不要",
+    "choice_b": "規模や用途により必要",
+    "choice_c": "常に必要",
+    "correct_answer": "B",
+    "explanation": "テント倉庫も規模や用途により消火設備が必要な場合があります。"
+  },
+  {
+    "quiz_id": "Q255",
+    "category": "業界知識",
+    "question": "テント倉庫のシャッター設置について正しいのは？",
+    "choice_a": "設置不可",
+    "choice_b": "開口部に設置可能",
+    "choice_c": "必須",
+    "correct_answer": "B",
+    "explanation": "テント倉庫の開口部にシャッターを設置することは可能です。"
+  },
+  {
+    "quiz_id": "Q256",
+    "category": "会社情報",
+    "question": "山口産業の営業担当者の姿勢として紹介されているのは？",
+    "choice_a": "売上優先",
+    "choice_b": "お客様の喜びを重視",
+    "choice_c": "効率優先",
+    "correct_answer": "B",
+    "explanation": "山口産業の営業担当者はお客様に喜んでいただくことを重視しています。"
+  },
+  {
+    "quiz_id": "Q257",
+    "category": "会社情報",
+    "question": "山口産業の急ぎの依頼に対する姿勢は？",
+    "choice_a": "お断り",
+    "choice_b": "可能な限り対応",
+    "choice_c": "追加料金のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業は急ぎの依頼にも可能な限り対応しています。"
+  },
+  {
+    "quiz_id": "Q258",
+    "category": "会社情報",
+    "question": "山口産業の施工事例で紹介されている地域は？",
+    "choice_a": "佐賀県のみ",
+    "choice_b": "全国各地",
+    "choice_c": "九州のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業の施工事例は愛知県など全国各地で紹介されています。"
+  },
+  {
+    "quiz_id": "Q259",
+    "category": "会社情報",
+    "question": "山口産業がお客様と相談する内容は？",
+    "choice_a": "価格のみ",
+    "choice_b": "配置・導線・使い勝手",
+    "choice_c": "色のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業はお客様と配置、導線、使い勝手などを相談して設計します。"
+  },
+  {
+    "quiz_id": "Q260",
+    "category": "会社情報",
+    "question": "山口産業の設計で「できるだけ広く」を実現する方法は？",
+    "choice_a": "壁を厚くする",
+    "choice_b": "柱の工夫（コラム柱など）",
+    "choice_c": "天井を低くする",
+    "correct_answer": "B",
+    "explanation": "コラム柱などの工夫により内部をできるだけ広く使えるように設計します。"
+  },
+  {
+    "quiz_id": "Q261",
+    "category": "産業用製品",
+    "question": "季節商品の一時保管にテント倉庫が適している理由は？",
+    "choice_a": "永久保管",
+    "choice_b": "迅速な設置と低コスト",
+    "choice_c": "高断熱",
+    "correct_answer": "B",
+    "explanation": "季節商品の一時保管には迅速に設置でき低コストなテント倉庫が適しています。"
+  },
+  {
+    "quiz_id": "Q262",
+    "category": "産業用製品",
+    "question": "災害時の緊急倉庫としてテント構造が適している理由は？",
+    "choice_a": "永久建築",
+    "choice_b": "短期間で設置可能",
+    "choice_c": "高級感",
+    "correct_answer": "B",
+    "explanation": "災害時には短期間で設置できるテント構造が緊急倉庫として適しています。"
+  },
+  {
+    "quiz_id": "Q263",
+    "category": "産業用製品",
+    "question": "工場の増産対応でテント倉庫が選ばれる理由は？",
+    "choice_a": "永久建築のため",
+    "choice_b": "迅速な増設対応",
+    "choice_c": "完全防音",
+    "correct_answer": "B",
+    "explanation": "増産時には迅速に増設できるテント倉庫が選ばれます。"
+  },
+  {
+    "quiz_id": "Q264",
+    "category": "産業用製品",
+    "question": "資材置き場にテント上屋が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "雨除けと通気性の両立",
+    "choice_c": "高断熱",
+    "correct_answer": "B",
+    "explanation": "資材置き場には雨除けと通気性を両立できるテント上屋が適しています。"
+  },
+  {
+    "quiz_id": "Q265",
+    "category": "産業用製品",
+    "question": "港湾施設でテント構造が使われる理由は？",
+    "choice_a": "完全防水",
+    "choice_b": "大スパンと塩害対応",
+    "choice_c": "高断熱",
+    "correct_answer": "B",
+    "explanation": "港湾では大スパンが必要で、塩害に対応した素材選定も重要です。"
+  },
+  {
+    "quiz_id": "Q266",
+    "category": "農業・畜産用",
+    "question": "牧草保管庫に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "通気性と大空間",
+    "choice_c": "高断熱",
+    "correct_answer": "B",
+    "explanation": "牧草保管には通気性があり、大量の牧草を保管できる大空間が適しています。"
+  },
+  {
+    "quiz_id": "Q267",
+    "category": "農業・畜産用",
+    "question": "肥育牛舎で膜構造が選ばれる理由は？",
+    "choice_a": "高級感",
+    "choice_b": "換気性能とコスト",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "肥育牛舎では良好な換気と建設コストの低さが重視されます。"
+  },
+  {
+    "quiz_id": "Q268",
+    "category": "農業・畜産用",
+    "question": "搾乳施設に膜構造を採用するメリットは？",
+    "choice_a": "完全遮光",
+    "choice_b": "明るさと衛生管理のしやすさ",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "搾乳施設では明るさと衛生管理のしやすさが重要です。"
+  },
+  {
+    "quiz_id": "Q269",
+    "category": "農業・畜産用",
+    "question": "種苗施設に膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "採光調整と温度管理",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "種苗施設では採光と温度の管理が重要で、膜構造で調整可能です。"
+  },
+  {
+    "quiz_id": "Q270",
+    "category": "農業・畜産用",
+    "question": "農産物乾燥施設で膜構造のメリットは？",
+    "choice_a": "保湿性",
+    "choice_b": "自然光と通気性の活用",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "乾燥施設では自然光と通気性を活用できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q271",
+    "category": "商業用製品",
+    "question": "遊園地のアトラクション待機列に適した膜構造は？",
+    "choice_a": "完全密閉",
+    "choice_b": "日除け屋根",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "待機列には日差しを遮る日除け屋根が適しています。"
+  },
+  {
+    "quiz_id": "Q272",
+    "category": "商業用製品",
+    "question": "動物園の休憩所に適した膜構造は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開放的な膜屋根",
+    "choice_c": "畜舎テント",
+    "correct_answer": "B",
+    "explanation": "動物園の休憩所には開放的で明るい膜屋根が適しています。"
+  },
+  {
+    "quiz_id": "Q273",
+    "category": "商業用製品",
+    "question": "水族館の屋外展示に適した膜構造は？",
+    "choice_a": "完全遮光",
+    "choice_b": "採光調整可能な膜屋根",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "水族館の屋外展示では採光を調整できる膜屋根が適しています。"
+  },
+  {
+    "quiz_id": "Q274",
+    "category": "商業用製品",
+    "question": "学校のプール日除けに適した膜構造は？",
+    "choice_a": "完全密閉",
+    "choice_b": "シェードセイル・膜屋根",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "学校プールには日差しを遮るシェードセイルや膜屋根が適しています。"
+  },
+  {
+    "quiz_id": "Q275",
+    "category": "商業用製品",
+    "question": "病院の駐車場日除けに適した膜構造は？",
+    "choice_a": "完全密閉",
+    "choice_b": "膜屋根",
+    "choice_c": "イベントテント",
+    "correct_answer": "B",
+    "explanation": "病院駐車場には車を日差しから守る膜屋根が適しています。"
+  },
+  {
+    "quiz_id": "Q276",
+    "category": "イベント製品",
+    "question": "卒業式の屋外会場に適したテントは？",
+    "choice_a": "畜舎テント",
+    "choice_b": "ヨーロピアンテント",
+    "choice_c": "シート間仕切り",
+    "correct_answer": "B",
+    "explanation": "卒業式には華やかな雰囲気のヨーロピアンテントが適しています。"
+  },
+  {
+    "quiz_id": "Q277",
+    "category": "イベント製品",
+    "question": "入社式の屋外会場に適したテントは？",
+    "choice_a": "畜舎テント",
+    "choice_b": "フォーマルな印象のテント",
+    "choice_c": "農業用テント",
+    "correct_answer": "B",
+    "explanation": "入社式にはフォーマルな印象を与えるテントが適しています。"
+  },
+  {
+    "quiz_id": "Q278",
+    "category": "イベント製品",
+    "question": "地域の防災訓練に適したテントは？",
+    "choice_a": "ヨーロピアンテント",
+    "choice_b": "設置が簡単なテント",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "防災訓練には素早く設置できるテントが適しています。"
+  },
+  {
+    "quiz_id": "Q279",
+    "category": "イベント製品",
+    "question": "選挙の投票所仮設に適したテントは？",
+    "choice_a": "球体テント",
+    "choice_b": "シンプルで機能的なテント",
+    "choice_c": "エアアーチ",
+    "correct_answer": "B",
+    "explanation": "投票所にはシンプルで機能的なテントが適しています。"
+  },
+  {
+    "quiz_id": "Q280",
+    "category": "イベント製品",
+    "question": "地域の健康診断会場に適したテントは？",
+    "choice_a": "球体テント",
+    "choice_b": "適度な広さと換気のあるテント",
+    "choice_c": "エアアーチ",
+    "correct_answer": "B",
+    "explanation": "健康診断会場には適度な広さと換気のあるテントが適しています。"
+  },
+  {
+    "quiz_id": "Q281",
+    "category": "膜構造・技術",
+    "question": "膜構造の設計で風洞実験が行われる理由は？",
+    "choice_a": "見た目の確認",
+    "choice_b": "耐風性能の確認",
+    "choice_c": "色の確認",
+    "correct_answer": "B",
+    "explanation": "大規模な膜構造では風洞実験で耐風性能を確認することがあります。"
+  },
+  {
+    "quiz_id": "Q282",
+    "category": "膜構造・技術",
+    "question": "膜構造の設計でコンピュータシミュレーションが使われる理由は？",
+    "choice_a": "色の決定",
+    "choice_b": "形状と応力の解析",
+    "choice_c": "材料発注",
+    "correct_answer": "B",
+    "explanation": "膜構造の設計ではコンピュータで形状と応力を解析します。"
+  },
+  {
+    "quiz_id": "Q283",
+    "category": "膜構造・技術",
+    "question": "膜構造の裁断設計で重要な点は？",
+    "choice_a": "大きめに裁断",
+    "choice_b": "張力を考慮した正確な裁断",
+    "choice_c": "小さめに裁断",
+    "correct_answer": "B",
+    "explanation": "膜構造は張力を考慮した正確な裁断設計が重要です。"
+  },
+  {
+    "quiz_id": "Q284",
+    "category": "膜構造・技術",
+    "question": "膜構造の取り付けで重要な作業は？",
+    "choice_a": "適当に張る",
+    "choice_b": "均等な張力調整",
+    "choice_c": "緩めに張る",
+    "correct_answer": "B",
+    "explanation": "膜構造の取り付けでは均等な張力調整が重要です。"
+  },
+  {
+    "quiz_id": "Q285",
+    "category": "膜構造・技術",
+    "question": "膜構造の端部処理で重要な点は？",
+    "choice_a": "見た目だけ",
+    "choice_b": "防水性と耐久性",
+    "choice_c": "色合わせ",
+    "correct_answer": "B",
+    "explanation": "膜構造の端部処理では防水性と耐久性の確保が重要です。"
+  },
+  {
+    "quiz_id": "Q286",
+    "category": "業界知識",
+    "question": "テント倉庫の設計図書に含まれるものは？",
+    "choice_a": "写真のみ",
+    "choice_b": "平面図・立面図・構造図など",
+    "choice_c": "見積書のみ",
+    "correct_answer": "B",
+    "explanation": "設計図書には平面図、立面図、構造図などが含まれます。"
+  },
+  {
+    "quiz_id": "Q287",
+    "category": "業界知識",
+    "question": "テント倉庫の構造計算書の目的は？",
+    "choice_a": "見積もり用",
+    "choice_b": "安全性の確認",
+    "choice_c": "デザイン確認",
+    "correct_answer": "B",
+    "explanation": "構造計算書は建物の安全性を確認するために作成されます。"
+  },
+  {
+    "quiz_id": "Q288",
+    "category": "業界知識",
+    "question": "テント倉庫の完了検査で確認されることは？",
+    "choice_a": "色のみ",
+    "choice_b": "設計通りの施工",
+    "choice_c": "価格",
+    "correct_answer": "B",
+    "explanation": "完了検査では設計図書通りに施工されているかを確認します。"
+  },
+  {
+    "quiz_id": "Q289",
+    "category": "業界知識",
+    "question": "テント倉庫の維持管理計画で重要な点は？",
+    "choice_a": "計画不要",
+    "choice_b": "定期点検と補修計画",
+    "choice_c": "建て替え計画のみ",
+    "correct_answer": "B",
+    "explanation": "維持管理計画では定期点検と必要な補修の計画が重要です。"
+  },
+  {
+    "quiz_id": "Q290",
+    "category": "業界知識",
+    "question": "テント倉庫のライフサイクルコストとは？",
+    "choice_a": "建設費のみ",
+    "choice_b": "建設から解体までの総コスト",
+    "choice_c": "維持費のみ",
+    "correct_answer": "B",
+    "explanation": "ライフサイクルコストは建設から維持管理、解体までの総コストです。"
+  },
+  {
+    "quiz_id": "Q291",
+    "category": "会社情報",
+    "question": "山口産業の製品カタログはどのように入手できますか？",
+    "choice_a": "入手不可",
+    "choice_b": "公式サイトからPDFダウンロード",
+    "choice_c": "店頭販売のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業の製品カタログは公式サイトからPDFでダウンロードできます。"
+  },
+  {
+    "quiz_id": "Q292",
+    "category": "会社情報",
+    "question": "山口産業への問い合わせ方法は？",
+    "choice_a": "訪問のみ",
+    "choice_b": "電話・ウェブサイト",
+    "choice_c": "手紙のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業への問い合わせは電話やウェブサイトから可能です。"
+  },
+  {
+    "quiz_id": "Q293",
+    "category": "会社情報",
+    "question": "山口産業の見積もり依頼の方法は？",
+    "choice_a": "訪問必須",
+    "choice_b": "電話・ウェブサイトで依頼可能",
+    "choice_c": "郵送のみ",
+    "correct_answer": "B",
+    "explanation": "見積もりは電話やウェブサイトから依頼できます。"
+  },
+  {
+    "quiz_id": "Q294",
+    "category": "会社情報",
+    "question": "山口産業の施工エリアの確認方法は？",
+    "choice_a": "確認不可",
+    "choice_b": "問い合わせで確認",
+    "choice_c": "九州のみ対応",
+    "correct_answer": "B",
+    "explanation": "施工エリアは問い合わせで確認でき、全国対応可能です。"
+  },
+  {
+    "quiz_id": "Q295",
+    "category": "会社情報",
+    "question": "山口産業のアフターサービスの内容は？",
+    "choice_a": "なし",
+    "choice_b": "点検・メンテナンス対応",
+    "choice_c": "建設のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業は点検やメンテナンスなどのアフターサービスも提供しています。"
+  },
+  {
+    "quiz_id": "Q296",
+    "category": "産業用製品",
+    "question": "リサイクル施設にテント構造が使われる理由は？",
+    "choice_a": "高級感",
+    "choice_b": "大空間と換気性",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "リサイクル施設には大空間と換気性の良さが求められます。"
+  },
+  {
+    "quiz_id": "Q297",
+    "category": "産業用製品",
+    "question": "自動車整備工場にテント構造が使われる理由は？",
+    "choice_a": "完全防音",
+    "choice_b": "大開口と採光",
+    "choice_c": "高断熱",
+    "correct_answer": "B",
+    "explanation": "自動車整備工場には車の出入りしやすい大開口と作業に必要な採光が重要です。"
+  },
+  {
+    "quiz_id": "Q298",
+    "category": "産業用製品",
+    "question": "塗装工場の前処理場にテント構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "換気性と大空間",
+    "choice_c": "高断熱",
+    "correct_answer": "B",
+    "explanation": "塗装前処理には換気性と作業に必要な大空間が重要です。"
+  },
+  {
+    "quiz_id": "Q299",
+    "category": "産業用製品",
+    "question": "木材乾燥施設にテント構造が選ばれる理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "通気性と採光",
+    "choice_c": "高断熱",
+    "correct_answer": "B",
+    "explanation": "木材乾燥には通気性と採光が重要で、膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q300",
+    "category": "産業用製品",
+    "question": "廃棄物処理施設の前処理場にテント構造が使われる理由は？",
+    "choice_a": "高級感",
+    "choice_b": "大空間と換気",
+    "choice_c": "完全遮光",
+    "correct_answer": "B",
+    "explanation": "廃棄物処理の前処理には大空間と換気性が重要です。"
+  },
+  {
+    "quiz_id": "Q301",
+    "category": "膜構造・技術",
+    "question": "膜構造の静電気対策として有効な方法は？",
+    "choice_a": "膜を厚くする",
+    "choice_b": "帯電防止処理",
+    "choice_c": "開口部をなくす",
+    "correct_answer": "B",
+    "explanation": "静電気対策には帯電防止処理を施した膜材を使用することが有効です。"
+  },
+  {
+    "quiz_id": "Q302",
+    "category": "膜構造・技術",
+    "question": "膜構造の結露対策として有効な方法は？",
+    "choice_a": "密閉する",
+    "choice_b": "換気と断熱の確保",
+    "choice_c": "開口部を増やすだけ",
+    "correct_answer": "B",
+    "explanation": "結露対策には適切な換気と断熱の確保が重要です。"
+  },
+  {
+    "quiz_id": "Q303",
+    "category": "膜構造・技術",
+    "question": "膜構造の防カビ対策として有効な方法は？",
+    "choice_a": "密閉する",
+    "choice_b": "通気と防カビ処理",
+    "choice_c": "水をかける",
+    "correct_answer": "B",
+    "explanation": "防カビ対策には適切な通気と防カビ処理が有効です。"
+  },
+  {
+    "quiz_id": "Q304",
+    "category": "業界知識",
+    "question": "テント倉庫の建築確認申請が必要になる条件は？",
+    "choice_a": "すべて不要",
+    "choice_b": "一定規模以上",
+    "choice_c": "すべて必要",
+    "correct_answer": "B",
+    "explanation": "一定規模以上のテント倉庫は建築確認申請が必要です。"
+  },
+  {
+    "quiz_id": "Q305",
+    "category": "業界知識",
+    "question": "膜構造建築物の法的な位置づけは？",
+    "choice_a": "仮設物のみ",
+    "choice_b": "建築基準法の建築物",
+    "choice_c": "法規制対象外",
+    "correct_answer": "B",
+    "explanation": "膜構造建築物も建築基準法における建築物として扱われます。"
+  },
+  {
+    "quiz_id": "Q306",
+    "category": "業界知識",
+    "question": "テント倉庫の固定資産税について正しいのは？",
+    "choice_a": "非課税",
+    "choice_b": "課税対象となる場合がある",
+    "choice_c": "すべて課税",
+    "correct_answer": "B",
+    "explanation": "テント倉庫は構造や使用形態により固定資産税の課税対象となる場合があります。"
+  },
+  {
+    "quiz_id": "Q307",
+    "category": "業界知識",
+    "question": "膜構造のリサイクルについて正しいのは？",
+    "choice_a": "不可能",
+    "choice_b": "素材により可能",
+    "choice_c": "すべて可能",
+    "correct_answer": "B",
+    "explanation": "膜素材はその種類によりリサイクルが可能なものがあります。"
+  },
+  {
+    "quiz_id": "Q308",
+    "category": "業界知識",
+    "question": "膜構造の環境負荷について正しいのは？",
+    "choice_a": "高い",
+    "choice_b": "一般建築より低い場合が多い",
+    "choice_c": "変わらない",
+    "correct_answer": "B",
+    "explanation": "膜構造は軽量で材料使用量が少なく、環境負荷が低い場合が多いです。"
+  },
+  {
+    "quiz_id": "Q309",
+    "category": "会社情報",
+    "question": "山口産業の経営理念の中心にあるものは？",
+    "choice_a": "利益最大化",
+    "choice_b": "顧客満足と品質",
+    "choice_c": "規模拡大",
+    "correct_answer": "B",
+    "explanation": "山口産業は顧客満足と品質を経営の中心に据えています。"
+  },
+  {
+    "quiz_id": "Q310",
+    "category": "会社情報",
+    "question": "山口産業が大切にしている人材育成の考え方は？",
+    "choice_a": "効率優先",
+    "choice_b": "技術継承と成長",
+    "choice_c": "外部委託",
+    "correct_answer": "B",
+    "explanation": "山口産業は技術継承と社員の成長を大切にしています。"
+  },
+  {
+    "quiz_id": "Q311",
+    "category": "産業用製品",
+    "question": "精密機器保管倉庫に膜構造を使う際の配慮点は？",
+    "choice_a": "特になし",
+    "choice_b": "防塵と温湿度管理",
+    "choice_c": "採光を増やす",
+    "correct_answer": "B",
+    "explanation": "精密機器保管には防塵と温湿度管理への配慮が必要です。"
+  },
+  {
+    "quiz_id": "Q312",
+    "category": "産業用製品",
+    "question": "塗装ブースにテント構造が適している理由は？",
+    "choice_a": "永久建築",
+    "choice_b": "換気と採光の確保",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "塗装ブースには換気と採光を確保しやすいテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q313",
+    "category": "産業用製品",
+    "question": "資材置き場にテント構造が選ばれる理由は？",
+    "choice_a": "高級感",
+    "choice_b": "低コストと拡張性",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "資材置き場には低コストで拡張しやすいテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q314",
+    "category": "産業用製品",
+    "question": "廃棄物保管場にテント構造を使うメリットは？",
+    "choice_a": "高級感",
+    "choice_b": "雨水侵入防止と換気",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "廃棄物保管には雨水侵入を防ぎつつ換気できるテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q315",
+    "category": "産業用製品",
+    "question": "検品エリアにテント構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "自然光と広い作業空間",
+    "choice_c": "防音性",
+    "correct_answer": "B",
+    "explanation": "検品エリアには自然光と広い作業空間を確保できるテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q316",
+    "category": "農業・畜産用",
+    "question": "ワイナリーのブドウ乾燥施設に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "通気と日除け",
+    "choice_c": "完全遮光",
+    "correct_answer": "B",
+    "explanation": "ブドウ乾燥には通気と適度な日除けが重要で膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q317",
+    "category": "農業・畜産用",
+    "question": "養蜂施設の作業場に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開放的な環境と日除け",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "養蜂作業には開放的な環境と日除けを確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q318",
+    "category": "農業・畜産用",
+    "question": "茶葉の日干し施設に膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "通気と日光調整",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "茶葉の日干しには通気と日光調整ができる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q319",
+    "category": "農業・畜産用",
+    "question": "堆肥化施設に膜構造を使うメリットは？",
+    "choice_a": "完全密閉",
+    "choice_b": "換気と臭気管理",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "堆肥化施設には換気と臭気管理がしやすい膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q320",
+    "category": "農業・畜産用",
+    "question": "種子保管庫に膜構造を使う際の考慮点は？",
+    "choice_a": "採光を増やす",
+    "choice_b": "温湿度と害虫管理",
+    "choice_c": "通気を増やす",
+    "correct_answer": "B",
+    "explanation": "種子保管には温湿度と害虫管理への配慮が重要です。"
+  },
+  {
+    "quiz_id": "Q321",
+    "category": "商業用製品",
+    "question": "BBQ場の屋根に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "換気と日除け",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "BBQ場には煙を逃がしつつ日除けができる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q322",
+    "category": "商業用製品",
+    "question": "釣り堀の休憩所に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開放感と日除け",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "釣り堀には開放感と日除けを両立できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q323",
+    "category": "商業用製品",
+    "question": "ドッグランの日除けに適した膜構造は？",
+    "choice_a": "完全密閉テント",
+    "choice_b": "シェードセイル",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "ドッグランには開放的で日除けができるシェードセイルが適しています。"
+  },
+  {
+    "quiz_id": "Q324",
+    "category": "商業用製品",
+    "question": "オートキャンプ場の管理棟に膜構造が適している理由は？",
+    "choice_a": "高級感",
+    "choice_b": "自然との調和とコスト",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "キャンプ場には自然と調和しつつ低コストな膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q325",
+    "category": "商業用製品",
+    "question": "マリーナの艇庫に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "塩害対策と大スパン",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "マリーナには塩害に強く大スパンが取れる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q326",
+    "category": "イベント製品",
+    "question": "ファッションショーの会場に適した膜構造は？",
+    "choice_a": "畜舎テント",
+    "choice_b": "デザイン性の高い膜構造",
+    "choice_c": "テント倉庫",
+    "correct_answer": "B",
+    "explanation": "ファッションショーにはデザイン性の高い膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q327",
+    "category": "イベント製品",
+    "question": "自動車展示会に適した膜構造の特徴は？",
+    "choice_a": "小型で暗い",
+    "choice_b": "大スパンで明るい",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "自動車展示会には車を美しく見せる大スパンで明るい膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q328",
+    "category": "イベント製品",
+    "question": "結婚式の野外会場に適した膜構造は？",
+    "choice_a": "テント倉庫",
+    "choice_b": "エレガントなテント",
+    "choice_c": "畜舎テント",
+    "correct_answer": "B",
+    "explanation": "結婚式にはエレガントで華やかなテントが適しています。"
+  },
+  {
+    "quiz_id": "Q329",
+    "category": "イベント製品",
+    "question": "地域の夏祭りに適した膜構造製品は？",
+    "choice_a": "大型恒久建築",
+    "choice_b": "簡易設営テント",
+    "choice_c": "畜舎テント",
+    "correct_answer": "B",
+    "explanation": "夏祭りには設営が簡単で移動可能なテントが適しています。"
+  },
+  {
+    "quiz_id": "Q330",
+    "category": "イベント製品",
+    "question": "野外映画上映会に適した膜構造は？",
+    "choice_a": "完全密閉テント",
+    "choice_b": "観客席の日除けシェード",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "野外映画では日中の日除けと夜間の開放感を両立するシェードが適しています。"
+  },
+  {
+    "quiz_id": "Q331",
+    "category": "膜構造・技術",
+    "question": "膜構造の設計で重要なシミュレーションは？",
+    "choice_a": "色の計算",
+    "choice_b": "風荷重と張力解析",
+    "choice_c": "重さの計測",
+    "correct_answer": "B",
+    "explanation": "膜構造の設計では風荷重と張力解析のシミュレーションが重要です。"
+  },
+  {
+    "quiz_id": "Q332",
+    "category": "膜構造・技術",
+    "question": "膜構造のCADソフトで重要な機能は？",
+    "choice_a": "色塗り",
+    "choice_b": "3D形状と張力計算",
+    "choice_c": "テキスト入力",
+    "correct_answer": "B",
+    "explanation": "膜構造のCADでは3D形状モデリングと張力計算が重要です。"
+  },
+  {
+    "quiz_id": "Q333",
+    "category": "膜構造・技術",
+    "question": "膜構造の製作で重要な工程は？",
+    "choice_a": "塗装",
+    "choice_b": "裁断と接合",
+    "choice_c": "研磨",
+    "correct_answer": "B",
+    "explanation": "膜構造の製作では正確な裁断と接合が重要な工程です。"
+  },
+  {
+    "quiz_id": "Q334",
+    "category": "膜構造・技術",
+    "question": "膜素材の接合方法として一般的なのは？",
+    "choice_a": "ボルト締め",
+    "choice_b": "溶着",
+    "choice_c": "ネジ止め",
+    "correct_answer": "B",
+    "explanation": "膜素材の接合には熱溶着が一般的に使用されます。"
+  },
+  {
+    "quiz_id": "Q335",
+    "category": "膜構造・技術",
+    "question": "膜構造の品質管理で重要な検査は？",
+    "choice_a": "色味のみ",
+    "choice_b": "張力と接合強度",
+    "choice_c": "重量のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造の品質管理では張力と接合強度の検査が重要です。"
+  },
+  {
+    "quiz_id": "Q336",
+    "category": "業界知識",
+    "question": "膜構造業界の将来展望として期待されているのは？",
+    "choice_a": "衰退",
+    "choice_b": "環境配慮型建築としての普及",
+    "choice_c": "現状維持",
+    "correct_answer": "B",
+    "explanation": "膜構造は環境配慮型建築として今後の普及が期待されています。"
+  },
+  {
+    "quiz_id": "Q337",
+    "category": "業界知識",
+    "question": "膜構造が注目される社会的背景は？",
+    "choice_a": "高級志向",
+    "choice_b": "省エネ・環境意識の高まり",
+    "choice_c": "流行",
+    "correct_answer": "B",
+    "explanation": "省エネルギーと環境意識の高まりが膜構造への注目を集めています。"
+  },
+  {
+    "quiz_id": "Q338",
+    "category": "業界知識",
+    "question": "膜構造のBCP（事業継続計画）での役割は？",
+    "choice_a": "特になし",
+    "choice_b": "緊急時の仮設施設",
+    "choice_c": "永久建築のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造は緊急時の仮設施設としてBCPで重要な役割を果たします。"
+  },
+  {
+    "quiz_id": "Q339",
+    "category": "業界知識",
+    "question": "膜構造の災害復興での活用例は？",
+    "choice_a": "使用されない",
+    "choice_b": "仮設住宅・避難所",
+    "choice_c": "永久建築のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造は災害時の仮設住宅や避難所として活用されます。"
+  },
+  {
+    "quiz_id": "Q340",
+    "category": "業界知識",
+    "question": "膜構造のスマートビルへの応用は？",
+    "choice_a": "不可能",
+    "choice_b": "センサーや制御との統合",
+    "choice_c": "装飾のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造はセンサーや制御システムと統合したスマートビルに応用可能です。"
+  },
+  {
+    "quiz_id": "Q341",
+    "category": "会社情報",
+    "question": "山口産業の社員教育で重視していることは？",
+    "choice_a": "机上の学習のみ",
+    "choice_b": "現場経験と技術習得",
+    "choice_c": "外部研修のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業は現場経験と技術習得を重視した社員教育を行っています。"
+  },
+  {
+    "quiz_id": "Q342",
+    "category": "会社情報",
+    "question": "山口産業の顧客サポートの特徴は？",
+    "choice_a": "販売のみ",
+    "choice_b": "アフターフォローの充実",
+    "choice_c": "最低限の対応",
+    "correct_answer": "B",
+    "explanation": "山口産業はアフターフォローを充実させ、長期的な顧客関係を大切にしています。"
+  },
+  {
+    "quiz_id": "Q343",
+    "category": "会社情報",
+    "question": "山口産業が取り組んでいる地域貢献活動は？",
+    "choice_a": "特になし",
+    "choice_b": "地域イベント支援など",
+    "choice_c": "利益追求のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業は地域イベントの支援など地域貢献活動に取り組んでいます。"
+  },
+  {
+    "quiz_id": "Q344",
+    "category": "会社情報",
+    "question": "山口産業の安全管理の取り組みは？",
+    "choice_a": "最低限",
+    "choice_b": "徹底した安全教育と対策",
+    "choice_c": "外部任せ",
+    "correct_answer": "B",
+    "explanation": "山口産業は徹底した安全教育と対策で安全管理に取り組んでいます。"
+  },
+  {
+    "quiz_id": "Q345",
+    "category": "会社情報",
+    "question": "山口産業の環境への取り組みは？",
+    "choice_a": "特になし",
+    "choice_b": "環境配慮型製品の開発",
+    "choice_c": "法令対応のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業は環境配慮型製品の開発に積極的に取り組んでいます。"
+  },
+  {
+    "quiz_id": "Q346",
+    "category": "産業用製品",
+    "question": "木材乾燥施設にテント構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "通気と温度管理",
+    "choice_c": "遮光性",
+    "correct_answer": "B",
+    "explanation": "木材乾燥には通気と温度管理がしやすいテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q347",
+    "category": "産業用製品",
+    "question": "鋳造工場の副資材置き場にテント構造が適している理由は？",
+    "choice_a": "高温対応",
+    "choice_b": "低コストと短納期",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "副資材置き場には低コストで短納期のテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q348",
+    "category": "産業用製品",
+    "question": "印刷工場の紙資材保管にテント構造を使う際の注意点は？",
+    "choice_a": "特になし",
+    "choice_b": "湿度管理",
+    "choice_c": "採光を増やす",
+    "correct_answer": "B",
+    "explanation": "紙資材保管には湿度管理への配慮が必要です。"
+  },
+  {
+    "quiz_id": "Q349",
+    "category": "産業用製品",
+    "question": "自動車部品工場の一時保管にテント構造が選ばれる理由は？",
+    "choice_a": "高級感",
+    "choice_b": "フレキシビリティ",
+    "choice_c": "永久設置",
+    "correct_answer": "B",
+    "explanation": "自動車部品の一時保管には需要変動に対応できるフレキシビリティが重要です。"
+  },
+  {
+    "quiz_id": "Q350",
+    "category": "産業用製品",
+    "question": "電子部品工場のクリーンエリアにテント構造を使う場合の配慮は？",
+    "choice_a": "採光重視",
+    "choice_b": "クリーン度の確保",
+    "choice_c": "通気を増やす",
+    "correct_answer": "B",
+    "explanation": "電子部品工場ではクリーン度の確保への配慮が必要です。"
+  },
+  {
+    "quiz_id": "Q351",
+    "category": "農業・畜産用",
+    "question": "しいたけ栽培施設に膜構造が適している理由は？",
+    "choice_a": "強い日光",
+    "choice_b": "遮光と湿度管理",
+    "choice_c": "完全乾燥",
+    "correct_answer": "B",
+    "explanation": "しいたけ栽培には遮光と湿度管理ができる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q352",
+    "category": "農業・畜産用",
+    "question": "果樹園の選果場に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "採光と大空間",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "選果場には採光と大きな作業空間を確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q353",
+    "category": "農業・畜産用",
+    "question": "牧場の飼料保管庫に膜構造が適している理由は？",
+    "choice_a": "高級感",
+    "choice_b": "通気と防雨",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "飼料保管には通気と防雨を両立できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q354",
+    "category": "農業・畜産用",
+    "question": "養豚場の日除けシェードに膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "通気と暑熱対策",
+    "choice_c": "保温",
+    "correct_answer": "B",
+    "explanation": "養豚場には通気と暑熱対策ができる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q355",
+    "category": "農業・畜産用",
+    "question": "稲作の育苗施設に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "採光と温度調整",
+    "choice_c": "完全遮光",
+    "correct_answer": "B",
+    "explanation": "育苗施設には採光と温度調整ができる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q356",
+    "category": "商業用製品",
+    "question": "ゴルフ練習場の屋根に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "大スパンと採光",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "ゴルフ練習場には柱のない大スパンと自然な採光が重要です。"
+  },
+  {
+    "quiz_id": "Q357",
+    "category": "商業用製品",
+    "question": "屋外プレイグラウンドの日除けに適した膜構造は？",
+    "choice_a": "完全密閉テント",
+    "choice_b": "カラフルなシェードセイル",
+    "choice_c": "畜舎テント",
+    "correct_answer": "B",
+    "explanation": "プレイグラウンドには楽しい雰囲気のカラフルなシェードセイルが適しています。"
+  },
+  {
+    "quiz_id": "Q358",
+    "category": "商業用製品",
+    "question": "バス停の雨除けに膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "軽量とデザイン性",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "バス停には軽量でデザイン性の高い膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q359",
+    "category": "商業用製品",
+    "question": "屋外カフェの日除けに適した膜構造は？",
+    "choice_a": "テント倉庫",
+    "choice_b": "パラソルやオーニング",
+    "choice_c": "畜舎テント",
+    "correct_answer": "B",
+    "explanation": "屋外カフェにはおしゃれなパラソルやオーニングが適しています。"
+  },
+  {
+    "quiz_id": "Q360",
+    "category": "商業用製品",
+    "question": "ショッピングモールの中庭に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "採光とデザイン性",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "中庭には自然光を取り入れつつデザイン性の高い膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q361",
+    "category": "イベント製品",
+    "question": "地方物産展に適したテントの特徴は？",
+    "choice_a": "完全密閉",
+    "choice_b": "設営が簡単で目立つ",
+    "choice_c": "永久設置",
+    "correct_answer": "B",
+    "explanation": "物産展には設営が簡単で来場者の目を引くテントが適しています。"
+  },
+  {
+    "quiz_id": "Q362",
+    "category": "イベント製品",
+    "question": "子供向けイベントに適したテントの特徴は？",
+    "choice_a": "地味な色",
+    "choice_b": "カラフルで安全",
+    "choice_c": "高さがある",
+    "correct_answer": "B",
+    "explanation": "子供向けイベントにはカラフルで安全なテントが適しています。"
+  },
+  {
+    "quiz_id": "Q363",
+    "category": "イベント製品",
+    "question": "マラソン大会の給水所に適したテントは？",
+    "choice_a": "大型密閉テント",
+    "choice_b": "簡易テント",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "給水所には素早く設営できる簡易テントが適しています。"
+  },
+  {
+    "quiz_id": "Q364",
+    "category": "イベント製品",
+    "question": "学園祭の模擬店に適したテントは？",
+    "choice_a": "大型恒久建築",
+    "choice_b": "簡易設営テント",
+    "choice_c": "畜舎テント",
+    "correct_answer": "B",
+    "explanation": "学園祭には手軽に設営できる簡易テントが適しています。"
+  },
+  {
+    "quiz_id": "Q365",
+    "category": "イベント製品",
+    "question": "ビーチイベントに適したテントの特徴は？",
+    "choice_a": "重い構造",
+    "choice_b": "風に強く砂浜設置可能",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "ビーチイベントには風に強く砂浜に設置できるテントが適しています。"
+  },
+  {
+    "quiz_id": "Q366",
+    "category": "膜構造・技術",
+    "question": "膜構造の施工で重要な作業は？",
+    "choice_a": "塗装",
+    "choice_b": "張力調整",
+    "choice_c": "研磨",
+    "correct_answer": "B",
+    "explanation": "膜構造の施工では正確な張力調整が重要な作業です。"
+  },
+  {
+    "quiz_id": "Q367",
+    "category": "膜構造・技術",
+    "question": "膜構造のメンテナンスで定期的に行うべきことは？",
+    "choice_a": "張り替え",
+    "choice_b": "清掃と点検",
+    "choice_c": "塗装",
+    "correct_answer": "B",
+    "explanation": "膜構造のメンテナンスでは定期的な清掃と点検が重要です。"
+  },
+  {
+    "quiz_id": "Q368",
+    "category": "膜構造・技術",
+    "question": "膜構造の異常を早期発見するためには？",
+    "choice_a": "年1回の確認",
+    "choice_b": "定期的な目視点検",
+    "choice_c": "問題発生時のみ確認",
+    "correct_answer": "B",
+    "explanation": "膜構造の異常を早期発見するには定期的な目視点検が重要です。"
+  },
+  {
+    "quiz_id": "Q369",
+    "category": "膜構造・技術",
+    "question": "膜構造の長寿命化に有効な方法は？",
+    "choice_a": "放置する",
+    "choice_b": "適切なメンテナンス",
+    "choice_c": "使用を控える",
+    "correct_answer": "B",
+    "explanation": "膜構造の長寿命化には適切なメンテナンスが有効です。"
+  },
+  {
+    "quiz_id": "Q370",
+    "category": "膜構造・技術",
+    "question": "膜構造の更新計画で考慮すべきことは？",
+    "choice_a": "色のみ",
+    "choice_b": "劣化状況と使用目的",
+    "choice_c": "サイズのみ",
+    "correct_answer": "B",
+    "explanation": "更新計画では膜の劣化状況と将来の使用目的を考慮します。"
+  },
+  {
+    "quiz_id": "Q371",
+    "category": "業界知識",
+    "question": "膜構造の市場で成長が期待される分野は？",
+    "choice_a": "縮小傾向",
+    "choice_b": "環境・省エネ分野",
+    "choice_c": "変化なし",
+    "correct_answer": "B",
+    "explanation": "環境意識の高まりで環境・省エネ分野での成長が期待されています。"
+  },
+  {
+    "quiz_id": "Q372",
+    "category": "業界知識",
+    "question": "膜構造業界の技術革新の方向性は？",
+    "choice_a": "従来技術維持",
+    "choice_b": "高機能化と自動化",
+    "choice_c": "簡素化のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造業界は高機能化と製造の自動化に向けて技術革新が進んでいます。"
+  },
+  {
+    "quiz_id": "Q373",
+    "category": "業界知識",
+    "question": "膜構造の国際競争力を高めるには？",
+    "choice_a": "価格競争のみ",
+    "choice_b": "技術力とブランド力",
+    "choice_c": "国内販売のみ",
+    "correct_answer": "B",
+    "explanation": "国際競争力には技術力とブランド力の向上が重要です。"
+  },
+  {
+    "quiz_id": "Q374",
+    "category": "業界知識",
+    "question": "膜構造業界の人材確保の課題は？",
+    "choice_a": "問題なし",
+    "choice_b": "技術者の育成と確保",
+    "choice_c": "人員削減",
+    "correct_answer": "B",
+    "explanation": "膜構造業界では技術者の育成と確保が課題となっています。"
+  },
+  {
+    "quiz_id": "Q375",
+    "category": "業界知識",
+    "question": "膜構造のデジタル化の取り組みは？",
+    "choice_a": "不要",
+    "choice_b": "設計から施工までのDX",
+    "choice_c": "紙ベース維持",
+    "correct_answer": "B",
+    "explanation": "膜構造業界でも設計から施工までのデジタルトランスフォーメーションが進んでいます。"
+  },
+  {
+    "quiz_id": "Q376",
+    "category": "会社情報",
+    "question": "山口産業のデジタル活用の方針は？",
+    "choice_a": "従来通り",
+    "choice_b": "積極的なDX推進",
+    "choice_c": "最小限",
+    "correct_answer": "B",
+    "explanation": "山口産業は積極的なデジタルトランスフォーメーションを推進しています。"
+  },
+  {
+    "quiz_id": "Q377",
+    "category": "会社情報",
+    "question": "山口産業の品質方針の基本は？",
+    "choice_a": "コスト優先",
+    "choice_b": "顧客満足の追求",
+    "choice_c": "スピード優先",
+    "correct_answer": "B",
+    "explanation": "山口産業の品質方針は顧客満足の追求を基本としています。"
+  },
+  {
+    "quiz_id": "Q378",
+    "category": "会社情報",
+    "question": "山口産業の技術開発の方向性は？",
+    "choice_a": "現状維持",
+    "choice_b": "革新と改善の継続",
+    "choice_c": "外部依存",
+    "correct_answer": "B",
+    "explanation": "山口産業は革新と改善を継続して技術開発に取り組んでいます。"
+  },
+  {
+    "quiz_id": "Q379",
+    "category": "会社情報",
+    "question": "山口産業の社会的責任への取り組みは？",
+    "choice_a": "利益優先",
+    "choice_b": "持続可能な社会への貢献",
+    "choice_c": "最低限の対応",
+    "correct_answer": "B",
+    "explanation": "山口産業は持続可能な社会への貢献を重視しています。"
+  },
+  {
+    "quiz_id": "Q380",
+    "category": "会社情報",
+    "question": "山口産業の今後の成長戦略は？",
+    "choice_a": "縮小均衡",
+    "choice_b": "新分野開拓と既存強化",
+    "choice_c": "現状維持",
+    "correct_answer": "B",
+    "explanation": "山口産業は新分野の開拓と既存事業の強化で成長を目指しています。"
+  },
+  {
+    "quiz_id": "Q381",
+    "category": "産業用製品",
+    "question": "半導体工場の機材保管にテント構造が検討される理由は？",
+    "choice_a": "高級感",
+    "choice_b": "迅速な設置と移設",
+    "choice_c": "永久設置",
+    "correct_answer": "B",
+    "explanation": "半導体工場では生産変動に応じた迅速な設置と移設が求められます。"
+  },
+  {
+    "quiz_id": "Q382",
+    "category": "産業用製品",
+    "question": "化学工場の屋外保管にテント構造を使う際の考慮点は？",
+    "choice_a": "特になし",
+    "choice_b": "化学物質への耐性",
+    "choice_c": "採光を増やす",
+    "correct_answer": "B",
+    "explanation": "化学工場では化学物質に対する膜素材の耐性を考慮する必要があります。"
+  },
+  {
+    "quiz_id": "Q383",
+    "category": "産業用製品",
+    "question": "金属加工工場の作業場にテント構造が適している理由は？",
+    "choice_a": "完全防音",
+    "choice_b": "採光と換気",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "金属加工作業場には採光と換気を確保できるテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q384",
+    "category": "産業用製品",
+    "question": "繊維工場の原料保管にテント構造が選ばれる理由は？",
+    "choice_a": "高級感",
+    "choice_b": "通気と防湿",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "繊維原料保管には通気と防湿を確保できるテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q385",
+    "category": "産業用製品",
+    "question": "プラスチック成形工場の製品保管にテント構造が適している理由は？",
+    "choice_a": "高温対応",
+    "choice_b": "低コストと拡張性",
+    "choice_c": "完全遮光",
+    "correct_answer": "B",
+    "explanation": "製品保管には低コストで拡張可能なテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q386",
+    "category": "農業・畜産用",
+    "question": "酪農場の搾乳施設に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "通気と採光",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "搾乳施設には通気と採光を確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q387",
+    "category": "農業・畜産用",
+    "question": "花卉栽培の作業場に膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "採光調整と温度管理",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "花卉栽培には採光調整と温度管理ができる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q388",
+    "category": "農業・畜産用",
+    "question": "観光農園の休憩所に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開放感と景観",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "観光農園には開放感があり景観を楽しめる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q389",
+    "category": "農業・畜産用",
+    "question": "水産加工場の日除けに膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "耐塩性と衛生管理",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "水産加工場には耐塩性があり衛生管理しやすい膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q390",
+    "category": "農業・畜産用",
+    "question": "きのこ菌床製造施設に膜構造を使う際の配慮点は？",
+    "choice_a": "採光を増やす",
+    "choice_b": "温湿度と衛生管理",
+    "choice_c": "通気を止める",
+    "correct_answer": "B",
+    "explanation": "菌床製造には温湿度と衛生管理への配慮が必要です。"
+  },
+  {
+    "quiz_id": "Q391",
+    "category": "商業用製品",
+    "question": "スケートリンクの観覧席に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "大スパンと視界確保",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "観覧席には大スパンで視界を確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q392",
+    "category": "商業用製品",
+    "question": "ボウリング場の増設に膜構造が検討される理由は？",
+    "choice_a": "高級感",
+    "choice_b": "短工期と低コスト",
+    "choice_c": "完全防音",
+    "correct_answer": "B",
+    "explanation": "施設増設には短工期で低コストの膜構造が検討されます。"
+  },
+  {
+    "quiz_id": "Q393",
+    "category": "商業用製品",
+    "question": "遊園地の日除けに膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "カラフルで楽しい雰囲気",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "遊園地にはカラフルで楽しい雰囲気の膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q394",
+    "category": "商業用製品",
+    "question": "動物園の観覧通路に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開放感と日除け",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "動物園には開放感と日除けを両立できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q395",
+    "category": "商業用製品",
+    "question": "水族館の屋外展示に膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "自然光と開放感",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "屋外展示には自然光と開放感を活かせる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q396",
+    "category": "イベント製品",
+    "question": "野外コンサートの観客エリアに適した膜構造は？",
+    "choice_a": "完全密閉テント",
+    "choice_b": "大型シェード",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "野外コンサートには大勢を収容できる大型シェードが適しています。"
+  },
+  {
+    "quiz_id": "Q397",
+    "category": "イベント製品",
+    "question": "スポーツイベントの選手控室に適した製品は？",
+    "choice_a": "オープンシェード",
+    "choice_b": "プライバシーを確保できるテント",
+    "choice_c": "エアアーチ",
+    "correct_answer": "B",
+    "explanation": "選手控室にはプライバシーを確保できるテントが適しています。"
+  },
+  {
+    "quiz_id": "Q398",
+    "category": "イベント製品",
+    "question": "フリーマーケットに適したテントの特徴は？",
+    "choice_a": "大型固定式",
+    "choice_b": "個人設営可能な簡易テント",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "フリーマーケットには個人で設営できる簡易テントが適しています。"
+  },
+  {
+    "quiz_id": "Q399",
+    "category": "イベント製品",
+    "question": "防災訓練のテント設営体験に適した製品は？",
+    "choice_a": "大型恒久建築",
+    "choice_b": "組み立て体験用テント",
+    "choice_c": "エアアーチ",
+    "correct_answer": "B",
+    "explanation": "防災訓練には組み立て体験ができるテントが適しています。"
+  },
+  {
+    "quiz_id": "Q400",
+    "category": "イベント製品",
+    "question": "献血イベントに適したテントの特徴は？",
+    "choice_a": "オープン構造",
+    "choice_b": "プライバシーと空調確保",
+    "choice_c": "装飾重視",
+    "correct_answer": "B",
+    "explanation": "献血イベントにはプライバシーと空調を確保できるテントが適しています。"
+  },
+  {
+    "quiz_id": "Q401",
+    "category": "膜構造・技術",
+    "question": "膜構造の3Dプリント活用の可能性は？",
+    "choice_a": "不可能",
+    "choice_b": "部品製作への応用",
+    "choice_c": "膜全体の印刷",
+    "correct_answer": "B",
+    "explanation": "3Dプリントは膜構造の部品製作に応用可能です。"
+  },
+  {
+    "quiz_id": "Q402",
+    "category": "膜構造・技術",
+    "question": "膜構造のIoT活用例は？",
+    "choice_a": "不可能",
+    "choice_b": "状態監視センサー",
+    "choice_c": "装飾のみ",
+    "correct_answer": "B",
+    "explanation": "IoTセンサーで膜の状態を監視することが可能です。"
+  },
+  {
+    "quiz_id": "Q403",
+    "category": "膜構造・技術",
+    "question": "膜構造のAI活用の方向性は？",
+    "choice_a": "不要",
+    "choice_b": "設計最適化と予測保全",
+    "choice_c": "販売のみ",
+    "correct_answer": "B",
+    "explanation": "AIは膜構造の設計最適化と予測保全に活用できます。"
+  },
+  {
+    "quiz_id": "Q404",
+    "category": "膜構造・技術",
+    "question": "膜構造のドローン活用例は？",
+    "choice_a": "不可能",
+    "choice_b": "点検と測量",
+    "choice_c": "設置のみ",
+    "correct_answer": "B",
+    "explanation": "ドローンは膜構造の点検と測量に活用できます。"
+  },
+  {
+    "quiz_id": "Q405",
+    "category": "膜構造・技術",
+    "question": "膜構造のVR/AR活用例は？",
+    "choice_a": "不可能",
+    "choice_b": "設計シミュレーション",
+    "choice_c": "娯楽のみ",
+    "correct_answer": "B",
+    "explanation": "VR/ARは膜構造の設計シミュレーションに活用できます。"
+  },
+  {
+    "quiz_id": "Q406",
+    "category": "業界知識",
+    "question": "膜構造のサステナビリティへの貢献は？",
+    "choice_a": "貢献なし",
+    "choice_b": "軽量化と省資源",
+    "choice_c": "環境負荷大",
+    "correct_answer": "B",
+    "explanation": "膜構造は軽量化と省資源でサステナビリティに貢献します。"
+  },
+  {
+    "quiz_id": "Q407",
+    "category": "業界知識",
+    "question": "膜構造のカーボンニュートラルへの取り組みは？",
+    "choice_a": "対象外",
+    "choice_b": "省エネと再生材活用",
+    "choice_c": "影響なし",
+    "correct_answer": "B",
+    "explanation": "省エネと再生材活用でカーボンニュートラルに貢献します。"
+  },
+  {
+    "quiz_id": "Q408",
+    "category": "業界知識",
+    "question": "膜構造のSDGs関連の取り組みは？",
+    "choice_a": "無関係",
+    "choice_b": "持続可能な都市づくり",
+    "choice_c": "対象外",
+    "correct_answer": "B",
+    "explanation": "膜構造は持続可能な都市づくりに貢献しています。"
+  },
+  {
+    "quiz_id": "Q409",
+    "category": "業界知識",
+    "question": "膜構造のグリーンビルディング認証への対応は？",
+    "choice_a": "対象外",
+    "choice_b": "認証取得に貢献",
+    "choice_c": "影響なし",
+    "correct_answer": "B",
+    "explanation": "膜構造はグリーンビルディング認証の取得に貢献できます。"
+  },
+  {
+    "quiz_id": "Q410",
+    "category": "業界知識",
+    "question": "膜構造の省エネ建築への貢献は？",
+    "choice_a": "なし",
+    "choice_b": "自然採光と断熱",
+    "choice_c": "エネルギー消費大",
+    "correct_answer": "B",
+    "explanation": "膜構造は自然採光と断熱性能で省エネに貢献します。"
+  },
+  {
+    "quiz_id": "Q411",
+    "category": "会社情報",
+    "question": "山口産業のイノベーションへの姿勢は？",
+    "choice_a": "保守的",
+    "choice_b": "積極的な挑戦",
+    "choice_c": "外部依存",
+    "correct_answer": "B",
+    "explanation": "山口産業はイノベーションに積極的に挑戦しています。"
+  },
+  {
+    "quiz_id": "Q412",
+    "category": "会社情報",
+    "question": "山口産業の顧客との関係構築の方針は？",
+    "choice_a": "取引のみ",
+    "choice_b": "長期的なパートナーシップ",
+    "choice_c": "最小限の接触",
+    "correct_answer": "B",
+    "explanation": "山口産業は顧客と長期的なパートナーシップを築くことを重視しています。"
+  },
+  {
+    "quiz_id": "Q413",
+    "category": "会社情報",
+    "question": "山口産業の若手育成の方針は？",
+    "choice_a": "放任",
+    "choice_b": "OJTと体系的教育",
+    "choice_c": "即戦力のみ採用",
+    "correct_answer": "B",
+    "explanation": "山口産業はOJTと体系的教育で若手を育成しています。"
+  },
+  {
+    "quiz_id": "Q414",
+    "category": "会社情報",
+    "question": "山口産業の技術継承の取り組みは？",
+    "choice_a": "特になし",
+    "choice_b": "ベテランから若手への伝承",
+    "choice_c": "マニュアル化のみ",
+    "correct_answer": "B",
+    "explanation": "山口産業はベテランから若手への技術伝承に取り組んでいます。"
+  },
+  {
+    "quiz_id": "Q415",
+    "category": "会社情報",
+    "question": "山口産業の働き方改革の取り組みは？",
+    "choice_a": "従来通り",
+    "choice_b": "効率化と働きやすさ向上",
+    "choice_c": "最小限",
+    "correct_answer": "B",
+    "explanation": "山口産業は効率化と働きやすさ向上に取り組んでいます。"
+  },
+  {
+    "quiz_id": "Q416",
+    "category": "産業用製品",
+    "question": "食品工場の洗浄エリアにテント構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "排水と換気の確保",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "洗浄エリアには排水と換気を確保できるテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q417",
+    "category": "産業用製品",
+    "question": "医薬品工場の資材保管にテント構造を使う際の考慮点は？",
+    "choice_a": "特になし",
+    "choice_b": "温湿度と清浄度管理",
+    "choice_c": "採光を増やす",
+    "correct_answer": "B",
+    "explanation": "医薬品資材保管には温湿度と清浄度管理への配慮が必要です。"
+  },
+  {
+    "quiz_id": "Q418",
+    "category": "産業用製品",
+    "question": "石油化学プラントの仮設施設にテント構造が選ばれる理由は？",
+    "choice_a": "永久設置",
+    "choice_b": "設置撤去の容易さ",
+    "choice_c": "高級感",
+    "correct_answer": "B",
+    "explanation": "プラントの仮設施設には設置撤去が容易なテント構造が選ばれます。"
+  },
+  {
+    "quiz_id": "Q419",
+    "category": "産業用製品",
+    "question": "リサイクル施設にテント構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "大空間と換気",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "リサイクル施設には大きな作業空間と換気を確保できるテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q420",
+    "category": "産業用製品",
+    "question": "太陽光発電施設の機材保管にテント構造が適している理由は？",
+    "choice_a": "発電機能",
+    "choice_b": "低コストと迅速設置",
+    "choice_c": "永久設置",
+    "correct_answer": "B",
+    "explanation": "機材保管には低コストで迅速に設置できるテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q421",
+    "category": "農業・畜産用",
+    "question": "アスパラガス栽培ハウスに膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "採光と保温",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "アスパラガス栽培には採光と保温ができる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q422",
+    "category": "農業・畜産用",
+    "question": "ブルーベリー栽培の雨除けに膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "雨除けと通気",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "ブルーベリー栽培には雨除けと通気を確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q423",
+    "category": "農業・畜産用",
+    "question": "山羊舎に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "通気と採光",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "山羊舎には通気と採光を確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q424",
+    "category": "農業・畜産用",
+    "question": "養殖池の日除けに膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "水温調整と紫外線カット",
+    "choice_c": "保温",
+    "correct_answer": "B",
+    "explanation": "養殖池には水温調整と紫外線カットができる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q425",
+    "category": "農業・畜産用",
+    "question": "農業法人の資材倉庫に膜構造が選ばれる理由は？",
+    "choice_a": "高級感",
+    "choice_b": "低コストと拡張性",
+    "choice_c": "永久建築",
+    "correct_answer": "B",
+    "explanation": "資材倉庫には低コストで拡張可能な膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q426",
+    "category": "商業用製品",
+    "question": "コワーキングスペースの屋外エリアに膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開放感と自然光",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "屋外エリアには開放感と自然光を楽しめる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q427",
+    "category": "商業用製品",
+    "question": "フィットネスジムの屋外スペースに膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "換気と開放感",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "フィットネスの屋外スペースには換気と開放感が重要です。"
+  },
+  {
+    "quiz_id": "Q428",
+    "category": "商業用製品",
+    "question": "ヨガスタジオの屋外クラスに膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "自然との調和",
+    "choice_c": "完全遮光",
+    "correct_answer": "B",
+    "explanation": "ヨガには自然と調和した開放的な膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q429",
+    "category": "商業用製品",
+    "question": "ウェディング会場の屋外式場に膜構造が適している理由は？",
+    "choice_a": "低コスト重視",
+    "choice_b": "エレガントで開放的",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "ウェディングにはエレガントで開放的な膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q430",
+    "category": "商業用製品",
+    "question": "美術館の屋外展示に膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "自然光とデザイン性",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "屋外展示には自然光を活かしたデザイン性の高い膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q431",
+    "category": "イベント製品",
+    "question": "テレビ中継ブースに適したテントの特徴は？",
+    "choice_a": "完全透明",
+    "choice_b": "遮音と空調確保",
+    "choice_c": "超大型",
+    "correct_answer": "B",
+    "explanation": "中継ブースには遮音と空調を確保できるテントが適しています。"
+  },
+  {
+    "quiz_id": "Q432",
+    "category": "イベント製品",
+    "question": "アウトドア料理教室に適したテントは？",
+    "choice_a": "完全密閉",
+    "choice_b": "換気と作業スペース確保",
+    "choice_c": "極小サイズ",
+    "correct_answer": "B",
+    "explanation": "料理教室には換気と作業スペースを確保できるテントが適しています。"
+  },
+  {
+    "quiz_id": "Q433",
+    "category": "イベント製品",
+    "question": "星空観察イベントに適した膜構造は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開閉式屋根",
+    "choice_c": "完全固定屋根",
+    "correct_answer": "B",
+    "explanation": "星空観察には空が見える開閉式の膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q434",
+    "category": "イベント製品",
+    "question": "釣り大会の本部テントに適した製品は？",
+    "choice_a": "超大型テント",
+    "choice_b": "設営簡単な中型テント",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "釣り大会の本部には設営が簡単な中型テントが適しています。"
+  },
+  {
+    "quiz_id": "Q435",
+    "category": "イベント製品",
+    "question": "ペットイベントに適したテントの特徴は？",
+    "choice_a": "高温密閉",
+    "choice_b": "換気と衛生管理",
+    "choice_c": "完全遮光",
+    "correct_answer": "B",
+    "explanation": "ペットイベントには換気と衛生管理がしやすいテントが適しています。"
+  },
+  {
+    "quiz_id": "Q436",
+    "category": "膜構造・技術",
+    "question": "膜構造の耐候性を高める処理は？",
+    "choice_a": "無処理",
+    "choice_b": "UV加工とコーティング",
+    "choice_c": "薄くする",
+    "correct_answer": "B",
+    "explanation": "膜の耐候性はUV加工とコーティングで高められます。"
+  },
+  {
+    "quiz_id": "Q437",
+    "category": "膜構造・技術",
+    "question": "膜構造の防汚性を高める技術は？",
+    "choice_a": "無処理",
+    "choice_b": "フッ素加工",
+    "choice_c": "表面を粗くする",
+    "correct_answer": "B",
+    "explanation": "フッ素加工で膜の防汚性を高めることができます。"
+  },
+  {
+    "quiz_id": "Q438",
+    "category": "膜構造・技術",
+    "question": "膜構造の透光性を調整する方法は？",
+    "choice_a": "固定のみ",
+    "choice_b": "素材と厚みの選択",
+    "choice_c": "不可能",
+    "correct_answer": "B",
+    "explanation": "膜の透光性は素材と厚みの選択で調整できます。"
+  },
+  {
+    "quiz_id": "Q439",
+    "category": "膜構造・技術",
+    "question": "膜構造の断熱性を高める方法は？",
+    "choice_a": "不可能",
+    "choice_b": "二重膜と断熱材",
+    "choice_c": "薄くする",
+    "correct_answer": "B",
+    "explanation": "二重膜構造や断熱材の使用で断熱性を高められます。"
+  },
+  {
+    "quiz_id": "Q440",
+    "category": "膜構造・技術",
+    "question": "膜構造の遮熱性を高める技術は？",
+    "choice_a": "黒色膜使用",
+    "choice_b": "遮熱コーティング",
+    "choice_c": "不可能",
+    "correct_answer": "B",
+    "explanation": "遮熱コーティングで膜の遮熱性を高めることができます。"
+  },
+  {
+    "quiz_id": "Q441",
+    "category": "業界知識",
+    "question": "膜構造の需要が増加している建築分野は？",
+    "choice_a": "減少傾向",
+    "choice_b": "スポーツ・レジャー施設",
+    "choice_c": "変化なし",
+    "correct_answer": "B",
+    "explanation": "スポーツ・レジャー施設で膜構造の需要が増加しています。"
+  },
+  {
+    "quiz_id": "Q442",
+    "category": "業界知識",
+    "question": "膜構造が注目される医療分野での活用は？",
+    "choice_a": "使用不可",
+    "choice_b": "仮設医療施設",
+    "choice_c": "装飾のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造は仮設医療施設として医療分野でも活用されています。"
+  },
+  {
+    "quiz_id": "Q443",
+    "category": "業界知識",
+    "question": "膜構造の教育施設での活用例は？",
+    "choice_a": "使用不可",
+    "choice_b": "体育館・日除け",
+    "choice_c": "装飾のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造は学校の体育館や日除けなどに活用されています。"
+  },
+  {
+    "quiz_id": "Q444",
+    "category": "業界知識",
+    "question": "膜構造の交通インフラでの活用例は？",
+    "choice_a": "使用不可",
+    "choice_b": "駅や空港の屋根",
+    "choice_c": "道路のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造は駅や空港の屋根として交通インフラに活用されています。"
+  },
+  {
+    "quiz_id": "Q445",
+    "category": "業界知識",
+    "question": "膜構造のエンターテインメント施設での活用は？",
+    "choice_a": "使用不可",
+    "choice_b": "スタジアム・テーマパーク",
+    "choice_c": "装飾のみ",
+    "correct_answer": "B",
+    "explanation": "膜構造はスタジアムやテーマパークで活用されています。"
+  },
+  {
+    "quiz_id": "Q446",
+    "category": "会社情報",
+    "question": "山口産業のコンプライアンスへの取り組みは？",
+    "choice_a": "最低限",
+    "choice_b": "法令遵守と倫理経営",
+    "choice_c": "形式的",
+    "correct_answer": "B",
+    "explanation": "山口産業は法令遵守と倫理経営に取り組んでいます。"
+  },
+  {
+    "quiz_id": "Q447",
+    "category": "会社情報",
+    "question": "山口産業のリスク管理の方針は？",
+    "choice_a": "問題発生後対応",
+    "choice_b": "予防と早期対応",
+    "choice_c": "放任",
+    "correct_answer": "B",
+    "explanation": "山口産業はリスクの予防と早期対応を重視しています。"
+  },
+  {
+    "quiz_id": "Q448",
+    "category": "会社情報",
+    "question": "山口産業の情報セキュリティへの取り組みは？",
+    "choice_a": "最低限",
+    "choice_b": "体系的な管理",
+    "choice_c": "対応なし",
+    "correct_answer": "B",
+    "explanation": "山口産業は情報セキュリティの体系的な管理に取り組んでいます。"
+  },
+  {
+    "quiz_id": "Q449",
+    "category": "会社情報",
+    "question": "山口産業のBCP（事業継続計画）への取り組みは？",
+    "choice_a": "未策定",
+    "choice_b": "計画策定と訓練",
+    "choice_c": "形式的",
+    "correct_answer": "B",
+    "explanation": "山口産業はBCPの策定と訓練に取り組んでいます。"
+  },
+  {
+    "quiz_id": "Q450",
+    "category": "会社情報",
+    "question": "山口産業の品質管理システムの特徴は？",
+    "choice_a": "最低限",
+    "choice_b": "継続的改善",
+    "choice_c": "固定的",
+    "correct_answer": "B",
+    "explanation": "山口産業の品質管理システムは継続的改善を特徴としています。"
+  },
+  {
+    "quiz_id": "Q451",
+    "category": "産業用製品",
+    "question": "データセンターの仮設冷却施設にテント構造が使われる理由は？",
+    "choice_a": "永久設置",
+    "choice_b": "迅速な設置と撤去",
+    "choice_c": "高級感",
+    "correct_answer": "B",
+    "explanation": "仮設施設には迅速に設置撤去できるテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q452",
+    "category": "産業用製品",
+    "question": "建設現場の養生テントに膜構造が使われる理由は？",
+    "choice_a": "永久設置",
+    "choice_b": "軽量で設置容易",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "養生テントには軽量で設置が容易な膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q453",
+    "category": "産業用製品",
+    "question": "造船所の作業場にテント構造が検討される理由は？",
+    "choice_a": "小型化",
+    "choice_b": "大スパンと採光",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "造船所には大スパンと採光を確保できるテント構造が検討されます。"
+  },
+  {
+    "quiz_id": "Q454",
+    "category": "産業用製品",
+    "question": "風力発電施設のメンテナンス拠点にテント構造が適している理由は？",
+    "choice_a": "永久建築",
+    "choice_b": "設置の柔軟性",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "メンテナンス拠点には設置場所の柔軟性があるテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q455",
+    "category": "産業用製品",
+    "question": "鉄道車両の保守施設にテント構造が適している理由は？",
+    "choice_a": "小型化",
+    "choice_b": "大開口と大空間",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "車両保守には大開口と大空間を確保できるテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q456",
+    "category": "農業・畜産用",
+    "question": "バナナ栽培ハウスに膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "保温と採光",
+    "choice_c": "完全乾燥",
+    "correct_answer": "B",
+    "explanation": "バナナ栽培には保温と採光ができる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q457",
+    "category": "農業・畜産用",
+    "question": "マンゴー栽培ハウスに膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "温度管理と採光",
+    "choice_c": "完全乾燥",
+    "correct_answer": "B",
+    "explanation": "マンゴー栽培には温度管理と採光ができる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q458",
+    "category": "農業・畜産用",
+    "question": "有機野菜栽培施設に膜構造が適している理由は？",
+    "choice_a": "農薬散布",
+    "choice_b": "害虫防除と採光",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "有機栽培には害虫防除と採光を確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q459",
+    "category": "農業・畜産用",
+    "question": "養鶏場の日除けに膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "通気と暑熱対策",
+    "choice_c": "保温のみ",
+    "correct_answer": "B",
+    "explanation": "養鶏場には通気と暑熱対策ができる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q460",
+    "category": "農業・畜産用",
+    "question": "農業体験施設に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開放感と自然体験",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "農業体験には開放感と自然を感じられる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q461",
+    "category": "商業用製品",
+    "question": "グランピング施設の共用スペースに膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開放感と雰囲気",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "グランピングには開放感と雰囲気を演出できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q462",
+    "category": "商業用製品",
+    "question": "サウナ施設の外気浴スペースに膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "通気と日除け",
+    "choice_c": "保温",
+    "correct_answer": "B",
+    "explanation": "外気浴には通気と日除けを確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q463",
+    "category": "商業用製品",
+    "question": "ペットホテルの運動場に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "通気と日除け",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "ペットの運動場には通気と日除けを確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q464",
+    "category": "商業用製品",
+    "question": "乗馬クラブの練習場に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "大スパンと通気",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "乗馬練習場には大スパンと通気を確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q465",
+    "category": "商業用製品",
+    "question": "アーチェリー場に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "長距離の大空間確保",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "アーチェリー場には長距離の大空間を確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q466",
+    "category": "イベント製品",
+    "question": "ランニングイベントのスタート・ゴール地点に適した製品は？",
+    "choice_a": "大型恒久建築",
+    "choice_b": "ゲートテントやエアアーチ",
+    "choice_c": "畜舎テント",
+    "correct_answer": "B",
+    "explanation": "スタート・ゴール地点にはゲートテントやエアアーチが適しています。"
+  },
+  {
+    "quiz_id": "Q467",
+    "category": "イベント製品",
+    "question": "サイクリングイベントの中継地点に適した製品は？",
+    "choice_a": "大型恒久建築",
+    "choice_b": "簡易設営テント",
+    "choice_c": "球体テント",
+    "correct_answer": "B",
+    "explanation": "中継地点には素早く設営できる簡易テントが適しています。"
+  },
+  {
+    "quiz_id": "Q468",
+    "category": "イベント製品",
+    "question": "トライアスロンの選手待機所に適した製品は？",
+    "choice_a": "完全密閉テント",
+    "choice_b": "通気と日除けを確保したテント",
+    "choice_c": "超小型テント",
+    "correct_answer": "B",
+    "explanation": "選手待機所には通気と日除けを確保できるテントが適しています。"
+  },
+  {
+    "quiz_id": "Q469",
+    "category": "イベント製品",
+    "question": "屋外ワークショップに適したテントの特徴は？",
+    "choice_a": "完全密閉",
+    "choice_b": "作業スペースと採光",
+    "choice_c": "超小型",
+    "correct_answer": "B",
+    "explanation": "ワークショップには十分な作業スペースと採光が重要です。"
+  },
+  {
+    "quiz_id": "Q470",
+    "category": "イベント製品",
+    "question": "野外礼拝の会場に適した膜構造は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開放的で荘厳な雰囲気",
+    "choice_c": "カラフル",
+    "correct_answer": "B",
+    "explanation": "礼拝会場には開放的で荘厳な雰囲気の膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q471",
+    "category": "膜構造・技術",
+    "question": "膜構造の音響性能に影響する要素は？",
+    "choice_a": "色のみ",
+    "choice_b": "形状と素材",
+    "choice_c": "サイズのみ",
+    "correct_answer": "B",
+    "explanation": "膜構造の音響性能は形状と素材に影響されます。"
+  },
+  {
+    "quiz_id": "Q472",
+    "category": "膜構造・技術",
+    "question": "膜構造の照明計画で考慮すべきことは？",
+    "choice_a": "明るさのみ",
+    "choice_b": "透光性と反射",
+    "choice_c": "色のみ",
+    "correct_answer": "B",
+    "explanation": "照明計画では膜の透光性と反射特性を考慮します。"
+  },
+  {
+    "quiz_id": "Q473",
+    "category": "膜構造・技術",
+    "question": "膜構造の排水計画で重要なことは？",
+    "choice_a": "不要",
+    "choice_b": "勾配と排水口配置",
+    "choice_c": "膜の色",
+    "correct_answer": "B",
+    "explanation": "排水計画では適切な勾配と排水口の配置が重要です。"
+  },
+  {
+    "quiz_id": "Q474",
+    "category": "膜構造・技術",
+    "question": "膜構造の積雪対策として有効な方法は？",
+    "choice_a": "放置",
+    "choice_b": "勾配と融雪装置",
+    "choice_c": "色を変える",
+    "correct_answer": "B",
+    "explanation": "積雪対策には適切な勾配と融雪装置が有効です。"
+  },
+  {
+    "quiz_id": "Q475",
+    "category": "膜構造・技術",
+    "question": "膜構造の台風対策として重要なことは？",
+    "choice_a": "色を変える",
+    "choice_b": "固定方法と強度計算",
+    "choice_c": "サイズを変える",
+    "correct_answer": "B",
+    "explanation": "台風対策には適切な固定方法と強度計算が重要です。"
+  },
+  {
+    "quiz_id": "Q476",
+    "category": "業界知識",
+    "question": "膜構造の海外市場で需要が高い地域は？",
+    "choice_a": "需要なし",
+    "choice_b": "中東・東南アジア",
+    "choice_c": "減少傾向",
+    "correct_answer": "B",
+    "explanation": "中東や東南アジアで膜構造の需要が高まっています。"
+  },
+  {
+    "quiz_id": "Q477",
+    "category": "業界知識",
+    "question": "膜構造業界の国際標準化の動向は？",
+    "choice_a": "不要",
+    "choice_b": "ISO規格の整備",
+    "choice_c": "各国独自",
+    "correct_answer": "B",
+    "explanation": "膜構造業界ではISO規格の整備が進んでいます。"
+  },
+  {
+    "quiz_id": "Q478",
+    "category": "業界知識",
+    "question": "膜構造の学術研究の動向は？",
+    "choice_a": "停滞",
+    "choice_b": "新素材と構造解析の進展",
+    "choice_c": "縮小",
+    "correct_answer": "B",
+    "explanation": "膜構造の学術研究では新素材と構造解析が進展しています。"
+  },
+  {
+    "quiz_id": "Q479",
+    "category": "業界知識",
+    "question": "膜構造業界の産学連携の取り組みは？",
+    "choice_a": "なし",
+    "choice_b": "共同研究と人材育成",
+    "choice_c": "縮小",
+    "correct_answer": "B",
+    "explanation": "産学連携で共同研究と人材育成が進んでいます。"
+  },
+  {
+    "quiz_id": "Q480",
+    "category": "業界知識",
+    "question": "膜構造の展示会・学会の役割は？",
+    "choice_a": "不要",
+    "choice_b": "情報交換と技術普及",
+    "choice_c": "販売のみ",
+    "correct_answer": "B",
+    "explanation": "展示会・学会は情報交換と技術普及の場として重要です。"
+  },
+  {
+    "quiz_id": "Q481",
+    "category": "会社情報",
+    "question": "山口産業の海外展開の方針は？",
+    "choice_a": "国内のみ",
+    "choice_b": "技術力を活かした展開",
+    "choice_c": "撤退",
+    "correct_answer": "B",
+    "explanation": "山口産業は技術力を活かした海外展開を目指しています。"
+  },
+  {
+    "quiz_id": "Q482",
+    "category": "会社情報",
+    "question": "山口産業の協力会社との関係は？",
+    "choice_a": "取引のみ",
+    "choice_b": "パートナーシップ",
+    "choice_c": "最小限",
+    "correct_answer": "B",
+    "explanation": "山口産業は協力会社とパートナーシップを築いています。"
+  },
+  {
+    "quiz_id": "Q483",
+    "category": "会社情報",
+    "question": "山口産業の営業スタイルの特徴は？",
+    "choice_a": "押し売り",
+    "choice_b": "提案型営業",
+    "choice_c": "待ちの姿勢",
+    "correct_answer": "B",
+    "explanation": "山口産業は顧客のニーズに応える提案型営業を行っています。"
+  },
+  {
+    "quiz_id": "Q484",
+    "category": "会社情報",
+    "question": "山口産業の見積対応の特徴は？",
+    "choice_a": "時間がかかる",
+    "choice_b": "迅速で詳細",
+    "choice_c": "簡易的",
+    "correct_answer": "B",
+    "explanation": "山口産業は迅速で詳細な見積対応を心がけています。"
+  },
+  {
+    "quiz_id": "Q485",
+    "category": "会社情報",
+    "question": "山口産業のクレーム対応の方針は？",
+    "choice_a": "回避",
+    "choice_b": "誠実で迅速な対応",
+    "choice_c": "最小限",
+    "correct_answer": "B",
+    "explanation": "山口産業はクレームに誠実で迅速に対応しています。"
+  },
+  {
+    "quiz_id": "Q486",
+    "category": "産業用製品",
+    "question": "港湾の荷さばき場にテント構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "大スパンと耐塩性",
+    "choice_c": "断熱性",
+    "correct_answer": "B",
+    "explanation": "港湾施設には大スパンと耐塩性を備えたテント構造が適しています。"
+  },
+  {
+    "quiz_id": "Q487",
+    "category": "産業用製品",
+    "question": "空港の貨物ターミナルにテント構造が検討される理由は？",
+    "choice_a": "小型化",
+    "choice_b": "大空間と迅速な設置",
+    "choice_c": "永久建築",
+    "correct_answer": "B",
+    "explanation": "貨物ターミナルには大空間を迅速に確保できるテント構造が検討されます。"
+  },
+  {
+    "quiz_id": "Q488",
+    "category": "産業用製品",
+    "question": "物流センターの仮設増設にテント構造が選ばれる理由は？",
+    "choice_a": "永久設置",
+    "choice_b": "短工期と低コスト",
+    "choice_c": "高級感",
+    "correct_answer": "B",
+    "explanation": "仮設増設には短工期で低コストのテント構造が選ばれます。"
+  },
+  {
+    "quiz_id": "Q489",
+    "category": "産業用製品",
+    "question": "発電所の仮設作業場にテント構造が使われる理由は？",
+    "choice_a": "永久設置",
+    "choice_b": "設置撤去の容易さ",
+    "choice_c": "発電機能",
+    "correct_answer": "B",
+    "explanation": "仮設作業場には設置撤去が容易なテント構造が使われます。"
+  },
+  {
+    "quiz_id": "Q490",
+    "category": "産業用製品",
+    "question": "工場のリニューアル時の仮設施設にテント構造が適している理由は？",
+    "choice_a": "永久設置",
+    "choice_b": "一時的な利用に最適",
+    "choice_c": "高級感",
+    "correct_answer": "B",
+    "explanation": "リニューアル時の一時的な利用にはテント構造が最適です。"
+  },
+  {
+    "quiz_id": "Q491",
+    "category": "農業・畜産用",
+    "question": "観光いちご園に膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "採光と清潔感",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "観光農園には採光と清潔感を確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q492",
+    "category": "農業・畜産用",
+    "question": "ハーブ園の栽培施設に膜構造が適している理由は？",
+    "choice_a": "完全遮光",
+    "choice_b": "採光と通気",
+    "choice_c": "完全密閉",
+    "correct_answer": "B",
+    "explanation": "ハーブ栽培には採光と通気を確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q493",
+    "category": "農業・畜産用",
+    "question": "農産物直売所に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開放的な雰囲気",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "直売所には開放的で入りやすい雰囲気の膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q494",
+    "category": "農業・畜産用",
+    "question": "牧場の見学施設に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開放感と自然との調和",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "見学施設には開放感と自然との調和がある膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q495",
+    "category": "農業・畜産用",
+    "question": "農業研修施設に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "実習スペースと採光",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "研修施設には十分な実習スペースと採光が重要です。"
+  },
+  {
+    "quiz_id": "Q496",
+    "category": "商業用製品",
+    "question": "屋外スケートボードパークに膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "日除けと開放感",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "スケートボードパークには日除けと開放感を確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q497",
+    "category": "商業用製品",
+    "question": "ボルダリング施設に膜構造が検討される理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "大空間と採光",
+    "choice_c": "完全遮光",
+    "correct_answer": "B",
+    "explanation": "ボルダリング施設には大空間と採光を確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q498",
+    "category": "商業用製品",
+    "question": "サバイバルゲームフィールドの休憩所に膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "通気と日除け",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "休憩所には通気と日除けを確保できる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q499",
+    "category": "商業用製品",
+    "question": "パターゴルフ場の日除けに膜構造が適している理由は？",
+    "choice_a": "完全密閉",
+    "choice_b": "開放感と景観",
+    "choice_c": "遮音性",
+    "correct_answer": "B",
+    "explanation": "パターゴルフ場には開放感と景観を楽しめる膜構造が適しています。"
+  },
+  {
+    "quiz_id": "Q500",
+    "category": "会社情報",
+    "question": "山口産業が目指す未来像は？",
+    "choice_a": "現状維持",
+    "choice_b": "膜構造のリーディングカンパニー",
+    "choice_c": "縮小均衡",
+    "correct_answer": "B",
+    "explanation": "山口産業は膜構造業界のリーディングカンパニーを目指しています。"
+  }
+]

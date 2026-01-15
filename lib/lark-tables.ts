@@ -26,6 +26,10 @@ export function getLarkTables() {
     USER_PERMISSIONS: process.env.LARK_TABLE_USER_PERMISSIONS || "tbl0qPqlC88kaUeZ",
     // 全社KPIテーブル
     COMPANY_KPI: process.env.LARK_TABLE_COMPANY_KPI || "",
+    // クイズマスタテーブル
+    QUIZ_MASTER: process.env.LARK_TABLE_QUIZ_MASTER || "tbl5Od0bDQEHG3Wm",
+    // クイズ回答履歴テーブル
+    QUIZ_ANSWER_HISTORY: process.env.LARK_TABLE_QUIZ_ANSWER_HISTORY || "tblBuHepIBi5YlfT",
   };
 }
 
@@ -48,6 +52,9 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   USER_PERMISSIONS: "master",
   // プロジェクトBase
   COMPANY_KPI: "project",
+  // クイズ関連（プロジェクトBase）
+  QUIZ_MASTER: "project",
+  QUIZ_ANSWER_HISTORY: "project",
 };
 
 /**
@@ -263,4 +270,34 @@ export const COMPANY_KPI_FIELDS = {
   advertising_budget: "広告販促費",
   // 備考
   notes: "備考",
+} as const;
+
+/**
+ * クイズマスタテーブルのフィールド定義
+ */
+export const QUIZ_MASTER_FIELDS = {
+  quiz_id: "クイズID",
+  question: "問題文",
+  choice_a: "選択肢A",
+  choice_b: "選択肢B",
+  choice_c: "選択肢C",
+  correct_answer: "正解",
+  explanation: "解説",
+  category: "カテゴリ",
+  is_active: "有効フラグ",
+} as const;
+
+/**
+ * クイズ回答履歴テーブルのフィールド定義
+ */
+export const QUIZ_ANSWER_HISTORY_FIELDS = {
+  user_email: "ユーザーメール",
+  user_name: "ユーザー名",
+  quiz_id: "クイズID",
+  answer_date: "回答日",
+  user_answer: "回答",
+  is_correct: "正誤",
+  points: "獲得ポイント",
+  fiscal_period: "期",
+  created_at: "作成日時",
 } as const;

@@ -541,3 +541,120 @@ export interface ConstructionSpec {
     submission_deadline: string;     // 提出期限
   };
 }
+
+// ========================================
+// クイズシステム
+// ========================================
+
+/**
+ * クイズカテゴリの型定義
+ */
+export type QuizCategory = "テント倉庫" | "膜構造" | "建築" | "安全";
+
+/**
+ * クイズ難易度の型定義
+ */
+export type QuizDifficulty = "初級" | "中級" | "上級";
+
+/**
+ * クイズ選択肢の型定義
+ */
+export type QuizChoice = "A" | "B" | "C";
+
+/**
+ * クイズマスタの型定義
+ */
+export interface QuizMaster {
+  record_id: string;
+  quiz_id: string;
+  question: string;
+  choice_a: string;
+  choice_b: string;
+  choice_c: string;
+  correct_answer: QuizChoice;
+  explanation: string;
+  category: QuizCategory;
+  difficulty?: QuizDifficulty;
+  is_active: boolean;
+  created_at?: number;
+}
+
+/**
+ * クイズ回答履歴の型定義
+ */
+export interface QuizAnswerHistory {
+  record_id: string;
+  user_email: string;
+  user_name: string;
+  quiz_id: string;
+  answer_date: string;
+  user_answer: QuizChoice;
+  is_correct: boolean;
+  points: number;
+  fiscal_period: number;
+  created_at?: number;
+}
+
+/**
+ * 今日のクイズレスポンス
+ */
+export interface TodayQuizResponse {
+  quiz: Omit<QuizMaster, "correct_answer" | "explanation"> | null;
+  alreadyAnswered: boolean;
+  allQuizzesCompleted?: boolean; // 全てのクイズに回答済み
+  todayResult?: {
+    isCorrect: boolean;
+    correctAnswer: QuizChoice;
+    userAnswer: QuizChoice;
+    explanation: string;
+  };
+  userStats: {
+    totalPoints: number;
+    rank: number;
+    totalParticipants: number;
+  };
+}
+
+/**
+ * クイズ回答リクエスト
+ */
+export interface QuizAnswerRequest {
+  quiz_id: string;
+  answer: QuizChoice;
+}
+
+/**
+ * クイズ回答レスポンス
+ */
+export interface QuizAnswerResponse {
+  isCorrect: boolean;
+  correctAnswer: QuizChoice;
+  explanation: string;
+  pointsEarned: number;
+  newTotalPoints: number;
+  newRank: number;
+}
+
+/**
+ * ランキングエントリ
+ */
+export interface QuizRankingEntry {
+  rank: number;
+  user_name: string;
+  user_email: string;
+  total_points: number;
+  correct_count: number;
+  answer_count: number;
+  correct_rate: number;
+}
+
+/**
+ * ランキングレスポンス
+ */
+export interface QuizRankingResponse {
+  period: number;
+  periodLabel: string;
+  rankings: QuizRankingEntry[];
+  myRank: number | null;
+  totalParticipants: number;
+}

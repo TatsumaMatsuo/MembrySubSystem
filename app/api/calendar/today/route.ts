@@ -1,21 +1,33 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 
 export const dynamic = "force-dynamic";
 
-// 今日の開始・終了タイムスタンプ（秒）
-function getTodayRange(): { start: number; end: number } {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+// 指定日の開始・終了タイムスタンプ（秒）
+function getDateRange(dateStr?: string): { start: number; end: number; targetDate: Date } {
+  const targetDate = dateStr ? new Date(dateStr) : new Date();
+  // 無効な日付の場合は今日を使用
+  if (isNaN(targetDate.getTime())) {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    return {
+      start: Math.floor(start.getTime() / 1000),
+      end: Math.floor(end.getTime() / 1000),
+      targetDate: now,
+    };
+  }
+  const start = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
+  const end = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
   return {
     start: Math.floor(start.getTime() / 1000),
     end: Math.floor(end.getTime() / 1000),
+    targetDate,
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -35,7 +47,10 @@ export async function GET() {
       });
     }
 
-    const { start, end } = getTodayRange();
+    // クエリパラメータから日付を取得
+    const searchParams = request.nextUrl.searchParams;
+    const dateParam = searchParams.get("date");
+    const { start, end, targetDate } = getDateRange(dateParam || undefined);
 
     // Lark APIドメイン（lark-clientと同じドメインを使用）
     const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
@@ -134,7 +149,7 @@ export async function GET() {
       userName,
     });
 
-    // カレンダーの予定を取得
+    // カレンダーの予定一覧を取得
     const eventsResponse = await fetch(
       `${larkDomain}/open-apis/calendar/v4/calendars/${primaryCalendar.calendar_id}/events?start_time=${start}&end_time=${end}&page_size=50`,
       {
@@ -164,14 +179,102 @@ export async function GET() {
       });
     }
 
-    // 今日の日付文字列を取得（終日イベント用）
-    const todayStr = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+    // 各イベントの詳細を取得
+    const eventIds = (result.data?.items || [])
+      .filter((e: any) => e.status !== "cancelled" && e.status !== "removed")
+      .map((e: any) => e.event_id);
 
-    // 今日のイベントのみをフィルタリングして整形
-    const rawEvents = result.data?.items || [];
-    console.log("[calendar] Raw events count:", rawEvents.length);
+    console.log("[calendar] Fetching details for events:", eventIds.length);
 
-    const events = rawEvents
+    // 並列でイベント詳細と参加者を取得（最大10件）
+    const eventDetailsPromises = eventIds.slice(0, 10).map(async (eventId: string) => {
+      try {
+        // イベント詳細を取得
+        const detailResponse = await fetch(
+          `${larkDomain}/open-apis/calendar/v4/calendars/${primaryCalendar.calendar_id}/events/${eventId}?need_meeting_rooms=true`,
+          {
+            headers: {
+              Authorization: `Bearer ${userAccessToken}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const detailResult = await detailResponse.json();
+
+        if (detailResult.code !== 0) {
+          return null;
+        }
+
+        const event = detailResult.data?.event;
+
+        // 参加者を取得（会議室はresourceタイプの参加者として含まれる）
+        try {
+          const attendeesResponse = await fetch(
+            `${larkDomain}/open-apis/calendar/v4/calendars/${primaryCalendar.calendar_id}/events/${eventId}/attendees?page_size=50`,
+            {
+              headers: {
+                Authorization: `Bearer ${userAccessToken}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          const attendeesResult = await attendeesResponse.json();
+
+          if (attendeesResult.code === 0 && attendeesResult.data?.items) {
+            // 会議室タイプの参加者を抽出
+            const meetingRooms = attendeesResult.data.items
+              .filter((a: any) => a.type === "resource" || a.type === "meeting_room")
+              .map((a: any) => ({
+                name: a.display_name || a.resource_name || a.attendee_id,
+                id: a.attendee_id,
+              }));
+
+            console.log(`[calendar] Attendees for ${event.summary}:`, {
+              total: attendeesResult.data.items.length,
+              meetingRooms,
+              allTypes: attendeesResult.data.items.map((a: any) => ({ type: a.type, name: a.display_name })),
+            });
+
+            // イベントに会議室情報を追加
+            event.meeting_rooms_from_attendees = meetingRooms;
+          }
+        } catch (attendeeError) {
+          console.error("[calendar] Error fetching attendees:", eventId, attendeeError);
+        }
+
+        return event;
+      } catch (e) {
+        console.error("[calendar] Error fetching event detail:", eventId, e);
+        return null;
+      }
+    });
+
+    const eventDetails = (await Promise.all(eventDetailsPromises)).filter(Boolean);
+    console.log("[calendar] Got event details:", eventDetails.length);
+
+    // すべてのイベントの構造をログに出力（会議室関連フィールドを詳細に）
+    eventDetails.forEach((event: any, index: number) => {
+      // イベントの全キーを出力して会議室関連フィールドを探す
+      const allKeys = Object.keys(event);
+      console.log(`[calendar] Event ${index + 1} (${event.summary}):`, {
+        allKeys,
+        location: event.location,
+        meeting_rooms: event.meeting_rooms,
+        // 他の可能性のあるフィールド
+        rooms: event.rooms,
+        room: event.room,
+        meeting_room: event.meeting_room,
+        venue: event.venue,
+        // 参加者情報（会議室が参加者として含まれている可能性）
+        attendees: event.attendees,
+      });
+    });
+
+    // 対象日の日付文字列を取得（終日イベント用）
+    const targetDateStr = targetDate.toISOString().split("T")[0]; // "YYYY-MM-DD"
+
+    // 対象日のイベントのみをフィルタリングして整形
+    const events = eventDetails
       .filter((event: any) => {
         // キャンセル・削除されたイベントを除外
         if (event.status === "cancelled" || event.status === "removed") {
@@ -181,8 +284,8 @@ export async function GET() {
 
         // 終日イベントの場合
         if (event.start_time?.date) {
-          // 終日イベントの日付が今日と一致するか確認
-          return event.start_time.date === todayStr;
+          // 終日イベントの日付が対象日と一致するか確認
+          return event.start_time.date === targetDateStr;
         }
 
         // 時間指定イベントの場合
@@ -196,27 +299,48 @@ export async function GET() {
 
         return false;
       })
-      .map((event: any) => ({
-        id: event.event_id,
-        summary: event.summary || "（タイトルなし）",
-        description: event.description || "",
-        start_time: event.start_time?.timestamp
-          ? new Date(Number(event.start_time.timestamp) * 1000).toLocaleTimeString("ja-JP", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : event.start_time?.date || "",
-        end_time: event.end_time?.timestamp
-          ? new Date(Number(event.end_time.timestamp) * 1000).toLocaleTimeString("ja-JP", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : event.end_time?.date || "",
-        is_all_day: !!event.start_time?.date,
-        location: event.location?.name || "",
-        status: event.status,
-        color: event.color,
-      }));
+      .map((event: any) => {
+        // 会議室情報を取得（meeting_rooms配列または参加者から）
+        let meetingRoomNames: string[] = [];
+        if (event.meeting_rooms && Array.isArray(event.meeting_rooms)) {
+          meetingRoomNames = event.meeting_rooms
+            .map((room: any) => room.meeting_room_name || room.name)
+            .filter(Boolean);
+        }
+        // 参加者APIから取得した会議室情報を使用
+        if (meetingRoomNames.length === 0 && event.meeting_rooms_from_attendees) {
+          meetingRoomNames = event.meeting_rooms_from_attendees
+            .map((room: any) => room.name)
+            .filter(Boolean);
+        }
+
+        // 場所情報（location.nameのみ、会議室は別フィールド）
+        const locationName = event.location?.name || "";
+
+        return {
+          id: event.event_id,
+          summary: event.summary || "（タイトルなし）",
+          description: event.description || "",
+          start_time: event.start_time?.timestamp
+            ? new Date(Number(event.start_time.timestamp) * 1000).toLocaleTimeString("ja-JP", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : event.start_time?.date || "",
+          end_time: event.end_time?.timestamp
+            ? new Date(Number(event.end_time.timestamp) * 1000).toLocaleTimeString("ja-JP", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : event.end_time?.date || "",
+          is_all_day: !!event.start_time?.date,
+          location: locationName,
+          meeting_rooms: meetingRoomNames,
+          status: event.status,
+          color: event.color,
+          vchat: event.vchat?.meeting_url || event.vchat?.video_meeting?.meeting_url || "",
+        };
+      });
 
     console.log("[calendar] Filtered events count:", events.length);
 
@@ -227,16 +351,22 @@ export async function GET() {
       return a.start_time.localeCompare(b.start_time);
     });
 
+    // 今日かどうかを判定
+    const today = new Date();
+    const isToday = targetDate.toDateString() === today.toDateString();
+
     return NextResponse.json({
       success: true,
       data: {
         events,
-        date: new Date().toLocaleDateString("ja-JP", {
+        date: targetDate.toLocaleDateString("ja-JP", {
           year: "numeric",
           month: "long",
           day: "numeric",
           weekday: "long",
         }),
+        dateStr: targetDateStr, // フロントエンドでのナビゲーション用
+        isToday,
       },
     });
   } catch (error) {

@@ -30,6 +30,8 @@ export function getLarkTables() {
     QUIZ_MASTER: process.env.LARK_TABLE_QUIZ_MASTER || "tbl5Od0bDQEHG3Wm",
     // クイズ回答履歴テーブル
     QUIZ_ANSWER_HISTORY: process.env.LARK_TABLE_QUIZ_ANSWER_HISTORY || "tblBuHepIBi5YlfT",
+    // 営業部KPIテーブル
+    SALES_KPI: process.env.LARK_TABLE_SALES_KPI || "",
   };
 }
 
@@ -55,6 +57,8 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   // クイズ関連（プロジェクトBase）
   QUIZ_MASTER: "project",
   QUIZ_ANSWER_HISTORY: "project",
+  // 営業部KPI（プロジェクトBase）
+  SALES_KPI: "project",
 };
 
 /**
@@ -300,4 +304,42 @@ export const QUIZ_ANSWER_HISTORY_FIELDS = {
   points: "獲得ポイント",
   fiscal_period: "期",
   created_at: "作成日時",
+} as const;
+
+/**
+ * 営業部KPIテーブルのフィールド定義
+ */
+export const SALES_KPI_FIELDS = {
+  // 基本情報
+  period: "期",
+  period_start: "期間開始日",
+  period_end: "期間終了日",
+  // 1. 売上目標
+  sales_target: "売上目標",
+  monthly_sales_target: "月次売上目標",
+  // 2. 粗利目標
+  gross_profit_target: "粗利目標",
+  gross_profit_rate: "粗利率",
+  // 3. テント倉庫売上
+  tent_warehouse_units: "テント倉庫販売棟数",
+  // 4. 膜構造建築物売上
+  membrane_building_sales: "膜構造建築物売上",
+  // 5. 畜舎案件売上
+  livestock_facility_sales: "畜舎案件売上",
+  // 6. 海洋事業製品売上
+  marine_sales: "海洋事業製品売上",
+  // 7. レンタルテント売上
+  rental_tent_sales: "レンタルテント売上",
+  // 8. WEB新規問い合わせ
+  web_inquiries_yearly: "WEB問合せ年間件数",
+  web_inquiries_monthly: "WEB問合せ月間件数",
+  web_order_amount: "WEB受注金額",
+  // 9. セールスフォースAランク顧客
+  a_rank_customer_target: "Aランク顧客目標",
+  a_rank_per_sales_rep: "営業1人あたりAランク目標",
+  a_rank_condition: "Aランク条件",
+  // 10. 品質目標
+  claim_limit_yearly: "クレーム上限件数",
+  // 備考
+  notes: "備考",
 } as const;

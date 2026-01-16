@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ChevronDown,
   ChevronRight,
@@ -411,7 +412,13 @@ export function Sidebar({
                 : "text-gray-700 hover:bg-gray-100"
             }`}
           >
-            {getIcon("Home")}
+            <Image
+              src="/images/menkuma-quiz.png"
+              alt="めんくま"
+              width={20}
+              height={20}
+              className="w-5 h-5 rounded-full"
+            />
             <span className="text-sm font-medium">TOP</span>
           </Link>
 
@@ -465,7 +472,13 @@ export function Sidebar({
                 : "text-gray-700 hover:bg-gray-100"
             }`}
           >
-            {getIcon("Home")}
+            <Image
+              src="/images/menkuma-quiz.png"
+              alt="めんくま"
+              width={20}
+              height={20}
+              className="w-5 h-5 rounded-full"
+            />
             {!collapsed && <span className="text-sm font-medium">TOP</span>}
           </Link>
 

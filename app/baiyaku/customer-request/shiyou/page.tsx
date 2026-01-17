@@ -1,10 +1,10 @@
 "use client";
 
 import { MainLayout } from "@/components/layout/MainLayout";
-import { ClipboardList } from "lucide-react";
+import { FileEdit } from "lucide-react";
 
-export default function QualityRequestPage() {
-  const larkFormUrl = "https://osvn246ak4c.jp.larksuite.com/share/base/form/shrjp1mHuVuITqtGBZH42QZJbLc";
+export default function ShiyouChangePage() {
+  const larkFormUrl = "https://osvn246ak4c.jp.larksuite.com/share/base/form/shrjpaRK18km7yQLUNgXpFog8Dd";
 
   return (
     <MainLayout>
@@ -12,11 +12,11 @@ export default function QualityRequestPage() {
         {/* ヘッダー */}
         <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
           <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <ClipboardList className="w-6 h-6 text-indigo-500" />
-            品質改善リクエスト
+            <FileEdit className="w-6 h-6 text-purple-500" />
+            仕様変更・金額変更
           </h1>
           <p className="text-sm text-gray-500">
-            売約情報 &gt; 品質改善リクエスト
+            共通 &gt; 顧客要求事項変更届 &gt; 仕様変更・金額変更
           </p>
         </div>
 
@@ -26,7 +26,7 @@ export default function QualityRequestPage() {
             <iframe
               src={larkFormUrl}
               className="w-full h-full min-h-[800px] border-0"
-              title="品質改善リクエストフォーム"
+              title="仕様変更・金額変更フォーム"
               allow="clipboard-write"
             />
           </div>

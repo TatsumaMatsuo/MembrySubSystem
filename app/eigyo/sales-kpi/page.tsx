@@ -287,7 +287,7 @@ export default function SalesKPIPage() {
                 <Target className="w-6 h-6 text-emerald-500" />
                 営業部KPI登録
               </h1>
-              <p className="text-sm text-gray-500">営業部 &gt; 全社KPI &gt; 営業部KPI登録</p>
+              <p className="text-sm text-gray-500">KPI &gt; 営業部KPI登録</p>
             </div>
             <div className="flex items-center gap-4">
               <button

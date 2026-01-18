@@ -16,7 +16,7 @@ export default function TehaiPage() {
             手配依頼
           </h1>
           <p className="text-sm text-gray-500">
-            顧客要求事項変更届 &gt; 手配依頼
+            共通 &gt; 顧客要求事項変更届 &gt; 手配依頼
           </p>
         </div>
 

@@ -16,7 +16,7 @@ export default function NoukiChangePage() {
             納期変更
           </h1>
           <p className="text-sm text-gray-500">
-            顧客要求事項変更届 &gt; 納期変更
+            共通 &gt; 顧客要求事項変更届 &gt; 納期変更
           </p>
         </div>
 

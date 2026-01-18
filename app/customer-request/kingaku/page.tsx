@@ -16,7 +16,7 @@ export default function KingakuChangePage() {
             金額変更・請求依頼
           </h1>
           <p className="text-sm text-gray-500">
-            顧客要求事項変更届 &gt; 金額変更・請求依頼
+            共通 &gt; 顧客要求事項変更届 &gt; 金額変更・請求依頼
           </p>
         </div>
 

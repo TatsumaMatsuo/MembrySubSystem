@@ -209,12 +209,14 @@ export default function DeliveryChangePage() {
       <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden print:h-auto print:overflow-visible print:bg-white">
         {/* ヘッダー */}
         <div className="flex-shrink-0 px-4 py-2 border-b border-gray-200 bg-white no-print">
+          <p className="text-sm text-gray-500 mb-1">
+            製造部 &gt; 納期変更分析
+          </p>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-500" />
                 納期変更分析
-                <span className="text-xs font-normal text-gray-500 ml-2">製造部</span>
               </h1>
             </div>
             <div className="flex items-center gap-3">

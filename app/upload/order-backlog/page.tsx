@@ -247,7 +247,7 @@ export default function OrderBacklogUploadPage() {
             データアップロード
           </h1>
           <p className="text-sm text-gray-500">
-            共通 &gt; データアップロード
+            I/F &gt; データアップロード
           </p>
         </div>
 

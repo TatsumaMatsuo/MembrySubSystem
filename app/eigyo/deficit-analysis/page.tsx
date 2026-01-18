@@ -30,10 +30,7 @@ import {
   Sparkles,
   Loader2,
   Target,
-  Home,
-  ChevronRight,
 } from "lucide-react";
-import Link from "next/link";
 
 // 型定義
 interface DeficitRecord {
@@ -233,18 +230,9 @@ export default function DeficitAnalysisPage() {
         {/* ヘッダー */}
         <div className="flex-shrink-0 px-4 py-2 border-b border-gray-200 bg-white no-print">
           {/* パンくずリスト */}
-          <div className="flex items-center gap-1 text-sm text-gray-500 mb-1">
-            <Link href="/" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
-              <Home className="w-4 h-4" />
-              TOP
-            </Link>
-            <ChevronRight className="w-4 h-4" />
-            <Link href="/eigyo" className="hover:text-blue-600 transition-colors">
-              営業部
-            </Link>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-gray-700 font-medium">赤字案件分析</span>
-          </div>
+          <p className="text-sm text-gray-500 mb-1">
+            営業部 &gt; 赤字案件分析
+          </p>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-lg font-bold text-gray-800 flex items-center gap-1">

@@ -317,7 +317,7 @@ export default function DataMappingPage() {
             データマッピング設定
           </h1>
           <p className="text-sm text-gray-500">
-            共通 &gt; システム設定 &gt; データマッピング
+            システム設定 &gt; データマッピング
           </p>
         </div>
 

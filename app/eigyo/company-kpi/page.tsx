@@ -268,7 +268,7 @@ export default function CompanyKPIPage() {
                 <Target className="w-6 h-6 text-purple-500" />
                 全社KPI登録
               </h1>
-              <p className="text-sm text-gray-500">営業部 &gt; 全社KPI登録</p>
+              <p className="text-sm text-gray-500">KPI &gt; 全社KPI登録</p>
             </div>
             <div className="flex items-center gap-4">
               <button

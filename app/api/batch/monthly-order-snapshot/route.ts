@@ -111,7 +111,8 @@ export async function POST(request: NextRequest) {
     const errors: string[] = [];
 
     if (!dryRun) {
-      // 既存の同月データを確認（重複防止）
+      // 既存の同月データを確認・削除（やり直し対応）
+      console.log(`[monthly-order-snapshot] Checking existing records for ${targetMonth}...`);
       let existingRecords: string[] = [];
       let checkPageToken: string | undefined;
 
@@ -124,19 +125,11 @@ export async function POST(request: NextRequest) {
           params: {
             page_size: 500,
             page_token: checkPageToken,
-            field_names: JSON.stringify(["年月"]),
-            filter: JSON.stringify({
-              conjunction: "and",
-              conditions: [
-                {
-                  field_name: "年月",
-                  operator: "is",
-                  value: [targetMonth],
-                },
-              ],
-            }),
+            filter: `CurrentValue.[年月] = "${targetMonth}"`,
           },
         });
+
+        console.log(`[monthly-order-snapshot] Check response: code=${checkResponse.code}, items=${checkResponse.data?.items?.length || 0}`);
 
         if (checkResponse.data?.items) {
           existingRecords.push(...checkResponse.data.items.map((i) => i.record_id!));
@@ -147,19 +140,28 @@ export async function POST(request: NextRequest) {
       // 既存データがあれば削除
       if (existingRecords.length > 0) {
         console.log(`[monthly-order-snapshot] Deleting ${existingRecords.length} existing records for ${targetMonth}`);
+        let deleteCount = 0;
         for (const recordId of existingRecords) {
           try {
-            await client.bitable.appTableRecord.delete({
+            const deleteResponse = await client.bitable.appTableRecord.delete({
               path: {
                 app_token: baseToken,
                 table_id: SNAPSHOT_TABLE_ID,
                 record_id: recordId,
               },
             });
+            if (deleteResponse.code === 0) {
+              deleteCount++;
+            } else {
+              console.error(`[monthly-order-snapshot] Failed to delete record ${recordId}: code=${deleteResponse.code}, msg=${deleteResponse.msg}`);
+            }
           } catch (e: any) {
-            console.error(`[monthly-order-snapshot] Failed to delete record ${recordId}:`, e.message);
+            console.error(`[monthly-order-snapshot] Exception deleting record ${recordId}:`, e.message);
           }
         }
+        console.log(`[monthly-order-snapshot] Deleted ${deleteCount}/${existingRecords.length} records`);
+      } else {
+        console.log(`[monthly-order-snapshot] No existing records found for ${targetMonth}`);
       }
 
       // 新規レコードを作成
@@ -271,10 +273,20 @@ export async function GET(request: NextRequest) {
       if (response.data?.items) {
         for (const item of response.data.items) {
           const fields = item.fields as any;
+          // 受注残件数を数値に変換（Lark Baseからの値が配列やオブジェクトの場合があるため）
+          let countValue = fields?.["受注残件数"];
+          if (Array.isArray(countValue)) {
+            countValue = countValue[0];
+          }
+          if (typeof countValue === "object" && countValue !== null) {
+            countValue = countValue.value || countValue.text || 0;
+          }
+          const count = typeof countValue === "number" ? countValue : parseInt(String(countValue), 10) || 0;
+
           allSnapshots.push({
             yearMonth: fields?.["年月"] || "",
             tantousha: fields?.["担当者"] || "",
-            count: fields?.["受注残件数"] || 0,
+            count,
             createdAt: fields?.["作成日時"] || "",
           });
         }

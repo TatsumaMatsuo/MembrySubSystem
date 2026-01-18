@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import {
   Settings,
@@ -16,6 +16,7 @@ import {
   Link as LinkIcon,
   RefreshCw,
   Check,
+  Upload,
 } from "lucide-react";
 
 interface CustomLink {
@@ -34,6 +35,11 @@ export default function TopCustomizePage() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // ファイル入力の参照
+  const newFileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   // 新規追加用フォーム
   const [newLink, setNewLink] = useState<Partial<CustomLink>>({
@@ -45,6 +51,44 @@ export default function TopCustomizePage() {
 
   // 編集用フォーム
   const [editLink, setEditLink] = useState<Partial<CustomLink>>({});
+
+  // 画像をBase64に変換
+  const handleImageUpload = async (
+    file: File,
+    setIconUrl: (url: string) => void
+  ) => {
+    if (!file) return;
+
+    // ファイルサイズチェック（500KB以下）
+    if (file.size > 500 * 1024) {
+      alert("画像サイズは500KB以下にしてください");
+      return;
+    }
+
+    // 画像形式チェック
+    if (!file.type.startsWith("image/")) {
+      alert("画像ファイルを選択してください");
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target?.result as string;
+        setIconUrl(base64);
+        setUploadingImage(false);
+      };
+      reader.onerror = () => {
+        alert("画像の読み込みに失敗しました");
+        setUploadingImage(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Image upload error:", error);
+      setUploadingImage(false);
+    }
+  };
 
   // データ取得
   const fetchLinks = async () => {
@@ -272,17 +316,60 @@ export default function TopCustomizePage() {
                             </div>
                             <div>
                               <label className="block text-xs font-medium text-gray-500 mb-1">
-                                アイコン画像URL（任意）
+                                アイコン画像（任意）
                               </label>
-                              <input
-                                type="url"
-                                value={editLink.icon_url || ""}
-                                onChange={(e) =>
-                                  setEditLink({ ...editLink, icon_url: e.target.value })
-                                }
-                                placeholder="https://example.com/icon.png"
-                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              />
+                              <div className="flex items-start gap-4">
+                                {/* プレビュー */}
+                                <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-300">
+                                  {editLink.icon_url ? (
+                                    <img
+                                      src={editLink.icon_url}
+                                      alt="プレビュー"
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <ImageIcon className="w-5 h-5 text-gray-400" />
+                                  )}
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                  <input
+                                    ref={editFileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        handleImageUpload(file, (url) =>
+                                          setEditLink({ ...editLink, icon_url: url })
+                                        );
+                                      }
+                                    }}
+                                    className="hidden"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => editFileInputRef.current?.click()}
+                                    disabled={uploadingImage}
+                                    className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                                  >
+                                    {uploadingImage ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Upload className="w-3 h-3" />
+                                    )}
+                                    変更
+                                  </button>
+                                  {editLink.icon_url && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditLink({ ...editLink, icon_url: "" })}
+                                      className="text-xs text-red-600 hover:text-red-700"
+                                    >
+                                      削除
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                             <div className="flex justify-end gap-2">
                               <button
@@ -418,18 +505,64 @@ export default function TopCustomizePage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      アイコン画像URL（任意）
+                      アイコン画像（任意）
                     </label>
-                    <input
-                      type="url"
-                      value={newLink.icon_url || ""}
-                      onChange={(e) => setNewLink({ ...newLink, icon_url: e.target.value })}
-                      placeholder="https://example.com/icon.png"
-                      className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      画像URLを指定するとボタンにアイコンが表示されます
-                    </p>
+                    <div className="flex items-start gap-4">
+                      {/* プレビュー */}
+                      <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300">
+                        {newLink.icon_url ? (
+                          <img
+                            src={newLink.icon_url}
+                            alt="プレビュー"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <ImageIcon className="w-6 h-6 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        {/* ファイルアップロード */}
+                        <input
+                          ref={newFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleImageUpload(file, (url) =>
+                                setNewLink({ ...newLink, icon_url: url })
+                              );
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => newFileInputRef.current?.click()}
+                          disabled={uploadingImage}
+                          className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                        >
+                          {uploadingImage ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Upload className="w-4 h-4" />
+                          )}
+                          画像をアップロード
+                        </button>
+                        {newLink.icon_url && (
+                          <button
+                            type="button"
+                            onClick={() => setNewLink({ ...newLink, icon_url: "" })}
+                            className="text-xs text-red-600 hover:text-red-700"
+                          >
+                            画像を削除
+                          </button>
+                        )}
+                        <p className="text-xs text-gray-500">
+                          PNG, JPG, GIF（500KB以下）
+                        </p>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex justify-end gap-3 pt-2">
                     <button

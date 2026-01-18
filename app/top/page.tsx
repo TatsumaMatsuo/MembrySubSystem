@@ -68,38 +68,44 @@ export default function TopPage() {
           <div className="max-w-5xl mx-auto space-y-6">
             {/* カスタムリンクボタン */}
             {!linksLoading && customLinks.length > 0 && (
-              <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4">
+              <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 rounded-xl shadow-lg p-4">
                 <div className="flex flex-wrap gap-3">
-                  {customLinks.map((link) => (
-                    <a
-                      key={link.record_id}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-indigo-50 to-blue-50 hover:from-indigo-100 hover:to-blue-100 rounded-lg border border-indigo-100 transition-all hover:shadow-md group"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-white shadow-sm flex items-center justify-center overflow-hidden">
+                  {customLinks.map((link, index) => {
+                    const bgColors = [
+                      "bg-gradient-to-br from-yellow-300 to-orange-400",
+                      "bg-gradient-to-br from-pink-300 to-rose-400",
+                      "bg-gradient-to-br from-cyan-300 to-blue-400",
+                      "bg-gradient-to-br from-green-300 to-emerald-400",
+                      "bg-gradient-to-br from-purple-300 to-indigo-400",
+                      "bg-gradient-to-br from-red-300 to-pink-400",
+                    ];
+                    const bgColor = bgColors[index % bgColors.length];
+
+                    return (
+                      <a
+                        key={link.record_id}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={link.display_name}
+                        className={`w-20 h-20 rounded-xl overflow-hidden transition-all duration-200 flex items-center justify-center ${!link.icon_url ? bgColor : "bg-white"} shadow-[0_4px_0_0_rgba(0,0,0,0.2),0_6px_12px_rgba(0,0,0,0.15)] hover:shadow-[0_2px_0_0_rgba(0,0,0,0.2),0_4px_8px_rgba(0,0,0,0.15)] hover:translate-y-[2px] active:shadow-[0_0px_0_0_rgba(0,0,0,0.2),0_2px_4px_rgba(0,0,0,0.15)] active:translate-y-[4px] border-2 border-white/50`}
+                      >
                         {link.icon_url ? (
                           <img
                             src={link.icon_url}
-                            alt=""
+                            alt={link.display_name}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.style.display = "none";
-                              target.parentElement!.innerHTML = '<svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
                             }}
                           />
                         ) : (
-                          <ImageIcon className="w-5 h-5 text-indigo-400" />
+                          <ImageIcon className="w-8 h-8 text-white drop-shadow-lg" />
                         )}
-                      </div>
-                      <span className="font-medium text-gray-700 group-hover:text-indigo-700">
-                        {link.display_name}
-                      </span>
-                      <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-indigo-500" />
-                    </a>
-                  ))}
+                      </a>
+                    );
+                  })}
                 </div>
               </div>
             )}

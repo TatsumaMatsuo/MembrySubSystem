@@ -4,6 +4,17 @@ import { getLarkClient, getLarkBaseToken, listAllDepartments } from "@/lib/lark-
 // テーブルID（売上データ）
 const TABLE_ID = "tbl65w6u6J72QFoz";
 
+// ビューID（パフォーマンス最適化用）
+// 各ビューは特定の集計に最適化されている
+const VIEWS = {
+  main: "vewJWLOWQP",        // 月PJ区分別売上情報（全フィールド含む）
+  tantousha: "vewg0CcfI9",  // 月部門担当者別売上情報
+  pjCategory: "vewJWLOWQP", // 月PJ区分別売上情報
+  prefecture: "vewpwttyOA", // 月納入先県別売上情報
+  webNew: "vewIuwNIss",     // 月WEB新規別売上情報
+  industry: "vew8nAL6zi",   // 月産業分類別売上情報
+};
+
 // シンプルなインメモリキャッシュ（TTL: 30分に延長）
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 30 * 60 * 1000;
@@ -392,6 +403,16 @@ export async function GET(request: NextRequest) {
 
     const dateFilter = `AND(CurrentValue.[売上日] >= "${overallDateRange.start}", CurrentValue.[売上日] <= "${overallDateRange.end}")`;
 
+    // 必要なフィールドのみを取得してパフォーマンスを改善
+    const requiredFields = [
+      "製番", "売上日", "金額", "実績_原価計", "予定_原価計",
+      "PJ区分", "産業分類", "納入先県名", "Web新規（TEL含む）",
+      "得意先", "担当者", "部課"
+    ];
+
+    console.log(`[sales-dashboard] Fetching records with filter: ${dateFilter}`);
+    const startFetchTime = Date.now();
+
     do {
       const response = await client.bitable.appTableRecord.list({
         path: {
@@ -402,6 +423,8 @@ export async function GET(request: NextRequest) {
           page_size: 500,
           page_token: pageToken,
           filter: dateFilter,
+          field_names: JSON.stringify(requiredFields),
+          view_id: VIEWS.main, // ビューIDを使用してパフォーマンス改善
         },
       });
 
@@ -410,6 +433,8 @@ export async function GET(request: NextRequest) {
       }
       pageToken = response.data?.page_token;
     } while (pageToken);
+
+    console.log(`[sales-dashboard] Fetched ${allRecords.length} records in ${Date.now() - startFetchTime}ms`);
 
     const results: PeriodDashboard[] = [];
 

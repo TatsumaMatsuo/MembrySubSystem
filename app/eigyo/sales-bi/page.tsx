@@ -238,6 +238,7 @@ const COLORS = {
   profit: "#22c55e",   // 粗利（緑）
   cost: "#f97316",     // 原価（オレンジ）
   budget: "#8b5cf6",   // 予算（紫）
+  backlog: "#fbbf24",  // 見込額/受注残（アンバー）
 };
 
 const CHART_COLORS = [
@@ -684,10 +685,24 @@ export default function BIDashboardPage() {
   // 産業分類別詳細データ折りたたみ（デフォルト: 折りたたみ）
   const [isIndustryDetailExpanded, setIsIndustryDetailExpanded] = useState(false);
 
+  // 受注込チェックボックス（デフォルト: OFF）
+  const [includeBacklog, setIncludeBacklog] = useState(false);
+  const [backlogData, setBacklogData] = useState<{
+    period: number;
+    latestSoldMonth: string;
+    cutoffDate: string;
+    totalCount: number;
+    totalAmount: number;
+    monthlyData: { month: string; monthIndex: number; count: number; amount: number }[];
+    salesPersonSummary: { name: string; office: string; count: number; amount: number; monthlyData: { month: string; monthIndex: number; count: number; amount: number }[] }[];
+    officeSummary: { name: string; count: number; amount: number; monthlyData: { month: string; monthIndex: number; count: number; amount: number }[] }[];
+    regionSummary: { region: string; regionKey: string; count: number; amount: number }[];
+  } | null>(null);
+
   // ログインユーザーの社員名
   const loggedInEmployeeName = (session?.user as any)?.employeeName || "";
 
-  // データ取得
+  // データ取得（更新ボタン押下時）
   const fetchData = async () => {
     setLoading(true);
     setError(null);
@@ -696,15 +711,23 @@ export default function BIDashboardPage() {
       const fromPeriod = selectedPeriod - 2;
       const toPeriod = selectedPeriod;
 
-      const [dashboardRes, budgetRes, kpiRes] = await Promise.all([
+      // 基本データと受注残データを並列取得
+      const fetchPromises: Promise<Response>[] = [
         fetch(`/api/sales-dashboard?fromPeriod=${fromPeriod}&toPeriod=${toPeriod}`),
         fetch(`/api/sales-budget?period=${selectedPeriod}&office=全社`),
         fetch(`/api/company-kpi?period=${selectedPeriod}`),
-      ]);
+      ];
 
-      const dashboardData = await dashboardRes.json();
-      const budgetData = await budgetRes.json();
-      const kpiData = await kpiRes.json();
+      // 受注込チェックがONの場合は受注残データも取得
+      if (includeBacklog) {
+        fetchPromises.push(fetch(`/api/order-backlog-summary?period=${selectedPeriod}`));
+      }
+
+      const responses = await Promise.all(fetchPromises);
+
+      const dashboardData = await responses[0].json();
+      const budgetData = await responses[1].json();
+      const kpiData = await responses[2].json();
 
       if (dashboardData.success) {
         setData(dashboardData.data);
@@ -748,6 +771,19 @@ export default function BIDashboardPage() {
           notes: "",
         });
       }
+
+      // 受注残データの処理
+      if (includeBacklog && responses[3]) {
+        const backlogResult = await responses[3].json();
+        if (backlogResult.success) {
+          setBacklogData(backlogResult.data);
+        } else {
+          console.error("受注残データの取得に失敗:", backlogResult.error);
+          setBacklogData(null);
+        }
+      } else {
+        setBacklogData(null);
+      }
     } catch (err) {
       setError("データの取得中にエラーが発生しました");
       console.error(err);
@@ -756,6 +792,7 @@ export default function BIDashboardPage() {
     }
   };
 
+
   useEffect(() => {
     // 期変更時に関連状態をリセット
     setOverviewAiAnalysis("");
@@ -763,8 +800,10 @@ export default function BIDashboardPage() {
     setAreaAiAnalysis("");
     setIsAreaAnalyzing(false);
     setSelectedArea("all");
+    setBacklogData(null);
     fetchData();
   }, [selectedPeriod]);
+
 
   // ログインユーザーが営業担当者の場合、デフォルトでフィルタリング
   useEffect(() => {
@@ -899,8 +938,9 @@ export default function BIDashboardPage() {
       原価: m.cost,
       売上: m.amount,
       予算: budget?.monthlyBudget?.[i] || 0,
+      見込額: includeBacklog && backlogData ? (backlogData.monthlyData[i]?.amount || 0) : 0,
     }));
-  }, [currentData, budget]);
+  }, [currentData, budget, includeBacklog, backlogData]);
 
   // 3期分売上推移データ（折れ線グラフ用）
   const salesTrendData = useMemo(() => {
@@ -931,15 +971,23 @@ export default function BIDashboardPage() {
   // 累計比較データ作成（粗利・原価の積み上げ用）
   const cumulativeComparisonData = useMemo(() => {
     if (!currentData) return [];
-    return currentData.cumulativeData.map((m, i) => ({
-      month: m.month,
-      粗利: m.profit,
-      原価: m.cost,
-      売上: m.amount,
-      [`${selectedPeriod - 1}期`]: previousData?.cumulativeData[i]?.amount || 0,
-      予算累計: budget ? budget.monthlyBudget.slice(0, i + 1).reduce((a, b) => a + b, 0) : 0,
-    }));
-  }, [currentData, previousData, data, selectedPeriod, budget]);
+    // 受注残の累計計算
+    let backlogCumulative = 0;
+    return currentData.cumulativeData.map((m, i) => {
+      if (includeBacklog && backlogData) {
+        backlogCumulative += backlogData.monthlyData[i]?.amount || 0;
+      }
+      return {
+        month: m.month,
+        粗利: m.profit,
+        原価: m.cost,
+        売上: m.amount,
+        [`${selectedPeriod - 1}期`]: previousData?.cumulativeData[i]?.amount || 0,
+        予算累計: budget ? budget.monthlyBudget.slice(0, i + 1).reduce((a, b) => a + b, 0) : 0,
+        見込額累計: backlogCumulative,
+      };
+    });
+  }, [currentData, previousData, data, selectedPeriod, budget, includeBacklog, backlogData]);
 
   // 四半期比較データ作成（粗利・原価の積み上げ用）
   const quarterlyComparisonData = useMemo(() => {
@@ -1573,6 +1621,15 @@ export default function BIDashboardPage() {
                   ))}
                 </select>
               </div>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeBacklog}
+                  onChange={(e) => setIncludeBacklog(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                />
+                <span className="text-xs font-medium text-gray-600">受注込</span>
+              </label>
               <button
                 onClick={fetchData}
                 disabled={loading}
@@ -1740,6 +1797,32 @@ export default function BIDashboardPage() {
                     </div>
                   </div>
 
+                  {/* 受注残情報バナー（受注込チェック時のみ表示） */}
+                  {includeBacklog && backlogData && (
+                    <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-amber-400"></div>
+                          <span className="text-sm font-bold text-amber-800">受注残（見込額）情報</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="text-gray-600">
+                            売上取込済: <span className="font-bold text-amber-700">{backlogData.latestSoldMonth ? `${backlogData.latestSoldMonth.substring(0, 4)}年${parseInt(backlogData.latestSoldMonth.substring(4, 6), 10)}月` : "-"}</span>
+                          </span>
+                          <span className="text-gray-600">
+                            見込対象: <span className="font-bold text-amber-700">{backlogData.cutoffDate ? `${backlogData.cutoffDate}以降` : "-"}</span>
+                          </span>
+                          <span className="text-gray-600">
+                            見込件数: <span className="font-bold text-amber-700">{backlogData.totalCount.toLocaleString()}件</span>
+                          </span>
+                          <span className="text-gray-600">
+                            見込総額: <span className="font-bold text-amber-700">{formatAmount(backlogData.totalAmount)}円</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* 月次推移グラフ - 印刷時は改ページ */}
                   <div className="print-break-before print-section">
                     <div className="hidden print:block mb-2">
@@ -1763,6 +1846,7 @@ export default function BIDashboardPage() {
                                   const profit = payload.find((p) => p.dataKey === "粗利")?.value as number || 0;
                                   const cost = payload.find((p) => p.dataKey === "原価")?.value as number || 0;
                                   const budgetVal = payload.find((p) => p.dataKey === "予算")?.value as number || 0;
+                                  const backlogVal = payload.find((p) => p.dataKey === "見込額")?.value as number || 0;
                                   const total = profit + cost;
                                   const profitRate = total > 0 ? (profit / total) * 100 : 0;
                                   const achievementRate = budgetVal > 0 ? (total / budgetVal) * 100 : 0;
@@ -1775,6 +1859,13 @@ export default function BIDashboardPage() {
                                       <p className={`text-sm font-bold mt-1 ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
                                         粗利率: {profitRate.toFixed(1)}%
                                       </p>
+                                      {backlogVal > 0 && (
+                                        <>
+                                          <hr className="my-2 border-gray-200" />
+                                          <p className="text-sm text-amber-600">見込額: <span className="font-medium">{backlogVal.toLocaleString()}円</span></p>
+                                          <p className="text-sm text-gray-500">売上+見込: <span className="font-medium">{(total + backlogVal).toLocaleString()}円</span></p>
+                                        </>
+                                      )}
                                       {budgetVal > 0 && (
                                         <>
                                           <hr className="my-2 border-gray-200" />
@@ -1793,6 +1884,7 @@ export default function BIDashboardPage() {
                             <Legend />
                             <Bar dataKey="原価" stackId="a" fill={COLORS.cost} name="原価" />
                             <Bar dataKey="粗利" stackId="a" fill={COLORS.profit} name="粗利" />
+                            {includeBacklog && <Bar dataKey="見込額" stackId="a" fill={COLORS.backlog} name="見込額" />}
                             <Line type="monotone" dataKey="予算" stroke={COLORS.budget} strokeWidth={2} dot={false} name="予算" />
                           </ComposedChart>
                         </ResponsiveContainer>
@@ -1816,6 +1908,7 @@ export default function BIDashboardPage() {
                                   const profit = payload.find((p) => p.dataKey === "粗利")?.value as number || 0;
                                   const cost = payload.find((p) => p.dataKey === "原価")?.value as number || 0;
                                   const budgetVal = payload.find((p) => p.dataKey === "予算累計")?.value as number || 0;
+                                  const backlogVal = payload.find((p) => p.dataKey === "見込額累計")?.value as number || 0;
                                   const total = profit + cost;
                                   const profitRate = total > 0 ? (profit / total) * 100 : 0;
                                   const achievementRate = budgetVal > 0 ? (total / budgetVal) * 100 : 0;
@@ -1828,6 +1921,13 @@ export default function BIDashboardPage() {
                                       <p className={`text-sm font-bold mt-1 ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
                                         粗利率: {profitRate.toFixed(1)}%
                                       </p>
+                                      {backlogVal > 0 && (
+                                        <>
+                                          <hr className="my-2 border-gray-200" />
+                                          <p className="text-sm text-amber-600">見込額累計: <span className="font-medium">{backlogVal.toLocaleString()}円</span></p>
+                                          <p className="text-sm text-gray-500">売上+見込: <span className="font-medium">{(total + backlogVal).toLocaleString()}円</span></p>
+                                        </>
+                                      )}
                                       {budgetVal > 0 && (
                                         <>
                                           <hr className="my-2 border-gray-200" />
@@ -1846,6 +1946,7 @@ export default function BIDashboardPage() {
                             <Legend />
                             <Bar dataKey="原価" stackId="a" fill={COLORS.cost} name="原価" />
                             <Bar dataKey="粗利" stackId="a" fill={COLORS.profit} name="粗利" />
+                            {includeBacklog && <Bar dataKey="見込額累計" stackId="a" fill={COLORS.backlog} name="見込額累計" />}
                             <Line type="monotone" dataKey="予算累計" stroke={COLORS.budget} strokeWidth={2} dot={false} name="予算累計" />
                           </ComposedChart>
                         </ResponsiveContainer>

@@ -101,6 +101,62 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (action === "add-design-request-program") {
+      // 設計依頼プログラムを製造部メニューに追加
+      const progResult = await client.bitable.appTableRecord.create({
+        path: {
+          app_token: baseToken,
+          table_id: TABLE_FUNCTION_PLACEMENT,
+        },
+        data: {
+          fields: {
+            "プログラムID": "PGM017",
+            "プログラム名称": "設計依頼",
+            "配置メニューID": "M001-03", // 顧客要求事項変更届
+            "URLパス": "/customer-request/sekeiirai",
+            "表示順": 5,
+            "有効フラグ": true,
+          },
+        },
+      });
+      console.log(`[menu-add] Created program: 設計依頼 (PGM017)`);
+
+      return NextResponse.json({
+        success: true,
+        message: "設計依頼プログラムを追加しました",
+        result: progResult.data?.record,
+      });
+    }
+
+    if (action === "update-design-request-url") {
+      // 設計依頼のURLパスを更新
+      const { recordId } = body;
+      if (!recordId) {
+        return NextResponse.json({ error: "recordId is required" }, { status: 400 });
+      }
+
+      const updateResult = await client.bitable.appTableRecord.update({
+        path: {
+          app_token: baseToken,
+          table_id: TABLE_FUNCTION_PLACEMENT,
+          record_id: recordId,
+        },
+        data: {
+          fields: {
+            "URLパス": "/customer-request/sekeiirai",
+            "配置メニューID": "M001-03", // 顧客要求事項変更届
+          },
+        },
+      });
+      console.log(`[menu-add] Updated program URL: 設計依頼 (PGM017)`);
+
+      return NextResponse.json({
+        success: true,
+        message: "設計依頼のURLパスを更新しました",
+        result: updateResult.data?.record,
+      });
+    }
+
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   } catch (error: any) {
     console.error("[menu-add] Error:", error);

@@ -389,40 +389,6 @@ export async function GET(request: NextRequest) {
 
     let allRecords: SalesRecord[] = [];
     let pageToken: string | undefined;
-    // テーブルの総レコード数を確認
-    let totalCount = 0;
-    let countPageToken: string | undefined;
-    do {
-      const countResponse = await client.bitable.appTableRecord.list({
-        path: {
-          app_token: getLarkBaseToken(),
-          table_id: TABLE_ID,
-        },
-        params: {
-          page_size: 500,
-          page_token: countPageToken,
-          field_names: JSON.stringify(["売上番号"]),
-        },
-      });
-      totalCount += countResponse.data?.items?.length || 0;
-      countPageToken = countResponse.data?.page_token;
-    } while (countPageToken);
-    console.log(`[sales-dashboard] DEBUG: Total records in table: ${totalCount}`);
-
-    // テーブルのフィールド定義を取得
-    const fieldListResponse = await client.bitable.appTableField.list({
-      path: {
-        app_token: getLarkBaseToken(),
-        table_id: TABLE_ID,
-      },
-      params: {
-        page_size: 100,
-      },
-    });
-    if (fieldListResponse.data?.items) {
-      const fieldNames = fieldListResponse.data.items.map((f: any) => f.field_name);
-      console.log(`[sales-dashboard] DEBUG: Table field definitions (${fieldNames.length}): ${fieldNames.join(", ")}`);
-    }
 
     const dateFilter = `AND(CurrentValue.[売上日] >= "${overallDateRange.start}", CurrentValue.[売上日] <= "${overallDateRange.end}")`;
 
@@ -440,20 +406,10 @@ export async function GET(request: NextRequest) {
       });
 
       if (response.data?.items) {
-        allRecords = allRecords.concat(response.data.items as SalesRecord[]);
+        allRecords.push(...(response.data.items as SalesRecord[]));
       }
       pageToken = response.data?.page_token;
     } while (pageToken);
-
-    console.log(`[sales-dashboard] Total records fetched: ${allRecords.length}, Date range: ${overallDateRange.start} - ${overallDateRange.end}`);
-
-    // デバッグ: 売上日の生データを確認
-    const sampleDates = allRecords.slice(0, 10).map(r => ({
-      売上番号: extractTextValue(r.fields.売上番号),
-      売上日: r.fields.売上日,
-      売上日_raw: JSON.stringify(r.fields.売上日)
-    }));
-    console.log(`[sales-dashboard] Sample raw dates: ${JSON.stringify(sampleDates)}`);
 
     const results: PeriodDashboard[] = [];
 
@@ -769,233 +725,6 @@ export async function GET(request: NextRequest) {
         }))
         .sort((a, b) => a.office.localeCompare(b.office));
 
-      // ========== 赤字案件分析 ==========
-      const deficitRecords: DeficitRecord[] = [];
-      const deficitByPjCategory = new Map<string, { count: number; loss: number; totalAmount: number; totalProfit: number }>();
-      const deficitByTantousha = new Map<string, { office: string; count: number; loss: number; totalAmount: number; totalProfit: number }>();
-      const deficitByCustomer = new Map<string, { count: number; loss: number; totalAmount: number; totalProfit: number }>();
-      const deficitByMonth = new Map<number, { count: number; loss: number }>();
-      const deficitByIndustry = new Map<string, { count: number; loss: number; totalAmount: number; totalProfit: number }>();
-
-      // PJ区分ごとの全体件数（赤字率計算用）
-      const totalByPjCategory = new Map<string, number>();
-      const totalByCustomer = new Map<string, number>();
-
-      // 赤字案件を抽出・集計
-      periodRecords.forEach((record) => {
-        const amount = parseFloat(String(record.fields.金額 || 0)) || 0;
-        const cost = parseFloat(String(record.fields.実績_原価計 || record.fields.予定_原価計 || 0)) || 0;
-        const profit = amount - cost;
-        const profitRate = amount > 0 ? (profit / amount) * 100 : 0;
-
-        const uriageDateStr = extractTextValue(record.fields.売上日);
-        const monthIndex = getFiscalMonthIndex(uriageDateStr);
-        const tantousha = extractTextValue(record.fields.担当者) || "未設定";
-        let eigyosho = record.fields.部課
-          ? extractOfficeFromDepartment(record.fields.部課, departmentMap)
-          : "未設定";
-        if (tantousha === HQ_SALES_PERSON) {
-          eigyosho = "本社";
-        }
-        const pjCategory = extractTextValue(record.fields.PJ区分) || "未分類";
-        const industry = extractTextValue(record.fields.産業分類) || "未分類";
-        const customer = extractTextValue(record.fields.得意先) || "未設定";
-        const seiban = extractTextValue(record.fields.製番) || "";
-
-        // 全体件数をカウント
-        totalByPjCategory.set(pjCategory, (totalByPjCategory.get(pjCategory) || 0) + 1);
-        totalByCustomer.set(customer, (totalByCustomer.get(customer) || 0) + 1);
-
-        // 赤字案件のみ集計
-        if (profit < 0) {
-          const loss = Math.abs(profit);
-
-          deficitRecords.push({
-            seiban,
-            salesDate: uriageDateStr,
-            customer,
-            tantousha,
-            office: eigyosho,
-            pjCategory,
-            industry,
-            amount,
-            cost,
-            profit,
-            profitRate,
-          });
-
-          // PJ区分別
-          if (!deficitByPjCategory.has(pjCategory)) {
-            deficitByPjCategory.set(pjCategory, { count: 0, loss: 0, totalAmount: 0, totalProfit: 0 });
-          }
-          const pjData = deficitByPjCategory.get(pjCategory)!;
-          pjData.count++;
-          pjData.loss += loss;
-          pjData.totalAmount += amount;
-          pjData.totalProfit += profit;
-
-          // 担当者別
-          if (!deficitByTantousha.has(tantousha)) {
-            deficitByTantousha.set(tantousha, { office: eigyosho, count: 0, loss: 0, totalAmount: 0, totalProfit: 0 });
-          }
-          const tanData = deficitByTantousha.get(tantousha)!;
-          tanData.count++;
-          tanData.loss += loss;
-          tanData.totalAmount += amount;
-          tanData.totalProfit += profit;
-
-          // 顧客別
-          if (!deficitByCustomer.has(customer)) {
-            deficitByCustomer.set(customer, { count: 0, loss: 0, totalAmount: 0, totalProfit: 0 });
-          }
-          const custData = deficitByCustomer.get(customer)!;
-          custData.count++;
-          custData.loss += loss;
-          custData.totalAmount += amount;
-          custData.totalProfit += profit;
-
-          // 月別
-          if (monthIndex >= 0) {
-            if (!deficitByMonth.has(monthIndex)) {
-              deficitByMonth.set(monthIndex, { count: 0, loss: 0 });
-            }
-            const monthData = deficitByMonth.get(monthIndex)!;
-            monthData.count++;
-            monthData.loss += loss;
-          }
-
-          // 産業別
-          if (!deficitByIndustry.has(industry)) {
-            deficitByIndustry.set(industry, { count: 0, loss: 0, totalAmount: 0, totalProfit: 0 });
-          }
-          const indData = deficitByIndustry.get(industry)!;
-          indData.count++;
-          indData.loss += loss;
-          indData.totalAmount += amount;
-          indData.totalProfit += profit;
-        }
-      });
-
-      // 赤字案件を損失額降順にソート
-      deficitRecords.sort((a, b) => a.profit - b.profit);
-
-      // 集計配列化
-      const byPjCategory = Array.from(deficitByPjCategory.entries())
-        .map(([name, data]) => ({
-          name,
-          count: data.count,
-          loss: data.loss,
-          avgProfitRate: data.totalAmount > 0 ? (data.totalProfit / data.totalAmount) * 100 : 0,
-        }))
-        .sort((a, b) => b.loss - a.loss);
-
-      const byTantousha = Array.from(deficitByTantousha.entries())
-        .map(([name, data]) => ({
-          name,
-          office: data.office,
-          count: data.count,
-          loss: data.loss,
-          avgProfitRate: data.totalAmount > 0 ? (data.totalProfit / data.totalAmount) * 100 : 0,
-        }))
-        .sort((a, b) => b.loss - a.loss);
-
-      const byCustomer = Array.from(deficitByCustomer.entries())
-        .map(([name, data]) => ({
-          name,
-          count: data.count,
-          loss: data.loss,
-          avgProfitRate: data.totalAmount > 0 ? (data.totalProfit / data.totalAmount) * 100 : 0,
-        }))
-        .sort((a, b) => b.loss - a.loss);
-
-      const byMonth = Array.from({ length: 12 }, (_, i) => ({
-        month: getFiscalMonthName(i),
-        monthIndex: i,
-        count: deficitByMonth.get(i)?.count || 0,
-        loss: deficitByMonth.get(i)?.loss || 0,
-      }));
-
-      const byIndustry = Array.from(deficitByIndustry.entries())
-        .map(([name, data]) => ({
-          name,
-          count: data.count,
-          loss: data.loss,
-          avgProfitRate: data.totalAmount > 0 ? (data.totalProfit / data.totalAmount) * 100 : 0,
-        }))
-        .sort((a, b) => b.loss - a.loss);
-
-      // 傾向分析
-      const avgDeficitRate = totalCount > 0 ? (deficitRecords.length / totalCount) * 100 : 0;
-
-      // 高リスクPJ区分（赤字率が平均より高いもの）
-      const highRiskPjCategories = byPjCategory
-        .filter((pj) => {
-          const totalPj = totalByPjCategory.get(pj.name) || 0;
-          const deficitRate = totalPj > 0 ? (pj.count / totalPj) * 100 : 0;
-          return deficitRate > avgDeficitRate && pj.count >= 2;
-        })
-        .slice(0, 5)
-        .map((pj) => pj.name);
-
-      // 高リスク顧客（赤字が複数回発生）
-      const highRiskCustomers = byCustomer
-        .filter((c) => c.count >= 2)
-        .slice(0, 5)
-        .map((c) => c.name);
-
-      // 季節性パターン検出
-      const monthlyDeficitCounts = byMonth.map((m) => m.count);
-      const maxMonth = monthlyDeficitCounts.indexOf(Math.max(...monthlyDeficitCounts));
-      const seasonalPattern = monthlyDeficitCounts[maxMonth] >= 3
-        ? `${getFiscalMonthName(maxMonth)}に赤字案件が集中する傾向`
-        : null;
-
-      // 共通要因の特定
-      const commonFactors: string[] = [];
-      if (byPjCategory.length > 0 && byPjCategory[0].count >= 3) {
-        commonFactors.push(`PJ区分「${byPjCategory[0].name}」での赤字が多発`);
-      }
-      if (byCustomer.length > 0 && byCustomer[0].count >= 3) {
-        commonFactors.push(`顧客「${byCustomer[0].name}」での赤字が多発`);
-      }
-      if (avgDeficitRate > 5) {
-        commonFactors.push(`赤字率${avgDeficitRate.toFixed(1)}%は業界平均より高い水準`);
-      }
-
-      // 対策提案
-      const recommendations: string[] = [];
-      if (highRiskPjCategories.length > 0) {
-        recommendations.push(`高リスクPJ区分（${highRiskPjCategories.join("、")}）の見積精度向上を検討`);
-      }
-      if (highRiskCustomers.length > 0) {
-        recommendations.push(`リピート赤字顧客への価格交渉・取引条件見直しを推奨`);
-      }
-      if (byTantousha.length > 0) {
-        const topDeficitPerson = byTantousha[0];
-        if (topDeficitPerson.count >= 3) {
-          recommendations.push(`${topDeficitPerson.name}氏の案件について原価管理の強化を検討`);
-        }
-      }
-      if (seasonalPattern) {
-        recommendations.push(`${seasonalPattern}のため、該当時期の受注判断を慎重に`);
-      }
-      if (deficitRecords.length > 0) {
-        const avgLoss = deficitRecords.reduce((sum, r) => sum + Math.abs(r.profit), 0) / deficitRecords.length;
-        if (avgLoss > 500000) {
-          recommendations.push(`平均赤字額${formatAmount(avgLoss)}と高額のため、大型案件の原価精査を強化`);
-        }
-      }
-      if (recommendations.length === 0) {
-        recommendations.push("現状の赤字率は許容範囲内です。継続的なモニタリングを推奨");
-      }
-
-      // 金額フォーマット関数（ローカル）
-      function formatAmount(amount: number): string {
-        if (amount >= 100000000) return `${(amount / 100000000).toFixed(1)}億`;
-        if (amount >= 10000) return `${Math.round(amount / 10000)}万`;
-        return amount.toLocaleString();
-      }
-
       // WEB新規 月別推移データ配列化
       const webNewMonthlyData = Array.from({ length: 12 }, (_, i) => ({
         month: getFiscalMonthName(i),
@@ -1006,24 +735,25 @@ export async function GET(request: NextRequest) {
         normalCount: webNewMonthlyMap.get(i)?.normalCount || 0,
       }));
 
+      // 赤字分析は別メニューに移行済み - 空のデフォルト値を設定
       const deficitAnalysis: DeficitAnalysis = {
-        records: deficitRecords.slice(0, 100), // 上位100件のみ
-        totalCount: deficitRecords.length,
-        totalAmount: deficitRecords.reduce((sum, r) => sum + r.amount, 0),
-        totalLoss: deficitRecords.reduce((sum, r) => sum + Math.abs(r.profit), 0),
-        byPjCategory,
-        byTantousha,
-        byCustomer: byCustomer.slice(0, 20), // 上位20件
-        byMonth,
-        byIndustry: byIndustry.slice(0, 15), // 上位15件
+        records: [],
+        totalCount: 0,
+        totalAmount: 0,
+        totalLoss: 0,
+        byPjCategory: [],
+        byTantousha: [],
+        byCustomer: [],
+        byMonth: [],
+        byIndustry: [],
         patterns: {
-          highRiskPjCategories,
-          highRiskCustomers,
-          seasonalPattern,
-          avgDeficitRate,
-          commonFactors,
+          highRiskPjCategories: [],
+          highRiskCustomers: [],
+          seasonalPattern: null,
+          avgDeficitRate: 0,
+          commonFactors: [],
         },
-        recommendations,
+        recommendations: [],
       };
 
       results.push({

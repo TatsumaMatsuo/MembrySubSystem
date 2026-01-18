@@ -1,10 +1,10 @@
 "use client";
 
 import { MainLayout } from "@/components/layout/MainLayout";
-import { PackageCheck } from "lucide-react";
+import { Calendar } from "lucide-react";
 
-export default function TehaiPage() {
-  const larkFormUrl = "https://osvn246ak4c.jp.larksuite.com/share/base/form/shrjpq50GmGwv6zPzHfwwWyGh8e";
+export default function NoukiChangePage() {
+  const larkFormUrl = "https://osvn246ak4c.jp.larksuite.com/share/base/form/shrjpvlXRuuKEB3dijL6ht3MvNe";
 
   return (
     <MainLayout>
@@ -12,11 +12,11 @@ export default function TehaiPage() {
         {/* ヘッダー */}
         <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
           <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <PackageCheck className="w-6 h-6 text-orange-500" />
-            手配依頼
+            <Calendar className="w-6 h-6 text-blue-500" />
+            納期変更
           </h1>
           <p className="text-sm text-gray-500">
-            共通 &gt; 顧客要求事項変更届 &gt; 手配依頼
+            顧客要求事項変更届 &gt; 納期変更
           </p>
         </div>
 
@@ -26,7 +26,7 @@ export default function TehaiPage() {
             <iframe
               src={larkFormUrl}
               className="w-full h-full min-h-[800px] border-0"
-              title="手配依頼フォーム"
+              title="納期変更フォーム"
               allow="clipboard-write"
             />
           </div>

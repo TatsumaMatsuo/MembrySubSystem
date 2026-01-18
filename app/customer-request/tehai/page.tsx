@@ -1,10 +1,10 @@
 "use client";
 
 import { MainLayout } from "@/components/layout/MainLayout";
-import { FileEdit } from "lucide-react";
+import { PackageCheck } from "lucide-react";
 
-export default function ShiyouChangePage() {
-  const larkFormUrl = "https://osvn246ak4c.jp.larksuite.com/share/base/form/shrjpaRK18km7yQLUNgXpFog8Dd";
+export default function TehaiPage() {
+  const larkFormUrl = "https://osvn246ak4c.jp.larksuite.com/share/base/form/shrjpq50GmGwv6zPzHfwwWyGh8e";
 
   return (
     <MainLayout>
@@ -12,11 +12,11 @@ export default function ShiyouChangePage() {
         {/* ヘッダー */}
         <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
           <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <FileEdit className="w-6 h-6 text-purple-500" />
-            仕様変更・金額変更
+            <PackageCheck className="w-6 h-6 text-orange-500" />
+            手配依頼
           </h1>
           <p className="text-sm text-gray-500">
-            共通 &gt; 顧客要求事項変更届 &gt; 仕様変更・金額変更
+            顧客要求事項変更届 &gt; 手配依頼
           </p>
         </div>
 
@@ -26,7 +26,7 @@ export default function ShiyouChangePage() {
             <iframe
               src={larkFormUrl}
               className="w-full h-full min-h-[800px] border-0"
-              title="仕様変更・金額変更フォーム"
+              title="手配依頼フォーム"
               allow="clipboard-write"
             />
           </div>

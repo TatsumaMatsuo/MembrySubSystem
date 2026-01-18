@@ -1,10 +1,10 @@
 "use client";
 
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Receipt } from "lucide-react";
+import { FileEdit } from "lucide-react";
 
-export default function KingakuChangePage() {
-  const larkFormUrl = "https://osvn246ak4c.jp.larksuite.com/share/base/form/shrjp4Z734CZAs0k6aNZWLuyv4e";
+export default function ShiyouChangePage() {
+  const larkFormUrl = "https://osvn246ak4c.jp.larksuite.com/share/base/form/shrjpaRK18km7yQLUNgXpFog8Dd";
 
   return (
     <MainLayout>
@@ -12,11 +12,11 @@ export default function KingakuChangePage() {
         {/* ヘッダー */}
         <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
           <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <Receipt className="w-6 h-6 text-emerald-500" />
-            金額変更・請求依頼
+            <FileEdit className="w-6 h-6 text-purple-500" />
+            仕様変更・金額変更
           </h1>
           <p className="text-sm text-gray-500">
-            共通 &gt; 顧客要求事項変更届 &gt; 金額変更・請求依頼
+            顧客要求事項変更届 &gt; 仕様変更・金額変更
           </p>
         </div>
 
@@ -26,7 +26,7 @@ export default function KingakuChangePage() {
             <iframe
               src={larkFormUrl}
               className="w-full h-full min-h-[800px] border-0"
-              title="金額変更・請求依頼フォーム"
+              title="仕様変更・金額変更フォーム"
               allow="clipboard-write"
             />
           </div>

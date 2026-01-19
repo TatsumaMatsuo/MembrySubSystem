@@ -4,6 +4,9 @@ import { getLarkClient, getLarkBaseToken, listAllDepartments } from "@/lib/lark-
 // テーブルID（売上データ）
 const TABLE_ID = "tbl65w6u6J72QFoz";
 
+// ビューID（パフォーマンス最適化用 - 赤字案件フィルタ済み）
+const VIEW_ID = "vewNmCixWg"; // 赤字案件ビュー（利益 < 0）
+
 // キャッシュ（TTL: 30分）
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 30 * 60 * 1000;
@@ -206,24 +209,6 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // 部署マッピング取得
-    const departmentMap = new Map<string, string>();
-    try {
-      const deptResponse = await listAllDepartments();
-      if (deptResponse.code === 0 && deptResponse.data?.items) {
-        for (const dept of deptResponse.data.items) {
-          const deptId = (dept as any).open_department_id || (dept as any).department_id;
-          const deptName = (dept as any).name;
-          if (deptId && deptName) {
-            departmentMap.set(deptId, deptName);
-            departmentMap.set(String(deptId), deptName);
-          }
-        }
-      }
-    } catch (e) {
-      // 部署マッピング取得失敗時は空のまま継続
-    }
-
     const overallDateRange = {
       start: getPeriodDateRange(fromPeriod).start,
       end: getPeriodDateRange(toPeriod).end,
@@ -235,31 +220,61 @@ export async function GET(request: NextRequest) {
       "PJ区分", "産業分類", "得意先", "担当者", "部課"
     ];
 
-    let allRecords: any[] = [];
-    let pageToken: string | undefined;
     const dateFilter = `AND(CurrentValue.[売上日] >= "${overallDateRange.start}", CurrentValue.[売上日] <= "${overallDateRange.end}")`;
 
-    do {
-      const response = await client.bitable.appTableRecord.list({
-        path: {
-          app_token: getLarkBaseToken(),
-          table_id: TABLE_ID,
-        },
-        params: {
-          page_size: 500,
-          page_token: pageToken,
-          filter: dateFilter,
-          field_names: JSON.stringify(fieldNames),
-        },
-      });
-
-      if (response.data?.items) {
-        allRecords = allRecords.concat(response.data.items);
+    // 部署マッピング取得とデータ取得を並列実行（パフォーマンス最適化）
+    const departmentMapPromise = (async () => {
+      const map = new Map<string, string>();
+      try {
+        const deptResponse = await listAllDepartments();
+        if (deptResponse.code === 0 && deptResponse.data?.items) {
+          for (const dept of deptResponse.data.items) {
+            const deptId = (dept as any).open_department_id || (dept as any).department_id;
+            const deptName = (dept as any).name;
+            if (deptId && deptName) {
+              map.set(deptId, deptName);
+              map.set(String(deptId), deptName);
+            }
+          }
+        }
+      } catch (e) {
+        // 部署マッピング取得失敗時は空のまま継続
       }
-      pageToken = response.data?.page_token;
-    } while (pageToken);
+      return map;
+    })();
 
-    console.log("[deficit-analysis] Fetched records:", allRecords.length, "in", Date.now() - startTime, "ms");
+    const recordsPromise = (async () => {
+      let records: any[] = [];
+      let pageToken: string | undefined;
+
+      do {
+        const response = await client.bitable.appTableRecord.list({
+          path: {
+            app_token: getLarkBaseToken(),
+            table_id: TABLE_ID,
+          },
+          params: {
+            page_size: 500,
+            page_token: pageToken,
+            filter: dateFilter,
+            field_names: JSON.stringify(fieldNames),
+            view_id: VIEW_ID,
+          },
+        });
+
+        if (response.data?.items) {
+          records = records.concat(response.data.items);
+        }
+        pageToken = response.data?.page_token;
+      } while (pageToken);
+
+      return records;
+    })();
+
+    // 並列実行完了を待機
+    const [departmentMap, allRecords] = await Promise.all([departmentMapPromise, recordsPromise]);
+
+    console.log("[deficit-analysis] Fetched records:", allRecords.length, "in", Date.now() - startTime, "ms (parallel execution)");
 
     const results: PeriodDeficitData[] = [];
 

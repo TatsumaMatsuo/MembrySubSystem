@@ -46,9 +46,9 @@ export async function GET(request: NextRequest) {
   const baseToken = getLarkBaseToken();
 
   try {
-    // セッションからユーザーIDを取得
+    // セッションからユーザーIDを取得（社員コード → Lark ID → default）
     const session = await getServerSession(authOptions);
-    const userId = session?.user?.employeeId || "default";
+    const userId = session?.user?.employeeId || session?.user?.id || "default";
 
     const links: CustomLink[] = [];
     let pageToken: string | undefined;
@@ -116,8 +116,9 @@ export async function POST(request: NextRequest) {
   const baseToken = getLarkBaseToken();
 
   try {
+    // セッションからユーザーIDを取得（社員コード → Lark ID → default）
     const session = await getServerSession(authOptions);
-    const userId = session?.user?.employeeId || "default";
+    const userId = session?.user?.employeeId || session?.user?.id || "default";
 
     const body = await request.json();
     const { display_name, url, icon_url, sort_order } = body;

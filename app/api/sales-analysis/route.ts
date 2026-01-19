@@ -4,9 +4,20 @@ import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 // テーブルID（製番原価データ）
 const TABLE_ID = "tbl7lMDstBVYxQKd";
 
-// シンプルなインメモリキャッシュ（TTL: 5分）
+// 必要なフィールドのみ取得（パフォーマンス最適化）
+const REQUIRED_FIELDS = [
+  "製番",
+  "受注日",
+  "受注金額",
+  "PJ区分",
+  "得意先",
+  "担当者",
+  "状態",
+];
+
+// シンプルなインメモリキャッシュ（TTL: 10分に延長）
 const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5分
+const CACHE_TTL = 10 * 60 * 1000; // 10分
 
 function getCachedData(key: string): any | null {
   const cached = cache.get(key);
@@ -123,6 +134,7 @@ export async function GET(request: NextRequest) {
     // API側で日付範囲フィルタリング（大幅なデータ削減）
     const dateFilter = `AND(CurrentValue.[受注日] >= "${overallDateRange.start}", CurrentValue.[受注日] <= "${overallDateRange.end}")`;
 
+    const startTime = Date.now();
     do {
       const response = await client.bitable.appTableRecord.list({
         path: {
@@ -133,6 +145,7 @@ export async function GET(request: NextRequest) {
           page_size: 500,
           page_token: pageToken,
           filter: dateFilter,
+          field_names: JSON.stringify(REQUIRED_FIELDS),
         },
       });
 
@@ -141,6 +154,9 @@ export async function GET(request: NextRequest) {
       }
       pageToken = response.data?.page_token;
     } while (pageToken);
+
+    const fetchTime = Date.now() - startTime;
+    console.log(`[sales-analysis] Fetched ${allRecords.length} records in ${fetchTime}ms`);
 
     // 期間別に集計結果を生成
     const results: PeriodSummary[] = [];

@@ -88,7 +88,7 @@ export default function TopPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         title={link.display_name}
-                        className={`w-20 h-20 rounded-xl overflow-hidden transition-all duration-200 flex items-center justify-center ${!link.icon_url ? bgColor : "bg-white"} shadow-[0_4px_0_0_rgba(0,0,0,0.2),0_6px_12px_rgba(0,0,0,0.15)] hover:shadow-[0_2px_0_0_rgba(0,0,0,0.2),0_4px_8px_rgba(0,0,0,0.15)] hover:translate-y-[2px] active:shadow-[0_0px_0_0_rgba(0,0,0,0.2),0_2px_4px_rgba(0,0,0,0.15)] active:translate-y-[4px] border-2 border-white/50`}
+                        className={`w-20 h-20 rounded-xl overflow-hidden transition-all duration-200 flex items-center justify-center ${!link.icon_url ? bgColor : "bg-white"} shadow-[0_4px_0_0_rgba(0,0,0,0.2),0_6px_12px_rgba(0,0,0,0.15)] hover:shadow-[0_2px_0_0_rgba(0,0,0,0.2),0_4px_8px_rgba(0,0,0,0.15)] hover:translate-y-[2px] active:shadow-[0_0px_0_0_rgba(0,0,0,0.2),0_2px_4px_rgba(0,0,0,0.15)] active:translate-y-[4px] border-2 border-gray-300`}
                       >
                         {link.icon_url ? (
                           <img

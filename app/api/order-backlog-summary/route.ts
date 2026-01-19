@@ -7,9 +7,20 @@ const TABLE_ID = "tbl1ICzfUixpGqDy";
 // 売上情報テーブル（売上済チェック用）
 const SALES_TABLE_ID = "tbl65w6u6J72QFoz";
 
-// シンプルなインメモリキャッシュ（TTL: 5分）
+// シンプルなインメモリキャッシュ（TTL: 15分に延長）
 const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_TTL = 15 * 60 * 1000;
+
+// 必要なフィールドのみ取得（パフォーマンス最適化）
+const REQUIRED_FIELDS = [
+  "製番",
+  "受注金額",
+  "売上見込日",
+  "担当者",
+  "部門",
+  "売上済フラグ",
+  "削除フラグ",
+];
 
 function getCachedData(key: string): any | null {
   const cached = cache.get(key);
@@ -195,40 +206,36 @@ async function getSoldSeibanSet(
 }
 
 // 最新売上済月を取得（例：2025年12月まで売上済み → "202512"）
+// 最適化: 降順ソートで最新1件のみ取得（全スキャンを回避）
 async function getLatestSoldMonth(client: any, baseToken: string): Promise<string> {
+  const startTime = Date.now();
+
+  // 売上日の降順で1件だけ取得
+  const response = await client.bitable.appTableRecord.list({
+    path: {
+      app_token: baseToken,
+      table_id: SALES_TABLE_ID,
+    },
+    params: {
+      page_size: 1,
+      sort: JSON.stringify([{ field_name: "売上日", desc: true }]),
+      field_names: JSON.stringify(["売上日"]),
+    },
+  });
+
   let latestMonth = "";
-  let pageToken: string | undefined;
-
-  do {
-    const response = await client.bitable.appTableRecord.list({
-      path: {
-        app_token: baseToken,
-        table_id: SALES_TABLE_ID,
-      },
-      params: {
-        page_size: 500,
-        page_token: pageToken,
-      },
-    });
-
-    if (response.data?.items) {
-      for (const item of response.data.items) {
-        const uriageDate = extractTextValue((item.fields as any)?.売上日);
-        if (uriageDate) {
-          const date = parseDate(uriageDate);
-          if (date) {
-            const ym = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}`;
-            if (!latestMonth || ym > latestMonth) {
-              latestMonth = ym;
-            }
-          }
-        }
+  if (response.data?.items && response.data.items.length > 0) {
+    const uriageDate = extractTextValue((response.data.items[0].fields as any)?.売上日);
+    if (uriageDate) {
+      const date = parseDate(uriageDate);
+      if (date) {
+        latestMonth = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}`;
       }
     }
-    pageToken = response.data?.page_token;
-  } while (pageToken);
+  }
 
-  console.log(`[order-backlog] Found latest sold month: ${latestMonth}`);
+  const elapsed = Date.now() - startTime;
+  console.log(`[order-backlog] Found latest sold month: ${latestMonth} in ${elapsed}ms`);
   return latestMonth;
 }
 
@@ -334,6 +341,7 @@ export async function GET(request: NextRequest) {
     let allRecords: any[] = [];
     let pageToken: string | undefined;
 
+    const fetchStartTime = Date.now();
     do {
       const response = await client.bitable.appTableRecord.list({
         path: {
@@ -343,6 +351,7 @@ export async function GET(request: NextRequest) {
         params: {
           page_size: 500,
           page_token: pageToken,
+          field_names: JSON.stringify(REQUIRED_FIELDS),
         },
       });
 
@@ -352,7 +361,8 @@ export async function GET(request: NextRequest) {
       pageToken = response.data?.page_token;
     } while (pageToken);
 
-    console.log(`[order-backlog] Total records fetched: ${allRecords.length}`);
+    const fetchElapsed = Date.now() - fetchStartTime;
+    console.log(`[order-backlog] Total records fetched: ${allRecords.length} in ${fetchElapsed}ms`);
 
     // 受注残をフィルタ
     const backlogRecords = allRecords.filter((record) => {

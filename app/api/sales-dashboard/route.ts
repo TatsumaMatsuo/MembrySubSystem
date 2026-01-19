@@ -15,6 +15,18 @@ const VIEWS = {
   industry: "vew8nAL6zi",   // 月産業分類別売上情報
 };
 
+// 受注残ビューID（受注残チェック時に使用）
+const BACKLOG_VIEWS = {
+  tantousha: "vewCU8LrsT",   // 月部門担当者別受注残
+  pjCategory: "vew9RC2kW6",  // 月PJ区分受注残
+  prefecture: "vewFLIPWLu",  // 月納入先県別受注残
+  webNew: "vewdepfeQU",      // 月WEB新規別受注残
+  industry: "vewcceNSvU",    // 月産業分類別受注残
+};
+
+// 受注残データ用テーブルID（案件一覧テーブル）
+const BACKLOG_TABLE_ID = "tbl1ICzfUixpGqDy";
+
 // シンプルなインメモリキャッシュ（TTL: 30分に延長）
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 30 * 60 * 1000;
@@ -194,6 +206,95 @@ function getRegion(tantousha: string, eigyosho: string): "east" | "west" | "hq" 
   return "hq";
 }
 
+// 売上見込月（YYYY/MM形式）から期内の月インデックスを取得
+function getFiscalMonthIndexFromYM(ymStr: string): number {
+  if (!ymStr) return -1;
+  const parts = ymStr.split("/");
+  if (parts.length < 2) return -1;
+  const month = parseInt(parts[1], 10);
+  if (isNaN(month)) return -1;
+  return month >= 8 ? month - 8 : month + 4;
+}
+
+// 受注残データを取得する関数
+async function fetchBacklogData(
+  client: any,
+  baseToken: string,
+  viewId: string,
+  dateRange: { start: string; end: string }
+): Promise<Map<number, { count: number; amount: number }>> {
+  const backlogMap = new Map<number, { count: number; amount: number }>();
+  let pageToken: string | undefined;
+
+  // 売上見込月でフィルタ（期間内）
+  const startYM = dateRange.start.substring(0, 7); // YYYY/MM
+  const endYM = dateRange.end.substring(0, 7);
+
+  console.log(`[sales-dashboard] Fetching backlog: viewId=${viewId}, range=${startYM}~${endYM}`);
+
+  try {
+    do {
+      const response = await client.bitable.appTableRecord.list({
+        path: {
+          app_token: baseToken,
+          table_id: BACKLOG_TABLE_ID,
+        },
+        params: {
+          page_size: 500,
+          page_token: pageToken,
+          view_id: viewId,
+          // デバッグ: 全フィールドを取得してフィールド名を確認
+          // field_names: JSON.stringify(["売上見込月", "売上見込日", "受注金額"]),
+        },
+      });
+
+      if (response.data?.items) {
+        // 最初のレコードのフィールド内容をデバッグ出力
+        if (response.data.items.length > 0 && !pageToken) {
+          const firstFields = response.data.items[0].fields as any;
+          console.log(`[sales-dashboard] Backlog items count: ${response.data.items.length}`);
+          console.log(`[sales-dashboard] Backlog first record fields:`, Object.keys(firstFields || {}));
+          console.log(`[sales-dashboard] Backlog first record:`, JSON.stringify(firstFields, null, 2).substring(0, 500));
+        }
+        for (const item of response.data.items) {
+          const fields = item.fields as any;
+          // 売上見込月（ビュー集計）または売上見込日から月を取得
+          const mikomiMonth = extractTextValue(fields?.["売上見込月"]);
+          const mikomiDate = extractTextValue(fields?.["売上見込日"]);
+          const amount = parseFloat(String(fields?.["受注金額"] || 0)) || 0;
+
+          // 月の取得（売上見込月があればそれを使用、なければ売上見込日から抽出）
+          let mikomiYM = "";
+          if (mikomiMonth && mikomiMonth.length >= 7) {
+            mikomiYM = mikomiMonth.substring(0, 7); // YYYY/MM
+          } else if (mikomiDate && mikomiDate.length >= 7) {
+            mikomiYM = mikomiDate.substring(0, 7); // YYYY/MM
+          }
+
+          if (mikomiYM && mikomiYM >= startYM && mikomiYM <= endYM) {
+            const monthIndex = getFiscalMonthIndexFromYM(mikomiYM);
+            if (monthIndex >= 0) {
+              if (!backlogMap.has(monthIndex)) {
+                backlogMap.set(monthIndex, { count: 0, amount: 0 });
+              }
+              const m = backlogMap.get(monthIndex)!;
+              m.count++;
+              m.amount += amount;
+            }
+          }
+        }
+      }
+      pageToken = response.data?.page_token;
+    } while (pageToken);
+  } catch (error) {
+    console.error(`[sales-dashboard] Backlog fetch error:`, error);
+    // エラー時は空のマップを返す（売上データのみで継続）
+  }
+
+  console.log(`[sales-dashboard] Backlog result: ${backlogMap.size} months with data`);
+  return backlogMap;
+}
+
 interface SalesRecord {
   fields: {
     製番?: string;
@@ -228,6 +329,9 @@ interface MonthlyData {
   amount: number;
   cost: number;      // 原価
   profit: number;    // 粗利
+  backlogCount?: number;   // 受注残件数
+  backlogAmount?: number;  // 受注残金額
+  isBacklog?: boolean;     // 受注残データかどうか
 }
 
 interface QuarterlyData {
@@ -314,6 +418,12 @@ interface PeriodDashboard {
   totalAmount: number;
   totalCost: number;     // 原価合計
   totalProfit: number;   // 粗利合計
+  // 受注残関連
+  lastSalesMonthIndex?: number;    // 最終売上月インデックス
+  lastSalesMonth?: string;         // 最終売上月名
+  includeBacklog?: boolean;        // 受注残データ含む
+  totalBacklogCount?: number;      // 受注残合計件数
+  totalBacklogAmount?: number;     // 受注残合計金額
   // 月次データ
   monthlyData: MonthlyData[];
   // 四半期データ
@@ -359,8 +469,9 @@ export async function GET(request: NextRequest) {
   const fromPeriod = parseInt(searchParams.get("fromPeriod") || String(getCurrentPeriod() - 2), 10);
   const toPeriod = parseInt(searchParams.get("toPeriod") || String(getCurrentPeriod()), 10);
   const noCache = searchParams.get("noCache") === "true";
+  const includeBacklog = searchParams.get("includeBacklog") === "true";
 
-  const cacheKey = `sales-dashboard:${fromPeriod}:${toPeriod}`;
+  const cacheKey = `sales-dashboard:${fromPeriod}:${toPeriod}:${includeBacklog ? "backlog" : "sales"}`;
   if (!noCache) {
     const cachedResult = getCachedData(cacheKey);
     if (cachedResult) {
@@ -652,30 +763,90 @@ export async function GET(request: NextRequest) {
         officeSalesPersonsMap.get(eigyosho)!.add(tantousha);
       });
 
-      // 月次データ配列化
-      const monthlyData: MonthlyData[] = Array.from({ length: 12 }, (_, i) => ({
-        month: getFiscalMonthName(i),
-        monthIndex: i,
-        count: monthlyMap.get(i)?.count || 0,
-        amount: monthlyMap.get(i)?.amount || 0,
-        cost: monthlyMap.get(i)?.cost || 0,
-        profit: monthlyMap.get(i)?.profit || 0,
-      }));
+      // 売上最終月を特定（売上がある最後の月のインデックス）
+      let lastSalesMonthIndex = -1;
+      for (let i = 11; i >= 0; i--) {
+        if (monthlyMap.has(i) && monthlyMap.get(i)!.count > 0) {
+          lastSalesMonthIndex = i;
+          break;
+        }
+      }
+
+      // 受注残データを取得（includeBacklogがtrueの場合）
+      let backlogMap = new Map<number, { count: number; amount: number }>();
+      console.log(`[sales-dashboard] includeBacklog=${includeBacklog}, lastSalesMonthIndex=${lastSalesMonthIndex}`);
+      if (includeBacklog) {
+        try {
+          console.log(`[sales-dashboard] Fetching backlog data (last sales month: ${lastSalesMonthIndex >= 0 ? getFiscalMonthName(lastSalesMonthIndex) : "none"})`);
+          backlogMap = await fetchBacklogData(client, getLarkBaseToken(), BACKLOG_VIEWS.pjCategory, dateRange);
+          console.log(`[sales-dashboard] Backlog data fetched for ${backlogMap.size} months`);
+          // デバッグ: 取得したデータを出力
+          backlogMap.forEach((data, monthIdx) => {
+            console.log(`[sales-dashboard] Backlog month ${getFiscalMonthName(monthIdx)}: count=${data.count}, amount=${data.amount}`);
+          });
+        } catch (backlogError) {
+          console.error(`[sales-dashboard] Backlog fetch failed, continuing with sales data only:`, backlogError);
+          // エラー時は空のマップのまま継続（売上データのみ表示）
+        }
+      }
+
+      // 月次データ配列化（受注残データを統合）
+      // 最終売上月より後の月は、売上 + 受注残の合計をamountに含める
+      const monthlyData: MonthlyData[] = Array.from({ length: 12 }, (_, i) => {
+        const salesData = monthlyMap.get(i);
+        const backlogData = backlogMap.get(i);
+        // 最終売上月より後の月を受注残月とする
+        const isBacklogMonth = includeBacklog && lastSalesMonthIndex >= 0 && i > lastSalesMonthIndex;
+
+        // 売上額（受注残月の場合は売上+受注残の合計）
+        const salesAmount = salesData?.amount || 0;
+        const backlogAmount = isBacklogMonth ? (backlogData?.amount || 0) : 0;
+        const combinedAmount = salesAmount + backlogAmount;
+        const combinedCount = (salesData?.count || 0) + (isBacklogMonth ? (backlogData?.count || 0) : 0);
+
+        // デバッグログ
+        if (includeBacklog && isBacklogMonth) {
+          console.log(`[sales-dashboard] Month ${getFiscalMonthName(i)}: sales=${salesAmount}, backlog=${backlogAmount}, combined=${combinedAmount}`);
+        }
+
+        return {
+          month: getFiscalMonthName(i),
+          monthIndex: i,
+          count: combinedCount,
+          amount: combinedAmount,  // 売上 + 受注残の合計
+          cost: salesData?.cost || 0,
+          profit: salesData?.profit || 0,
+          // 受注残の内訳も保持
+          backlogCount: isBacklogMonth ? (backlogData?.count || 0) : undefined,
+          backlogAmount: isBacklogMonth ? backlogAmount : undefined,
+          isBacklog: isBacklogMonth,
+        };
+      });
 
       // 月別件数をログ出力
-      const monthlyCountLog = monthlyData.map(m => `${m.month}:${m.count}`).join(", ");
+      const monthlyCountLog = monthlyData.map(m =>
+        m.isBacklog
+          ? `${m.month}:${m.count}(+${m.backlogCount || 0}残)`
+          : `${m.month}:${m.count}`
+      ).join(", ");
       console.log(`[sales-dashboard] Period ${period} monthly counts: ${monthlyCountLog}`);
 
-      // 累計データ作成
+      // 累計データ作成（受注残込み）
       let cumCount = 0;
       let cumAmount = 0;
       let cumCost = 0;
       let cumProfit = 0;
+      let cumBacklogCount = 0;
+      let cumBacklogAmount = 0;
       const cumulativeData: MonthlyData[] = monthlyData.map((m) => {
         cumCount += m.count;
         cumAmount += m.amount;
         cumCost += m.cost;
         cumProfit += m.profit;
+        if (m.isBacklog && m.backlogCount) {
+          cumBacklogCount += m.backlogCount;
+          cumBacklogAmount += m.backlogAmount || 0;
+        }
         return {
           month: m.month,
           monthIndex: m.monthIndex,
@@ -683,6 +854,9 @@ export async function GET(request: NextRequest) {
           amount: cumAmount,
           cost: cumCost,
           profit: cumProfit,
+          backlogCount: m.isBacklog ? cumBacklogCount : undefined,
+          backlogAmount: m.isBacklog ? cumBacklogAmount : undefined,
+          isBacklog: m.isBacklog,
         };
       });
 
@@ -781,13 +955,26 @@ export async function GET(request: NextRequest) {
         recommendations: [],
       };
 
+      // 受注残合計を計算
+      const totalBacklogCount = monthlyData.reduce((sum, m) => sum + (m.backlogCount || 0), 0);
+      const totalBacklogAmount = monthlyData.reduce((sum, m) => sum + (m.backlogAmount || 0), 0);
+
+      // 売上＋受注残の合計（includeBacklog時）
+      const combinedTotalCount = includeBacklog ? totalCount + totalBacklogCount : totalCount;
+      const combinedTotalAmount = includeBacklog ? totalAmount + totalBacklogAmount : totalAmount;
+
       results.push({
         period,
         dateRange,
-        totalCount,
-        totalAmount,
+        totalCount: combinedTotalCount,
+        totalAmount: combinedTotalAmount,
         totalCost,
         totalProfit,
+        lastSalesMonthIndex: includeBacklog ? lastSalesMonthIndex : undefined,
+        lastSalesMonth: includeBacklog && lastSalesMonthIndex >= 0 ? getFiscalMonthName(lastSalesMonthIndex) : undefined,
+        includeBacklog,
+        totalBacklogCount: includeBacklog ? totalBacklogCount : undefined,
+        totalBacklogAmount: includeBacklog ? totalBacklogAmount : undefined,
         monthlyData,
         quarterlyData,
         cumulativeData,

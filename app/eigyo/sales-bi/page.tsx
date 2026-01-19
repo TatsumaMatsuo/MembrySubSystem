@@ -685,8 +685,8 @@ export default function BIDashboardPage() {
   // 産業分類別詳細データ折りたたみ（デフォルト: 折りたたみ）
   const [isIndustryDetailExpanded, setIsIndustryDetailExpanded] = useState(false);
 
-  // 受注込チェックボックス（デフォルト: OFF）
-  const [includeBacklog, setIncludeBacklog] = useState(false);
+  // 受注込チェックボックス（デフォルト: ON）
+  const [includeBacklog, setIncludeBacklog] = useState(true);
   const [backlogData, setBacklogData] = useState<{
     period: number;
     latestSoldMonth: string;
@@ -713,12 +713,13 @@ export default function BIDashboardPage() {
 
       // 基本データと受注残データを並列取得
       const fetchPromises: Promise<Response>[] = [
-        fetch(`/api/sales-dashboard?fromPeriod=${fromPeriod}&toPeriod=${toPeriod}`),
+        // 受注込チェックがONの場合はincludeBacklog=trueを渡す
+        fetch(`/api/sales-dashboard?fromPeriod=${fromPeriod}&toPeriod=${toPeriod}${includeBacklog ? "&includeBacklog=true" : ""}`),
         fetch(`/api/sales-budget?period=${selectedPeriod}&office=全社`),
         fetch(`/api/company-kpi?period=${selectedPeriod}`),
       ];
 
-      // 受注込チェックがONの場合は受注残データも取得
+      // 受注込チェックがONの場合は受注残データも取得（既存の処理も残す）
       if (includeBacklog) {
         fetchPromises.push(fetch(`/api/order-backlog-summary?period=${selectedPeriod}`));
       }
@@ -1798,7 +1799,7 @@ export default function BIDashboardPage() {
                   </div>
 
                   {/* 受注残情報バナー（受注込チェック時のみ表示） */}
-                  {includeBacklog && backlogData && (
+                  {includeBacklog && currentData?.includeBacklog && (
                     <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-lg p-3">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
@@ -1807,16 +1808,16 @@ export default function BIDashboardPage() {
                         </div>
                         <div className="flex items-center gap-4 text-sm">
                           <span className="text-gray-600">
-                            売上取込済: <span className="font-bold text-amber-700">{backlogData.latestSoldMonth ? `${backlogData.latestSoldMonth.substring(0, 4)}年${parseInt(backlogData.latestSoldMonth.substring(4, 6), 10)}月` : "-"}</span>
+                            売上取込済: <span className="font-bold text-amber-700">{currentData.lastSalesMonth || "-"}</span>
                           </span>
                           <span className="text-gray-600">
-                            見込対象: <span className="font-bold text-amber-700">{backlogData.cutoffDate ? `${backlogData.cutoffDate}以降` : "-"}</span>
+                            見込対象: <span className="font-bold text-amber-700">{currentData.lastSalesMonth ? `${currentData.lastSalesMonth}以降` : "-"}</span>
                           </span>
                           <span className="text-gray-600">
-                            見込件数: <span className="font-bold text-amber-700">{backlogData.totalCount.toLocaleString()}件</span>
+                            見込件数: <span className="font-bold text-amber-700">{(currentData.totalBacklogCount || 0).toLocaleString()}件</span>
                           </span>
                           <span className="text-gray-600">
-                            見込総額: <span className="font-bold text-amber-700">{formatAmount(backlogData.totalAmount)}円</span>
+                            見込総額: <span className="font-bold text-amber-700">{formatAmount(currentData.totalBacklogAmount || 0)}円</span>
                           </span>
                         </div>
                       </div>

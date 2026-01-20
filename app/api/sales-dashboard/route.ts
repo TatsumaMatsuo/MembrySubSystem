@@ -31,6 +31,44 @@ const BACKLOG_TABLE_ID = "tbl1ICzfUixpGqDy";
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 30 * 60 * 1000;
 
+// リトライ可能なLark APIエラーコード
+const RETRYABLE_ERROR_CODES = [
+  1254607, // Data not ready, please try again later
+  1254609, // Busy, please try again later
+];
+
+// リトライ付きでLark API呼び出しを実行
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  delayMs: number = 2000
+): Promise<T> {
+  let lastError: any;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await fn();
+      // Lark APIのエラーレスポンスをチェック（response.codeまたはresponse.data.codeをチェック）
+      const resultData = result as any;
+      const errorCode = resultData?.code || resultData?.data?.code;
+      if (errorCode && RETRYABLE_ERROR_CODES.includes(errorCode)) {
+        console.log(`[sales-dashboard] Lark API returned error ${errorCode}, will retry...`);
+        throw { code: errorCode, msg: resultData?.msg || resultData?.data?.msg };
+      }
+      return result;
+    } catch (error: any) {
+      lastError = error;
+      const errorCode = error?.code || error?.data?.code;
+      if (RETRYABLE_ERROR_CODES.includes(errorCode) && attempt < maxRetries) {
+        console.log(`[sales-dashboard] Retrying after error ${errorCode} (attempt ${attempt + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs * (attempt + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
+}
+
 function getCachedData(key: string): any | null {
   const cached = cache.get(key);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -216,71 +254,96 @@ function getFiscalMonthIndexFromYM(ymStr: string): number {
   return month >= 8 ? month - 8 : month + 4;
 }
 
-// 受注残データを取得する関数
+// 受注残データを取得する関数（order-backlog-summaryと同様の方式）
+// ビューではなくテーブルから直接取得し、売上済フラグ・削除フラグでフィルター
 async function fetchBacklogData(
   client: any,
   baseToken: string,
-  viewId: string,
-  dateRange: { start: string; end: string }
+  dateRange: { start: string; end: string },
+  latestSalesMonthIndex: number
 ): Promise<Map<number, { count: number; amount: number }>> {
   const backlogMap = new Map<number, { count: number; amount: number }>();
   let pageToken: string | undefined;
 
-  // 売上見込月でフィルタ（期間内）
-  const startYM = dateRange.start.substring(0, 7); // YYYY/MM
-  const endYM = dateRange.end.substring(0, 7);
+  // 必要なフィールドのみ取得
+  const BACKLOG_FIELDS = ["製番", "受注金額", "売上見込日", "売上済フラグ", "削除フラグ"];
 
-  console.log(`[sales-dashboard] Fetching backlog: viewId=${viewId}, range=${startYM}~${endYM}`);
+  // 期間の開始・終了日をDateオブジェクトに変換
+  const startDate = parseDate(dateRange.start);
+  const endDate = parseDate(dateRange.end);
+
+  // 最終売上月の翌月1日をカットオフ日とする（受注残はこれ以降のみ対象）
+  let cutoffDate: Date | null = null;
+  if (latestSalesMonthIndex >= 0) {
+    // latestSalesMonthIndex: 0=8月, 1=9月, ..., 11=7月
+    // 実際の月: 8月=0 -> 8, 9月=1 -> 9, ..., 12月=4 -> 12, 1月=5 -> 1, ..., 7月=11 -> 7
+    const actualMonth = latestSalesMonthIndex < 5 ? latestSalesMonthIndex + 8 : latestSalesMonthIndex - 4;
+    const year = startDate ? (actualMonth >= 8 ? startDate.getFullYear() : startDate.getFullYear() + 1) : new Date().getFullYear();
+    const nextMonth = actualMonth === 12 ? 1 : actualMonth + 1;
+    const nextYear = actualMonth === 12 ? year + 1 : year;
+    cutoffDate = new Date(nextYear, nextMonth - 1, 1);
+  }
+
+  console.log(`[sales-dashboard] Fetching backlog: range=${dateRange.start}~${dateRange.end}, cutoff=${cutoffDate?.toISOString().substring(0, 10) || "none"}`);
 
   try {
     do {
-      const response = await client.bitable.appTableRecord.list({
-        path: {
-          app_token: baseToken,
-          table_id: BACKLOG_TABLE_ID,
-        },
-        params: {
-          page_size: 500,
-          page_token: pageToken,
-          view_id: viewId,
-          // デバッグ: 全フィールドを取得してフィールド名を確認
-          // field_names: JSON.stringify(["売上見込月", "売上見込日", "受注金額"]),
-        },
+      const currentPageToken = pageToken;
+      const response = await withRetry(async () => {
+        return client.bitable.appTableRecord.list({
+          path: {
+            app_token: baseToken,
+            table_id: BACKLOG_TABLE_ID,
+          },
+          params: {
+            page_size: 500,
+            page_token: currentPageToken,
+            field_names: JSON.stringify(BACKLOG_FIELDS),
+          },
+        });
       });
 
       if (response.data?.items) {
         // 最初のレコードのフィールド内容をデバッグ出力
-        if (response.data.items.length > 0 && !pageToken) {
+        if (response.data.items.length > 0 && !currentPageToken) {
           const firstFields = response.data.items[0].fields as any;
-          console.log(`[sales-dashboard] Backlog items count: ${response.data.items.length}`);
+          console.log(`[sales-dashboard] Backlog total items: ${response.data.items.length}`);
           console.log(`[sales-dashboard] Backlog first record fields:`, Object.keys(firstFields || {}));
-          console.log(`[sales-dashboard] Backlog first record:`, JSON.stringify(firstFields, null, 2).substring(0, 500));
         }
+
         for (const item of response.data.items) {
           const fields = item.fields as any;
-          // 売上見込月（ビュー集計）または売上見込日から月を取得
-          const mikomiMonth = extractTextValue(fields?.["売上見込月"]);
+
+          // 売上済フラグがtrueならスキップ
+          if (fields?.["売上済フラグ"] === true) continue;
+
+          // 削除フラグがtrueならスキップ
+          if (fields?.["削除フラグ"] === true) continue;
+
+          // 売上見込日を取得
           const mikomiDate = extractTextValue(fields?.["売上見込日"]);
+          if (!mikomiDate) continue;
+
+          const mikomiDateObj = parseDate(mikomiDate);
+          if (!mikomiDateObj) continue;
+
+          // カットオフ日以降のみ対象（売上済月の翌月以降）
+          if (cutoffDate && mikomiDateObj < cutoffDate) continue;
+
+          // 期間終了日以前のみ対象
+          if (endDate && mikomiDateObj > endDate) continue;
+
           const amount = parseFloat(String(fields?.["受注金額"] || 0)) || 0;
 
-          // 月の取得（売上見込月があればそれを使用、なければ売上見込日から抽出）
-          let mikomiYM = "";
-          if (mikomiMonth && mikomiMonth.length >= 7) {
-            mikomiYM = mikomiMonth.substring(0, 7); // YYYY/MM
-          } else if (mikomiDate && mikomiDate.length >= 7) {
-            mikomiYM = mikomiDate.substring(0, 7); // YYYY/MM
-          }
-
-          if (mikomiYM && mikomiYM >= startYM && mikomiYM <= endYM) {
-            const monthIndex = getFiscalMonthIndexFromYM(mikomiYM);
-            if (monthIndex >= 0) {
-              if (!backlogMap.has(monthIndex)) {
-                backlogMap.set(monthIndex, { count: 0, amount: 0 });
-              }
-              const m = backlogMap.get(monthIndex)!;
-              m.count++;
-              m.amount += amount;
+          // 売上見込日から月インデックスを取得（文字列を渡す）
+          const monthIndex = getFiscalMonthIndex(mikomiDate);
+          if (monthIndex >= 0) {
+            if (!backlogMap.has(monthIndex)) {
+              backlogMap.set(monthIndex, { count: 0, amount: 0 });
             }
+            const m = backlogMap.get(monthIndex)!;
+            m.count++;
+            m.amount += amount;
           }
         }
       }
@@ -292,7 +355,200 @@ async function fetchBacklogData(
   }
 
   console.log(`[sales-dashboard] Backlog result: ${backlogMap.size} months with data`);
+  backlogMap.forEach((data, monthIdx) => {
+    console.log(`[sales-dashboard] Backlog month ${getFiscalMonthName(monthIdx)}: count=${data.count}, amount=${Math.round(data.amount).toLocaleString()}円`);
+  });
   return backlogMap;
+}
+
+// 受注残の詳細レコードを取得する関数（テーブル表示用）
+async function fetchBacklogRecords(
+  client: any,
+  baseToken: string,
+  dateRange: { start: string; end: string },
+  latestSalesMonthIndex: number,
+  departmentMap: Map<string, string>
+): Promise<BacklogSummary> {
+  const records: BacklogRecord[] = [];
+  let pageToken: string | undefined;
+
+  // 詳細表示に必要なフィールド
+  const BACKLOG_DETAIL_FIELDS = [
+    "製番", "受注金額", "売上見込日", "売上済フラグ", "削除フラグ",
+    "担当者", "部門", "PJ区分", "産業分類", "得意先"
+  ];
+
+  // 期間の開始・終了日をDateオブジェクトに変換
+  const startDate = parseDate(dateRange.start);
+  const endDate = parseDate(dateRange.end);
+
+  // 最終売上月の翌月1日をカットオフ日とする
+  let cutoffDate: Date | null = null;
+  if (latestSalesMonthIndex >= 0) {
+    const actualMonth = latestSalesMonthIndex < 5 ? latestSalesMonthIndex + 8 : latestSalesMonthIndex - 4;
+    const year = startDate ? (actualMonth >= 8 ? startDate.getFullYear() : startDate.getFullYear() + 1) : new Date().getFullYear();
+    const nextMonth = actualMonth === 12 ? 1 : actualMonth + 1;
+    const nextYear = actualMonth === 12 ? year + 1 : year;
+    cutoffDate = new Date(nextYear, nextMonth - 1, 1);
+  }
+
+  // 集計用マップ
+  const monthlyMap = new Map<number, { count: number; amount: number }>();
+  const officeMap = new Map<string, { count: number; amount: number }>();
+  const tantoushMap = new Map<string, { office: string; count: number; amount: number }>();
+  const pjCategoryMap = new Map<string, { count: number; amount: number }>();
+  const industryMap = new Map<string, { count: number; amount: number }>();
+
+  try {
+    do {
+      const currentPageToken = pageToken;
+      const response = await withRetry(async () => {
+        return client.bitable.appTableRecord.list({
+          path: {
+            app_token: baseToken,
+            table_id: BACKLOG_TABLE_ID,
+          },
+          params: {
+            page_size: 500,
+            page_token: currentPageToken,
+            field_names: JSON.stringify(BACKLOG_DETAIL_FIELDS),
+          },
+        });
+      });
+
+      if (response.data?.items) {
+        for (const item of response.data.items) {
+          const fields = item.fields as any;
+
+          // 売上済フラグがtrueならスキップ
+          if (fields?.["売上済フラグ"] === true) continue;
+
+          // 削除フラグがtrueならスキップ
+          if (fields?.["削除フラグ"] === true) continue;
+
+          // 売上見込日を取得
+          const mikomiDate = extractTextValue(fields?.["売上見込日"]);
+          if (!mikomiDate) continue;
+
+          const mikomiDateObj = parseDate(mikomiDate);
+          if (!mikomiDateObj) continue;
+
+          // カットオフ日以降のみ対象
+          if (cutoffDate && mikomiDateObj < cutoffDate) continue;
+
+          // 期間終了日以前のみ対象
+          if (endDate && mikomiDateObj > endDate) continue;
+
+          const seiban = extractTextValue(fields?.["製番"]) || "";
+          const amount = parseFloat(String(fields?.["受注金額"] || 0)) || 0;
+          const tantousha = extractTextValue(fields?.["担当者"]) || "未設定";
+          let office = fields?.["部門"]
+            ? extractOfficeFromDepartment(fields?.["部門"], departmentMap)
+            : "未設定";
+          if (tantousha === HQ_SALES_PERSON) {
+            office = "本社";
+          }
+          const pjCategory = extractTextValue(fields?.["PJ区分"]) || "未分類";
+          const industry = extractTextValue(fields?.["産業分類"]) || "未分類";
+          const customer = extractTextValue(fields?.["得意先"]) || "";
+          const monthIndex = getFiscalMonthIndex(mikomiDate);
+
+          // レコード追加
+          records.push({
+            seiban,
+            expectedMonth: getFiscalMonthName(monthIndex),
+            expectedMonthIndex: monthIndex,
+            office,
+            tantousha,
+            amount,
+            pjCategory,
+            industry,
+            customer,
+          });
+
+          // 月別集計
+          if (monthIndex >= 0) {
+            if (!monthlyMap.has(monthIndex)) {
+              monthlyMap.set(monthIndex, { count: 0, amount: 0 });
+            }
+            const m = monthlyMap.get(monthIndex)!;
+            m.count++;
+            m.amount += amount;
+          }
+
+          // 営業所別集計
+          if (!officeMap.has(office)) {
+            officeMap.set(office, { count: 0, amount: 0 });
+          }
+          const o = officeMap.get(office)!;
+          o.count++;
+          o.amount += amount;
+
+          // 担当者別集計
+          if (!tantoushMap.has(tantousha)) {
+            tantoushMap.set(tantousha, { office, count: 0, amount: 0 });
+          }
+          const t = tantoushMap.get(tantousha)!;
+          t.count++;
+          t.amount += amount;
+
+          // PJ区分別集計
+          if (!pjCategoryMap.has(pjCategory)) {
+            pjCategoryMap.set(pjCategory, { count: 0, amount: 0 });
+          }
+          const pj = pjCategoryMap.get(pjCategory)!;
+          pj.count++;
+          pj.amount += amount;
+
+          // 産業分類別集計
+          if (!industryMap.has(industry)) {
+            industryMap.set(industry, { count: 0, amount: 0 });
+          }
+          const ind = industryMap.get(industry)!;
+          ind.count++;
+          ind.amount += amount;
+        }
+      }
+      pageToken = response.data?.page_token;
+    } while (pageToken);
+  } catch (error) {
+    console.error(`[sales-dashboard] Backlog records fetch error:`, error);
+  }
+
+  console.log(`[sales-dashboard] Backlog records fetched: ${records.length} records`);
+
+  // 結果を配列に変換
+  const byMonth = Array.from({ length: 12 }, (_, i) => ({
+    month: getFiscalMonthName(i),
+    monthIndex: i,
+    count: monthlyMap.get(i)?.count || 0,
+    amount: monthlyMap.get(i)?.amount || 0,
+  }));
+
+  const byOffice = Array.from(officeMap.entries())
+    .map(([name, data]) => ({ name, count: data.count, amount: data.amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const byTantousha = Array.from(tantoushMap.entries())
+    .map(([name, data]) => ({ name, office: data.office, count: data.count, amount: data.amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const byPjCategory = Array.from(pjCategoryMap.entries())
+    .map(([name, data]) => ({ name, count: data.count, amount: data.amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const byIndustry = Array.from(industryMap.entries())
+    .map(([name, data]) => ({ name, count: data.count, amount: data.amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  return {
+    records: records.sort((a, b) => a.expectedMonthIndex - b.expectedMonthIndex || b.amount - a.amount),
+    byMonth,
+    byOffice,
+    byTantousha,
+    byPjCategory,
+    byIndustry,
+  };
 }
 
 interface SalesRecord {
@@ -384,6 +640,35 @@ interface DeficitRecord {
   profitRate: number;      // 粗利率
 }
 
+// 受注残レコード（詳細表示用）
+interface BacklogRecord {
+  seiban: string;           // 製番
+  expectedMonth: string;    // 売上見込月
+  expectedMonthIndex: number; // 売上見込月インデックス
+  office: string;           // 営業所
+  tantousha: string;        // 担当者
+  amount: number;           // 受注金額
+  pjCategory: string;       // PJ区分
+  industry: string;         // 産業分類
+  customer: string;         // 得意先
+}
+
+// 受注残集計サマリー
+interface BacklogSummary {
+  // 全レコード
+  records: BacklogRecord[];
+  // 月別集計
+  byMonth: { month: string; monthIndex: number; count: number; amount: number }[];
+  // 営業所別集計
+  byOffice: { name: string; count: number; amount: number }[];
+  // 担当者別集計
+  byTantousha: { name: string; office: string; count: number; amount: number }[];
+  // PJ区分別集計
+  byPjCategory: { name: string; count: number; amount: number }[];
+  // 産業分類別集計
+  byIndustry: { name: string; count: number; amount: number }[];
+}
+
 // 赤字案件分析
 interface DeficitAnalysis {
   // 赤字案件一覧
@@ -457,6 +742,8 @@ interface PeriodDashboard {
   officeSalesPersons: OfficeSalesPersons[];
   // 赤字案件分析
   deficitAnalysis: DeficitAnalysis;
+  // 受注残詳細（includeBacklog時のみ）
+  backlogSummary?: BacklogSummary;
 }
 
 export async function GET(request: NextRequest) {
@@ -525,18 +812,21 @@ export async function GET(request: NextRequest) {
     const startFetchTime = Date.now();
 
     do {
-      const response = await client.bitable.appTableRecord.list({
-        path: {
-          app_token: getLarkBaseToken(),
-          table_id: TABLE_ID,
-        },
-        params: {
-          page_size: 500,
-          page_token: pageToken,
-          filter: dateFilter,
-          field_names: JSON.stringify(requiredFields),
-          view_id: VIEWS.main, // ビューIDを使用してパフォーマンス改善
-        },
+      const currentPageToken = pageToken;
+      const response = await withRetry(async () => {
+        return client.bitable.appTableRecord.list({
+          path: {
+            app_token: getLarkBaseToken(),
+            table_id: TABLE_ID,
+          },
+          params: {
+            page_size: 500,
+            page_token: currentPageToken,
+            filter: dateFilter,
+            field_names: JSON.stringify(requiredFields),
+            view_id: VIEWS.main, // ビューIDを使用してパフォーマンス改善
+          },
+        });
       });
 
       if (response.data?.items) {
@@ -774,16 +1064,17 @@ export async function GET(request: NextRequest) {
 
       // 受注残データを取得（includeBacklogがtrueの場合）
       let backlogMap = new Map<number, { count: number; amount: number }>();
-      console.log(`[sales-dashboard] includeBacklog=${includeBacklog}, lastSalesMonthIndex=${lastSalesMonthIndex}`);
+      let backlogSummary: BacklogSummary | undefined = undefined;
+      console.log(`[sales-dashboard] includeBacklog=${includeBacklog}, lastSalesMonthIndex=${lastSalesMonthIndex >= 0 ? getFiscalMonthName(lastSalesMonthIndex) : "none"}`);
       if (includeBacklog) {
         try {
-          console.log(`[sales-dashboard] Fetching backlog data (last sales month: ${lastSalesMonthIndex >= 0 ? getFiscalMonthName(lastSalesMonthIndex) : "none"})`);
-          backlogMap = await fetchBacklogData(client, getLarkBaseToken(), BACKLOG_VIEWS.pjCategory, dateRange);
-          console.log(`[sales-dashboard] Backlog data fetched for ${backlogMap.size} months`);
-          // デバッグ: 取得したデータを出力
-          backlogMap.forEach((data, monthIdx) => {
-            console.log(`[sales-dashboard] Backlog month ${getFiscalMonthName(monthIdx)}: count=${data.count}, amount=${data.amount}`);
-          });
+          // 集計用データと詳細レコードを並列取得
+          const [backlogMapResult, backlogSummaryResult] = await Promise.all([
+            fetchBacklogData(client, getLarkBaseToken(), dateRange, lastSalesMonthIndex),
+            fetchBacklogRecords(client, getLarkBaseToken(), dateRange, lastSalesMonthIndex, departmentMap),
+          ]);
+          backlogMap = backlogMapResult;
+          backlogSummary = backlogSummaryResult;
         } catch (backlogError) {
           console.error(`[sales-dashboard] Backlog fetch failed, continuing with sales data only:`, backlogError);
           // エラー時は空のマップのまま継続（売上データのみ表示）
@@ -988,6 +1279,7 @@ export async function GET(request: NextRequest) {
         salesPersonSummary,
         officeSalesPersons,
         deficitAnalysis,
+        backlogSummary: includeBacklog ? backlogSummary : undefined,
       });
     }
 

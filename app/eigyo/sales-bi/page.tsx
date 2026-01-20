@@ -60,6 +60,7 @@ interface DimensionSummary {
   amount: number;
   cost: number;      // 原価
   profit: number;    // 粗利
+  [key: string]: string | number;  // Recharts互換用インデックスシグネチャ
 }
 
 interface MonthlyData {
@@ -140,6 +141,29 @@ interface DeficitAnalysis {
   recommendations: string[];
 }
 
+// 受注残レコード（詳細表示用）
+interface BacklogRecord {
+  seiban: string;           // 製番
+  expectedMonth: string;    // 売上見込月
+  expectedMonthIndex: number; // 売上見込月インデックス
+  office: string;           // 営業所
+  tantousha: string;        // 担当者
+  amount: number;           // 受注金額
+  pjCategory: string;       // PJ区分
+  industry: string;         // 産業分類
+  customer: string;         // 得意先
+}
+
+// 受注残集計サマリー
+interface BacklogSummary {
+  records: BacklogRecord[];
+  byMonth: { month: string; monthIndex: number; count: number; amount: number }[];
+  byOffice: { name: string; count: number; amount: number }[];
+  byTantousha: { name: string; office: string; count: number; amount: number }[];
+  byPjCategory: { name: string; count: number; amount: number }[];
+  byIndustry: { name: string; count: number; amount: number }[];
+}
+
 interface PeriodDashboard {
   period: number;
   dateRange: { start: string; end: string };
@@ -147,6 +171,12 @@ interface PeriodDashboard {
   totalAmount: number;
   totalCost: number;     // 原価合計
   totalProfit: number;   // 粗利合計
+  // 受注残関連
+  lastSalesMonthIndex?: number;
+  lastSalesMonth?: string;
+  includeBacklog?: boolean;
+  totalBacklogCount?: number;
+  totalBacklogAmount?: number;
   monthlyData: MonthlyData[];
   quarterlyData: QuarterlyData[];
   cumulativeData: MonthlyData[];
@@ -167,6 +197,7 @@ interface PeriodDashboard {
   salesPersonSummary: SalesPersonSummary[];
   officeSalesPersons: OfficeSalesPersons[];
   deficitAnalysis?: DeficitAnalysis;
+  backlogSummary?: BacklogSummary;
 }
 
 interface OfficeBudget {
@@ -646,6 +677,225 @@ function DashboardSkeleton() {
   );
 }
 
+// 受注残テーブルコンポーネント（色分け表示）
+function BacklogTable({
+  backlogSummary,
+  salesData,
+  filterOffice,
+  filterTantousha,
+  filterMonth,
+  showType = "combined",
+}: {
+  backlogSummary?: BacklogSummary;
+  salesData?: {
+    byOffice: DimensionSummary[];
+    byTantousha: SalesPersonSummary[];
+    byMonth: MonthlyData[];
+  };
+  filterOffice?: string;
+  filterTantousha?: string;
+  filterMonth?: number;
+  showType?: "sales" | "backlog" | "combined";
+}) {
+  if (!backlogSummary && !salesData) return null;
+
+  // 営業所別の売上+受注残統合データ
+  const officeData = useMemo(() => {
+    const result: { name: string; salesAmount: number; salesCount: number; backlogAmount: number; backlogCount: number }[] = [];
+    const officeNames = new Set<string>();
+
+    // 売上データから営業所を収集
+    salesData?.byOffice?.forEach((o) => officeNames.add(o.name));
+    // 受注残データから営業所を収集
+    backlogSummary?.byOffice?.forEach((o) => officeNames.add(o.name));
+
+    officeNames.forEach((name) => {
+      if (filterOffice && filterOffice !== name) return;
+      const salesItem = salesData?.byOffice?.find((o) => o.name === name);
+      const backlogItem = backlogSummary?.byOffice?.find((o) => o.name === name);
+      result.push({
+        name,
+        salesAmount: salesItem?.amount || 0,
+        salesCount: salesItem?.count || 0,
+        backlogAmount: backlogItem?.amount || 0,
+        backlogCount: backlogItem?.count || 0,
+      });
+    });
+
+    return result.sort((a, b) => (b.salesAmount + b.backlogAmount) - (a.salesAmount + a.backlogAmount));
+  }, [salesData, backlogSummary, filterOffice]);
+
+  // 担当者別の売上+受注残統合データ
+  const tantoData = useMemo(() => {
+    const result: { name: string; office: string; salesAmount: number; salesCount: number; backlogAmount: number; backlogCount: number }[] = [];
+    const tantoNames = new Set<string>();
+
+    // 売上データから担当者を収集
+    salesData?.byTantousha?.forEach((t) => tantoNames.add(t.name));
+    // 受注残データから担当者を収集
+    backlogSummary?.byTantousha?.forEach((t) => tantoNames.add(t.name));
+
+    tantoNames.forEach((name) => {
+      const salesItem = salesData?.byTantousha?.find((t) => t.name === name);
+      const backlogItem = backlogSummary?.byTantousha?.find((t) => t.name === name);
+      const office = salesItem?.office || backlogItem?.office || "未設定";
+      if (filterOffice && filterOffice !== office) return;
+      if (filterTantousha && filterTantousha !== name) return;
+      result.push({
+        name,
+        office,
+        salesAmount: salesItem?.amount || 0,
+        salesCount: salesItem?.count || 0,
+        backlogAmount: backlogItem?.amount || 0,
+        backlogCount: backlogItem?.count || 0,
+      });
+    });
+
+    return result.sort((a, b) => (b.salesAmount + b.backlogAmount) - (a.salesAmount + a.backlogAmount));
+  }, [salesData, backlogSummary, filterOffice, filterTantousha]);
+
+  // 月別の売上+受注残統合データ
+  const monthData = useMemo(() => {
+    const result: { month: string; monthIndex: number; salesAmount: number; salesCount: number; backlogAmount: number; backlogCount: number }[] = [];
+
+    for (let i = 0; i < 12; i++) {
+      if (filterMonth !== undefined && filterMonth !== i) continue;
+      const salesItem = salesData?.byMonth?.[i];
+      const backlogItem = backlogSummary?.byMonth?.[i];
+      result.push({
+        month: salesItem?.month || backlogItem?.month || `${i + 1}月`,
+        monthIndex: i,
+        salesAmount: salesItem?.amount || 0,
+        salesCount: salesItem?.count || 0,
+        backlogAmount: backlogItem?.amount || 0,
+        backlogCount: backlogItem?.count || 0,
+      });
+    }
+
+    return result;
+  }, [salesData, backlogSummary, filterMonth]);
+
+  const formatAmount = (amount: number) => {
+    if (amount >= 100000000) {
+      return `${(amount / 100000000).toFixed(1)}億`;
+    } else if (amount >= 10000) {
+      return `${Math.round(amount / 10000).toLocaleString()}万`;
+    }
+    return amount.toLocaleString();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* 営業所別 */}
+      {officeData.length > 0 && (
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2">
+            <h4 className="text-sm font-bold text-white">営業所別 売上・受注残</h4>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">営業所</th>
+                  <th className="px-3 py-2 text-right font-medium text-blue-600">売上済金額</th>
+                  <th className="px-3 py-2 text-right font-medium text-blue-600">件数</th>
+                  <th className="px-3 py-2 text-right font-medium text-amber-600">受注残金額</th>
+                  <th className="px-3 py-2 text-right font-medium text-amber-600">件数</th>
+                  <th className="px-3 py-2 text-right font-medium text-gray-800">合計金額</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {officeData.map((item) => (
+                  <tr key={item.name} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 font-medium text-gray-800">{item.name}</td>
+                    <td className="px-3 py-2 text-right text-blue-600">{formatAmount(item.salesAmount)}円</td>
+                    <td className="px-3 py-2 text-right text-blue-500">{item.salesCount}</td>
+                    <td className="px-3 py-2 text-right text-amber-600">{formatAmount(item.backlogAmount)}円</td>
+                    <td className="px-3 py-2 text-right text-amber-500">{item.backlogCount}</td>
+                    <td className="px-3 py-2 text-right font-bold text-gray-800">{formatAmount(item.salesAmount + item.backlogAmount)}円</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 担当者別 */}
+      {tantoData.length > 0 && (
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-4 py-2">
+            <h4 className="text-sm font-bold text-white">担当者別 売上・受注残</h4>
+          </div>
+          <div className="overflow-x-auto max-h-96">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">担当者</th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">営業所</th>
+                  <th className="px-3 py-2 text-right font-medium text-blue-600">売上済金額</th>
+                  <th className="px-3 py-2 text-right font-medium text-blue-600">件数</th>
+                  <th className="px-3 py-2 text-right font-medium text-amber-600">受注残金額</th>
+                  <th className="px-3 py-2 text-right font-medium text-amber-600">件数</th>
+                  <th className="px-3 py-2 text-right font-medium text-gray-800">合計金額</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {tantoData.map((item) => (
+                  <tr key={item.name} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 font-medium text-gray-800">{item.name}</td>
+                    <td className="px-3 py-2 text-gray-600">{item.office}</td>
+                    <td className="px-3 py-2 text-right text-blue-600">{formatAmount(item.salesAmount)}円</td>
+                    <td className="px-3 py-2 text-right text-blue-500">{item.salesCount}</td>
+                    <td className="px-3 py-2 text-right text-amber-600">{formatAmount(item.backlogAmount)}円</td>
+                    <td className="px-3 py-2 text-right text-amber-500">{item.backlogCount}</td>
+                    <td className="px-3 py-2 text-right font-bold text-gray-800">{formatAmount(item.salesAmount + item.backlogAmount)}円</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 月別 */}
+      {monthData.length > 0 && (
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2">
+            <h4 className="text-sm font-bold text-white">月別 売上・受注残</h4>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">月</th>
+                  <th className="px-3 py-2 text-right font-medium text-blue-600">売上済金額</th>
+                  <th className="px-3 py-2 text-right font-medium text-blue-600">件数</th>
+                  <th className="px-3 py-2 text-right font-medium text-amber-600">受注残金額</th>
+                  <th className="px-3 py-2 text-right font-medium text-amber-600">件数</th>
+                  <th className="px-3 py-2 text-right font-medium text-gray-800">合計金額</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {monthData.map((item) => (
+                  <tr key={item.monthIndex} className={`hover:bg-gray-50 ${item.backlogAmount > 0 ? "bg-amber-50/50" : ""}`}>
+                    <td className="px-3 py-2 font-medium text-gray-800">{item.month}</td>
+                    <td className="px-3 py-2 text-right text-blue-600">{formatAmount(item.salesAmount)}円</td>
+                    <td className="px-3 py-2 text-right text-blue-500">{item.salesCount}</td>
+                    <td className="px-3 py-2 text-right text-amber-600">{item.backlogAmount > 0 ? `${formatAmount(item.backlogAmount)}円` : "-"}</td>
+                    <td className="px-3 py-2 text-right text-amber-500">{item.backlogCount > 0 ? item.backlogCount : "-"}</td>
+                    <td className="px-3 py-2 text-right font-bold text-gray-800">{formatAmount(item.salesAmount + item.backlogAmount)}円</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BIDashboardPage() {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
@@ -898,20 +1148,25 @@ export default function BIDashboardPage() {
   }, [budget, ytdComparison]);
 
   // 粗利予算（年度・累計）- 全社KPIから計算
+  // 粗利予算 = 年間売上目標 - (年間売上目標 × 原価率)
   const profitBudget = useMemo(() => {
-    if (!companyKPI) return { yearly: 0, ytd: 0, targetRate: 0 };
+    if (!companyKPI || !budget) return { yearly: 0, ytd: 0, targetRate: 0 };
+    // 原価率（%）
+    const costRate = companyKPI.costOfSalesRate / 100;
     // 粗利率目標 = 100 - 売上原価率
     const targetProfitRate = 100 - companyKPI.costOfSalesRate;
-    // 年度粗利予算 = 売上目標 × 粗利率目標（千円単位なので×1000）
-    const yearlyProfitBudget = companyKPI.salesTarget * 1000 * (targetProfitRate / 100);
-    // YTD粗利予算 = YTD売上予算 × 粗利率目標
-    const ytdProfitBudget = ytdBudget * (targetProfitRate / 100);
+    // 年間売上目標（円）- 売上予算を使用
+    const yearlySalesTarget = budget.yearlyBudget;
+    // 年度粗利予算 = 年間売上目標 - (年間売上目標 × 原価率)
+    const yearlyProfitBudget = yearlySalesTarget - (yearlySalesTarget * costRate);
+    // YTD粗利予算 = YTD売上予算 - (YTD売上予算 × 原価率)
+    const ytdProfitBudget = ytdBudget - (ytdBudget * costRate);
     return {
       yearly: yearlyProfitBudget,
       ytd: ytdProfitBudget,
       targetRate: targetProfitRate,
     };
-  }, [companyKPI, ytdBudget]);
+  }, [companyKPI, budget, ytdBudget]);
 
   // 3年間平均単価計算
   const avgUnitPrices = useMemo(() => {
@@ -1749,13 +2004,13 @@ export default function BIDashboardPage() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       <KPICard
-                        title="売上金額"
+                        title={includeBacklog && currentData.totalBacklogAmount ? "売上+受注残" : "売上金額"}
                       value={formatAmount(currentData.totalAmount)}
                       unit="円"
                       change={ytdComparison ? calcChange(ytdComparison.currentAmount, ytdComparison.previousAmount) : undefined}
                       changeLabel={ytdComparison ? `累計前年比（${ytdComparison.lastMonth}まで）` : undefined}
                       icon={<TrendingUp className="w-5 h-5 text-white" />}
-                      color="emerald"
+                      color={includeBacklog && currentData.totalBacklogAmount ? "orange" : "emerald"}
                       budgetAmount={budget?.yearlyBudget}
                       actualAmount={currentData.totalAmount}
                       ytdBudgetAmount={ytdBudget}
@@ -3369,6 +3624,30 @@ export default function BIDashboardPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* 受注残テーブル（営業所別・受注込チェック時のみ表示） */}
+                  {includeBacklog && currentData.backlogSummary && (
+                    <div className="mt-4">
+                      <div className="bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-300 rounded-lg p-3 mb-4">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-600" />
+                          <span className="text-sm font-bold text-amber-800">営業所別 受注残データ</span>
+                          <span className="text-xs text-amber-600">
+                            {selectedOfficeForDetail ? `${selectedOfficeForDetail}の` : ""}受注残: {currentData.totalBacklogCount}件
+                          </span>
+                        </div>
+                      </div>
+                      <BacklogTable
+                        backlogSummary={currentData.backlogSummary}
+                        salesData={{
+                          byOffice: currentData.officeSummary,
+                          byTantousha: currentData.salesPersonSummary,
+                          byMonth: currentData.monthlyData,
+                        }}
+                        filterOffice={selectedOfficeForDetail || undefined}
+                      />
+                    </div>
+                  )}
                 </>
               )}
 
@@ -4025,6 +4304,32 @@ export default function BIDashboardPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* 受注残テーブル（担当者別・受注込チェック時のみ表示） */}
+                  {includeBacklog && currentData.backlogSummary && (
+                    <div className="mt-4">
+                      <div className="bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-300 rounded-lg p-3 mb-4">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-600" />
+                          <span className="text-sm font-bold text-amber-800">担当者別 受注残データ</span>
+                          <span className="text-xs text-amber-600">
+                            {selectedSalesPerson ? `${selectedSalesPerson}の` : selectedOffice ? `${selectedOffice}の` : ""}
+                            受注残: {currentData.totalBacklogCount}件
+                          </span>
+                        </div>
+                      </div>
+                      <BacklogTable
+                        backlogSummary={currentData.backlogSummary}
+                        salesData={{
+                          byOffice: currentData.officeSummary,
+                          byTantousha: currentData.salesPersonSummary,
+                          byMonth: currentData.monthlyData,
+                        }}
+                        filterOffice={selectedOffice || undefined}
+                        filterTantousha={selectedSalesPerson || undefined}
+                      />
+                    </div>
+                  )}
                 </>
               )}
 
@@ -4408,7 +4713,7 @@ export default function BIDashboardPage() {
                               cx="50%"
                               cy="50%"
                               outerRadius={80}
-                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                               labelLine={{ stroke: "#666", strokeWidth: 1 }}
                             >
                               {currentData.industrySummary.slice(0, 5).map((_, i) => (
@@ -4553,6 +4858,30 @@ export default function BIDashboardPage() {
                       </div>
                     )}
                   </div>
+
+                  {/* 受注残テーブル（受注込チェック時のみ表示） */}
+                  {includeBacklog && currentData.backlogSummary && (
+                    <div className="mt-4">
+                      <div className="bg-gradient-to-r from-amber-100 to-orange-100 border border-amber-300 rounded-lg p-3 mb-4">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-amber-600" />
+                          <span className="text-sm font-bold text-amber-800">受注残（売上見込）データ</span>
+                          <span className="text-xs text-amber-600">
+                            最終売上月: {currentData.lastSalesMonth} |
+                            受注残: {currentData.totalBacklogCount}件 / {formatAmount(currentData.totalBacklogAmount || 0)}円
+                          </span>
+                        </div>
+                      </div>
+                      <BacklogTable
+                        backlogSummary={currentData.backlogSummary}
+                        salesData={{
+                          byOffice: currentData.officeSummary,
+                          byTantousha: currentData.salesPersonSummary,
+                          byMonth: currentData.monthlyData,
+                        }}
+                      />
+                    </div>
+                  )}
                 </>
               )}
 

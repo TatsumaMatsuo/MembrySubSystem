@@ -12,18 +12,25 @@ function LarkCallbackContent() {
 
   useEffect(() => {
     const code = searchParams.get("code");
-    const callbackUrl = searchParams.get("callbackUrl") || "/";
+    const state = searchParams.get("state");
+    const callbackUrl = state ? decodeURIComponent(state) : "/";
 
     if (!code) {
       setError("認証コードが見つかりません");
       return;
     }
 
-    // NextAuthのcredentials providerでサインイン
+    // CredentialsProviderでサインイン
     signIn("lark", {
       code,
-      callbackUrl,
-      redirect: true,
+      redirect: false,
+    }).then((result) => {
+      if (result?.error) {
+        console.error("[Lark Callback] SignIn error:", result.error);
+        setError("認証に失敗しました");
+      } else if (result?.ok) {
+        router.push(callbackUrl);
+      }
     }).catch((err) => {
       console.error("[Lark Callback] SignIn error:", err);
       setError("認証に失敗しました");

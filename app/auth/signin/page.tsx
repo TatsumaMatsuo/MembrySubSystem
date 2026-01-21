@@ -1,6 +1,5 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { FileText, Shield } from "lucide-react";
@@ -10,8 +9,17 @@ function SignInContent() {
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const error = searchParams.get("error");
 
-  const handleSignIn = async () => {
-    await signIn("lark", { callbackUrl });
+  const handleSignIn = () => {
+    // Lark OAuth認証URLにリダイレクト
+    const appId = process.env.NEXT_PUBLIC_LARK_OAUTH_CLIENT_ID;
+    const redirectUri = process.env.NEXT_PUBLIC_LARK_OAUTH_REDIRECT_URI;
+
+    // state パラメータにcallbackUrlを含める
+    const state = encodeURIComponent(callbackUrl);
+
+    const authUrl = `https://open.feishu.cn/open-apis/authen/v1/index?app_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri || "")}&state=${state}`;
+
+    window.location.href = authUrl;
   };
 
   return (
@@ -37,6 +45,8 @@ function SignInContent() {
                   ? "このメールアドレスは既に別のアカウントと連携されています。"
                   : error === "OAuthCallback"
                   ? "認証中にエラーが発生しました。もう一度お試しください。"
+                  : error === "CredentialsSignin"
+                  ? "認証に失敗しました。もう一度お試しください。"
                   : "ログインに失敗しました。もう一度お試しください。"}
               </p>
             </div>

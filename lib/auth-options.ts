@@ -1,95 +1,92 @@
 import { NextAuthOptions } from "next-auth";
 import { JWT } from "next-auth/jwt";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { MembershipType } from "@/types";
 import { getEmployeeByEmail } from "@/services/employee.service";
 
+// Lark トークン取得
+async function getLarkAccessToken(code: string) {
+  const response = await fetch(
+    "https://open.feishu.cn/open-apis/authen/v1/access_token",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        grant_type: "authorization_code",
+        code,
+        app_id: process.env.LARK_OAUTH_CLIENT_ID,
+        app_secret: process.env.LARK_OAUTH_CLIENT_SECRET,
+      }),
+    }
+  );
+
+  const data = await response.json();
+  if (data.code !== 0) {
+    throw new Error(`Lark token error: ${data.msg}`);
+  }
+  return data.data;
+}
+
+// Lark ユーザー情報取得
+async function getLarkUserInfo(accessToken: string) {
+  const response = await fetch(
+    "https://open.feishu.cn/open-apis/authen/v1/user_info",
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  const data = await response.json();
+  if (data.code !== 0) {
+    throw new Error(`Lark userinfo error: ${data.msg}`);
+  }
+  return data.data;
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
-    {
+    CredentialsProvider({
       id: "lark",
-      name: "Lark (Feishu)",
-      type: "oauth",
-      checks: ["state"],
-      authorization: {
-        url: "https://open.feishu.cn/open-apis/authen/v1/index",
-        params: {
-          app_id: process.env.LARK_OAUTH_CLIENT_ID,
-          redirect_uri: process.env.LARK_OAUTH_REDIRECT_URI,
-        },
+      name: "Lark",
+      credentials: {
+        code: { label: "Code", type: "text" },
       },
-      token: {
-        url: "https://open.feishu.cn/open-apis/authen/v1/access_token",
-        async request({ params }) {
-          // Larkの認証コードを使ってアクセストークンを取得
-          const response = await fetch(
-            "https://open.feishu.cn/open-apis/authen/v1/access_token",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                grant_type: "authorization_code",
-                code: params.code,
-                app_id: process.env.LARK_OAUTH_CLIENT_ID,
-                app_secret: process.env.LARK_OAUTH_CLIENT_SECRET,
-              }),
-            }
-          );
+      async authorize(credentials) {
+        if (!credentials?.code) {
+          return null;
+        }
 
-          const tokens = await response.json();
+        try {
+          // Lark からトークン取得
+          const tokenData = await getLarkAccessToken(credentials.code);
 
-          if (tokens.code !== 0) {
-            throw new Error(`Lark auth error: ${tokens.msg}`);
-          }
+          // ユーザー情報取得
+          const userInfo = await getLarkUserInfo(tokenData.access_token);
 
           return {
-            tokens: {
-              access_token: tokens.data.access_token,
-              refresh_token: tokens.data.refresh_token,
-              expires_in: tokens.data.expires_in,
-            },
+            id: userInfo.open_id || userInfo.union_id,
+            name: userInfo.name,
+            email: userInfo.email || userInfo.enterprise_email,
+            image: userInfo.avatar_url || userInfo.avatar_thumb,
+            accessToken: tokenData.access_token,
+            refreshToken: tokenData.refresh_token,
           };
-        },
+        } catch (error) {
+          console.error("[Lark Auth] Error:", error);
+          return null;
+        }
       },
-      userinfo: {
-        async request({ tokens }) {
-          // アクセストークンを使ってユーザー情報を取得
-          const response = await fetch(
-            "https://open.feishu.cn/open-apis/authen/v1/user_info",
-            {
-              headers: {
-                Authorization: `Bearer ${tokens.access_token}`,
-              },
-            }
-          );
-
-          const userInfo = await response.json();
-
-          if (userInfo.code !== 0) {
-            throw new Error(`Lark userinfo error: ${userInfo.msg}`);
-          }
-
-          return userInfo.data;
-        },
-      },
-      clientId: process.env.LARK_OAUTH_CLIENT_ID,
-      clientSecret: process.env.LARK_OAUTH_CLIENT_SECRET,
-      profile(profile) {
-        return {
-          id: profile.open_id || profile.union_id,
-          name: profile.name,
-          email: profile.email || profile.enterprise_email,
-          image: profile.avatar_url || profile.avatar_thumb,
-        };
-      },
-    },
+    }),
   ],
   callbacks: {
-    async jwt({ token, user, account }): Promise<JWT> {
-      if (account && user) {
-        token.accessToken = account.access_token;
-        token.refreshToken = account.refresh_token;
+    async jwt({ token, user }): Promise<JWT> {
+      if (user) {
+        token.accessToken = (user as any).accessToken;
+        token.refreshToken = (user as any).refreshToken;
         token.userId = user.id;
         token.email = user.email ?? undefined;
 
@@ -109,7 +106,6 @@ export const authOptions: NextAuthOptions = {
               console.log("[auth] Employee found:", { employeeId, employeeName, department });
             } else {
               console.log("[auth] Employee not found for email:", user.email);
-              // 社員マスタに存在しない場合は外部ユーザーとして扱う
               membershipType = "external";
             }
           } catch (error) {
@@ -145,10 +141,10 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 4 * 60 * 60, // 4時間（秒単位）
+    maxAge: 4 * 60 * 60, // 4時間
   },
   jwt: {
-    maxAge: 4 * 60 * 60, // 4時間（秒単位）
+    maxAge: 4 * 60 * 60, // 4時間
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

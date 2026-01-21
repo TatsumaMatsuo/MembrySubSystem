@@ -6,18 +6,35 @@ const SECRET = new TextEncoder().encode(
   process.env.NEXTAUTH_SECRET || "fallback-secret-key-for-development"
 );
 
-// Lark トークン取得
-async function getLarkAccessToken(code: string) {
+// Tenant Access Token 取得
+async function getTenantAccessToken() {
   const response = await fetch(
-    "https://open.feishu.cn/open-apis/authen/v1/access_token",
+    "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        grant_type: "authorization_code",
-        code,
         app_id: process.env.LARK_OAUTH_CLIENT_ID,
         app_secret: process.env.LARK_OAUTH_CLIENT_SECRET,
+      }),
+    }
+  );
+  return response.json();
+}
+
+// Lark ユーザーアクセストークン取得 (OIDC)
+async function getLarkAccessToken(code: string, tenantAccessToken: string) {
+  const response = await fetch(
+    "https://open.feishu.cn/open-apis/authen/v1/oidc/access_token",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tenantAccessToken}`,
+      },
+      body: JSON.stringify({
+        grant_type: "authorization_code",
+        code,
       }),
     }
   );
@@ -68,8 +85,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Code is required" }, { status: 400 });
     }
 
-    // Lark トークン取得
-    const tokenData = await getLarkAccessToken(code);
+    // Tenant Access Token 取得
+    const tenantData = await getTenantAccessToken();
+    if (tenantData.code !== 0) {
+      console.error("[Lark Auth] Tenant token error:", tenantData.msg);
+      return NextResponse.json({ error: `Tenant token error: ${tenantData.msg}` }, { status: 500 });
+    }
+
+    // Lark ユーザートークン取得
+    const tokenData = await getLarkAccessToken(code, tenantData.tenant_access_token);
     if (tokenData.code !== 0) {
       console.error("[Lark Auth] Token error:", tokenData.msg);
       return NextResponse.json({ error: tokenData.msg }, { status: 401 });

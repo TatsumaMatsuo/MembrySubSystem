@@ -76,6 +76,7 @@ const authOptions: NextAuthOptions = {
     maxAge: 4 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: true,
 };
 
 const handler = NextAuth(authOptions);

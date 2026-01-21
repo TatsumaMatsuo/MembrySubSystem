@@ -26,6 +26,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico, public assets
      */
-    "/((?!api/auth|auth|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
+    "/((?!api/auth|api/debug-env|auth|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
   ],
 };

@@ -47,6 +47,21 @@ async function createToken(payload: any) {
 // POST: Lark認証コードでログイン
 export async function POST(request: NextRequest) {
   try {
+    // 環境変数のバリデーション
+    const appId = process.env.LARK_OAUTH_CLIENT_ID;
+    const appSecret = process.env.LARK_OAUTH_CLIENT_SECRET;
+
+    if (!appId || !appSecret) {
+      console.error("[Lark Auth] Missing env vars:", {
+        hasAppId: !!appId,
+        hasAppSecret: !!appSecret,
+      });
+      return NextResponse.json(
+        { error: `Server configuration error: missing ${!appId ? "app_id" : ""}${!appId && !appSecret ? " and " : ""}${!appSecret ? "app_secret" : ""}` },
+        { status: 500 }
+      );
+    }
+
     const { code } = await request.json();
 
     if (!code) {

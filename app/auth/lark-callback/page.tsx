@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { Suspense } from "react";
 
 function LarkCallbackContent() {
@@ -20,21 +19,25 @@ function LarkCallbackContent() {
       return;
     }
 
-    // CredentialsProviderでサインイン
-    signIn("lark", {
-      code,
-      redirect: false,
-    }).then((result) => {
-      if (result?.error) {
-        console.error("[Lark Callback] SignIn error:", result.error);
+    // カスタム認証APIでサインイン
+    fetch("/api/auth/lark", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          router.push(callbackUrl);
+        } else {
+          console.error("[Lark Callback] Auth error:", data.error);
+          setError("認証に失敗しました: " + (data.error || "Unknown error"));
+        }
+      })
+      .catch((err) => {
+        console.error("[Lark Callback] Auth error:", err);
         setError("認証に失敗しました");
-      } else if (result?.ok) {
-        router.push(callbackUrl);
-      }
-    }).catch((err) => {
-      console.error("[Lark Callback] SignIn error:", err);
-      setError("認証に失敗しました");
-    });
+      });
   }, [searchParams, router]);
 
   if (error) {

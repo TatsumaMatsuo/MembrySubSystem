@@ -2,7 +2,6 @@ import { NextAuthOptions } from "next-auth";
 import { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { MembershipType } from "@/types";
-import { getEmployeeByEmail } from "@/services/employee.service";
 
 // Lark トークン取得
 async function getLarkAccessToken(code: string) {
@@ -98,6 +97,8 @@ export const authOptions: NextAuthOptions = {
 
         if (user.email) {
           try {
+            // 動的インポートでLarkクライアント初期化エラーを回避
+            const { getEmployeeByEmail } = await import("@/services/employee.service");
             const employee = await getEmployeeByEmail(user.email);
             if (employee) {
               employeeId = employee.社員コード;

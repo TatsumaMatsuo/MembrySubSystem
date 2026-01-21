@@ -8,14 +8,22 @@ const SECRET = new TextEncoder().encode(
 
 // Tenant Access Token 取得
 async function getTenantAccessToken() {
+  const appId = process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID;
+  const appSecret = process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET;
+
+  console.log("[Lark Auth] getTenantAccessToken with:", {
+    appIdLen: appId?.length,
+    appSecretLen: appSecret?.length,
+  });
+
   const response = await fetch(
     "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json; charset=utf-8" },
       body: JSON.stringify({
-        app_id: process.env.LARK_OAUTH_CLIENT_ID,
-        app_secret: process.env.LARK_OAUTH_CLIENT_SECRET,
+        app_id: appId,
+        app_secret: appSecret,
       }),
     }
   );

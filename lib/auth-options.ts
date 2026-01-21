@@ -1,7 +1,5 @@
 import { NextAuthOptions } from "next-auth";
-import { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { MembershipType } from "@/types";
 
 // Lark トークン取得
 async function getLarkAccessToken(code: string) {
@@ -60,10 +58,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          // Lark からトークン取得
           const tokenData = await getLarkAccessToken(credentials.code);
-
-          // ユーザー情報取得
           const userInfo = await getLarkUserInfo(tokenData.access_token);
 
           return {
@@ -71,8 +66,6 @@ export const authOptions: NextAuthOptions = {
             name: userInfo.name,
             email: userInfo.email || userInfo.enterprise_email,
             image: userInfo.avatar_url || userInfo.avatar_thumb,
-            accessToken: tokenData.access_token,
-            refreshToken: tokenData.refresh_token,
           };
         } catch (error) {
           console.error("[Lark Auth] Error:", error);
@@ -81,71 +74,13 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }): Promise<JWT> {
-      if (user) {
-        token.accessToken = (user as any).accessToken;
-        token.refreshToken = (user as any).refreshToken;
-        token.userId = user.id;
-        token.email = user.email ?? undefined;
-
-        // 社員マスタからユーザー情報を取得
-        let employeeId: string | null = null;
-        let employeeName: string | null = null;
-        let department: string | null = null;
-        let membershipType: MembershipType = "internal";
-
-        if (user.email) {
-          try {
-            // 動的インポートでLarkクライアント初期化エラーを回避
-            const { getEmployeeByEmail } = await import("@/services/employee.service");
-            const employee = await getEmployeeByEmail(user.email);
-            if (employee) {
-              employeeId = employee.社員コード;
-              employeeName = employee.社員名;
-              department = employee.部署 || null;
-              console.log("[auth] Employee found:", { employeeId, employeeName, department });
-            } else {
-              console.log("[auth] Employee not found for email:", user.email);
-              membershipType = "external";
-            }
-          } catch (error) {
-            console.error("[auth] Error fetching employee:", error);
-          }
-        }
-
-        token.employeeId = employeeId;
-        token.employeeName = employeeName;
-        token.department = department;
-        token.membershipType = membershipType;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.userId as string,
-          employeeId: token.employeeId as string | null,
-          employeeName: token.employeeName as string | null,
-          department: token.department as string | null,
-          membershipType: token.membershipType as MembershipType | null,
-        },
-        accessToken: token.accessToken as string,
-      };
-    },
-  },
   pages: {
     signIn: "/auth/signin",
     error: "/auth/error",
   },
   session: {
     strategy: "jwt",
-    maxAge: 4 * 60 * 60, // 4時間
-  },
-  jwt: {
-    maxAge: 4 * 60 * 60, // 4時間
+    maxAge: 4 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

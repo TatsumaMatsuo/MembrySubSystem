@@ -9,7 +9,7 @@ export const authOptions: NextAuthOptions = {
       id: "lark",
       name: "Lark (Feishu)",
       type: "oauth",
-      wellKnown: undefined,
+      checks: ["state"],
       authorization: {
         url: "https://open.feishu.cn/open-apis/authen/v1/index",
         params: {

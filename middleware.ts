@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
+// AWS Amplify SSR では環境変数にアクセスできないため、lark-auth と同じフォールバック値を使用
 const SECRET = new TextEncoder().encode(
-  process.env.NEXTAUTH_SECRET || "fallback-secret-key-for-development"
+  process.env.NEXTAUTH_SECRET || "baiyaku_info_secret_key_12345"
 );
 
 export async function middleware(request: NextRequest) {

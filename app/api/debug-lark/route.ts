@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
+// GET: 環境変数テスト
 export async function GET() {
   const appId = process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID;
   const appSecret = process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET;
 
-  // リクエストボディを構築
   const requestBody = {
     app_id: appId,
     app_secret: appSecret,
@@ -48,4 +48,25 @@ export async function GET() {
       error: error.message,
     });
   }
+}
+
+// POST: Lark認証コードでログイン（環境変数テスト含む）
+export async function POST(request: NextRequest) {
+  const appId = process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID;
+  const appSecret = process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET;
+
+  // 環境変数チェック
+  const envCheck = {
+    hasAppId: !!appId,
+    appIdLen: appId?.length,
+    hasAppSecret: !!appSecret,
+    appSecretLen: appSecret?.length,
+  };
+
+  // POSTでも環境変数が利用可能かテスト
+  return NextResponse.json({
+    method: "POST",
+    envCheck,
+    message: "POST handler env check",
+  });
 }

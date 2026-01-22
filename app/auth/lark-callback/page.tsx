@@ -19,24 +19,17 @@ function LarkCallbackContent() {
       return;
     }
 
-    // カスタム認証APIでサインイン (api/auth パスを避けて api/lark-auth を使用)
-    fetch("/api/lark-auth", {
+    // テスト: debug-lark POST で環境変数が利用可能かチェック
+    fetch("/api/debug-lark", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code }),
     })
       .then((res) => res.json())
       .then((data) => {
-        if (data.success) {
-          router.push(callbackUrl);
-        } else {
-          console.error("[Lark Callback] Auth error:", data);
-          // デバッグ情報を含む完全なエラーを表示
-          const errorMsg = data.debug
-            ? `${data.error}\n\nDebug: ${JSON.stringify(data.debug, null, 2)}`
-            : (data.error || "Unknown error");
-          setError("認証に失敗しました: " + errorMsg);
-        }
+        // テスト用: debug-larkのレスポンスを表示
+        console.log("[Lark Callback] Response:", data);
+        setError("テスト結果:\n" + JSON.stringify(data, null, 2));
       })
       .catch((err) => {
         console.error("[Lark Callback] Auth error:", err);

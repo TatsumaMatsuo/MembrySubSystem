@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// AWS Amplify SSR で POST ハンドラーが環境変数にアクセスできるようにする
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 // GET: 環境変数テスト
 export async function GET() {
   const appId = process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID;

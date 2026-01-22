@@ -2,18 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 
-// モジュールレベルで環境変数を読み込み（ビルド時に埋め込まれる）
-const LARK_APP_ID = process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID || "";
-const LARK_APP_SECRET = process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET || "";
-const NEXTAUTH_SECRET_VALUE = process.env.NEXTAUTH_SECRET || "fallback-secret-key-for-development";
+// AWS Amplify SSR で POST ハンドラーが環境変数にアクセスできるようにする
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-const SECRET = new TextEncoder().encode(NEXTAUTH_SECRET_VALUE);
+// 環境変数を取得するヘルパー関数（ランタイムで評価）
+function getEnvVars() {
+  return {
+    appId: process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID || "",
+    appSecret: process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET || "",
+    jwtSecret: process.env.NEXTAUTH_SECRET || "fallback-secret-key-for-development",
+  };
+}
 
 // Tenant Access Token 取得
 async function getTenantAccessToken() {
+  const { appId, appSecret } = getEnvVars();
+
   console.log("[Lark Auth] getTenantAccessToken with:", {
-    appIdLen: LARK_APP_ID?.length,
-    appSecretLen: LARK_APP_SECRET?.length,
+    appIdLen: appId?.length,
+    appSecretLen: appSecret?.length,
   });
 
   const response = await fetch(
@@ -22,8 +30,8 @@ async function getTenantAccessToken() {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8" },
       body: JSON.stringify({
-        app_id: LARK_APP_ID,
-        app_secret: LARK_APP_SECRET,
+        app_id: appId,
+        app_secret: appSecret,
       }),
     }
   );
@@ -62,6 +70,8 @@ async function getLarkUserInfo(accessToken: string) {
 
 // JWT トークン作成
 async function createToken(payload: any) {
+  const { jwtSecret } = getEnvVars();
+  const SECRET = new TextEncoder().encode(jwtSecret);
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -72,12 +82,14 @@ async function createToken(payload: any) {
 // POST: Lark認証コードでログイン
 export async function POST(request: NextRequest) {
   try {
-    // デバッグ: モジュールレベル変数の状態をログ出力
-    console.log("[Lark Auth] Module-level env check:", {
-      hasAppId: !!LARK_APP_ID,
-      appIdLen: LARK_APP_ID?.length,
-      hasAppSecret: !!LARK_APP_SECRET,
-      appSecretLen: LARK_APP_SECRET?.length,
+    const { appId, appSecret } = getEnvVars();
+
+    // デバッグ: 環境変数の状態をログ出力
+    console.log("[Lark Auth] Runtime env check:", {
+      hasAppId: !!appId,
+      appIdLen: appId?.length,
+      hasAppSecret: !!appSecret,
+      appSecretLen: appSecret?.length,
     });
 
     const { code } = await request.json();
@@ -95,11 +107,11 @@ export async function POST(request: NextRequest) {
         error: `Tenant token error: ${tenantData.msg}`,
         debug: {
           tenantResponse: tenantData,
-          moduleEnvCheck: {
-            LARK_APP_ID_len: LARK_APP_ID?.length,
-            LARK_APP_SECRET_len: LARK_APP_SECRET?.length,
-          },
           runtimeEnvCheck: {
+            LARK_APP_ID_len: appId?.length,
+            LARK_APP_SECRET_len: appSecret?.length,
+          },
+          processEnvCheck: {
             LARK_APP_ID_len: process.env.LARK_APP_ID?.length,
             LARK_APP_SECRET_len: process.env.LARK_APP_SECRET?.length,
           },
@@ -159,6 +171,8 @@ export async function GET() {
       return NextResponse.json({ user: null });
     }
 
+    const { jwtSecret } = getEnvVars();
+    const SECRET = new TextEncoder().encode(jwtSecret);
     const { payload } = await jwtVerify(token, SECRET);
     return NextResponse.json({ user: payload });
   } catch (error) {

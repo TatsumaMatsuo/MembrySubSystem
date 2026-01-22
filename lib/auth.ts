@@ -23,7 +23,7 @@ export function useAuth(): AuthState & { signOut: () => Promise<void> } {
 
   useEffect(() => {
     // セッション確認
-    fetch("/api/auth/lark")
+    fetch("/api/lark-auth")
       .then((res) => res.json())
       .then((data) => {
         if (data.user) {
@@ -47,7 +47,7 @@ export function useAuth(): AuthState & { signOut: () => Promise<void> } {
   }, []);
 
   const signOut = useCallback(async () => {
-    await fetch("/api/auth/lark", { method: "DELETE" });
+    await fetch("/api/lark-auth", { method: "DELETE" });
     setState({ user: null, status: "unauthenticated" });
     window.location.href = "/auth/signin";
   }, []);

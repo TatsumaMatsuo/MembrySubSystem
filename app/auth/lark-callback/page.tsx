@@ -19,8 +19,8 @@ function LarkCallbackContent() {
       return;
     }
 
-    // カスタム認証APIでサインイン
-    fetch("/api/auth/lark", {
+    // カスタム認証APIでサインイン (api/auth パスを避けて api/lark-auth を使用)
+    fetch("/api/lark-auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code }),

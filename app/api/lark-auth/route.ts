@@ -2,18 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 
-const SECRET = new TextEncoder().encode(
-  process.env.NEXTAUTH_SECRET || "fallback-secret-key-for-development"
-);
+// モジュールレベルで環境変数を読み込み（ビルド時に埋め込まれる）
+const LARK_APP_ID = process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID || "";
+const LARK_APP_SECRET = process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET || "";
+const NEXTAUTH_SECRET_VALUE = process.env.NEXTAUTH_SECRET || "fallback-secret-key-for-development";
+
+const SECRET = new TextEncoder().encode(NEXTAUTH_SECRET_VALUE);
 
 // Tenant Access Token 取得
 async function getTenantAccessToken() {
-  const appId = process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID;
-  const appSecret = process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET;
-
   console.log("[Lark Auth] getTenantAccessToken with:", {
-    appIdLen: appId?.length,
-    appSecretLen: appSecret?.length,
+    appIdLen: LARK_APP_ID?.length,
+    appSecretLen: LARK_APP_SECRET?.length,
   });
 
   const response = await fetch(
@@ -22,8 +22,8 @@ async function getTenantAccessToken() {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8" },
       body: JSON.stringify({
-        app_id: appId,
-        app_secret: appSecret,
+        app_id: LARK_APP_ID,
+        app_secret: LARK_APP_SECRET,
       }),
     }
   );
@@ -72,14 +72,12 @@ async function createToken(payload: any) {
 // POST: Lark認証コードでログイン
 export async function POST(request: NextRequest) {
   try {
-    // デバッグ: 環境変数の状態をログ出力
-    const appId = process.env.LARK_OAUTH_CLIENT_ID;
-    const appSecret = process.env.LARK_OAUTH_CLIENT_SECRET;
-    console.log("[Lark Auth] Env check:", {
-      hasAppId: !!appId,
-      appIdLen: appId?.length,
-      hasAppSecret: !!appSecret,
-      appSecretLen: appSecret?.length,
+    // デバッグ: モジュールレベル変数の状態をログ出力
+    console.log("[Lark Auth] Module-level env check:", {
+      hasAppId: !!LARK_APP_ID,
+      appIdLen: LARK_APP_ID?.length,
+      hasAppSecret: !!LARK_APP_SECRET,
+      appSecretLen: LARK_APP_SECRET?.length,
     });
 
     const { code } = await request.json();
@@ -97,11 +95,13 @@ export async function POST(request: NextRequest) {
         error: `Tenant token error: ${tenantData.msg}`,
         debug: {
           tenantResponse: tenantData,
-          envCheck: {
+          moduleEnvCheck: {
+            LARK_APP_ID_len: LARK_APP_ID?.length,
+            LARK_APP_SECRET_len: LARK_APP_SECRET?.length,
+          },
+          runtimeEnvCheck: {
             LARK_APP_ID_len: process.env.LARK_APP_ID?.length,
             LARK_APP_SECRET_len: process.env.LARK_APP_SECRET?.length,
-            LARK_OAUTH_CLIENT_ID_len: process.env.LARK_OAUTH_CLIENT_ID?.length,
-            LARK_OAUTH_CLIENT_SECRET_len: process.env.LARK_OAUTH_CLIENT_SECRET?.length,
           },
         },
       }, { status: 500 });

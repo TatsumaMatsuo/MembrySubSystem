@@ -11,14 +11,19 @@ function SignInContent() {
 
   const handleSignIn = () => {
     // Lark OAuth認証URLにリダイレクト
-    const appId = process.env.NEXT_PUBLIC_LARK_OAUTH_CLIENT_ID;
-    const redirectUri = process.env.NEXT_PUBLIC_LARK_OAUTH_REDIRECT_URI;
+    // NEXT_PUBLIC_ 環境変数を使用、なければ現在のURLから動的に生成
+    const appId = process.env.NEXT_PUBLIC_LARK_OAUTH_CLIENT_ID || "cli_a9d79d0bbf389e1c";
+
+    // リダイレクトURIを現在のホストから動的に生成（AWS Amplify対応）
+    const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+    const redirectUri = process.env.NEXT_PUBLIC_LARK_OAUTH_REDIRECT_URI || `${currentOrigin}/auth/lark-callback`;
 
     // state パラメータにcallbackUrlを含める
     const state = encodeURIComponent(callbackUrl);
 
-    const authUrl = `https://open.feishu.cn/open-apis/authen/v1/index?app_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri || "")}&state=${state}`;
+    const authUrl = `https://open.feishu.cn/open-apis/authen/v1/index?app_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
 
+    console.log("[SignIn] OAuth URL:", authUrl);
     window.location.href = authUrl;
   };
 

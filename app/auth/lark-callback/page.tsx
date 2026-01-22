@@ -30,8 +30,12 @@ function LarkCallbackContent() {
         if (data.success) {
           router.push(callbackUrl);
         } else {
-          console.error("[Lark Callback] Auth error:", data.error);
-          setError("認証に失敗しました: " + (data.error || "Unknown error"));
+          console.error("[Lark Callback] Auth error:", data);
+          // デバッグ情報を含む完全なエラーを表示
+          const errorMsg = data.debug
+            ? `${data.error}\n\nDebug: ${JSON.stringify(data.debug, null, 2)}`
+            : (data.error || "Unknown error");
+          setError("認証に失敗しました: " + errorMsg);
         }
       })
       .catch((err) => {
@@ -46,7 +50,7 @@ function LarkCallbackContent() {
         <div className="bg-white rounded-lg shadow-xl p-8 max-w-md">
           <div className="text-center">
             <div className="text-red-500 text-xl mb-4">認証エラー</div>
-            <p className="text-gray-600 mb-4">{error}</p>
+            <pre className="text-gray-600 mb-4 text-left text-sm whitespace-pre-wrap">{error}</pre>
             <button
               onClick={() => router.push("/auth/signin")}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"

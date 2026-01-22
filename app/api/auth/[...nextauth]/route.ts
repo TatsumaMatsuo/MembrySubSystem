@@ -17,7 +17,7 @@ const handler = NextAuth({
         try {
           // Lark トークン取得
           const tokenResponse = await fetch(
-            "https://open.feishu.cn/open-apis/authen/v1/access_token",
+            "https://open.larksuite.com/open-apis/authen/v1/access_token",
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -38,7 +38,7 @@ const handler = NextAuth({
 
           // Lark ユーザー情報取得
           const userResponse = await fetch(
-            "https://open.feishu.cn/open-apis/authen/v1/user_info",
+            "https://open.larksuite.com/open-apis/authen/v1/user_info",
             {
               headers: {
                 Authorization: `Bearer ${tokenData.data.access_token}`,

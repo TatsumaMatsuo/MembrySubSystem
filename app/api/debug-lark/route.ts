@@ -16,7 +16,7 @@ export async function GET() {
 
   try {
     const response = await fetch(
-      "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+      "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal",
       {
         method: "POST",
         headers: { "Content-Type": "application/json; charset=utf-8" },

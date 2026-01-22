@@ -21,7 +21,7 @@ function SignInContent() {
     // state パラメータにcallbackUrlを含める
     const state = encodeURIComponent(callbackUrl);
 
-    const authUrl = `https://open.feishu.cn/open-apis/authen/v1/index?app_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
+    const authUrl = `https://open.larksuite.com/open-apis/authen/v1/index?app_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
 
     console.log("[SignIn] OAuth URL:", authUrl);
     window.location.href = authUrl;

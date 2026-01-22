@@ -4,7 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 // Lark トークン取得
 async function getLarkAccessToken(code: string) {
   const response = await fetch(
-    "https://open.feishu.cn/open-apis/authen/v1/access_token",
+    "https://open.larksuite.com/open-apis/authen/v1/access_token",
     {
       method: "POST",
       headers: {
@@ -29,7 +29,7 @@ async function getLarkAccessToken(code: string) {
 // Lark ユーザー情報取得
 async function getLarkUserInfo(accessToken: string) {
   const response = await fetch(
-    "https://open.feishu.cn/open-apis/authen/v1/user_info",
+    "https://open.larksuite.com/open-apis/authen/v1/user_info",
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,

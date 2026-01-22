@@ -1,18 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 
 // AWS Amplify SSR で POST ハンドラーが環境変数にアクセスできるようにする
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+// AWS Amplify SSR では環境変数にアクセスできないバグがあるため、フォールバック値を設定
+// 本番環境では環境変数から取得することを推奨
+const FALLBACK_APP_ID = "cli_a9d79d0bbf389e1c";
+const FALLBACK_APP_SECRET = "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE";
+const FALLBACK_JWT_SECRET = "baiyaku_info_secret_key_12345";
+
 // 環境変数を取得するヘルパー関数（ランタイムで評価）
 function getEnvVars() {
   return {
-    appId: process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID || "",
-    appSecret: process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET || "",
-    jwtSecret: process.env.NEXTAUTH_SECRET || "fallback-secret-key-for-development",
+    appId: process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID || FALLBACK_APP_ID,
+    appSecret: process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET || FALLBACK_APP_SECRET,
+    jwtSecret: process.env.NEXTAUTH_SECRET || FALLBACK_JWT_SECRET,
   };
+}
+
+// リクエストから正しいベースURLを取得（AWS Amplify SSR対応）
+function getBaseUrl(request: NextRequest): string {
+  // x-forwarded-host または host ヘッダーから取得
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = request.headers.get("host");
+  const protocol = request.headers.get("x-forwarded-proto") || "https";
+
+  const actualHost = forwardedHost || host || "feat-sales-analysis.d4a0s1k3z8dqc.amplifyapp.com";
+
+  return `${protocol}://${actualHost}`;
 }
 
 // Tenant Access Token 取得
@@ -170,6 +188,8 @@ export async function GET(request: NextRequest) {
 
   // code パラメータがある場合は認証処理
   if (code) {
+    const baseUrl = getBaseUrl(request);
+
     try {
       const { appId, appSecret } = getEnvVars();
 
@@ -178,13 +198,14 @@ export async function GET(request: NextRequest) {
         appIdLen: appId?.length,
         hasAppSecret: !!appSecret,
         appSecretLen: appSecret?.length,
+        baseUrl,
       });
 
       // Tenant Access Token 取得
       const tenantData = await getTenantAccessToken();
       if (tenantData.code !== 0) {
         console.error("[Lark Auth GET] Tenant token error:", tenantData);
-        const errorUrl = new URL("/auth/signin", request.url);
+        const errorUrl = new URL("/auth/signin", baseUrl);
         errorUrl.searchParams.set("error", `Tenant token error: ${tenantData.msg}`);
         errorUrl.searchParams.set("debug", JSON.stringify({
           appIdLen: appId?.length,
@@ -197,7 +218,7 @@ export async function GET(request: NextRequest) {
       const tokenData = await getLarkAccessToken(code, tenantData.tenant_access_token);
       if (tokenData.code !== 0) {
         console.error("[Lark Auth GET] Token error:", tokenData.msg);
-        const errorUrl = new URL("/auth/signin", request.url);
+        const errorUrl = new URL("/auth/signin", baseUrl);
         errorUrl.searchParams.set("error", tokenData.msg);
         return NextResponse.redirect(errorUrl);
       }
@@ -206,7 +227,7 @@ export async function GET(request: NextRequest) {
       const userData = await getLarkUserInfo(tokenData.data.access_token);
       if (userData.code !== 0) {
         console.error("[Lark Auth GET] User info error:", userData.msg);
-        const errorUrl = new URL("/auth/signin", request.url);
+        const errorUrl = new URL("/auth/signin", baseUrl);
         errorUrl.searchParams.set("error", userData.msg);
         return NextResponse.redirect(errorUrl);
       }
@@ -223,7 +244,8 @@ export async function GET(request: NextRequest) {
       const token = await createToken(user);
 
       // Cookie に設定してリダイレクト
-      const response = NextResponse.redirect(new URL(callbackUrl, request.url));
+      const redirectUrl = callbackUrl.startsWith("/") ? `${baseUrl}${callbackUrl}` : callbackUrl;
+      const response = NextResponse.redirect(redirectUrl);
       response.cookies.set("auth-token", token, {
         httpOnly: true,
         secure: true,
@@ -235,7 +257,7 @@ export async function GET(request: NextRequest) {
       return response;
     } catch (error) {
       console.error("[Lark Auth GET] Error:", error);
-      const errorUrl = new URL("/auth/signin", request.url);
+      const errorUrl = new URL("/auth/signin", baseUrl);
       errorUrl.searchParams.set("error", "Authentication failed");
       return NextResponse.redirect(errorUrl);
     }

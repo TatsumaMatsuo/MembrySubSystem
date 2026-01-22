@@ -161,8 +161,87 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET: セッション確認
-export async function GET() {
+// GET: セッション確認 または 認証コードでログイン
+// AWS Amplify SSR では POST ハンドラーで環境変数にアクセスできないため、GET を使用
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const code = searchParams.get("code");
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
+
+  // code パラメータがある場合は認証処理
+  if (code) {
+    try {
+      const { appId, appSecret } = getEnvVars();
+
+      console.log("[Lark Auth GET] Runtime env check:", {
+        hasAppId: !!appId,
+        appIdLen: appId?.length,
+        hasAppSecret: !!appSecret,
+        appSecretLen: appSecret?.length,
+      });
+
+      // Tenant Access Token 取得
+      const tenantData = await getTenantAccessToken();
+      if (tenantData.code !== 0) {
+        console.error("[Lark Auth GET] Tenant token error:", tenantData);
+        const errorUrl = new URL("/auth/signin", request.url);
+        errorUrl.searchParams.set("error", `Tenant token error: ${tenantData.msg}`);
+        errorUrl.searchParams.set("debug", JSON.stringify({
+          appIdLen: appId?.length,
+          appSecretLen: appSecret?.length,
+        }));
+        return NextResponse.redirect(errorUrl);
+      }
+
+      // Lark ユーザートークン取得
+      const tokenData = await getLarkAccessToken(code, tenantData.tenant_access_token);
+      if (tokenData.code !== 0) {
+        console.error("[Lark Auth GET] Token error:", tokenData.msg);
+        const errorUrl = new URL("/auth/signin", request.url);
+        errorUrl.searchParams.set("error", tokenData.msg);
+        return NextResponse.redirect(errorUrl);
+      }
+
+      // Lark ユーザー情報取得
+      const userData = await getLarkUserInfo(tokenData.data.access_token);
+      if (userData.code !== 0) {
+        console.error("[Lark Auth GET] User info error:", userData.msg);
+        const errorUrl = new URL("/auth/signin", request.url);
+        errorUrl.searchParams.set("error", userData.msg);
+        return NextResponse.redirect(errorUrl);
+      }
+
+      const userInfo = userData.data;
+      const user = {
+        id: userInfo.open_id || userInfo.union_id,
+        name: userInfo.name,
+        email: userInfo.email || userInfo.enterprise_email,
+        image: userInfo.avatar_url || userInfo.avatar_thumb,
+      };
+
+      // JWT トークン作成
+      const token = await createToken(user);
+
+      // Cookie に設定してリダイレクト
+      const response = NextResponse.redirect(new URL(callbackUrl, request.url));
+      response.cookies.set("auth-token", token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        maxAge: 4 * 60 * 60, // 4時間
+        path: "/",
+      });
+
+      return response;
+    } catch (error) {
+      console.error("[Lark Auth GET] Error:", error);
+      const errorUrl = new URL("/auth/signin", request.url);
+      errorUrl.searchParams.set("error", "Authentication failed");
+      return NextResponse.redirect(errorUrl);
+    }
+  }
+
+  // code パラメータがない場合はセッション確認
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("auth-token")?.value;

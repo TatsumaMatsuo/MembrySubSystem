@@ -897,7 +897,7 @@ function BacklogTable({
 }
 
 export default function BIDashboardPage() {
-  const { data: session } = useSession();
+  const { user, status } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PeriodDashboard[]>([]);

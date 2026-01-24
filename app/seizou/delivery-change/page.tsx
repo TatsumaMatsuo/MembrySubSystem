@@ -146,7 +146,7 @@ function PrintButton() {
 }
 
 export default function DeliveryChangePage() {
-  const { data: session } = useSession();
+  const { user, status } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PeriodData | null>(null);

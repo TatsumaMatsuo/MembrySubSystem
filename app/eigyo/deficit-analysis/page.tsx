@@ -156,7 +156,7 @@ function setClientCache(period: number, data: PeriodData[]): void {
 }
 
 export default function DeficitAnalysisPage() {
-  const { data: session } = useSession();
+  const { user, status } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PeriodData | null>(null);

@@ -22,10 +22,20 @@ export function useAuth(): AuthState & { signOut: () => Promise<void> } {
   });
 
   useEffect(() => {
-    // セッション確認
-    fetch("/api/lark-auth")
-      .then((res) => res.json())
+    // セッション確認 - credentials: "include" でCookieを確実に送信
+    fetch("/api/lark-auth", {
+      credentials: "include",
+      cache: "no-store" // キャッシュを無効化して常に最新の状態を取得
+    })
+      .then((res) => {
+        if (!res.ok) {
+          console.error("[useAuth] Session check failed:", res.status);
+          throw new Error("Session check failed");
+        }
+        return res.json();
+      })
       .then((data) => {
+        console.log("[useAuth] Session check result:", { hasUser: !!data.user });
         if (data.user) {
           setState({
             user: data.user as User,
@@ -38,7 +48,8 @@ export function useAuth(): AuthState & { signOut: () => Promise<void> } {
           });
         }
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error("[useAuth] Session check error:", error);
         setState({
           user: null,
           status: "unauthenticated",
@@ -47,7 +58,10 @@ export function useAuth(): AuthState & { signOut: () => Promise<void> } {
   }, []);
 
   const signOut = useCallback(async () => {
-    await fetch("/api/lark-auth", { method: "DELETE" });
+    await fetch("/api/lark-auth", {
+      method: "DELETE",
+      credentials: "include"
+    });
     setState({ user: null, status: "unauthenticated" });
     window.location.href = "/auth/signin";
   }, []);

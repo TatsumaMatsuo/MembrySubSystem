@@ -268,15 +268,28 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const token = cookieStore.get("auth-token")?.value;
 
+    console.log("[Lark Auth] Session check:", {
+      hasToken: !!token,
+      tokenLen: token?.length,
+    });
+
     if (!token) {
+      console.log("[Lark Auth] No auth-token cookie found");
       return NextResponse.json({ user: null });
     }
 
     const { jwtSecret } = getEnvVars();
     const SECRET = new TextEncoder().encode(jwtSecret);
     const { payload } = await jwtVerify(token, SECRET);
+
+    console.log("[Lark Auth] Session verified:", {
+      userId: payload.id,
+      userName: payload.name,
+    });
+
     return NextResponse.json({ user: payload });
   } catch (error) {
+    console.error("[Lark Auth] Session check error:", error);
     return NextResponse.json({ user: null });
   }
 }

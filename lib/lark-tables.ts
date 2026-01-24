@@ -2,6 +2,9 @@
  * Lark Base テーブルID定義
  */
 
+// AWS Amplify SSR では環境変数にアクセスできない場合があるため、フォールバック値を設定
+const FALLBACK_BASE_TOKEN = "NvWsbaVP2aVT99sJUFxjhOLGpPs";
+
 export type BaseType = "project" | "master";
 
 export function getLarkTables() {
@@ -25,7 +28,7 @@ export function getLarkTables() {
     // ユーザー権限テーブル
     USER_PERMISSIONS: process.env.LARK_TABLE_USER_PERMISSIONS || "tbl0qPqlC88kaUeZ",
     // 全社KPIテーブル
-    COMPANY_KPI: process.env.LARK_TABLE_COMPANY_KPI || "",
+    COMPANY_KPI: process.env.LARK_TABLE_COMPANY_KPI || "tbliC8ZdNr5deQ5h",
     // クイズマスタテーブル
     QUIZ_MASTER: process.env.LARK_TABLE_QUIZ_MASTER || "tbl5Od0bDQEHG3Wm",
     // クイズ回答履歴テーブル
@@ -67,9 +70,9 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
 export function getBaseTokenForTable(tableName: keyof typeof TABLE_BASE_CONFIG): string {
   const baseType = TABLE_BASE_CONFIG[tableName] || "project";
   if (baseType === "master") {
-    return process.env.LARK_BASE_TOKEN_MASTER || process.env.LARK_BASE_TOKEN || "";
+    return process.env.LARK_BASE_TOKEN_MASTER || process.env.LARK_BASE_TOKEN || FALLBACK_BASE_TOKEN;
   }
-  return process.env.LARK_BASE_TOKEN || "";
+  return process.env.LARK_BASE_TOKEN || FALLBACK_BASE_TOKEN;
 }
 
 /**

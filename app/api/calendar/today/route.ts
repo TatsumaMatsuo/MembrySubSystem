@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
+import { getServerSession } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -29,13 +28,13 @@ function getDateRange(dateStr?: string): { start: number; end: number; targetDat
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }
 
     // セッションからユーザーのアクセストークンを取得
-    const userAccessToken = (session as any).accessToken;
+    const userAccessToken = session.accessToken;
     if (!userAccessToken) {
       console.error("[calendar] No user access token in session");
       return NextResponse.json({

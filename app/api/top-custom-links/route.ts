@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
+import { getServerSession } from "@/lib/auth-server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 
 // テーブルID
@@ -47,8 +46,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // セッションからユーザーIDを取得（社員コード → Lark ID → default）
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.employeeId || session?.user?.id || "default";
+    const session = await getServerSession();
+    const userId = session?.user?.id || "default";
 
     const links: CustomLink[] = [];
     let pageToken: string | undefined;
@@ -117,8 +116,8 @@ export async function POST(request: NextRequest) {
 
   try {
     // セッションからユーザーIDを取得（社員コード → Lark ID → default）
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.employeeId || session?.user?.id || "default";
+    const session = await getServerSession();
+    const userId = session?.user?.id || "default";
 
     const body = await request.json();
     const { display_name, url, icon_url, sort_order } = body;

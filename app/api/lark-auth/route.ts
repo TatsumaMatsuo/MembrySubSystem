@@ -238,6 +238,9 @@ export async function GET(request: NextRequest) {
         name: userInfo.name,
         email: userInfo.email || userInfo.enterprise_email,
         image: userInfo.avatar_url || userInfo.avatar_thumb,
+        // Lark APIアクセス用トークン
+        accessToken: tokenData.data.access_token,
+        refreshToken: tokenData.data.refresh_token,
       };
 
       // JWT トークン作成

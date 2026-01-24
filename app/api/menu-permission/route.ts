@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
+import { getServerSession } from "@/lib/auth-server";
 import {
   buildUserPermissions,
   buildPermittedMenuStructure,
@@ -46,7 +45,7 @@ export async function GET(request: NextRequest) {
     }
 
     // セッションからユーザー情報を取得
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     let employeeId = "";
     let employeeName = "";

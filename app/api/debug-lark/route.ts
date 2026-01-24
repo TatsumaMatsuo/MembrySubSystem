@@ -4,10 +4,14 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// GET: 環境変数テスト
+// フォールバック値（AWS Amplify SSR で環境変数が取得できない問題の回避）
+const FALLBACK_APP_ID = "cli_a9d79d0bbf389e1c";
+const FALLBACK_APP_SECRET = "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE";
+
+// GET: 環境変数テスト（Lark国際版 API）
 export async function GET() {
-  const appId = process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID;
-  const appSecret = process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET;
+  const appId = process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID || FALLBACK_APP_ID;
+  const appSecret = process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET || FALLBACK_APP_SECRET;
 
   const requestBody = {
     app_id: appId,

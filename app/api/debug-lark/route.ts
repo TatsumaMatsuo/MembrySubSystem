@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { jwtVerify } from "jose";
+import { cookies } from "next/headers";
 
 // AWS Amplify SSR で POST ハンドラーが環境変数にアクセスできるようにする
 export const dynamic = "force-dynamic";
@@ -7,6 +9,7 @@ export const runtime = "nodejs";
 // フォールバック値（AWS Amplify SSR で環境変数が取得できない問題の回避）
 const FALLBACK_APP_ID = "cli_a9d79d0bbf389e1c";
 const FALLBACK_APP_SECRET = "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE";
+const FALLBACK_JWT_SECRET = "baiyaku_info_secret_key_12345";
 
 // GET: 環境変数テスト（Lark国際版 API）
 export async function GET() {
@@ -58,23 +61,42 @@ export async function GET() {
   }
 }
 
-// POST: Lark認証コードでログイン（環境変数テスト含む）
+// POST: auth-token検証テスト
 export async function POST(request: NextRequest) {
-  const appId = process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID;
-  const appSecret = process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET;
+  const jwtSecret = process.env.NEXTAUTH_SECRET || FALLBACK_JWT_SECRET;
+  const SECRET = new TextEncoder().encode(jwtSecret);
 
-  // 環境変数チェック
-  const envCheck = {
-    hasAppId: !!appId,
-    appIdLen: appId?.length,
-    hasAppSecret: !!appSecret,
-    appSecretLen: appSecret?.length,
-  };
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth-token")?.value;
 
-  // POSTでも環境変数が利用可能かテスト
-  return NextResponse.json({
-    method: "POST",
-    envCheck,
-    message: "POST handler env check",
-  });
+    if (!token) {
+      return NextResponse.json({
+        success: false,
+        error: "auth-token cookie not found",
+        jwtSecretUsed: jwtSecret.substring(0, 10) + "...",
+      });
+    }
+
+    // JWT検証
+    const { payload } = await jwtVerify(token, SECRET);
+
+    return NextResponse.json({
+      success: true,
+      message: "Token verified successfully",
+      jwtSecretUsed: jwtSecret.substring(0, 10) + "...",
+      payload: {
+        id: payload.id,
+        name: payload.name,
+        exp: payload.exp,
+        iat: payload.iat,
+      },
+    });
+  } catch (error: any) {
+    return NextResponse.json({
+      success: false,
+      error: error.message,
+      jwtSecretUsed: jwtSecret.substring(0, 10) + "...",
+    });
+  }
 }

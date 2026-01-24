@@ -153,6 +153,7 @@ export const DOCUMENT_HISTORY_FIELDS = {
 export const EMPLOYEE_FIELDS = {
   employee_id: "社員コード",
   employee_name: "社員名",
+  member: "社員名 (メンバー )",
   email: "社員名 (メンバー ).仕事用メールアドレス",
   department: "社員名 (メンバー ).部署",
   retired_flag: "退職者フラグ",

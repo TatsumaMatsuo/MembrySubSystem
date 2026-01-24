@@ -6,6 +6,7 @@ import {
   getGroupPermissions,
   getUserPermissions,
   getEmployeeByEmail,
+  getEmployeeByLarkId,
 } from "@/lib/menu-permission";
 
 export const dynamic = "force-dynamic";
@@ -34,12 +35,16 @@ export async function GET(request: NextRequest) {
     };
 
     // Step 2: 社員情報検索
+    let employee = null;
     if (session?.user?.email) {
-      const employee = await getEmployeeByEmail(session.user.email);
-      debug.employee = employee || "NOT_FOUND";
-    } else {
-      debug.employee = "NO_EMAIL_IN_SESSION";
+      employee = await getEmployeeByEmail(session.user.email);
+      debug.employeeLookup = { method: "email", email: session.user.email };
     }
+    if (!employee && session?.user?.id) {
+      employee = await getEmployeeByLarkId(session.user.id);
+      debug.employeeLookup = { method: "lark_id", larkId: session.user.id };
+    }
+    debug.employee = employee || "NOT_FOUND";
 
     // Step 3: グループ権限確認
     const department = typeof debug.employee === "object" ? debug.employee.department : null;

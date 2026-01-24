@@ -10,7 +10,7 @@ import {
   PermittedMenuStructure,
   UserMenuPermissions,
 } from "@/types";
-import { getLarkTables, getBaseTokenForTable, EMPLOYEE_FIELDS } from "./lark-tables";
+import { getLarkTables, getBaseTokenForTable, EMPLOYEE_FIELDS, getLarkBaseTokenMaster } from "./lark-tables";
 
 // テーブルID (AWS Amplify SSR用フォールバック値付き)
 const TABLE_MENU_DISPLAY = process.env.LARK_TABLE_MENU_DISPLAY || "tblQUDXmR38J6KWh";
@@ -69,6 +69,68 @@ export async function getEmployeeByEmail(email: string): Promise<EmployeeInfo | 
     return employeeInfo;
   } catch (error) {
     console.error("[menu-permission] Error looking up employee:", error);
+    return null;
+  }
+}
+
+/**
+ * Lark open_id から社員情報を取得
+ * メールアドレスがセッションに含まれていない場合のフォールバック
+ */
+export async function getEmployeeByLarkId(larkOpenId: string): Promise<EmployeeInfo | null> {
+  if (!larkOpenId) return null;
+
+  try {
+    const tables = getLarkTables();
+    const baseToken = getBaseTokenForTable("EMPLOYEES");
+
+    console.log("[menu-permission] Looking up employee by Lark open_id:", larkOpenId);
+
+    // 全社員を取得して、メンバーフィールド内のidで検索
+    // Note: Lark Bitable APIでは配列内のフィールドを直接フィルタできないため、
+    // 全件取得して検索する
+    const response = await getBaseRecords(tables.EMPLOYEES, {
+      baseToken,
+      pageSize: 500,
+    });
+
+    if (!response.data?.items) {
+      console.log("[menu-permission] No employees found");
+      return null;
+    }
+
+    // メンバーフィールド内のidでマッチする社員を検索
+    for (const item of response.data.items as Array<{ fields: Record<string, any> }>) {
+      const memberField = item.fields[EMPLOYEE_FIELDS.member];
+      if (Array.isArray(memberField)) {
+        for (const member of memberField) {
+          if (member.id === larkOpenId) {
+            const employeeInfo: EmployeeInfo = {
+              employeeId: String(item.fields[EMPLOYEE_FIELDS.employee_id] || ""),
+              employeeName: String(item.fields[EMPLOYEE_FIELDS.employee_name] || member.name || ""),
+              email: member.email || "",
+              department: Array.isArray(item.fields[EMPLOYEE_FIELDS.department])
+                ? item.fields[EMPLOYEE_FIELDS.department][0] || ""
+                : String(item.fields[EMPLOYEE_FIELDS.department] || ""),
+            };
+
+            console.log("[menu-permission] Employee found by Lark ID:", {
+              employeeId: employeeInfo.employeeId,
+              employeeName: employeeInfo.employeeName,
+              email: employeeInfo.email,
+              department: employeeInfo.department,
+            });
+
+            return employeeInfo;
+          }
+        }
+      }
+    }
+
+    console.log("[menu-permission] Employee not found for Lark open_id:", larkOpenId);
+    return null;
+  } catch (error) {
+    console.error("[menu-permission] Error looking up employee by Lark ID:", error);
     return null;
   }
 }

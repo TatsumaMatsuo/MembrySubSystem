@@ -7,6 +7,7 @@ import {
   getMenuDisplayMaster,
   getFunctionPlacementMaster,
   getEmployeeByEmail,
+  getEmployeeByLarkId,
 } from "@/lib/menu-permission";
 
 export const dynamic = "force-dynamic";
@@ -53,17 +54,29 @@ export async function GET(request: NextRequest) {
     let groupIds: string[] = [];
 
     if (session?.user) {
-      // 認証済みユーザー - メールから社員情報を検索
+      // 認証済みユーザー
       const userEmail = session.user.email || "";
+      const larkId = session.user.id || "";
 
       console.log("[menu-permission] User from session:", {
-        larkId: session.user.id,
+        larkId,
         name: session.user.name,
         email: userEmail,
       });
 
-      // 社員マスタからメールで検索
-      const employeeInfo = await getEmployeeByEmail(userEmail);
+      // 社員情報を検索（メールまたはLark IDで）
+      let employeeInfo = null;
+
+      // 1. メールアドレスがある場合はメールで検索
+      if (userEmail) {
+        employeeInfo = await getEmployeeByEmail(userEmail);
+      }
+
+      // 2. メールで見つからない場合はLark open_idで検索
+      if (!employeeInfo && larkId) {
+        console.log("[menu-permission] Email lookup failed, trying Lark ID lookup");
+        employeeInfo = await getEmployeeByLarkId(larkId);
+      }
 
       if (employeeInfo) {
         // 社員情報が見つかった場合
@@ -81,9 +94,9 @@ export async function GET(request: NextRequest) {
         });
       } else {
         // 社員情報が見つからない場合はLark IDを使用
-        employeeId = session.user.id || "";
+        employeeId = larkId;
         employeeName = session.user.name || "";
-        console.log("[menu-permission] Employee not found, using Lark ID:", employeeId);
+        console.log("[menu-permission] Employee not found by email or Lark ID, using Lark ID:", employeeId);
       }
     } else if (isDev) {
       // 開発環境で未認証の場合はダミーデータを使用

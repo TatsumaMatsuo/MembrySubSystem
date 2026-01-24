@@ -950,7 +950,7 @@ export default function BIDashboardPage() {
   } | null>(null);
 
   // ログインユーザーの社員名
-  const loggedInEmployeeName = (session?.user as any)?.employeeName || "";
+  const loggedInEmployeeName = (user as any)?.employeeName || user?.name || "";
 
   // データ取得（更新ボタン押下時）
   const fetchData = async () => {

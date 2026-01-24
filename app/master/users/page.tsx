@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/lib/auth";
 import {
   Users,
   Plus,
@@ -38,7 +38,7 @@ interface UserSummary {
 
 export default function UsersPage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { user, status } = useAuth();
 
   const [userPermissions, setUserPermissions] = useState<UserPermissionRecord[]>([]);
   const [loading, setLoading] = useState(true);

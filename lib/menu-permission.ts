@@ -133,19 +133,25 @@ export async function getFunctionPlacementMaster(): Promise<FunctionPlacementMas
 
 /**
  * グループ権限マスタを取得
+ * @param groupNames - グループ名（部署名）の配列
  */
-export async function getGroupPermissions(groupIds: string[]): Promise<GroupPermissionMaster[]> {
-  if (groupIds.length === 0) return [];
+export async function getGroupPermissions(groupNames: string[]): Promise<GroupPermissionMaster[]> {
+  if (groupNames.length === 0) return [];
 
   const baseToken = getLarkBaseTokenForMaster();
-  // グループIDでフィルタ
-  const filterConditions = groupIds.map(id => `CurrentValue.[グループID] = "${id}"`).join(" OR ");
+  // グループ名でフィルタ（社員マスタから取得する部署名と一致させる）
+  const filterConditions = groupNames.map(name => `CurrentValue.[グループ名] = "${name}"`).join(" OR ");
+
+  console.log("[menu-permission] Querying group permissions for:", groupNames);
+  console.log("[menu-permission] Filter:", filterConditions);
 
   const response = await getBaseRecords(TABLE_GROUP_PERMISSION, {
     baseToken,
     filter: filterConditions,
     pageSize: 500,
   });
+
+  console.log("[menu-permission] Group permissions found:", response.data?.items?.length || 0);
 
   if (!response.data?.items) return [];
 
@@ -186,19 +192,29 @@ export async function getUserPermissions(employeeId: string): Promise<UserPermis
 
 /**
  * ユーザーの権限情報を構築
+ * @param employeeId - 社員ID
+ * @param employeeName - 社員名
+ * @param groupNames - グループ名（部署名）の配列
  */
 export async function buildUserPermissions(
   employeeId: string,
   employeeName: string,
-  groupIds: string[]
+  groupNames: string[]
 ): Promise<UserMenuPermissions> {
+  console.log("[menu-permission] Building permissions for:", {
+    employeeId,
+    employeeName,
+    groupNames,
+  });
+
   // 個別権限を優先チェック
   const userPerms = await getUserPermissions(employeeId);
+  console.log("[menu-permission] User permissions found:", userPerms.length);
 
   const result: UserMenuPermissions = {
     employee_id: employeeId,
     employee_name: employeeName,
-    group_ids: groupIds,
+    group_ids: groupNames,
     permitted_menus: [],
     permitted_programs: [],
     denied_menus: [],
@@ -208,6 +224,7 @@ export async function buildUserPermissions(
 
   if (userPerms.length > 0) {
     // 個別権限が存在する場合は個別権限を使用
+    console.log("[menu-permission] Using user permissions");
     for (const perm of userPerms) {
       if (perm.target_type === "menu") {
         if (perm.is_allowed) {
@@ -225,7 +242,9 @@ export async function buildUserPermissions(
     }
   } else {
     // グループ権限を使用
-    const groupPerms = await getGroupPermissions(groupIds);
+    console.log("[menu-permission] Using group permissions for groups:", groupNames);
+    const groupPerms = await getGroupPermissions(groupNames);
+    console.log("[menu-permission] Group permissions loaded:", groupPerms.length);
     for (const perm of groupPerms) {
       if (perm.target_type === "menu") {
         if (perm.is_allowed) {
@@ -248,6 +267,12 @@ export async function buildUserPermissions(
   result.permitted_programs = [...new Set(result.permitted_programs)];
   result.denied_menus = [...new Set(result.denied_menus)];
   result.denied_programs = [...new Set(result.denied_programs)];
+
+  console.log("[menu-permission] Final permissions:", {
+    permitted_menus: result.permitted_menus,
+    permitted_programs: result.permitted_programs,
+    source: result.source,
+  });
 
   return result;
 }

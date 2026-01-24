@@ -3,11 +3,11 @@ import { getBaseRecords, createBaseRecord, updateBaseRecord, deleteBaseRecord, g
 
 export const dynamic = "force-dynamic";
 
-// テーブルID
-const TABLE_MENU_DISPLAY = process.env.LARK_TABLE_MENU_DISPLAY || "";
-const TABLE_FUNCTION_PLACEMENT = process.env.LARK_TABLE_FUNCTION_PLACEMENT || "";
-const TABLE_GROUP_PERMISSION = process.env.LARK_TABLE_GROUP_PERMISSION || "";
-const TABLE_USER_PERMISSION = process.env.LARK_TABLE_USER_PERMISSION || "";
+// テーブルID (AWS Amplify SSR用フォールバック値付き)
+const TABLE_MENU_DISPLAY = process.env.LARK_TABLE_MENU_DISPLAY || "tblQUDXmR38J6KWh";
+const TABLE_FUNCTION_PLACEMENT = process.env.LARK_TABLE_FUNCTION_PLACEMENT || "tblmFd1WLLegSKPO";
+const TABLE_GROUP_PERMISSION = process.env.LARK_TABLE_GROUP_PERMISSION || "tbldL8lBsCnhCJQx";
+const TABLE_USER_PERMISSION = process.env.LARK_TABLE_USER_PERMISSION || "tbl2hvSUkEe3fn7t";
 
 type TableType = "menu" | "program" | "group" | "user";
 

@@ -53,18 +53,12 @@ export async function GET(request: NextRequest) {
 
     if (session?.user) {
       // 認証済みユーザー
-      employeeId = session.user.employeeId || "";
-      employeeName = session.user.employeeName || session.user.name || "";
-
-      // 部門をグループIDとして使用（部門名がグループ権限マスタのグループIDに対応）
-      if (session.user.department) {
-        groupIds = [session.user.department];
-      }
+      employeeId = session.user.id || "";
+      employeeName = session.user.name || "";
 
       console.log("[menu-permission] User from session:", {
         employeeId,
         employeeName,
-        department: session.user.department,
         groupIds,
       });
     } else if (isDev) {

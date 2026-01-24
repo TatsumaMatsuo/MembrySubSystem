@@ -341,6 +341,10 @@ export async function buildUserPermissions(
 
 /**
  * 権限付きメニュー構造を構築
+ * 3階層メニュー構造に対応:
+ * - Level 1: トップメニュー（例: M001 共通）
+ * - Level 2: カテゴリメニュー（例: M001-02 依頼）
+ * - Level 3: 機能メニュー（例: M001-02-01 品質改善リクエスト）※プログラムが配置される
  */
 export async function buildPermittedMenuStructure(
   permissions: UserMenuPermissions
@@ -352,14 +356,14 @@ export async function buildPermittedMenuStructure(
   console.log("[menu-permission] Total menus:", menus.length);
   console.log("[menu-permission] Total programs:", programs.length);
 
-  // 第1階層メニューを取得
+  // 各階層のメニューを取得
   const level1Menus = menus.filter(m => m.level === 1);
-  // 第2階層メニューを取得
   const level2Menus = menus.filter(m => m.level === 2);
+  const level3Menus = menus.filter(m => m.level === 3);
 
   console.log("[menu-permission] Level 1 menus:", level1Menus.length);
   console.log("[menu-permission] Level 2 menus:", level2Menus.length);
-  console.log("[menu-permission] Sample level2 menus:", level2Menus.slice(0, 3).map(m => ({ id: m.menu_id, parent: m.parent_menu_id })));
+  console.log("[menu-permission] Level 3 menus:", level3Menus.length);
   console.log("[menu-permission] Sample programs:", programs.slice(0, 5).map(p => ({ id: p.program_id, menu: p.menu_id })));
 
   const result: PermittedMenuStructure[] = [];
@@ -395,8 +399,28 @@ export async function buildPermittedMenuStructure(
         }
       }
 
-      // プログラムをフィルタ
-      const menuPrograms = programs.filter(p => p.menu_id === menu2.menu_id);
+      // プログラムを収集（Level 2 直下 + Level 3 子メニュー配下）
+      let menuPrograms: FunctionPlacementMaster[] = [];
+
+      // Level 2 メニュー直下のプログラム
+      const level2Programs = programs.filter(p => p.menu_id === menu2.menu_id);
+      menuPrograms = [...level2Programs];
+
+      // Level 3 子メニュー配下のプログラムも収集
+      const level3Children = level3Menus.filter(m => m.parent_menu_id === menu2.menu_id);
+      for (const menu3 of level3Children) {
+        // Level 3 メニューの権限チェック
+        if (!showAll) {
+          const isMenu3Denied = permissions.denied_menus.includes(menu3.menu_id);
+          if (isMenu3Denied) {
+            continue;
+          }
+        }
+        const level3Programs = programs.filter(p => p.menu_id === menu3.menu_id);
+        menuPrograms = [...menuPrograms, ...level3Programs];
+      }
+
+      // 権限でフィルタ
       const permittedPrograms = showAll
         ? menuPrograms
         : menuPrograms.filter(p => {
@@ -409,7 +433,9 @@ export async function buildPermittedMenuStructure(
           programs: permittedPrograms,
         });
       } else {
-        console.log("[menu-permission] No programs for menu:", menu2.menu_id, "- menuPrograms:", menuPrograms.length);
+        console.log("[menu-permission] No programs for menu:", menu2.menu_id,
+          "- level2Programs:", level2Programs.length,
+          "- level3Children:", level3Children.length);
       }
     }
 
@@ -432,6 +458,7 @@ export async function buildPermittedMenuStructure(
 
 /**
  * 全メニュー構造を取得（管理者用）
+ * 3階層メニュー構造に対応
  */
 export async function getAllMenuStructure(): Promise<PermittedMenuStructure[]> {
   const menus = await getMenuDisplayMaster();
@@ -439,15 +466,28 @@ export async function getAllMenuStructure(): Promise<PermittedMenuStructure[]> {
 
   const level1Menus = menus.filter(m => m.level === 1);
   const level2Menus = menus.filter(m => m.level === 2);
+  const level3Menus = menus.filter(m => m.level === 3);
 
   const result: PermittedMenuStructure[] = [];
 
   for (const menu1 of level1Menus) {
     const childMenus = level2Menus.filter(m => m.parent_menu_id === menu1.menu_id);
-    const children = childMenus.map(menu2 => ({
-      menu: menu2,
-      programs: programs.filter(p => p.menu_id === menu2.menu_id),
-    }));
+    const children = childMenus.map(menu2 => {
+      // Level 2 直下のプログラム + Level 3 子メニュー配下のプログラム
+      let menuPrograms = programs.filter(p => p.menu_id === menu2.menu_id);
+
+      // Level 3 子メニューのプログラムも収集
+      const level3Children = level3Menus.filter(m => m.parent_menu_id === menu2.menu_id);
+      for (const menu3 of level3Children) {
+        const level3Programs = programs.filter(p => p.menu_id === menu3.menu_id);
+        menuPrograms = [...menuPrograms, ...level3Programs];
+      }
+
+      return {
+        menu: menu2,
+        programs: menuPrograms,
+      };
+    });
 
     result.push({
       menu: menu1,

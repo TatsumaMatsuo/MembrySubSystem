@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 
 // AWS Amplify SSR で POST ハンドラーが環境変数にアクセスできるようにする

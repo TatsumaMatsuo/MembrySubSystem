@@ -286,10 +286,19 @@ export async function buildPermittedMenuStructure(
   const menus = await getMenuDisplayMaster();
   const programs = await getFunctionPlacementMaster();
 
+  console.log("[menu-permission] Building menu structure");
+  console.log("[menu-permission] Total menus:", menus.length);
+  console.log("[menu-permission] Total programs:", programs.length);
+
   // 第1階層メニューを取得
   const level1Menus = menus.filter(m => m.level === 1);
   // 第2階層メニューを取得
   const level2Menus = menus.filter(m => m.level === 2);
+
+  console.log("[menu-permission] Level 1 menus:", level1Menus.length);
+  console.log("[menu-permission] Level 2 menus:", level2Menus.length);
+  console.log("[menu-permission] Sample level2 menus:", level2Menus.slice(0, 3).map(m => ({ id: m.menu_id, parent: m.parent_menu_id })));
+  console.log("[menu-permission] Sample programs:", programs.slice(0, 5).map(p => ({ id: p.program_id, menu: p.menu_id })));
 
   const result: PermittedMenuStructure[] = [];
 
@@ -297,6 +306,8 @@ export async function buildPermittedMenuStructure(
   const isDev = process.env.NODE_ENV === "development";
   const hasNoPermissions = permissions.permitted_menus.length === 0 && permissions.permitted_programs.length === 0;
   const showAll = isDev && hasNoPermissions;
+
+  console.log("[menu-permission] isDev:", isDev, "hasNoPermissions:", hasNoPermissions, "showAll:", showAll);
 
   for (const menu1 of level1Menus) {
     // 権限チェック（開発環境で権限がない場合はスキップ）
@@ -335,8 +346,12 @@ export async function buildPermittedMenuStructure(
           menu: menu2,
           programs: permittedPrograms,
         });
+      } else {
+        console.log("[menu-permission] No programs for menu:", menu2.menu_id, "- menuPrograms:", menuPrograms.length);
       }
     }
+
+    console.log("[menu-permission] Menu", menu1.menu_id, "has", permittedChildren.length, "children");
 
     // 2階層がなくても1階層目は表示（権限があれば）
     result.push({
@@ -344,6 +359,11 @@ export async function buildPermittedMenuStructure(
       children: permittedChildren,
     });
   }
+
+  console.log("[menu-permission] Final menu structure:", result.length, "top-level menus");
+  result.forEach(m => {
+    console.log("[menu-permission]  -", m.menu.menu_id, ":", m.menu.menu_name, "children:", m.children.length);
+  });
 
   return result;
 }

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
+import { getServerSession } from "@/lib/auth-server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 
-// テーブルID
-const CUSTOM_LINKS_TABLE_ID = process.env.LARK_TABLE_TOP_CUSTOM_LINKS || "";
+// テーブルID (AWS Amplify SSR用フォールバック値付き)
+const CUSTOM_LINKS_TABLE_ID = process.env.LARK_TABLE_TOP_CUSTOM_LINKS || "tblup7d4meehzX92";
 
 // フィールド名
 const FIELDS = {
@@ -36,6 +35,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!CUSTOM_LINKS_TABLE_ID) {
+    console.log("[top-custom-links] LARK_TABLE_TOP_CUSTOM_LINKS not configured");
     return NextResponse.json({
       success: true,
       links: [],
@@ -47,8 +47,14 @@ export async function GET(request: NextRequest) {
 
   try {
     // セッションからユーザーIDを取得（社員コード → Lark ID → default）
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.employeeId || session?.user?.id || "default";
+    const session = await getServerSession();
+    const userId = session?.user?.id || "default";
+
+    console.log("[top-custom-links] Fetching links for user:", {
+      userId,
+      tableId: CUSTOM_LINKS_TABLE_ID,
+      baseToken: baseToken.substring(0, 10) + "...",
+    });
 
     const links: CustomLink[] = [];
     let pageToken: string | undefined;
@@ -86,14 +92,28 @@ export async function GET(request: NextRequest) {
     // 表示順でソート
     links.sort((a, b) => a.sort_order - b.sort_order);
 
+    console.log("[top-custom-links] Found", links.length, "links for user:", userId);
+
     return NextResponse.json({
       success: true,
       links,
+      debug: {
+        userId,
+        tableId: CUSTOM_LINKS_TABLE_ID,
+        baseTokenPrefix: baseToken.substring(0, 10),
+      },
     });
   } catch (error: any) {
     console.error("[top-custom-links] GET Error:", error);
     return NextResponse.json(
-      { error: "カスタムリンクの取得に失敗しました", details: error.message },
+      {
+        error: "カスタムリンクの取得に失敗しました",
+        details: error.message,
+        debug: {
+          tableId: CUSTOM_LINKS_TABLE_ID,
+          baseTokenPrefix: baseToken.substring(0, 10),
+        },
+      },
       { status: 500 }
     );
   }
@@ -117,8 +137,8 @@ export async function POST(request: NextRequest) {
 
   try {
     // セッションからユーザーIDを取得（社員コード → Lark ID → default）
-    const session = await getServerSession(authOptions);
-    const userId = session?.user?.employeeId || session?.user?.id || "default";
+    const session = await getServerSession();
+    const userId = session?.user?.id || "default";
 
     const body = await request.json();
     const { display_name, url, icon_url, sort_order } = body;

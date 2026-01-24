@@ -17,7 +17,7 @@ async function getTenantAccessToken() {
   });
 
   const response = await fetch(
-    "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+    "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal",
     {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8" },
@@ -33,7 +33,7 @@ async function getTenantAccessToken() {
 // Lark ユーザーアクセストークン取得 (OIDC)
 async function getLarkAccessToken(code: string, tenantAccessToken: string) {
   const response = await fetch(
-    "https://open.feishu.cn/open-apis/authen/v1/oidc/access_token",
+    "https://open.larksuite.com/open-apis/authen/v1/oidc/access_token",
     {
       method: "POST",
       headers: {
@@ -52,7 +52,7 @@ async function getLarkAccessToken(code: string, tenantAccessToken: string) {
 // Lark ユーザー情報取得
 async function getLarkUserInfo(accessToken: string) {
   const response = await fetch(
-    "https://open.feishu.cn/open-apis/authen/v1/user_info",
+    "https://open.larksuite.com/open-apis/authen/v1/user_info",
     {
       headers: { Authorization: `Bearer ${accessToken}` },
     }

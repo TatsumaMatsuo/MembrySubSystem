@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
+import { getServerSession } from "@/lib/auth-server";
 import {
   buildUserPermissions,
   buildPermittedMenuStructure,
   getAllMenuStructure,
   getMenuDisplayMaster,
   getFunctionPlacementMaster,
+  getEmployeeByEmail,
+  getEmployeeByLarkId,
 } from "@/lib/menu-permission";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
     }
 
     // セッションからユーザー情報を取得
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     let employeeId = "";
     let employeeName = "";
@@ -54,20 +55,49 @@ export async function GET(request: NextRequest) {
 
     if (session?.user) {
       // 認証済みユーザー
-      employeeId = session.user.employeeId || "";
-      employeeName = session.user.employeeName || session.user.name || "";
-
-      // 部門をグループIDとして使用（部門名がグループ権限マスタのグループIDに対応）
-      if (session.user.department) {
-        groupIds = [session.user.department];
-      }
+      const userEmail = session.user.email || "";
+      const larkId = session.user.id || "";
 
       console.log("[menu-permission] User from session:", {
-        employeeId,
-        employeeName,
-        department: session.user.department,
-        groupIds,
+        larkId,
+        name: session.user.name,
+        email: userEmail,
       });
+
+      // 社員情報を検索（メールまたはLark IDで）
+      let employeeInfo = null;
+
+      // 1. メールアドレスがある場合はメールで検索
+      if (userEmail) {
+        employeeInfo = await getEmployeeByEmail(userEmail);
+      }
+
+      // 2. メールで見つからない場合はLark open_idで検索
+      if (!employeeInfo && larkId) {
+        console.log("[menu-permission] Email lookup failed, trying Lark ID lookup");
+        employeeInfo = await getEmployeeByLarkId(larkId);
+      }
+
+      if (employeeInfo) {
+        // 社員情報が見つかった場合
+        employeeId = employeeInfo.employeeId;
+        employeeName = employeeInfo.employeeName || session.user.name || "";
+        // 部署をグループIDとして使用
+        if (employeeInfo.department) {
+          groupIds = [employeeInfo.department];
+        }
+
+        console.log("[menu-permission] Employee info found:", {
+          employeeId,
+          employeeName,
+          groupIds,
+        });
+      } else {
+        // 社員情報が見つからない場合はLark IDを使用
+        employeeId = larkId;
+        employeeName = session.user.name || "";
+        console.log("[menu-permission] Employee not found by email or Lark ID, using Lark ID:", employeeId);
+      }
     } else if (isDev) {
       // 開発環境で未認証の場合はダミーデータを使用
       employeeId = "dev_user";

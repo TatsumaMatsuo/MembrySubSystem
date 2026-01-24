@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options";
+import { getServerSession } from "@/lib/auth-server";
 import { createBaseRecord } from "@/lib/lark-client";
 import { getLarkTables, getBaseTokenForTable, QUIZ_MASTER_FIELDS } from "@/lib/lark-tables";
 
@@ -21,7 +20,7 @@ interface QuizData {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

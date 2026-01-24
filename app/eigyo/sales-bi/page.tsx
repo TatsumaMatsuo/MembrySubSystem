@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useMemo } from "react";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/lib/auth";
 import { MainLayout } from "@/components/layout";
 import {
   BarChart,
@@ -897,7 +897,7 @@ function BacklogTable({
 }
 
 export default function BIDashboardPage() {
-  const { data: session } = useSession();
+  const { user, status } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PeriodDashboard[]>([]);
@@ -950,7 +950,7 @@ export default function BIDashboardPage() {
   } | null>(null);
 
   // ログインユーザーの社員名
-  const loggedInEmployeeName = (session?.user as any)?.employeeName || "";
+  const loggedInEmployeeName = (user as any)?.employeeName || user?.name || "";
 
   // データ取得（更新ボタン押下時）
   const fetchData = async () => {

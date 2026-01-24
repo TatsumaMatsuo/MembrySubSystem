@@ -1,9 +1,18 @@
 import * as lark from "@larksuiteoapi/node-sdk";
 
+// AWS Amplify SSR では環境変数にアクセスできない場合があるため、フォールバック値を設定
+const FALLBACK_APP_ID = "cli_a9d79d0bbf389e1c";
+const FALLBACK_APP_SECRET = "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE";
+const FALLBACK_BASE_TOKEN = "NvWsbaVP2aVT99sJUFxjhOLGpPs";
+const FALLBACK_BASE_TOKEN_MASTER = "J09zbrPDxa5QR8sEgU9jqLlxpxg";
+
 let _larkClient: lark.Client | null = null;
 
 export function getLarkClient(): lark.Client | null {
-  if (!process.env.LARK_APP_ID || !process.env.LARK_APP_SECRET) {
+  const appId = process.env.LARK_APP_ID || FALLBACK_APP_ID;
+  const appSecret = process.env.LARK_APP_SECRET || FALLBACK_APP_SECRET;
+
+  if (!appId || !appSecret) {
     console.error("[lark-client] Missing LARK_APP_ID or LARK_APP_SECRET");
     return null;
   }
@@ -11,11 +20,11 @@ export function getLarkClient(): lark.Client | null {
   if (!_larkClient) {
     // ドメイン判定: 環境変数で指定可能、デフォルトは国際版Lark
     const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
-    console.log("[lark-client] Using domain:", larkDomain);
+    console.log("[lark-client] Using domain:", larkDomain, "appId:", appId?.substring(0, 10) + "...");
 
     _larkClient = new lark.Client({
-      appId: process.env.LARK_APP_ID,
-      appSecret: process.env.LARK_APP_SECRET,
+      appId,
+      appSecret,
       appType: lark.AppType.SelfBuild,
       domain: larkDomain,
     });
@@ -38,15 +47,15 @@ export const larkClient = {
 };
 
 export function getLarkBaseToken(): string {
-  return process.env.LARK_BASE_TOKEN || "";
+  return process.env.LARK_BASE_TOKEN || FALLBACK_BASE_TOKEN;
 }
 
 export function getLarkBaseTokenForEmployees(): string {
-  return process.env.LARK_BASE_TOKEN_MASTER || getLarkBaseToken();
+  return process.env.LARK_BASE_TOKEN_MASTER || FALLBACK_BASE_TOKEN_MASTER;
 }
 
 export function getLarkBaseTokenForMaster(): string {
-  return process.env.LARK_BASE_TOKEN_MASTER || getLarkBaseToken();
+  return process.env.LARK_BASE_TOKEN_MASTER || FALLBACK_BASE_TOKEN_MASTER;
 }
 
 export async function getBaseRecords(tableId: string, params?: {

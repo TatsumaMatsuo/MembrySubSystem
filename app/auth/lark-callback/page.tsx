@@ -12,29 +12,37 @@ function LarkCallbackContent() {
   useEffect(() => {
     const code = searchParams.get("code");
     const state = searchParams.get("state");
+    const errorParam = searchParams.get("error");
+    const debugParam = searchParams.get("debug");
     const callbackUrl = state ? decodeURIComponent(state) : "/";
+
+    // エラーパラメータがある場合（認証APIからのリダイレクト）
+    if (errorParam) {
+      let errorMsg = "認証に失敗しました: " + errorParam;
+      if (debugParam) {
+        try {
+          errorMsg += "\n\nDebug: " + JSON.stringify(JSON.parse(debugParam), null, 2);
+        } catch {
+          errorMsg += "\n\nDebug: " + debugParam;
+        }
+      }
+      setError(errorMsg);
+      return;
+    }
 
     if (!code) {
       setError("認証コードが見つかりません");
       return;
     }
 
-    // テスト: debug-lark POST で環境変数が利用可能かチェック
-    fetch("/api/debug-lark", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        // テスト用: debug-larkのレスポンスを表示
-        console.log("[Lark Callback] Response:", data);
-        setError("テスト結果:\n" + JSON.stringify(data, null, 2));
-      })
-      .catch((err) => {
-        console.error("[Lark Callback] Auth error:", err);
-        setError("認証に失敗しました");
-      });
+    // GET リクエストで認証API にリダイレクト
+    // AWS Amplify SSR では POST ハンドラーで環境変数にアクセスできないため
+    const authUrl = new URL("/api/lark-auth", window.location.origin);
+    authUrl.searchParams.set("code", code);
+    authUrl.searchParams.set("callbackUrl", callbackUrl);
+
+    // リダイレクト（認証APIがCookieを設定して最終目的地にリダイレクト）
+    window.location.href = authUrl.toString();
   }, [searchParams, router]);
 
   if (error) {

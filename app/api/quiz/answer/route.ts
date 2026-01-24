@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
-import { authOptions } from "@/lib/auth-options";
 import { getBaseRecords, createBaseRecord } from "@/lib/lark-client";
 import { getLarkTables, getBaseTokenForTable, QUIZ_MASTER_FIELDS, QUIZ_ANSWER_HISTORY_FIELDS } from "@/lib/lark-tables";
 import { QuizMaster, QuizAnswerRequest, QuizAnswerResponse, QuizChoice } from "@/types";
@@ -45,7 +44,7 @@ function extractTextValue(value: any): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
     if (!session?.user) {
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
     }

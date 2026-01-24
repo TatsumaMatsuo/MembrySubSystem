@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/lib/auth";
 import { MainLayout } from "@/components/layout";
 import {
   BarChart,
@@ -156,7 +156,7 @@ function setClientCache(period: number, data: PeriodData[]): void {
 }
 
 export default function DeficitAnalysisPage() {
-  const { data: session } = useSession();
+  const { user, status } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PeriodData | null>(null);

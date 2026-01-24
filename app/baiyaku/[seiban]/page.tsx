@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useAuth } from "@/lib/auth";
 import {
   ArrowLeft,
   FileText,
@@ -69,7 +69,7 @@ interface PageProps {
 
 export default function BaiyakuDetailPage({ params }: PageProps) {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { user, status, signOut } = useAuth();
   const seiban = decodeURIComponent(params.seiban);
 
   const [baiyaku, setBaiyaku] = useState<BaiyakuInfo | null>(null);
@@ -161,7 +161,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
           documentType: docType,
           operationType,
           fileName,
-          operator: session?.user?.name || session?.user?.email || "不明",
+          operator: user?.name || user?.email || "不明",
           beforeFileToken,
           afterFileToken,
         }),
@@ -755,14 +755,14 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
               </div>
             )}
             <div className="flex items-center gap-3">
-              {session?.user && (
+              {user && (
                 <div className="flex items-center gap-1.5 text-white/90 text-sm bg-white/10 px-3 py-1.5 rounded-full">
                   <User className="w-4 h-4" />
-                  <span className="font-medium">{session.user.name || session.user.email}</span>
+                  <span className="font-medium">{user.name || user.email}</span>
                 </div>
               )}
               <button
-                onClick={() => signOut({ callbackUrl: "/auth/signin" })}
+                onClick={() => signOut()}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-white bg-white/20 hover:bg-white/30 rounded-full transition-all duration-200 font-medium"
               >
                 <LogOut className="w-4 h-4" />

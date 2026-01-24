@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { LogOut, User, Menu, X } from "lucide-react";
@@ -13,7 +13,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { user, status, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ESCキーでメニューを閉じる
@@ -76,16 +76,16 @@ export function MainLayout({ children }: MainLayoutProps) {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {session?.user && (
+              {user && (
                 <div className="flex items-center gap-1.5 text-white/90 text-sm bg-white/10 px-3 py-1.5 rounded-full">
                   <User className="w-4 h-4" />
                   <span className="font-medium hidden sm:inline">
-                    {session.user.name || session.user.email}
+                    {user.name || user.email}
                   </span>
                 </div>
               )}
               <button
-                onClick={() => signOut({ callbackUrl: "/auth/signin" })}
+                onClick={() => signOut()}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-white bg-white/20 hover:bg-white/30 rounded-full transition-all duration-200 font-medium"
               >
                 <LogOut className="w-4 h-4" />

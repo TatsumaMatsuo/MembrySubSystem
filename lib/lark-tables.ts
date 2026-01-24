@@ -4,6 +4,7 @@
 
 // AWS Amplify SSR では環境変数にアクセスできない場合があるため、フォールバック値を設定
 const FALLBACK_BASE_TOKEN = "NvWsbaVP2aVT99sJUFxjhOLGpPs";
+const FALLBACK_BASE_TOKEN_MASTER = "J09zbrPDxa5QR8sEgU9jqLlxpxg";
 
 export type BaseType = "project" | "master";
 
@@ -70,9 +71,16 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
 export function getBaseTokenForTable(tableName: keyof typeof TABLE_BASE_CONFIG): string {
   const baseType = TABLE_BASE_CONFIG[tableName] || "project";
   if (baseType === "master") {
-    return process.env.LARK_BASE_TOKEN_MASTER || process.env.LARK_BASE_TOKEN || FALLBACK_BASE_TOKEN;
+    return process.env.LARK_BASE_TOKEN_MASTER || FALLBACK_BASE_TOKEN_MASTER;
   }
   return process.env.LARK_BASE_TOKEN || FALLBACK_BASE_TOKEN;
+}
+
+/**
+ * マスタ用Baseトークンを取得
+ */
+export function getLarkBaseTokenMaster(): string {
+  return process.env.LARK_BASE_TOKEN_MASTER || FALLBACK_BASE_TOKEN_MASTER;
 }
 
 /**

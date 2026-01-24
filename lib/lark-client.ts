@@ -4,6 +4,7 @@ import * as lark from "@larksuiteoapi/node-sdk";
 const FALLBACK_APP_ID = "cli_a9d79d0bbf389e1c";
 const FALLBACK_APP_SECRET = "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE";
 const FALLBACK_BASE_TOKEN = "NvWsbaVP2aVT99sJUFxjhOLGpPs";
+const FALLBACK_BASE_TOKEN_MASTER = "J09zbrPDxa5QR8sEgU9jqLlxpxg";
 
 let _larkClient: lark.Client | null = null;
 
@@ -50,11 +51,11 @@ export function getLarkBaseToken(): string {
 }
 
 export function getLarkBaseTokenForEmployees(): string {
-  return process.env.LARK_BASE_TOKEN_MASTER || getLarkBaseToken();
+  return process.env.LARK_BASE_TOKEN_MASTER || FALLBACK_BASE_TOKEN_MASTER;
 }
 
 export function getLarkBaseTokenForMaster(): string {
-  return process.env.LARK_BASE_TOKEN_MASTER || getLarkBaseToken();
+  return process.env.LARK_BASE_TOKEN_MASTER || FALLBACK_BASE_TOKEN_MASTER;
 }
 
 export async function getBaseRecords(tableId: string, params?: {

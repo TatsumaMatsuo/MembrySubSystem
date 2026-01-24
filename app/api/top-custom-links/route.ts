@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth-server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 
-// テーブルID
-const CUSTOM_LINKS_TABLE_ID = process.env.LARK_TABLE_TOP_CUSTOM_LINKS || "";
+// テーブルID (AWS Amplify SSR用フォールバック値付き)
+const CUSTOM_LINKS_TABLE_ID = process.env.LARK_TABLE_TOP_CUSTOM_LINKS || "tblup7d4meehzX92";
 
 // フィールド名
 const FIELDS = {

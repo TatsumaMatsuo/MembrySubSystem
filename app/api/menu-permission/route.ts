@@ -6,6 +6,7 @@ import {
   getAllMenuStructure,
   getMenuDisplayMaster,
   getFunctionPlacementMaster,
+  getEmployeeByEmail,
 } from "@/lib/menu-permission";
 
 export const dynamic = "force-dynamic";
@@ -52,15 +53,38 @@ export async function GET(request: NextRequest) {
     let groupIds: string[] = [];
 
     if (session?.user) {
-      // 認証済みユーザー
-      employeeId = session.user.id || "";
-      employeeName = session.user.name || "";
+      // 認証済みユーザー - メールから社員情報を検索
+      const userEmail = session.user.email || "";
 
       console.log("[menu-permission] User from session:", {
-        employeeId,
-        employeeName,
-        groupIds,
+        larkId: session.user.id,
+        name: session.user.name,
+        email: userEmail,
       });
+
+      // 社員マスタからメールで検索
+      const employeeInfo = await getEmployeeByEmail(userEmail);
+
+      if (employeeInfo) {
+        // 社員情報が見つかった場合
+        employeeId = employeeInfo.employeeId;
+        employeeName = employeeInfo.employeeName || session.user.name || "";
+        // 部署をグループIDとして使用
+        if (employeeInfo.department) {
+          groupIds = [employeeInfo.department];
+        }
+
+        console.log("[menu-permission] Employee info found:", {
+          employeeId,
+          employeeName,
+          groupIds,
+        });
+      } else {
+        // 社員情報が見つからない場合はLark IDを使用
+        employeeId = session.user.id || "";
+        employeeName = session.user.name || "";
+        console.log("[menu-permission] Employee not found, using Lark ID:", employeeId);
+      }
     } else if (isDev) {
       // 開発環境で未認証の場合はダミーデータを使用
       employeeId = "dev_user";

@@ -10,12 +10,68 @@ import {
   PermittedMenuStructure,
   UserMenuPermissions,
 } from "@/types";
+import { getLarkTables, getBaseTokenForTable, EMPLOYEE_FIELDS } from "./lark-tables";
 
 // テーブルID (AWS Amplify SSR用フォールバック値付き)
 const TABLE_MENU_DISPLAY = process.env.LARK_TABLE_MENU_DISPLAY || "tblQUDXmR38J6KWh";
 const TABLE_FUNCTION_PLACEMENT = process.env.LARK_TABLE_FUNCTION_PLACEMENT || "tblmFd1WLLegSKPO";
 const TABLE_GROUP_PERMISSION = process.env.LARK_TABLE_GROUP_PERMISSION || "tbldL8lBsCnhCJQx";
 const TABLE_USER_PERMISSION = process.env.LARK_TABLE_USER_PERMISSION || "tbl2hvSUkEe3fn7t";
+
+/**
+ * 社員情報
+ */
+export interface EmployeeInfo {
+  employeeId: string;
+  employeeName: string;
+  email: string;
+  department: string;
+}
+
+/**
+ * メールアドレスから社員情報を取得
+ */
+export async function getEmployeeByEmail(email: string): Promise<EmployeeInfo | null> {
+  if (!email) return null;
+
+  try {
+    const tables = getLarkTables();
+    const baseToken = getBaseTokenForTable("EMPLOYEES");
+
+    console.log("[menu-permission] Looking up employee by email:", email);
+
+    // メールアドレスでフィルタ
+    const response = await getBaseRecords(tables.EMPLOYEES, {
+      baseToken,
+      filter: `CurrentValue.[${EMPLOYEE_FIELDS.email}] = "${email}"`,
+      pageSize: 1,
+    });
+
+    if (!response.data?.items || response.data.items.length === 0) {
+      console.log("[menu-permission] Employee not found for email:", email);
+      return null;
+    }
+
+    const item = response.data.items[0] as { fields: Record<string, any> };
+    const employeeInfo: EmployeeInfo = {
+      employeeId: String(item.fields[EMPLOYEE_FIELDS.employee_id] || ""),
+      employeeName: String(item.fields[EMPLOYEE_FIELDS.employee_name] || ""),
+      email: email,
+      department: String(item.fields[EMPLOYEE_FIELDS.department] || ""),
+    };
+
+    console.log("[menu-permission] Employee found:", {
+      employeeId: employeeInfo.employeeId,
+      employeeName: employeeInfo.employeeName,
+      department: employeeInfo.department,
+    });
+
+    return employeeInfo;
+  } catch (error) {
+    console.error("[menu-permission] Error looking up employee:", error);
+    return null;
+  }
+}
 
 /**
  * メニュー表示マスタを取得

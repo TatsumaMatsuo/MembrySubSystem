@@ -277,8 +277,23 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     }
   };
 
-  // ファイルサイズ上限: 5MB
-  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+  // ファイルサイズ上限: 4MB（Base64エンコード後に約5.3MBになるため、AWS Amplify 6MB制限内に収める）
+  const MAX_FILE_SIZE = 4 * 1024 * 1024;
+
+  // ファイルをBase64に変換するヘルパー関数
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // data:image/png;base64,xxxxx 形式から base64 部分のみ取り出す
+        const base64 = result.split(",")[1] || result;
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
   // ファイル選択時の処理
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -297,11 +312,15 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     setUploading(true);
 
     try {
-      // ファイルをBase64に変換
-      const arrayBuffer = await file.arrayBuffer();
-      const base64 = btoa(
-        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-      );
+      // ファイルをBase64に変換（FileReader使用でより信頼性の高い変換）
+      const base64 = await fileToBase64(file);
+
+      console.log("[upload] Sending upload request:", {
+        fileName: file.name,
+        fileSize: file.size,
+        base64Length: base64.length,
+        documentType: uploadTarget.docType,
+      });
 
       // JSON形式でアップロード（AWS Amplifyの制限を回避）
       const response = await fetch("/api/documents/upload", {
@@ -320,6 +339,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
           targetFileToken: uploadTarget.targetFileToken,
         }),
       });
+
+      console.log("[upload] Response status:", response.status);
 
       // レスポンスがJSONかどうかを確認
       const contentType = response.headers.get("content-type");

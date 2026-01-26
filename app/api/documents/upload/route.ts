@@ -6,8 +6,8 @@ import { getLarkTables } from "@/lib/lark-tables";
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // アップロードには時間がかかる場合があるため
 
-// ファイルサイズ上限: 5MB (AWS Amplifyの制限に合わせる)
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+// ファイルサイズ上限: 4MB (Base64エンコード後に約5.3MBになるため、AWS Amplify 6MB制限内に収める)
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
   console.log("[upload] POST request received");

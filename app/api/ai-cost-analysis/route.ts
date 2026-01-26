@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getCostAnalysisBySeiban } from "@/services/cost-analysis.service";
+import { getCustomerRequestsBySeiban } from "@/services/customer-requests.service";
+import { getQualityIssuesBySeiban } from "@/services/quality-issues.service";
+import { getBaiyakuBySeiban } from "@/services/baiyaku.service";
+import { generateGanttChartData } from "@/services/gantt.service";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
-
-async function fetchData(url: string) {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data.success ? data.data : null;
-  } catch {
-    return null;
-  }
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -35,15 +29,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 各データを並列取得
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
-
-    const [costAnalysis, customerRequests, qualityIssues, ganttData] = await Promise.all([
-      fetchData(`${baseUrl}/api/cost-analysis?seiban=${encodeURIComponent(seiban)}`),
-      fetchData(`${baseUrl}/api/customer-requests?seiban=${encodeURIComponent(seiban)}`),
-      fetchData(`${baseUrl}/api/quality-issues?seiban=${encodeURIComponent(seiban)}`),
-      fetchData(`${baseUrl}/api/gantt?seiban=${encodeURIComponent(seiban)}`),
+    // 各データを並列取得（サービスを直接呼び出し）
+    const [costAnalysis, customerRequests, qualityIssues, baiyaku] = await Promise.all([
+      getCostAnalysisBySeiban(seiban),
+      getCustomerRequestsBySeiban(seiban),
+      getQualityIssuesBySeiban(seiban),
+      getBaiyakuBySeiban(seiban),
     ]);
+
+    // ガントチャートデータを生成
+    const ganttData = baiyaku ? generateGanttChartData(baiyaku) : null;
 
     // プロンプト用のデータを整形
     const contextData = {

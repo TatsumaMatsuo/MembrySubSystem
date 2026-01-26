@@ -3,6 +3,9 @@ import { Readable } from "stream";
 import { getLarkClient, getLarkBaseToken, getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
 import { getLarkTables } from "@/lib/lark-tables";
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // アップロードには時間がかかる場合があるため
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -28,9 +31,6 @@ export async function POST(request: NextRequest) {
 
     const tables = getLarkTables();
     const fileBuffer = Buffer.from(await file.arrayBuffer());
-
-    // BufferをReadable Streamに変換（Lark SDKはStreamを要求する）
-    const fileStream = Readable.from(fileBuffer);
 
     // テーブルのフィールド情報を取得
     const tableInfoResponse = await client.bitable.appTableField.list({
@@ -71,17 +71,34 @@ export async function POST(request: NextRequest) {
     console.log("[upload] Found record:", recordId);
 
     // 2. Drive APIでファイルをアップロード
-    console.log("[upload] Uploading file to Drive...");
+    console.log("[upload] Uploading file to Drive...", { size: file.size, name: file.name });
 
-    const uploadResponse = await client.drive.media.uploadAll({
-      data: {
-        file_name: file.name,
-        parent_type: "bitable_file",
-        parent_node: getLarkBaseToken(),
-        size: file.size,
-        file: fileStream as any, // Readable Streamとして渡す
-      },
-    });
+    let uploadResponse;
+    try {
+      // BufferからReadable Streamを作成
+      const stream = new Readable({
+        read() {
+          this.push(fileBuffer);
+          this.push(null);
+        }
+      });
+
+      uploadResponse = await client.drive.media.uploadAll({
+        data: {
+          file_name: file.name,
+          parent_type: "bitable_file",
+          parent_node: getLarkBaseToken(),
+          size: file.size,
+          file: stream as any,
+        },
+      });
+    } catch (uploadError) {
+      console.error("[upload] Drive upload error:", uploadError);
+      return NextResponse.json({
+        success: false,
+        error: `ファイルアップロードに失敗しました: ${uploadError instanceof Error ? uploadError.message : "不明なエラー"}`,
+      }, { status: 500 });
+    }
 
     console.log("[upload] Drive upload response:", JSON.stringify(uploadResponse, null, 2));
 
@@ -96,9 +113,10 @@ export async function POST(request: NextRequest) {
     const responseData = uploadResponse as any;
     const fileToken = responseData.file_token || responseData.data?.file_token;
     if (!fileToken) {
+      console.error("[upload] No file_token in response:", responseData);
       return NextResponse.json({
         success: false,
-        error: `ファイルアップロードに失敗しました: ${responseData.msg || "不明なエラー"}`,
+        error: `ファイルアップロードに失敗しました: ${responseData.msg || responseData.code || "不明なエラー"}`,
       }, { status: 500 });
     }
 

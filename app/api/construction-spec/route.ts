@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as lark from "@larksuiteoapi/node-sdk";
-import { getLarkTables } from "@/lib/lark-tables";
+import { getBaseRecords } from "@/lib/lark-client";
+import { getLarkTables, BAIYAKU_FIELDS } from "@/lib/lark-tables";
 import type { ConstructionSpec } from "@/types";
 
-// Larkクライアント初期化
-const client = new lark.Client({
-  appId: process.env.LARK_APP_ID || "",
-  appSecret: process.env.LARK_APP_SECRET || "",
-  disableTokenCache: false,
-});
+export const dynamic = 'force-dynamic';
 
 /**
  * 工事仕様書情報を取得するAPI
+ * 売約情報テーブルから工事関連フィールドを取得
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -26,30 +22,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const tables = getLarkTables();
-    const baseToken = process.env.LARK_BASE_TOKEN || "";
 
-    // 製番でフィルタリングしてレコードを検索
-    const response = await client.bitable.appTableRecord.search({
-      path: {
-        app_token: baseToken,
-        table_id: tables.CONSTRUCTION_SPEC,
-      },
-      params: {
-        page_size: 1,
-      },
-      data: {
-        filter: {
-          conjunction: "and",
-          conditions: [
-            {
-              field_name: "製番",
-              operator: "is",
-              value: [seiban],
-            },
-          ],
-        },
-      },
-    });
+    // 売約情報テーブルから製番でフィルタリング
+    const filter = `CurrentValue.[${BAIYAKU_FIELDS.seiban}] = "${seiban}"`;
+    const response = await getBaseRecords(tables.BAIYAKU, { filter, pageSize: 1 });
 
     if (!response.data?.items || response.data.items.length === 0) {
       return NextResponse.json(

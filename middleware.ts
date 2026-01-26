@@ -42,6 +42,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico, public assets
      */
-    "/((?!api/auth|api/lark-auth|api/debug-env|api/debug-auth|api/debug-lark|api/upload-test|auth|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
+    "/((?!api/auth|api/lark-auth|api/debug-env|api/debug-auth|api/debug-lark|auth|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
   ],
 };

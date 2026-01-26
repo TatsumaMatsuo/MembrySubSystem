@@ -618,7 +618,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       if (data.success) {
         setAiAnalysis(data.data.analysis);
       } else {
-        setAiAnalysis("AI分析の生成に失敗しました: " + (data.error || "不明なエラー"));
+        const errorMsg = data.details ? `${data.error}: ${data.details}` : data.error;
+        setAiAnalysis("AI分析の生成に失敗しました: " + (errorMsg || "不明なエラー"));
       }
     } catch (error) {
       console.error("Error fetching AI analysis:", error);

@@ -21,7 +21,14 @@ export async function GET(request: NextRequest) {
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
+  console.log("[ai-cost-analysis] API Key check:", {
+    hasKey: !!apiKey,
+    keyLength: apiKey?.length,
+    keyPrefix: apiKey?.substring(0, 10)
+  });
+
   if (!apiKey) {
+    console.error("[ai-cost-analysis] ANTHROPIC_API_KEY is not set");
     return NextResponse.json(
       { success: false, error: "ANTHROPIC_API_KEY が設定されていません" },
       { status: 500 }

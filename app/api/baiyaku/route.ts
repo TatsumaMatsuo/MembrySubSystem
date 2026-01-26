@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchBaiyakuInfo } from "@/services/baiyaku.service";
+import type { SalesStatusFilter } from "@/types";
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,7 @@ export async function GET(request: NextRequest) {
     const tokuisaki = searchParams.get("tokuisaki") || undefined;
     const juchu_date_from = searchParams.get("juchu_date_from") || undefined;
     const juchu_date_to = searchParams.get("juchu_date_to") || undefined;
+    const sales_status = (searchParams.get("sales_status") || "juchu_zan") as SalesStatusFilter;
 
     const results = await searchBaiyakuInfo({
       seiban,
@@ -20,6 +22,7 @@ export async function GET(request: NextRequest) {
       tokuisaki,
       juchu_date_from,
       juchu_date_to,
+      sales_status,
     });
 
     return NextResponse.json({

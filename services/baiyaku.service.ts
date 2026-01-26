@@ -9,6 +9,19 @@ export async function searchBaiyakuInfo(params: SearchParams): Promise<BaiyakuIn
   const tables = getLarkTables();
   const filters: string[] = [];
 
+  // 削除フラグ = true は常に除外
+  filters.push(`CurrentValue.[${BAIYAKU_FIELDS.sakujo_flag}] != TRUE`);
+
+  // 売上ステータスフィルター
+  if (params.sales_status === "juchu_zan") {
+    // 受注残: 売上済フラグ = false
+    filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriagezumi_flag}] = FALSE`);
+  } else if (params.sales_status === "uriagezumi") {
+    // 売上済: 売上済フラグ = true
+    filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriagezumi_flag}] = TRUE`);
+  }
+  // "all" の場合は売上済フラグの条件を追加しない
+
   // 製番での部分一致検索 (FIND関数を使用)
   if (params.seiban) {
     filters.push(`FIND("${params.seiban}", CurrentValue.[${BAIYAKU_FIELDS.seiban}]) > 0`);

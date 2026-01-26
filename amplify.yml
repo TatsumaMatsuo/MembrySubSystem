@@ -6,6 +6,25 @@ frontend:
         - npm ci
     build:
       commands:
+        # AWS Amplifyの環境変数を.env.productionに書き出し（SSRランタイム用）
+        - echo "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY" >> .env.production
+        - echo "LARK_APP_ID=$LARK_APP_ID" >> .env.production
+        - echo "LARK_APP_SECRET=$LARK_APP_SECRET" >> .env.production
+        - echo "LARK_BASE_TOKEN=$LARK_BASE_TOKEN" >> .env.production
+        - echo "LARK_BASE_TOKEN_MASTER=$LARK_BASE_TOKEN_MASTER" >> .env.production
+        - echo "LARK_OAUTH_CLIENT_ID=$LARK_OAUTH_CLIENT_ID" >> .env.production
+        - echo "LARK_OAUTH_CLIENT_SECRET=$LARK_OAUTH_CLIENT_SECRET" >> .env.production
+        - echo "LARK_OAUTH_REDIRECT_URI=$LARK_OAUTH_REDIRECT_URI" >> .env.production
+        - echo "LARK_TABLE_BAIYAKU=$LARK_TABLE_BAIYAKU" >> .env.production
+        - echo "LARK_TABLE_COMPANY_KPI=$LARK_TABLE_COMPANY_KPI" >> .env.production
+        - echo "LARK_TABLE_CUSTOMER_REQUESTS=$LARK_TABLE_CUSTOMER_REQUESTS" >> .env.production
+        - echo "LARK_TABLE_EMPLOYEES=$LARK_TABLE_EMPLOYEES" >> .env.production
+        - echo "LARK_TABLE_ORDER_SNAPSHOT=$LARK_TABLE_ORDER_SNAPSHOT" >> .env.production
+        - echo "LARK_TABLE_PROJECT_DOCUMENTS=$LARK_TABLE_PROJECT_DOCUMENTS" >> .env.production
+        - echo "LARK_TABLE_QUALITY_ISSUES=$LARK_TABLE_QUALITY_ISSUES" >> .env.production
+        - echo "LARK_TABLE_TOP_CUSTOM_LINKS=$LARK_TABLE_TOP_CUSTOM_LINKS" >> .env.production
+        - echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> .env.production
+        - echo "NEXTAUTH_URL=$NEXTAUTH_URL" >> .env.production
         - npm run build
   artifacts:
     baseDirectory: .next

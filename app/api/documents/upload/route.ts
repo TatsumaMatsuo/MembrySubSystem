@@ -6,14 +6,63 @@ import { getLarkTables } from "@/lib/lark-tables";
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // アップロードには時間がかかる場合があるため
 
+// ファイルサイズ上限: 5MB (AWS Amplifyの制限に合わせる)
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
 export async function POST(request: NextRequest) {
+  console.log("[upload] POST request received");
+
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File | null;
-    const seiban = formData.get("seiban") as string;
-    const documentType = formData.get("documentType") as string;
-    const replaceMode = formData.get("replace") === "true"; // 差替えモード
-    const targetFileToken = formData.get("targetFileToken") as string | null; // 差替え対象のファイルトークン
+    // Content-Typeを確認
+    const contentType = request.headers.get("content-type") || "";
+    console.log("[upload] Content-Type:", contentType);
+
+    let file: File | null = null;
+    let seiban: string | null = null;
+    let documentType: string | null = null;
+    let replaceMode = false;
+    let targetFileToken: string | null = null;
+
+    if (contentType.includes("application/json")) {
+      // JSON形式 (Base64エンコード)
+      const json = await request.json();
+      console.log("[upload] JSON payload received:", {
+        hasFileData: !!json.fileData,
+        fileName: json.fileName,
+        seiban: json.seiban,
+        documentType: json.documentType
+      });
+
+      if (!json.fileData || !json.fileName) {
+        return NextResponse.json({ success: false, error: "ファイルデータが指定されていません" }, { status: 400 });
+      }
+
+      // Base64デコード
+      const base64Data = json.fileData.replace(/^data:[^;]+;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
+
+      if (buffer.length > MAX_FILE_SIZE) {
+        return NextResponse.json({
+          success: false,
+          error: `ファイルサイズが上限（${MAX_FILE_SIZE / 1024 / 1024}MB）を超えています`
+        }, { status: 400 });
+      }
+
+      // File-like objectを作成
+      file = new File([buffer], json.fileName, { type: json.mimeType || "application/octet-stream" });
+      seiban = json.seiban;
+      documentType = json.documentType;
+      replaceMode = json.replace === true || json.replace === "true";
+      targetFileToken = json.targetFileToken || null;
+    } else {
+      // FormData形式 (従来の方式)
+      const formData = await request.formData();
+      file = formData.get("file") as File | null;
+      seiban = formData.get("seiban") as string;
+      documentType = formData.get("documentType") as string;
+      replaceMode = formData.get("replace") === "true";
+      targetFileToken = formData.get("targetFileToken") as string | null;
+    }
 
     if (!file) {
       return NextResponse.json({ success: false, error: "ファイルが指定されていません" }, { status: 400 });
@@ -22,7 +71,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "必須パラメータが不足しています" }, { status: 400 });
     }
 
-    console.log("[upload] Starting upload:", { fileName: file.name, seiban, documentType });
+    console.log("[upload] Starting upload:", { fileName: file.name, fileSize: file.size, seiban, documentType });
 
     const client = getLarkClient();
     if (!client) {

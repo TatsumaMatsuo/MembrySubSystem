@@ -277,27 +277,48 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     }
   };
 
+  // ファイルサイズ上限: 5MB
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
   // ファイル選択時の処理
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !uploadTarget) return;
 
+    // ファイルサイズチェック
+    if (file.size > MAX_FILE_SIZE) {
+      alert(`ファイルサイズが上限（${MAX_FILE_SIZE / 1024 / 1024}MB）を超えています。\n小さいファイルを選択してください。`);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
     setUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("seiban", seiban);
-      formData.append("department", uploadTarget.dept);
-      formData.append("documentType", uploadTarget.docType);
-      formData.append("replace", uploadTarget.replace ? "true" : "false");
-      if (uploadTarget.targetFileToken) {
-        formData.append("targetFileToken", uploadTarget.targetFileToken);
-      }
+      // ファイルをBase64に変換
+      const arrayBuffer = await file.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+      );
 
+      // JSON形式でアップロード（AWS Amplifyの制限を回避）
       const response = await fetch("/api/documents/upload", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fileData: base64,
+          fileName: file.name,
+          mimeType: file.type,
+          seiban: seiban,
+          department: uploadTarget.dept,
+          documentType: uploadTarget.docType,
+          replace: uploadTarget.replace,
+          targetFileToken: uploadTarget.targetFileToken,
+        }),
       });
 
       // レスポンスがJSONかどうかを確認

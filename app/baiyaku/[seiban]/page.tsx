@@ -300,6 +300,15 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
         body: formData,
       });
 
+      // レスポンスがJSONかどうかを確認
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("Non-JSON response:", text.substring(0, 500));
+        alert(`アップロードに失敗しました: サーバーエラー (${response.status})`);
+        return;
+      }
+
       const data = await response.json();
 
       if (data.success) {
@@ -323,7 +332,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       }
     } catch (error) {
       console.error("Upload error:", error);
-      alert("アップロード中にエラーが発生しました");
+      const errorMsg = error instanceof Error ? error.message : "不明なエラー";
+      alert(`アップロード中にエラーが発生しました: ${errorMsg}`);
     } finally {
       setUploading(false);
       setUploadTarget(null);

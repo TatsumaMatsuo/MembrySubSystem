@@ -277,28 +277,79 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     }
   };
 
+  // ファイルサイズ上限: 4MB（Base64エンコード後に約5.3MBになるため、AWS Amplify 6MB制限内に収める）
+  const MAX_FILE_SIZE = 4 * 1024 * 1024;
+
+  // ファイルをBase64に変換するヘルパー関数
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // data:image/png;base64,xxxxx 形式から base64 部分のみ取り出す
+        const base64 = result.split(",")[1] || result;
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   // ファイル選択時の処理
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !uploadTarget) return;
 
+    // ファイルサイズチェック
+    if (file.size > MAX_FILE_SIZE) {
+      alert(`ファイルサイズが上限（${MAX_FILE_SIZE / 1024 / 1024}MB）を超えています。\n小さいファイルを選択してください。`);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
     setUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("seiban", seiban);
-      formData.append("department", uploadTarget.dept);
-      formData.append("documentType", uploadTarget.docType);
-      formData.append("replace", uploadTarget.replace ? "true" : "false");
-      if (uploadTarget.targetFileToken) {
-        formData.append("targetFileToken", uploadTarget.targetFileToken);
-      }
+      // ファイルをBase64に変換（FileReader使用でより信頼性の高い変換）
+      const base64 = await fileToBase64(file);
 
+      console.log("[upload] Sending upload request:", {
+        fileName: file.name,
+        fileSize: file.size,
+        base64Length: base64.length,
+        documentType: uploadTarget.docType,
+      });
+
+      // JSON形式でアップロード（AWS Amplifyの制限を回避）
       const response = await fetch("/api/documents/upload", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fileData: base64,
+          fileName: file.name,
+          mimeType: file.type,
+          seiban: seiban,
+          department: uploadTarget.dept,
+          documentType: uploadTarget.docType,
+          replace: uploadTarget.replace,
+          targetFileToken: uploadTarget.targetFileToken,
+        }),
       });
+
+      console.log("[upload] Response status:", response.status);
+
+      // レスポンスがJSONかどうかを確認
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("Non-JSON response:", text.substring(0, 500));
+        alert(`アップロードに失敗しました: サーバーエラー (${response.status})`);
+        return;
+      }
 
       const data = await response.json();
 
@@ -323,7 +374,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       }
     } catch (error) {
       console.error("Upload error:", error);
-      alert("アップロード中にエラーが発生しました");
+      const errorMsg = error instanceof Error ? error.message : "不明なエラー";
+      alert(`アップロード中にエラーが発生しました: ${errorMsg}`);
     } finally {
       setUploading(false);
       setUploadTarget(null);

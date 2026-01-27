@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { MainLayout } from "@/components/layout/MainLayout";
 import {
   Calendar,
   ChevronLeft,
@@ -130,7 +129,6 @@ export default function SchedulePage() {
   };
 
   return (
-    <MainLayout>
       <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden">
         {/* ヘッダー */}
         <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
@@ -297,6 +295,5 @@ export default function SchedulePage() {
           </div>
         </main>
       </div>
-    </MainLayout>
   );
 }

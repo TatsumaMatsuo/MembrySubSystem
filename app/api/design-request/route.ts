@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 
     const response = await getBaseRecords(DESIGN_REQUEST_TABLE_ID, {
       filter: filterString,
-      sort: [{ field_name: DESIGN_REQUEST_FIELDS.sakusei_nichiji, desc: true }],
+      sort: [`${DESIGN_REQUEST_FIELDS.anken_bangou} DESC`],
       pageSize,
       pageToken,
       baseToken: DESIGN_REQUEST_BASE_TOKEN,

@@ -3,26 +3,49 @@ import { getServerSession } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
-// 指定日の開始・終了タイムスタンプ（秒）
+// 日本時間（JST）のタイムゾーン
+const JST_TIMEZONE = "Asia/Tokyo";
+
+// 指定日の開始・終了タイムスタンプ（秒）- 日本時間基準
 function getDateRange(dateStr?: string): { start: number; end: number; targetDate: Date } {
-  const targetDate = dateStr ? new Date(dateStr) : new Date();
+  // 日本時間の現在時刻を取得
+  const nowInJST = new Date(new Date().toLocaleString("en-US", { timeZone: JST_TIMEZONE }));
+
+  let targetDate: Date;
+  if (dateStr) {
+    // YYYY-MM-DD形式の日付文字列を日本時間として解釈
+    const [year, month, day] = dateStr.split("-").map(Number);
+    targetDate = new Date(year, month - 1, day, 0, 0, 0);
+  } else {
+    targetDate = nowInJST;
+  }
+
   // 無効な日付の場合は今日を使用
   if (isNaN(targetDate.getTime())) {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    return {
-      start: Math.floor(start.getTime() / 1000),
-      end: Math.floor(end.getTime() / 1000),
-      targetDate: now,
-    };
+    targetDate = nowInJST;
   }
-  const start = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
-  const end = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
+
+  // 日本時間での0:00:00と23:59:59を計算
+  const startJST = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
+  const endJST = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
+
+  // JSTからUTCへ変換（-9時間）してタイムスタンプを取得
+  const jstOffset = 9 * 60 * 60 * 1000; // 9時間をミリ秒で
+  const startUTC = new Date(startJST.getTime() - jstOffset);
+  const endUTC = new Date(endJST.getTime() - jstOffset);
+
+  console.log("[calendar] Date range (JST):", {
+    dateStr,
+    startJST: startJST.toISOString(),
+    endJST: endJST.toISOString(),
+    startUTC: startUTC.toISOString(),
+    endUTC: endUTC.toISOString(),
+  });
+
   return {
-    start: Math.floor(start.getTime() / 1000),
-    end: Math.floor(end.getTime() / 1000),
-    targetDate,
+    start: Math.floor(startUTC.getTime() / 1000),
+    end: Math.floor(endUTC.getTime() / 1000),
+    targetDate: startJST,
   };
 }
 
@@ -324,12 +347,14 @@ export async function GET(request: NextRequest) {
             ? new Date(Number(event.start_time.timestamp) * 1000).toLocaleTimeString("ja-JP", {
                 hour: "2-digit",
                 minute: "2-digit",
+                timeZone: JST_TIMEZONE,
               })
             : event.start_time?.date || "",
           end_time: event.end_time?.timestamp
             ? new Date(Number(event.end_time.timestamp) * 1000).toLocaleTimeString("ja-JP", {
                 hour: "2-digit",
                 minute: "2-digit",
+                timeZone: JST_TIMEZONE,
               })
             : event.end_time?.date || "",
           is_all_day: !!event.start_time?.date,
@@ -350,9 +375,11 @@ export async function GET(request: NextRequest) {
       return a.start_time.localeCompare(b.start_time);
     });
 
-    // 今日かどうかを判定
-    const today = new Date();
-    const isToday = targetDate.toDateString() === today.toDateString();
+    // 今日かどうかを判定（日本時間基準）
+    const todayInJST = new Date(new Date().toLocaleString("en-US", { timeZone: JST_TIMEZONE }));
+    const isToday = targetDate.getFullYear() === todayInJST.getFullYear() &&
+                    targetDate.getMonth() === todayInJST.getMonth() &&
+                    targetDate.getDate() === todayInJST.getDate();
 
     return NextResponse.json({
       success: true,
@@ -363,6 +390,7 @@ export async function GET(request: NextRequest) {
           month: "long",
           day: "numeric",
           weekday: "long",
+          timeZone: JST_TIMEZONE,
         }),
         dateStr: targetDateStr, // フロントエンドでのナビゲーション用
         isToday,

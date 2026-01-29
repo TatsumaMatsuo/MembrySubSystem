@@ -96,6 +96,8 @@ export const BAIYAKU_FIELDS = {
   sekou_start_date: "施工開始日",
   tokuisaki_atena1: "得意先宛名1",
   tokuisaki_atena2: "得意先宛名2",
+  uriagezumi_flag: "売上済フラグ",
+  sakujo_flag: "削除フラグ",
 } as const;
 
 /**

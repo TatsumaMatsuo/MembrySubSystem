@@ -168,7 +168,6 @@ export function DailyQuizWidget({ className = "" }: DailyQuizWidgetProps) {
               fill
               className="object-contain"
             />
-            <span className="absolute -top-2 -right-1 text-lg">🎓🏆</span>
           </div>
           <div className="text-center flex-1">
             <span className="text-4xl mb-2 block">🎊</span>
@@ -239,8 +238,6 @@ export function DailyQuizWidget({ className = "" }: DailyQuizWidgetProps) {
                         className="object-contain"
                       />
                     </div>
-                    {/* 教授帽子アイコン */}
-                    <span className="absolute -top-2 -right-1 text-lg">🎓</span>
                   </div>
                   {/* 吹き出し */}
                   <div className="flex-1 relative">
@@ -327,9 +324,6 @@ export function DailyQuizWidget({ className = "" }: DailyQuizWidgetProps) {
                       className="object-contain"
                     />
                   </div>
-                  <span className="absolute -top-2 -right-1 text-lg">
-                    {todayResult.isCorrect ? "🎓✨" : "🎓"}
-                  </span>
                 </div>
                 {/* 吹き出し */}
                 <div className="flex-1 relative">

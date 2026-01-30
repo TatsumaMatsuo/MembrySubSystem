@@ -1051,19 +1051,17 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // 受注残データを取得（includeBacklogがtrueの場合）
+      // 受注残データを取得（includeBacklogがtrueかつ現在の期のみ）
+      // パフォーマンス最適化: 過去の期では受注残を取得しない（タイムアウト回避）
       let backlogMap = new Map<number, { count: number; amount: number }>();
       let backlogSummary: BacklogSummary | undefined = undefined;
-      console.log(`[sales-dashboard] includeBacklog=${includeBacklog}, lastSalesMonthIndex=${lastSalesMonthIndex >= 0 ? getFiscalMonthName(lastSalesMonthIndex) : "none"}`);
-      if (includeBacklog) {
+      const isCurrentPeriod = period === toPeriod;
+      console.log(`[sales-dashboard] includeBacklog=${includeBacklog}, isCurrentPeriod=${isCurrentPeriod}, lastSalesMonthIndex=${lastSalesMonthIndex >= 0 ? getFiscalMonthName(lastSalesMonthIndex) : "none"}`);
+      if (includeBacklog && isCurrentPeriod) {
         try {
-          // 集計用データと詳細レコードを並列取得
-          const [backlogMapResult, backlogSummaryResult] = await Promise.all([
-            fetchBacklogData(client, getLarkBaseToken(), dateRange, lastSalesMonthIndex),
-            fetchBacklogRecords(client, getLarkBaseToken(), dateRange, lastSalesMonthIndex, departmentMap),
-          ]);
-          backlogMap = backlogMapResult;
-          backlogSummary = backlogSummaryResult;
+          // 月別集計データのみ取得（詳細レコードは別APIで取得可能）
+          // タイムアウト回避のため、並列取得を削除
+          backlogMap = await fetchBacklogData(client, getLarkBaseToken(), dateRange, lastSalesMonthIndex);
         } catch (backlogError) {
           console.error(`[sales-dashboard] Backlog fetch failed, continuing with sales data only:`, backlogError);
           // エラー時は空のマップのまま継続（売上データのみ表示）

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken, listAllDepartments } from "@/lib/lark-client";
 
+// AWS Amplify SSRでのタイムアウト延長（最大60秒）
+export const maxDuration = 60;
+
 // テーブルID（案件一覧）
 const TABLE_ID = "tbl1ICzfUixpGqDy";
 

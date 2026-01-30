@@ -962,16 +962,18 @@ export default function BIDashboardPage() {
       const toPeriod = selectedPeriod;
 
       // 基本データと受注残データを並列取得
+      // 受注込チェック時はキャッシュを無効化して最新データを取得
+      const cacheParam = includeBacklog ? "&noCache=true" : "";
       const fetchPromises: Promise<Response>[] = [
         // 受注込チェックがONの場合はincludeBacklog=trueを渡す
-        fetch(`/api/sales-dashboard?fromPeriod=${fromPeriod}&toPeriod=${toPeriod}${includeBacklog ? "&includeBacklog=true" : ""}`),
+        fetch(`/api/sales-dashboard?fromPeriod=${fromPeriod}&toPeriod=${toPeriod}${includeBacklog ? "&includeBacklog=true" : ""}${cacheParam}`),
         fetch(`/api/sales-budget?period=${selectedPeriod}&office=全社`),
         fetch(`/api/company-kpi?period=${selectedPeriod}`),
       ];
 
       // 受注込チェックがONの場合は受注残データも取得（既存の処理も残す）
       if (includeBacklog) {
-        fetchPromises.push(fetch(`/api/order-backlog-summary?period=${selectedPeriod}`));
+        fetchPromises.push(fetch(`/api/order-backlog-summary?period=${selectedPeriod}&noCache=true`));
       }
 
       const responses = await Promise.all(fetchPromises);

@@ -1062,6 +1062,22 @@ export async function GET(request: NextRequest) {
           // 月別集計データのみ取得（詳細レコードは別APIで取得可能）
           // タイムアウト回避のため、並列取得を削除
           backlogMap = await fetchBacklogData(client, getLarkBaseToken(), dateRange, lastSalesMonthIndex);
+
+          // backlogMapからbacklogSummaryを構築（フロントエンド互換のため）
+          const byMonth = Array.from({ length: 12 }, (_, i) => ({
+            month: getFiscalMonthName(i),
+            monthIndex: i,
+            count: backlogMap.get(i)?.count || 0,
+            amount: backlogMap.get(i)?.amount || 0,
+          }));
+          backlogSummary = {
+            records: [],
+            byMonth,
+            byOffice: [],
+            byTantousha: [],
+            byPjCategory: [],
+            byIndustry: [],
+          };
         } catch (backlogError) {
           console.error(`[sales-dashboard] Backlog fetch failed, continuing with sales data only:`, backlogError);
           // エラー時は空のマップのまま継続（売上データのみ表示）

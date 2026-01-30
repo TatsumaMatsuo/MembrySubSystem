@@ -1058,10 +1058,12 @@ export async function GET(request: NextRequest) {
       const isCurrentPeriod = period === toPeriod;
       console.log(`[sales-dashboard] includeBacklog=${includeBacklog}, isCurrentPeriod=${isCurrentPeriod}, lastSalesMonthIndex=${lastSalesMonthIndex >= 0 ? getFiscalMonthName(lastSalesMonthIndex) : "none"}`);
       if (includeBacklog && isCurrentPeriod) {
+        const backlogStartTime = Date.now();
         try {
           // 月別集計データのみ取得（詳細レコードは別APIで取得可能）
           // タイムアウト回避のため、並列取得を削除
           backlogMap = await fetchBacklogData(client, getLarkBaseToken(), dateRange, lastSalesMonthIndex);
+          console.log(`[sales-dashboard] fetchBacklogData completed in ${Date.now() - backlogStartTime}ms`);
 
           // backlogMapからbacklogSummaryを構築（フロントエンド互換のため）
           const byMonth = Array.from({ length: 12 }, (_, i) => ({
@@ -1078,8 +1080,9 @@ export async function GET(request: NextRequest) {
             byPjCategory: [],
             byIndustry: [],
           };
+          console.log(`[sales-dashboard] backlogSummary built with ${byMonth.filter(m => m.count > 0).length} months of data`);
         } catch (backlogError) {
-          console.error(`[sales-dashboard] Backlog fetch failed, continuing with sales data only:`, backlogError);
+          console.error(`[sales-dashboard] Backlog fetch failed after ${Date.now() - backlogStartTime}ms:`, backlogError);
           // エラー時は空のマップのまま継続（売上データのみ表示）
         }
       }

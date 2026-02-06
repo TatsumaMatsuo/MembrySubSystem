@@ -57,7 +57,9 @@ export async function getEmployeeByEmail(email: string): Promise<EmployeeInfo | 
       employeeId: String(item.fields[EMPLOYEE_FIELDS.employee_id] || ""),
       employeeName: String(item.fields[EMPLOYEE_FIELDS.employee_name] || ""),
       email: email,
-      department: String(item.fields[EMPLOYEE_FIELDS.department] || ""),
+      department: Array.isArray(item.fields[EMPLOYEE_FIELDS.department])
+        ? item.fields[EMPLOYEE_FIELDS.department][0] || ""
+        : String(item.fields[EMPLOYEE_FIELDS.department] || ""),
     };
 
     console.log("[menu-permission] Employee found:", {

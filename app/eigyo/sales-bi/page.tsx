@@ -969,10 +969,12 @@ export default function BIDashboardPage() {
         fetch(`/api/company-kpi?period=${selectedPeriod}`),
       ];
 
-      // 受注込チェックがONの場合は受注残データも取得（既存の処理も残す）
-      if (includeBacklog) {
-        fetchPromises.push(fetch(`/api/order-backlog-summary?period=${selectedPeriod}`));
-      }
+      // 受注込チェックがONの場合は受注残データも取得
+      // 注: order-backlog-summary APIはタイムアウトの原因となるため、
+      // sales-dashboard APIのbacklogMapを使用する形に変更
+      // if (includeBacklog) {
+      //   fetchPromises.push(fetch(`/api/order-backlog-summary?period=${selectedPeriod}&noCache=true`));
+      // }
 
       const responses = await Promise.all(fetchPromises);
 
@@ -1024,12 +1026,14 @@ export default function BIDashboardPage() {
       }
 
       // 受注残データの処理
-      if (includeBacklog && responses[3]) {
-        const backlogResult = await responses[3].json();
-        if (backlogResult.success) {
-          setBacklogData(backlogResult.data);
+      // order-backlog-summary APIを使用しない形に変更（タイムアウト回避）
+      // sales-dashboard APIのbacklogSummaryを使用
+      if (includeBacklog && dashboardData.success && dashboardData.data) {
+        // 現在の期のbacklogSummaryを取得
+        const currentPeriodData = dashboardData.data.find((d: any) => d.period === selectedPeriod);
+        if (currentPeriodData?.backlogSummary) {
+          setBacklogData(currentPeriodData.backlogSummary);
         } else {
-          console.error("受注残データの取得に失敗:", backlogResult.error);
           setBacklogData(null);
         }
       } else {

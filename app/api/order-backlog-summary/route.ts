@@ -1,25 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken, listAllDepartments } from "@/lib/lark-client";
 
+// AWS Amplify SSRでのタイムアウト延長（最大60秒）
+export const maxDuration = 60;
+
 // テーブルID（案件一覧）
 const TABLE_ID = "tbl1ICzfUixpGqDy";
 
 // 売上情報テーブル（売上済チェック用）
 const SALES_TABLE_ID = "tbl65w6u6J72QFoz";
 
+// 受注残ビューID（売上済フラグ=0, 削除フラグ=0 でフィルター済み）
+const BACKLOG_VIEW_ID = "vewCU8LrsT"; // 月部門担当者別受注残
+
 // シンプルなインメモリキャッシュ（TTL: 15分に延長）
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 15 * 60 * 1000;
 
 // 必要なフィールドのみ取得（パフォーマンス最適化）
+// ビューでフィルター済みなのでフラグは不要
 const REQUIRED_FIELDS = [
   "製番",
   "受注金額",
   "売上見込日",
   "担当者",
   "部門",
-  "売上済フラグ",
-  "削除フラグ",
 ];
 
 function getCachedData(key: string): any | null {
@@ -336,8 +341,8 @@ export async function GET(request: NextRequest) {
     }
     console.log(`[order-backlog] Cutoff date: ${cutoffDate}`);
 
-    // 案件一覧から受注残データを取得
-    // 条件: 売上済フラグ = false, 削除フラグ = false, 売上見込日 >= カットオフ日
+    // 案件一覧から受注残データを取得（ビュー使用で高速化）
+    // ビューには売上済フラグ=0, 削除フラグ=0 のフィルターが設定済み
     let allRecords: any[] = [];
     let pageToken: string | undefined;
 
@@ -352,6 +357,7 @@ export async function GET(request: NextRequest) {
           page_size: 500,
           page_token: pageToken,
           field_names: JSON.stringify(REQUIRED_FIELDS),
+          view_id: BACKLOG_VIEW_ID, // ビューを使用（フィルター済み）
         },
       });
 
@@ -362,17 +368,11 @@ export async function GET(request: NextRequest) {
     } while (pageToken);
 
     const fetchElapsed = Date.now() - fetchStartTime;
-    console.log(`[order-backlog] Total records fetched: ${allRecords.length} in ${fetchElapsed}ms`);
+    console.log(`[order-backlog] Records fetched from view: ${allRecords.length} in ${fetchElapsed}ms`);
 
-    // 受注残をフィルタ
+    // 売上見込日でフィルタ（ビューではフラグのみフィルター済み）
     const backlogRecords = allRecords.filter((record) => {
       const fields = record.fields as any;
-
-      // 売上済フラグがtrueならスキップ
-      if (fields?.["売上済フラグ"] === true) return false;
-
-      // 削除フラグがtrueならスキップ
-      if (fields?.["削除フラグ"] === true) return false;
 
       // 売上見込日がカットオフ日以降であること
       const mikomiDate = extractTextValue(fields?.["売上見込日"]);
@@ -389,7 +389,7 @@ export async function GET(request: NextRequest) {
       return mikomi >= cutoff;
     });
 
-    console.log(`[order-backlog] Backlog records after filter: ${backlogRecords.length}`);
+    console.log(`[order-backlog] Backlog records after date filter: ${backlogRecords.length}`);
 
     // 集計
     const monthlyMap = new Map<number, { count: number; amount: number }>();

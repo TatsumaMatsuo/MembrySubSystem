@@ -90,6 +90,11 @@ export interface LarkAttachment {
 }
 
 /**
+ * 売上ステータスフィルターの型定義
+ */
+export type SalesStatusFilter = "juchu_zan" | "uriagezumi" | "all";
+
+/**
  * 検索パラメータの型定義
  */
 export interface SearchParams {
@@ -99,6 +104,7 @@ export interface SearchParams {
   tokuisaki?: string;
   juchu_date_from?: string;
   juchu_date_to?: string;
+  sales_status?: SalesStatusFilter;
 }
 
 /**

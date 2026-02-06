@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { MainLayout } from "@/components/layout";
-import type { BaiyakuInfo, SearchParams } from "@/types";
+import type { BaiyakuInfo, SearchParams, SalesStatusFilter } from "@/types";
 
 export default function BaiyakuSearchPage() {
   const router = useRouter();
@@ -17,6 +17,7 @@ export default function BaiyakuSearchPage() {
     tokuisaki: "",
     juchu_date_from: "",
     juchu_date_to: "",
+    sales_status: "juchu_zan", // デフォルトは受注残
   });
   const [results, setResults] = useState<BaiyakuInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,6 +47,9 @@ export default function BaiyakuSearchPage() {
           "juchu_date_to",
           searchParams.juchu_date_to.replace(/-/g, "/")
         );
+      }
+      if (searchParams.sales_status) {
+        params.set("sales_status", searchParams.sales_status);
       }
 
       const response = await fetch(`/api/baiyaku?${params.toString()}`);
@@ -92,7 +96,26 @@ export default function BaiyakuSearchPage() {
               <Search className="w-5 h-5 text-indigo-500" />
               検索条件
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-3">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  ステータス
+                </label>
+                <select
+                  value={searchParams.sales_status || "juchu_zan"}
+                  onChange={(e) =>
+                    setSearchParams({
+                      ...searchParams,
+                      sales_status: e.target.value as SalesStatusFilter,
+                    })
+                  }
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white"
+                >
+                  <option value="juchu_zan">受注残</option>
+                  <option value="uriagezumi">売上済</option>
+                  <option value="all">全て</option>
+                </select>
+              </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   製番

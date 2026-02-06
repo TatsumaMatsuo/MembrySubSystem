@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken, listAllDepartments } from "@/lib/lark-client";
 
+// AWS Amplify SSRでのタイムアウト延長（最大60秒）
+export const maxDuration = 60;
+
 // テーブルID（売上データ）
 const TABLE_ID = "tbl65w6u6J72QFoz";
 
@@ -254,8 +257,8 @@ function getFiscalMonthIndexFromYM(ymStr: string): number {
   return month >= 8 ? month - 8 : month + 4;
 }
 
-// 受注残データを取得する関数（order-backlog-summaryと同様の方式）
-// ビューではなくテーブルから直接取得し、売上済フラグ・削除フラグでフィルター
+// 受注残データを取得する関数（ビューを使用して高速化）
+// ビューには売上済フラグ=0、削除フラグ=0のフィルターが設定済み
 async function fetchBacklogData(
   client: any,
   baseToken: string,
@@ -265,8 +268,8 @@ async function fetchBacklogData(
   const backlogMap = new Map<number, { count: number; amount: number }>();
   let pageToken: string | undefined;
 
-  // 必要なフィールドのみ取得
-  const BACKLOG_FIELDS = ["製番", "受注金額", "売上見込日", "売上済フラグ", "削除フラグ"];
+  // 必要なフィールドのみ取得（ビューでフィルター済みなのでフラグは不要）
+  const BACKLOG_FIELDS = ["製番", "受注金額", "売上見込日"];
 
   // 期間の開始・終了日をDateオブジェクトに変換
   const startDate = parseDate(dateRange.start);
@@ -275,8 +278,6 @@ async function fetchBacklogData(
   // 最終売上月の翌月1日をカットオフ日とする（受注残はこれ以降のみ対象）
   let cutoffDate: Date | null = null;
   if (latestSalesMonthIndex >= 0) {
-    // latestSalesMonthIndex: 0=8月, 1=9月, ..., 11=7月
-    // 実際の月: 8月=0 -> 8, 9月=1 -> 9, ..., 12月=4 -> 12, 1月=5 -> 1, ..., 7月=11 -> 7
     const actualMonth = latestSalesMonthIndex < 5 ? latestSalesMonthIndex + 8 : latestSalesMonthIndex - 4;
     const year = startDate ? (actualMonth >= 8 ? startDate.getFullYear() : startDate.getFullYear() + 1) : new Date().getFullYear();
     const nextMonth = actualMonth === 12 ? 1 : actualMonth + 1;
@@ -284,7 +285,8 @@ async function fetchBacklogData(
     cutoffDate = new Date(nextYear, nextMonth - 1, 1);
   }
 
-  console.log(`[sales-dashboard] Fetching backlog: range=${dateRange.start}~${dateRange.end}, cutoff=${cutoffDate?.toISOString().substring(0, 10) || "none"}`);
+  console.log(`[sales-dashboard] Fetching backlog with view: range=${dateRange.start}~${dateRange.end}, cutoff=${cutoffDate?.toISOString().substring(0, 10) || "none"}`);
+  const startTime = Date.now();
 
   try {
     do {
@@ -299,26 +301,18 @@ async function fetchBacklogData(
             page_size: 500,
             page_token: currentPageToken,
             field_names: JSON.stringify(BACKLOG_FIELDS),
+            view_id: BACKLOG_VIEWS.pjCategory, // ビューを使用（フィルター済み）
           },
         });
       });
 
       if (response.data?.items) {
-        // 最初のレコードのフィールド内容をデバッグ出力
         if (response.data.items.length > 0 && !currentPageToken) {
-          const firstFields = response.data.items[0].fields as any;
-          console.log(`[sales-dashboard] Backlog total items: ${response.data.items.length}`);
-          console.log(`[sales-dashboard] Backlog first record fields:`, Object.keys(firstFields || {}));
+          console.log(`[sales-dashboard] Backlog view items: ${response.data.items.length}`);
         }
 
         for (const item of response.data.items) {
           const fields = item.fields as any;
-
-          // 売上済フラグがtrueならスキップ
-          if (fields?.["売上済フラグ"] === true) continue;
-
-          // 削除フラグがtrueならスキップ
-          if (fields?.["削除フラグ"] === true) continue;
 
           // 売上見込日を取得
           const mikomiDate = extractTextValue(fields?.["売上見込日"]);
@@ -335,7 +329,7 @@ async function fetchBacklogData(
 
           const amount = parseFloat(String(fields?.["受注金額"] || 0)) || 0;
 
-          // 売上見込日から月インデックスを取得（文字列を渡す）
+          // 売上見込日から月インデックスを取得
           const monthIndex = getFiscalMonthIndex(mikomiDate);
           if (monthIndex >= 0) {
             if (!backlogMap.has(monthIndex)) {
@@ -351,17 +345,14 @@ async function fetchBacklogData(
     } while (pageToken);
   } catch (error) {
     console.error(`[sales-dashboard] Backlog fetch error:`, error);
-    // エラー時は空のマップを返す（売上データのみで継続）
   }
 
-  console.log(`[sales-dashboard] Backlog result: ${backlogMap.size} months with data`);
-  backlogMap.forEach((data, monthIdx) => {
-    console.log(`[sales-dashboard] Backlog month ${getFiscalMonthName(monthIdx)}: count=${data.count}, amount=${Math.round(data.amount).toLocaleString()}円`);
-  });
+  console.log(`[sales-dashboard] Backlog fetched in ${Date.now() - startTime}ms, ${backlogMap.size} months with data`);
   return backlogMap;
 }
 
 // 受注残の詳細レコードを取得する関数（テーブル表示用）
+// ビューを使用して高速化（フィルター済み）
 async function fetchBacklogRecords(
   client: any,
   baseToken: string,
@@ -372,9 +363,9 @@ async function fetchBacklogRecords(
   const records: BacklogRecord[] = [];
   let pageToken: string | undefined;
 
-  // 詳細表示に必要なフィールド
+  // 詳細表示に必要なフィールド（ビューでフィルター済みなのでフラグは不要）
   const BACKLOG_DETAIL_FIELDS = [
-    "製番", "受注金額", "売上見込日", "売上済フラグ", "削除フラグ",
+    "製番", "受注金額", "売上見込日",
     "担当者", "部門", "PJ区分", "産業分類", "得意先"
   ];
 
@@ -391,6 +382,9 @@ async function fetchBacklogRecords(
     const nextYear = actualMonth === 12 ? year + 1 : year;
     cutoffDate = new Date(nextYear, nextMonth - 1, 1);
   }
+
+  console.log(`[sales-dashboard] Fetching backlog records with view`);
+  const startTime = Date.now();
 
   // 集計用マップ
   const monthlyMap = new Map<number, { count: number; amount: number }>();
@@ -412,6 +406,7 @@ async function fetchBacklogRecords(
             page_size: 500,
             page_token: currentPageToken,
             field_names: JSON.stringify(BACKLOG_DETAIL_FIELDS),
+            view_id: BACKLOG_VIEWS.tantousha, // ビューを使用（フィルター済み）
           },
         });
       });
@@ -419,12 +414,6 @@ async function fetchBacklogRecords(
       if (response.data?.items) {
         for (const item of response.data.items) {
           const fields = item.fields as any;
-
-          // 売上済フラグがtrueならスキップ
-          if (fields?.["売上済フラグ"] === true) continue;
-
-          // 削除フラグがtrueならスキップ
-          if (fields?.["削除フラグ"] === true) continue;
 
           // 売上見込日を取得
           const mikomiDate = extractTextValue(fields?.["売上見込日"]);
@@ -1062,21 +1051,38 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // 受注残データを取得（includeBacklogがtrueの場合）
+      // 受注残データを取得（includeBacklogがtrueかつ現在の期のみ）
+      // パフォーマンス最適化: 過去の期では受注残を取得しない（タイムアウト回避）
       let backlogMap = new Map<number, { count: number; amount: number }>();
       let backlogSummary: BacklogSummary | undefined = undefined;
-      console.log(`[sales-dashboard] includeBacklog=${includeBacklog}, lastSalesMonthIndex=${lastSalesMonthIndex >= 0 ? getFiscalMonthName(lastSalesMonthIndex) : "none"}`);
-      if (includeBacklog) {
+      const isCurrentPeriod = period === toPeriod;
+      console.log(`[sales-dashboard] includeBacklog=${includeBacklog}, isCurrentPeriod=${isCurrentPeriod}, lastSalesMonthIndex=${lastSalesMonthIndex >= 0 ? getFiscalMonthName(lastSalesMonthIndex) : "none"}`);
+      if (includeBacklog && isCurrentPeriod) {
+        const backlogStartTime = Date.now();
         try {
-          // 集計用データと詳細レコードを並列取得
-          const [backlogMapResult, backlogSummaryResult] = await Promise.all([
-            fetchBacklogData(client, getLarkBaseToken(), dateRange, lastSalesMonthIndex),
-            fetchBacklogRecords(client, getLarkBaseToken(), dateRange, lastSalesMonthIndex, departmentMap),
-          ]);
-          backlogMap = backlogMapResult;
-          backlogSummary = backlogSummaryResult;
+          // 月別集計データのみ取得（詳細レコードは別APIで取得可能）
+          // タイムアウト回避のため、並列取得を削除
+          backlogMap = await fetchBacklogData(client, getLarkBaseToken(), dateRange, lastSalesMonthIndex);
+          console.log(`[sales-dashboard] fetchBacklogData completed in ${Date.now() - backlogStartTime}ms`);
+
+          // backlogMapからbacklogSummaryを構築（フロントエンド互換のため）
+          const byMonth = Array.from({ length: 12 }, (_, i) => ({
+            month: getFiscalMonthName(i),
+            monthIndex: i,
+            count: backlogMap.get(i)?.count || 0,
+            amount: backlogMap.get(i)?.amount || 0,
+          }));
+          backlogSummary = {
+            records: [],
+            byMonth,
+            byOffice: [],
+            byTantousha: [],
+            byPjCategory: [],
+            byIndustry: [],
+          };
+          console.log(`[sales-dashboard] backlogSummary built with ${byMonth.filter(m => m.count > 0).length} months of data`);
         } catch (backlogError) {
-          console.error(`[sales-dashboard] Backlog fetch failed, continuing with sales data only:`, backlogError);
+          console.error(`[sales-dashboard] Backlog fetch failed after ${Date.now() - backlogStartTime}ms:`, backlogError);
           // エラー時は空のマップのまま継続（売上データのみ表示）
         }
       }

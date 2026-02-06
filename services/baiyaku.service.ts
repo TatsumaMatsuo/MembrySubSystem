@@ -9,6 +9,19 @@ export async function searchBaiyakuInfo(params: SearchParams): Promise<BaiyakuIn
   const tables = getLarkTables();
   const filters: string[] = [];
 
+  // 削除フラグ = 1(チェック済み) は常に除外
+  filters.push(`CurrentValue.[${BAIYAKU_FIELDS.sakujo_flag}] = 0`);
+
+  // 売上ステータスフィルター（チェックボックス型: 1=チェック済み, 0=未チェック）
+  if (params.sales_status === "juchu_zan") {
+    // 受注残: 売上済フラグ = 0（未チェック）
+    filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriagezumi_flag}] = 0`);
+  } else if (params.sales_status === "uriagezumi") {
+    // 売上済: 売上済フラグ = 1（チェック済み）
+    filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriagezumi_flag}] = 1`);
+  }
+  // "all" の場合は売上済フラグの条件を追加しない
+
   // 製番での部分一致検索 (FIND関数を使用)
   if (params.seiban) {
     filters.push(`FIND("${params.seiban}", CurrentValue.[${BAIYAKU_FIELDS.seiban}]) > 0`);
@@ -44,6 +57,9 @@ export async function searchBaiyakuInfo(params: SearchParams): Promise<BaiyakuIn
   }
 
   const filter = filters.length > 0 ? `AND(${filters.join(", ")})` : undefined;
+
+  console.log("[baiyaku.service] searchBaiyakuInfo filter:", filter);
+  console.log("[baiyaku.service] sales_status:", params.sales_status);
 
   const response = await getBaseRecords(tables.BAIYAKU, {
     filter,

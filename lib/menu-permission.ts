@@ -29,6 +29,41 @@ export interface EmployeeInfo {
 }
 
 /**
+ * 部署フィールドの値を文字列として抽出
+ * Larkのフィールドは様々な形式で返される可能性がある:
+ * - 文字列: "営業部"
+ * - 配列: ["営業部"]
+ * - オブジェクト配列: [{name: "営業部", id: "xxx"}]
+ * - オブジェクト: {name: "営業部", id: "xxx"}
+ */
+function extractDepartmentName(value: unknown): string {
+  if (!value) return "";
+
+  // 文字列の場合はそのまま返す
+  if (typeof value === "string") return value;
+
+  // 配列の場合は最初の要素を処理
+  if (Array.isArray(value)) {
+    const first = value[0];
+    if (!first) return "";
+    if (typeof first === "string") return first;
+    // オブジェクトの場合はnameまたはtext属性を取得
+    if (typeof first === "object" && first !== null) {
+      return String(first.name || first.text || first.value || "");
+    }
+    return String(first);
+  }
+
+  // オブジェクトの場合はnameまたはtext属性を取得
+  if (typeof value === "object" && value !== null) {
+    const obj = value as Record<string, unknown>;
+    return String(obj.name || obj.text || obj.value || "");
+  }
+
+  return String(value);
+}
+
+/**
  * メールアドレスから社員情報を取得
  */
 export async function getEmployeeByEmail(email: string): Promise<EmployeeInfo | null> {
@@ -53,13 +88,16 @@ export async function getEmployeeByEmail(email: string): Promise<EmployeeInfo | 
     }
 
     const item = response.data.items[0] as { fields: Record<string, any> };
+    const rawDepartment = item.fields[EMPLOYEE_FIELDS.department];
+    const department = extractDepartmentName(rawDepartment);
+
+    console.log("[menu-permission] Raw department value:", JSON.stringify(rawDepartment));
+
     const employeeInfo: EmployeeInfo = {
       employeeId: String(item.fields[EMPLOYEE_FIELDS.employee_id] || ""),
       employeeName: String(item.fields[EMPLOYEE_FIELDS.employee_name] || ""),
       email: email,
-      department: Array.isArray(item.fields[EMPLOYEE_FIELDS.department])
-        ? item.fields[EMPLOYEE_FIELDS.department][0] || ""
-        : String(item.fields[EMPLOYEE_FIELDS.department] || ""),
+      department: department,
     };
 
     console.log("[menu-permission] Employee found:", {
@@ -107,13 +145,16 @@ export async function getEmployeeByLarkId(larkOpenId: string): Promise<EmployeeI
       if (Array.isArray(memberField)) {
         for (const member of memberField) {
           if (member.id === larkOpenId) {
+            const rawDepartment = item.fields[EMPLOYEE_FIELDS.department];
+            const department = extractDepartmentName(rawDepartment);
+
+            console.log("[menu-permission] Raw department value (Lark ID):", JSON.stringify(rawDepartment));
+
             const employeeInfo: EmployeeInfo = {
               employeeId: String(item.fields[EMPLOYEE_FIELDS.employee_id] || ""),
               employeeName: String(item.fields[EMPLOYEE_FIELDS.employee_name] || member.name || ""),
               email: member.email || "",
-              department: Array.isArray(item.fields[EMPLOYEE_FIELDS.department])
-                ? item.fields[EMPLOYEE_FIELDS.department][0] || ""
-                : String(item.fields[EMPLOYEE_FIELDS.department] || ""),
+              department: department,
             };
 
             console.log("[menu-permission] Employee found by Lark ID:", {

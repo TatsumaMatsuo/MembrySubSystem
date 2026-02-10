@@ -36,6 +36,8 @@ export function getLarkTables() {
     QUIZ_ANSWER_HISTORY: process.env.LARK_TABLE_QUIZ_ANSWER_HISTORY || "tblBuHepIBi5YlfT",
     // 営業部KPIテーブル
     SALES_KPI: process.env.LARK_TABLE_SALES_KPI || "",
+    // コピー経費テーブル
+    COPY_EXPENSE: process.env.LARK_TABLE_COPY_EXPENSE || "tblAewkgMf7ZmEUv",
   };
 }
 
@@ -63,6 +65,8 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   QUIZ_ANSWER_HISTORY: "project",
   // 営業部KPI（プロジェクトBase）
   SALES_KPI: "project",
+  // コピー経費（プロジェクトBase）
+  COPY_EXPENSE: "project",
 };
 
 /**

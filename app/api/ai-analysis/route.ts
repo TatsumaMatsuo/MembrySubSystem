@@ -471,6 +471,76 @@ ${data.monthlyTrend.filter(m => m.count > 0).map(m => `- ${m.month}: ${m.count}�
 設計不具合や製造品質問題の可能性がある場合は、具体的な改善策を提案してください。`;
 }
 
+interface CopyExpenseAnalysisData {
+  period: number;
+  totalExpense: number;
+  totalCount: number;
+  totalSheets: number;
+  monthlyAverage: number;
+  maxMonth: { month: string; amount: number };
+  monthlyData: { month: string; amount: number; sheets: number }[];
+  quarterlyData: { quarter: string; amount: number; sheets: number }[];
+  departmentBreakdown: { name: string; amount: number; ratio: number }[];
+  categoryBreakdown: { name: string; amount: number; ratio: number }[];
+  yearlySummary: { period: number; totalExpense: number; diff: number | null; changeRate: number | null }[];
+}
+
+function buildCopyExpensePrompt(data: CopyExpenseAnalysisData): string {
+  const monthlyWithData = data.monthlyData.filter(m => m.amount > 0);
+  const topDepts = data.departmentBreakdown.slice(0, 5);
+  const topCategories = data.categoryBreakdown.slice(0, 5);
+
+  const yearlyTrendText = data.yearlySummary.map((y, i) => {
+    const changeStr = y.changeRate !== null
+      ? `（前年比: ${y.changeRate >= 0 ? '+' : ''}${y.changeRate.toFixed(1)}%）`
+      : '';
+    return `- 第${y.period}期: ${formatCurrency(y.totalExpense)}${changeStr}`;
+  }).join('\n');
+
+  return `あなたは企業の経費削減コンサルタントです。以下のコピー経費データを分析し、総務部長向けの分析レポートを日本語で作成してください。
+
+## 第${data.period}期 コピー経費データ
+
+### 全体実績
+- 年間コピー経費合計: ${formatCurrency(data.totalExpense)}
+- 件数: ${data.totalCount}件
+- 総印刷枚数: ${data.totalSheets.toLocaleString()}枚
+- 月間平均経費: ${formatCurrency(data.monthlyAverage)}
+- 最高月: ${data.maxMonth.month}（${formatCurrency(data.maxMonth.amount)}）
+
+### 年度別推移
+${yearlyTrendText}
+
+### 四半期推移
+${data.quarterlyData.map(q => `- ${q.quarter}: ${formatCurrency(q.amount)}（${q.sheets.toLocaleString()}枚）`).join('\n')}
+
+### 月次推移（実績がある月）
+${monthlyWithData.map(m => `- ${m.month}: ${formatCurrency(m.amount)}（${m.sheets.toLocaleString()}枚）`).join('\n')}
+
+### 事業所別経費（上位）
+${topDepts.map((d, i) => `${i + 1}. ${d.name}: ${formatCurrency(d.amount)}（構成比${d.ratio.toFixed(1)}%）`).join('\n')}
+
+### 印刷種別構成
+${topCategories.map((c, i) => `${i + 1}. ${c.name}: ${formatCurrency(c.amount)}（構成比${c.ratio.toFixed(1)}%）`).join('\n')}
+
+## 出力形式
+以下の観点から400文字程度で分析と改善提案を記述してください：
+
+1. **経費推移の評価**: 年度推移・四半期推移から見える傾向、季節性の有無
+2. **事業所分析**: 経費が集中している事業所の特徴、削減余地の推定
+3. **印刷種別分析**: カラー/モノクロ比率や種別ごとの傾向
+4. **具体的削減提案**（以下の施策を積極的に検討・提案に含めること）:
+   - **タブレットPC導入**: 現場・会議でのペーパーレス化のためタブレットPCを積極的に購入・配備し、印刷物の閲覧をデジタル化する
+   - **社内資料の電子保管・共有**: 社内資料の保管場所（共有フォルダ・クラウドストレージ・社内ポータル等）を整備し、誰でもいつでも必要な資料を電子的に閲覧できる環境を構築する。紙で保管していた資料をデジタル化し「印刷しなくても見られる」状態を作る
+   - ペーパーレス化の推進ポイント（会議資料の画面共有、電子承認ワークフロー等）
+   - 印刷ルールの見直し（カラー制限、両面印刷推奨、不要印刷の抑制等）
+   - 事業所別の具体的削減目標
+5. **削減目標**: 数値目標を含めた実行可能な削減計画（タブレット導入コストとの費用対効果も考慮）
+
+建設的かつ具体的なトーンで記述してください。数値根拠を示し、実現可能な提案を行ってください。
+特に「印刷を減らす」だけでなく「印刷しなくても業務が回る環境づくり」（タブレット配備・電子保管場所整備）を重視して提案してください。`;
+}
+
 function buildSalesOverviewPrompt(data: SalesOverviewData): string {
   const topRegion = [...data.regionSummary].sort((a, b) => b.amount - a.amount)[0];
   const topOffices = [...data.officeSummary].sort((a, b) => b.amount - a.amount).slice(0, 3);
@@ -556,6 +626,9 @@ export async function POST(request: NextRequest) {
         break;
       case "deficit-analysis":
         prompt = buildDeficitAnalysisPrompt(data as DeficitAnalysisData);
+        break;
+      case "copy-expense":
+        prompt = buildCopyExpensePrompt(data as CopyExpenseAnalysisData);
         break;
       default:
         return NextResponse.json(

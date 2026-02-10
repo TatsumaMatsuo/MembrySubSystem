@@ -1,0 +1,17 @@
+# Economic Circuit Breaker - Budget Configuration
+# Miyabi Economic Governance Protocol
+
+# Monthly budget in USD
+monthly_budget_usd: 500
+
+# Thresholds (ratio of monthly_budget_usd)
+thresholds:
+  warning: 0.8       # 80% = $400 USD
+  emergency: 1.5     # 150% = $750 USD
+
+# Emergency actions when circuit breaker activates
+emergency_actions:
+  disable_workflows:
+    - autonomous-agent.yml
+    - webhook-handler.yml
+    - webhook-event-router.yml

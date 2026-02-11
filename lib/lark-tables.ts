@@ -36,6 +36,10 @@ export function getLarkTables() {
     QUIZ_ANSWER_HISTORY: process.env.LARK_TABLE_QUIZ_ANSWER_HISTORY || "tblBuHepIBi5YlfT",
     // 営業部KPIテーブル
     SALES_KPI: process.env.LARK_TABLE_SALES_KPI || "",
+    // コピー経費テーブル
+    COPY_EXPENSE: process.env.LARK_TABLE_COPY_EXPENSE || "tblAewkgMf7ZmEUv",
+    // 事業所マスタテーブル
+    OFFICES: process.env.LARK_TABLE_OFFICES || "tbl1S12KMGhVW91p",
   };
 }
 
@@ -63,6 +67,10 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   QUIZ_ANSWER_HISTORY: "project",
   // 営業部KPI（プロジェクトBase）
   SALES_KPI: "project",
+  // コピー経費（プロジェクトBase）
+  COPY_EXPENSE: "project",
+  // 事業所マスタ（プロジェクトBase）
+  OFFICES: "project",
 };
 
 /**
@@ -318,6 +326,16 @@ export const QUIZ_ANSWER_HISTORY_FIELDS = {
   points: "獲得ポイント",
   fiscal_period: "期",
   created_at: "作成日時",
+} as const;
+
+/**
+ * 営業部KPIテーブルのフィールド定義
+ */
+/**
+ * 事業所マスタテーブルのフィールド定義
+ */
+export const OFFICE_FIELDS = {
+  name: "事業所名",
 } as const;
 
 /**

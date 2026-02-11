@@ -100,17 +100,25 @@ export async function getBaseRecords(tableId: string, params?: {
 export async function createBaseRecord(
   tableId: string,
   fields: Record<string, any>,
-  options?: { baseToken?: string }
+  options?: { baseToken?: string; userAccessToken?: string }
 ) {
   try {
     const appToken = options?.baseToken || getLarkBaseToken();
-    const response = await larkClient.bitable.appTableRecord.create({
+    const client = getLarkClient();
+    if (!client) throw new Error("Lark client not initialized");
+
+    const requestArgs = {
       path: {
         app_token: appToken,
         table_id: tableId,
       },
       data: { fields },
-    });
+    };
+
+    // user_access_tokenが指定されている場合はユーザー認証で実行
+    const response = options?.userAccessToken
+      ? await client.bitable.appTableRecord.create(requestArgs, lark.withUserAccessToken(options.userAccessToken))
+      : await client.bitable.appTableRecord.create(requestArgs);
 
     return response;
   } catch (error) {
@@ -146,17 +154,25 @@ export async function updateBaseRecord(
 export async function deleteBaseRecord(
   tableId: string,
   recordId: string,
-  options?: { baseToken?: string }
+  options?: { baseToken?: string; userAccessToken?: string }
 ) {
   try {
     const appToken = options?.baseToken || getLarkBaseToken();
-    const response = await larkClient.bitable.appTableRecord.delete({
+    const client = getLarkClient();
+    if (!client) throw new Error("Lark client not initialized");
+
+    const requestArgs = {
       path: {
         app_token: appToken,
         table_id: tableId,
         record_id: recordId,
       },
-    });
+    };
+
+    // user_access_tokenが指定されている場合はユーザー認証で実行
+    const response = options?.userAccessToken
+      ? await client.bitable.appTableRecord.delete(requestArgs, lark.withUserAccessToken(options.userAccessToken))
+      : await client.bitable.appTableRecord.delete(requestArgs);
 
     return response;
   } catch (error) {

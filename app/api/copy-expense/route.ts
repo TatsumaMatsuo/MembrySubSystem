@@ -160,17 +160,107 @@ export async function GET(request: NextRequest) {
   const period = parseInt(searchParams.get("period") || String(getCurrentPeriod()), 10);
   const noCache = searchParams.get("noCache") === "true";
   const discover = searchParams.get("discover") === "true";
+  const monthParam = searchParams.get("month"); // ミリ秒タイムスタンプ
 
   const tables = getLarkTables();
   const tableId = tables.COPY_EXPENSE;
   const baseToken = getLarkBaseToken();
 
-  // discover mode: フィールドメタデータ返却
+  // month mode: 特定月のレコードをrecord_id付きで返却（入力画面用）
+  if (monthParam) {
+    try {
+      const targetTimestamp = parseInt(monthParam, 10);
+      const targetDate = new Date(targetTimestamp);
+      const targetYear = targetDate.getFullYear();
+      const targetMonth = targetDate.getMonth(); // 0-indexed
+
+      let allRecords: any[] = [];
+      let pageToken: string | undefined;
+      do {
+        const response = await client.bitable.appTableRecord.list({
+          path: { app_token: baseToken, table_id: tableId },
+          params: { page_size: 500, page_token: pageToken },
+        });
+        if (response.code !== 0) {
+          return NextResponse.json({ error: `Lark APIエラー: code=${response.code}, msg=${response.msg}` }, { status: 500 });
+        }
+        if (response.data?.items) allRecords.push(...response.data.items);
+        pageToken = response.data?.page_token;
+      } while (pageToken);
+
+      // 指定月のレコードのみ抽出
+      const monthRecords = allRecords.filter((record: any) => {
+        const dateVal = record.fields?.["年月"];
+        const date = extractDate(dateVal);
+        if (!date) return false;
+        return date.getFullYear() === targetYear && date.getMonth() === targetMonth;
+      });
+
+      const records = monthRecords.map((record: any) => {
+        const fields = record.fields || {};
+        return {
+          record_id: record.record_id,
+          department: extractTextValue(fields["事業所"]),
+          category: extractTextValue(fields["印刷種別"]),
+          sheets: extractNumber(fields["印刷枚数"]),
+          amount: extractNumber(fields["金額"]),
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        yearMonth: targetTimestamp,
+        records,
+        total: records.length,
+      });
+    } catch (error: any) {
+      return NextResponse.json({ error: String(error) }, { status: 500 });
+    }
+  }
+
+  // discover mode: フィールドメタデータ + 権限診断
   if (discover) {
     try {
       const response = await getTableFields(tableId, baseToken);
       const fields = response.data?.items || [];
       const mapping = getFieldMapping(fields);
+
+      // 権限診断: roles APIとtableのメタ情報を取得
+      const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
+      const appId = process.env.LARK_APP_ID || "cli_a9d79d0bbf389e1c";
+      const appSecret = process.env.LARK_APP_SECRET || "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE";
+
+      // tenant_access_token取得
+      const tokenRes = await fetch(`${larkDomain}/open-apis/auth/v3/tenant_access_token/internal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+      });
+      const tokenData = await tokenRes.json();
+      const tenantToken = tokenData.tenant_access_token;
+
+      // Baseのロール一覧取得（Advanced Permissions確認）
+      let rolesData = null;
+      try {
+        const rolesRes = await fetch(`${larkDomain}/open-apis/bitable/v1/apps/${baseToken}/roles`, {
+          headers: { Authorization: `Bearer ${tenantToken}` },
+        });
+        rolesData = await rolesRes.json();
+      } catch (e: any) {
+        rolesData = { error: e.message };
+      }
+
+      // テーブル一覧取得（テーブルのプロパティ確認）
+      let tableData = null;
+      try {
+        const tableRes = await fetch(`${larkDomain}/open-apis/bitable/v1/apps/${baseToken}/tables/${tableId}`, {
+          headers: { Authorization: `Bearer ${tenantToken}` },
+        });
+        tableData = await tableRes.json();
+      } catch (e: any) {
+        tableData = { error: e.message };
+      }
+
       return NextResponse.json({
         tableId,
         fieldMapping: mapping,
@@ -179,6 +269,11 @@ export async function GET(request: NextRequest) {
           type: f.type,
           property: f.property,
         })),
+        // 権限診断結果
+        permissionDiag: {
+          roles: rolesData,
+          tableInfo: tableData,
+        },
       });
     } catch (error) {
       return NextResponse.json({ error: String(error) }, { status: 500 });
@@ -371,6 +466,195 @@ export async function GET(request: NextRequest) {
         stack: process.env.NODE_ENV === "development" ? stack : undefined,
         tableId,
         baseToken: baseToken.substring(0, 8) + "...",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// tenant_access_tokenを直接取得（SDKのキャッシュ問題を回避）
+async function getTenantAccessToken(): Promise<string> {
+  const appId = process.env.LARK_APP_ID || "cli_a9d79d0bbf389e1c";
+  const appSecret = process.env.LARK_APP_SECRET || "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE";
+  const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
+
+  const response = await fetch(`${larkDomain}/open-apis/auth/v3/tenant_access_token/internal`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+  });
+  const result = await response.json();
+  if (result.code !== 0) {
+    throw new Error(`Failed to get tenant_access_token: ${result.msg}`);
+  }
+  return result.tenant_access_token;
+}
+
+// Lark REST APIでレコード作成（SDK不使用）
+async function createRecordViaRest(
+  tenantToken: string,
+  appToken: string,
+  tableId: string,
+  fields: Record<string, any>
+): Promise<{ success: boolean; error?: string; detail?: any }> {
+  const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
+  const url = `${larkDomain}/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${tenantToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ fields }),
+  });
+
+  const result = await response.json();
+  if (result.code !== 0) {
+    return { success: false, error: `code=${result.code}, msg=${result.msg}`, detail: result };
+  }
+  return { success: true };
+}
+
+// Lark REST APIでレコード削除（SDK不使用）
+async function deleteRecordViaRest(
+  tenantToken: string,
+  appToken: string,
+  tableId: string,
+  recordId: string
+): Promise<{ success: boolean; error?: string }> {
+  const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
+  const url = `${larkDomain}/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/${recordId}`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${tenantToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  const result = await response.json();
+  if (result.code !== 0) {
+    return { success: false, error: `code=${result.code}, msg=${result.msg}` };
+  }
+  return { success: true };
+}
+
+// POST: コピー経費レコードを一括登録（既存データは置換）
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { yearMonth, records, existingRecordIds } = body as {
+      yearMonth: number;
+      records: Array<{
+        department: string;
+        category: string;
+        sheets: number;
+        amount: number;
+      }>;
+      existingRecordIds?: string[]; // 削除対象のrecord_id一覧
+    };
+
+    if (!yearMonth || !records || !Array.isArray(records)) {
+      return NextResponse.json(
+        { error: "yearMonth と records は必須です" },
+        { status: 400 }
+      );
+    }
+
+    const tables = getLarkTables();
+    const tableId = tables.COPY_EXPENSE;
+    const baseToken = getLarkBaseToken();
+
+    // 1. 新しいtenant_access_tokenを直接取得
+    const tenantToken = await getTenantAccessToken();
+    console.log("[copy-expense POST] Got fresh tenant_access_token, length:", tenantToken.length);
+
+    // 2. 既存レコードを削除（置換モード）
+    let deletedCount = 0;
+    if (existingRecordIds && existingRecordIds.length > 0) {
+      console.log(`[copy-expense POST] Deleting ${existingRecordIds.length} existing records`);
+      for (const recordId of existingRecordIds) {
+        const result = await deleteRecordViaRest(tenantToken, baseToken, tableId, recordId);
+        if (result.success) {
+          deletedCount++;
+        } else {
+          console.error(`[copy-expense POST] Failed to delete record ${recordId}:`, result.error);
+        }
+      }
+      console.log(`[copy-expense POST] Deleted ${deletedCount}/${existingRecordIds.length} records`);
+    }
+
+    // 3. 新規レコード登録（REST API直接呼び出し）
+    let successCount = 0;
+    let errorCount = 0;
+    const results: Array<{ success: boolean; department: string; category: string; error?: string; detail?: any }> = [];
+
+    for (const record of records) {
+      // 枚数・金額が0のレコードはスキップ
+      if (record.sheets === 0 && record.amount === 0) continue;
+
+      const fields: Record<string, any> = {
+        [COPY_EXPENSE_FIELDS.dateField]: yearMonth,
+        [COPY_EXPENSE_FIELDS.departmentField!]: record.department,
+        [COPY_EXPENSE_FIELDS.countField!]: record.sheets,
+        [COPY_EXPENSE_FIELDS.amountField!]: record.amount,
+      };
+
+      // 印刷種別: テキスト名で指定（オプションIDではなく名前を使用）
+      fields[COPY_EXPENSE_FIELDS.categoryField!] = record.category;
+
+      const result = await createRecordViaRest(tenantToken, baseToken, tableId, fields);
+      if (result.success) {
+        successCount++;
+        results.push({ success: true, department: record.department, category: record.category });
+      } else {
+        errorCount++;
+        console.error(`[copy-expense POST] Create failed:`, JSON.stringify(result.detail, null, 2));
+        results.push({
+          success: false,
+          department: record.department,
+          category: record.category,
+          error: result.error,
+          detail: errorCount <= 1 ? result.detail : undefined, // 最初のエラーのみ詳細を含める
+        });
+      }
+    }
+
+    // インメモリキャッシュをクリア
+    cache.clear();
+
+    // エラー詳細を返す（デバッグ用）
+    const firstErrorDetail = results.find((r) => !r.success);
+    const allFailed = successCount === 0 && errorCount > 0;
+
+    return NextResponse.json({
+      success: errorCount === 0,
+      error: allFailed
+        ? `レコード登録に失敗しました: ${firstErrorDetail?.error || "不明"}`
+        : undefined,
+      message: deletedCount > 0
+        ? `${deletedCount}件削除、${successCount}件登録、${errorCount}件エラー`
+        : `${successCount}件登録、${errorCount}件エラー`,
+      deletedCount,
+      successCount,
+      errorCount,
+      results,
+      // デバッグ: 送信したフィールド情報
+      debug: allFailed ? {
+        baseToken: baseToken.substring(0, 10) + "...",
+        tableId,
+        sampleFields: results[0] ? { department: results[0].department, category: results[0].category } : null,
+        tokenLength: tenantToken.length,
+      } : undefined,
+    });
+  } catch (error: any) {
+    console.error("[copy-expense POST] Error:", error);
+    return NextResponse.json(
+      {
+        error: "コピー経費の登録に失敗しました",
+        details: error?.message || String(error),
       },
       { status: 500 }
     );

@@ -122,7 +122,8 @@ export type MenuItemType =
   | "gantt-chart"
   | "cost-analysis"
   | "construction-detail"
-  | "documents";
+  | "documents"
+  | "bulk-download";
 
 /**
  * 売約詳細情報の型定義

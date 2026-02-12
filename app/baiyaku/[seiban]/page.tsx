@@ -30,6 +30,10 @@ import {
   ClipboardList,
   MapPin,
   HardHat,
+  PackageOpen,
+  CheckSquare,
+  Square,
+  MinusSquare,
 } from "lucide-react";
 import {
   PieChart,
@@ -62,6 +66,7 @@ import type {
 import { DOCUMENT_CATEGORIES } from "@/lib/lark-tables";
 import PdfThumbnail from "@/components/PdfThumbnail";
 import { ImageDiff } from "@/components/ImageDiff";
+import JSZip from "jszip";
 
 interface PageProps {
   params: { seiban: string };
@@ -105,6 +110,10 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [historyFullscreen, setHistoryFullscreen] = useState(false); // フルスクリーンモード
   const [historyZoom, setHistoryZoom] = useState(100); // ズームレベル（%）
   const [showDiff, setShowDiff] = useState(false); // 差分表示モード
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set()); // 一括DL用: "dept/docType/fileToken"
+  const [downloadingZip, setDownloadingZip] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
+  const [bulkDownloadCollapsedDepts, setBulkDownloadCollapsedDepts] = useState<Set<DepartmentName>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ESCキーでメニューを閉じる
@@ -459,12 +468,14 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
           if (data.success) {
             setQualityIssues(data.data);
           }
-        } else if (activeMenu === "documents") {
-          const response = await fetch(`/api/documents?seiban=${encodeURIComponent(seiban)}`);
-          const data = await response.json();
-          console.log("[documents] API response:", data.success, "data keys:", data.data ? Object.keys(data.data) : "null");
-          if (data.success) {
-            setDocuments(data.data);
+        } else if (activeMenu === "documents" || activeMenu === "bulk-download") {
+          if (!documents) {
+            const response = await fetch(`/api/documents?seiban=${encodeURIComponent(seiban)}`);
+            const data = await response.json();
+            console.log("[documents] API response:", data.success, "data keys:", data.data ? Object.keys(data.data) : "null");
+            if (data.success) {
+              setDocuments(data.data);
+            }
           }
         } else if (activeMenu === "gantt-chart") {
           const response = await fetch(`/api/gantt?seiban=${encodeURIComponent(seiban)}`);
@@ -585,6 +596,137 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     }).format(amount);
   };
 
+  // === 一括ダウンロード用ヘルパー ===
+
+  // 選択可能なファイル情報を取得
+  const getSelectableFiles = () => {
+    if (!documents) return [];
+    const files: { key: string; dept: DepartmentName; docType: string; fileToken: string; fileName: string; fileSize: number }[] = [];
+    for (const dept of Object.keys(DOCUMENT_CATEGORIES) as DepartmentName[]) {
+      const deptDocs = documents[dept];
+      if (!deptDocs) continue;
+      for (const docType of DOCUMENT_CATEGORIES[dept]) {
+        const doc = deptDocs[docType];
+        if (doc?.file_attachment && doc.file_attachment.length > 0) {
+          for (const file of doc.file_attachment) {
+            const key = `${dept}/${docType}/${file.file_token}`;
+            files.push({ key, dept, docType, fileToken: file.file_token, fileName: file.name, fileSize: file.size });
+          }
+        }
+      }
+    }
+    return files;
+  };
+
+  const selectableFiles = documents ? getSelectableFiles() : [];
+
+  const toggleFileSelection = (key: string) => {
+    setSelectedFiles(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const toggleDeptSelection = (dept: DepartmentName) => {
+    const deptFiles = selectableFiles.filter(f => f.dept === dept);
+    const allSelected = deptFiles.every(f => selectedFiles.has(f.key));
+    setSelectedFiles(prev => {
+      const next = new Set(prev);
+      for (const f of deptFiles) {
+        if (allSelected) {
+          next.delete(f.key);
+        } else {
+          next.add(f.key);
+        }
+      }
+      return next;
+    });
+  };
+
+  const toggleAllSelection = () => {
+    const allSelected = selectableFiles.every(f => selectedFiles.has(f.key));
+    if (allSelected) {
+      setSelectedFiles(new Set());
+    } else {
+      setSelectedFiles(new Set(selectableFiles.map(f => f.key)));
+    }
+  };
+
+  const toggleBulkDownloadDeptCollapse = (dept: DepartmentName) => {
+    setBulkDownloadCollapsedDepts(prev => {
+      const next = new Set(prev);
+      if (next.has(dept)) {
+        next.delete(dept);
+      } else {
+        next.add(dept);
+      }
+      return next;
+    });
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  };
+
+  const handleBulkDownload = async () => {
+    if (selectedFiles.size === 0 || downloadingZip) return;
+
+    setDownloadingZip(true);
+    setDownloadProgress({ current: 0, total: selectedFiles.size });
+
+    try {
+      const zip = new JSZip();
+      let current = 0;
+
+      const filesToDownload = selectableFiles.filter(f => selectedFiles.has(f.key));
+
+      for (const file of filesToDownload) {
+        current++;
+        setDownloadProgress({ current, total: filesToDownload.length });
+
+        try {
+          const res = await fetch(`/api/file/proxy?file_token=${encodeURIComponent(file.fileToken)}`);
+          if (!res.ok) {
+            console.error(`Failed to download ${file.fileName}: ${res.status}`);
+            continue;
+          }
+          const arrayBuffer = await res.arrayBuffer();
+          const folderPath = `${file.dept}/${file.docType}_${file.fileName}`;
+          zip.file(folderPath, arrayBuffer);
+        } catch (err) {
+          console.error(`Error downloading ${file.fileName}:`, err);
+        }
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+      const fileName = `${seiban}_完成図書_${dateStr}.zip`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error creating ZIP:", error);
+      alert("ZIPファイルの作成中にエラーが発生しました。");
+    } finally {
+      setDownloadingZip(false);
+      setDownloadProgress({ current: 0, total: 0 });
+    }
+  };
+
   const menuItems: { id: MenuItemType; label: string; icon: React.ReactNode; color: string; activeColor: string }[] = [
     { id: "baiyaku-detail", label: "売約詳細情報", icon: <ClipboardList className="w-5 h-5" />, color: "text-indigo-500", activeColor: "text-indigo-600" },
     { id: "construction-detail", label: "工事詳細情報", icon: <HardHat className="w-5 h-5" />, color: "text-amber-500", activeColor: "text-amber-600" },
@@ -593,6 +735,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     { id: "gantt-chart", label: "ガントチャート", icon: <Calendar className="w-5 h-5" />, color: "text-emerald-500", activeColor: "text-emerald-600" },
     { id: "cost-analysis", label: "原価分析", icon: <TrendingUp className="w-5 h-5" />, color: "text-cyan-500", activeColor: "text-cyan-600" },
     { id: "documents", label: "関連資料", icon: <FolderOpen className="w-5 h-5" />, color: "text-purple-500", activeColor: "text-purple-600" },
+    { id: "bulk-download", label: "資料ダウンロード", icon: <PackageOpen className="w-5 h-5" />, color: "text-teal-500", activeColor: "text-teal-600" },
   ];
 
   // 売約詳細データ取得
@@ -2712,6 +2855,172 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                         </div>
                       )}
                     </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeMenu === "bulk-download" && (
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              {/* ヘッダー */}
+              <div className="px-6 py-4 border-b bg-gradient-to-r from-teal-50 to-cyan-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <PackageOpen className="w-6 h-6 text-teal-600" />
+                    <h2 className="text-lg font-bold text-gray-800">資料ダウンロード</h2>
+                  </div>
+                </div>
+              </div>
+
+              {!documents ? (
+                <div className="px-6 py-12 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-teal-500" />
+                  <span className="ml-3 text-gray-500">資料情報を読み込み中...</span>
+                </div>
+              ) : (
+                <div>
+                  {/* 操作バー */}
+                  <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={toggleAllSelection}
+                        className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-teal-600 transition-colors"
+                      >
+                        {selectableFiles.length > 0 && selectableFiles.every(f => selectedFiles.has(f.key)) ? (
+                          <CheckSquare className="w-5 h-5 text-teal-600" />
+                        ) : selectedFiles.size > 0 ? (
+                          <MinusSquare className="w-5 h-5 text-teal-500" />
+                        ) : (
+                          <Square className="w-5 h-5 text-gray-400" />
+                        )}
+                        全選択
+                      </button>
+                      <span className="text-sm text-gray-500">
+                        {selectedFiles.size}件選択中
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleBulkDownload}
+                      disabled={selectedFiles.size === 0 || downloadingZip}
+                      className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white text-sm font-semibold rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {downloadingZip ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          {downloadProgress.current}/{downloadProgress.total}件処理中...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4" />
+                          ZIPダウンロード
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* プログレスバー */}
+                  {downloadingZip && (
+                    <div className="px-4 py-2 bg-teal-50">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-teal-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${downloadProgress.total > 0 ? (downloadProgress.current / downloadProgress.total) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 部署別リスト */}
+                  <div className="divide-y">
+                    {(Object.keys(DOCUMENT_CATEGORIES) as DepartmentName[]).map((dept) => {
+                      const deptFiles = selectableFiles.filter(f => f.dept === dept);
+                      const deptSelectedCount = deptFiles.filter(f => selectedFiles.has(f.key)).length;
+                      const isCollapsed = bulkDownloadCollapsedDepts.has(dept);
+                      const allDeptSelected = deptFiles.length > 0 && deptFiles.every(f => selectedFiles.has(f.key));
+
+                      return (
+                        <div key={dept}>
+                          {/* 部署ヘッダー */}
+                          <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors">
+                            {deptFiles.length > 0 ? (
+                              <button
+                                onClick={() => toggleDeptSelection(dept)}
+                                className="flex-shrink-0"
+                              >
+                                {allDeptSelected ? (
+                                  <CheckSquare className="w-5 h-5 text-teal-600" />
+                                ) : deptSelectedCount > 0 ? (
+                                  <MinusSquare className="w-5 h-5 text-teal-500" />
+                                ) : (
+                                  <Square className="w-5 h-5 text-gray-400" />
+                                )}
+                              </button>
+                            ) : (
+                              <Square className="w-5 h-5 text-gray-300 flex-shrink-0" />
+                            )}
+                            <button
+                              onClick={() => toggleBulkDownloadDeptCollapse(dept)}
+                              className="flex-1 flex items-center gap-2 text-left"
+                            >
+                              {isCollapsed ? (
+                                <ChevronRight className="w-4 h-4 text-gray-500" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-gray-500" />
+                              )}
+                              <span className="font-bold text-gray-800">{dept}</span>
+                              <span className="text-xs text-gray-500">
+                                ({deptSelectedCount}/{deptFiles.length})
+                              </span>
+                            </button>
+                          </div>
+
+                          {/* 書類リスト */}
+                          {!isCollapsed && (
+                            <div className="divide-y divide-gray-100">
+                              {DOCUMENT_CATEGORIES[dept].map((docType) => {
+                                const doc = documents?.[dept]?.[docType];
+                                const hasAttachment = doc?.file_attachment && doc.file_attachment.length > 0;
+
+                                if (!hasAttachment) {
+                                  return (
+                                    <div key={docType} className="flex items-center gap-3 px-4 py-2 pl-12 text-gray-400">
+                                      <Square className="w-4 h-4 text-gray-300" />
+                                      <span className="text-sm">{docType}</span>
+                                      <span className="text-xs ml-auto">(未登録)</span>
+                                    </div>
+                                  );
+                                }
+
+                                return doc.file_attachment!.map((file) => {
+                                  const key = `${dept}/${docType}/${file.file_token}`;
+                                  const isSelected = selectedFiles.has(key);
+
+                                  return (
+                                    <button
+                                      key={key}
+                                      onClick={() => toggleFileSelection(key)}
+                                      className={`w-full flex items-center gap-3 px-4 py-2 pl-12 text-left hover:bg-teal-50 transition-colors ${
+                                        isSelected ? "bg-teal-50" : ""
+                                      }`}
+                                    >
+                                      {isSelected ? (
+                                        <CheckSquare className="w-4 h-4 text-teal-600 flex-shrink-0" />
+                                      ) : (
+                                        <Square className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                      )}
+                                      <span className="text-sm font-medium text-gray-700 min-w-[120px]">{docType}</span>
+                                      <span className="text-sm text-gray-500 truncate flex-1">{file.name}</span>
+                                      <span className="text-xs text-gray-400 flex-shrink-0">{formatFileSize(file.size)}</span>
+                                    </button>
+                                  );
+                                });
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

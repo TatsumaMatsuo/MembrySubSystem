@@ -194,6 +194,48 @@ interface BudgetData {
   salesPersonBudgets: SalesPersonBudget[];
 }
 
+// 受注込データ型定義
+interface OrdersCombinedMonthly {
+  month: string;
+  monthIndex: number;
+  salesAmount: number;
+  salesCount: number;
+  orderAmount: number;
+  orderCount: number;
+  totalAmount: number;
+  totalCount: number;
+}
+
+interface OrdersCombinedCumulative {
+  month: string;
+  salesCumulative: number;
+  orderCumulative: number;
+  totalCumulative: number;
+}
+
+interface IrregularRecord {
+  seiban: string;
+  customer: string;
+  tantousha: string;
+  office: string;
+  amount: number;
+  expectedMonth: string;
+  pjCategory: string;
+}
+
+interface OrdersCombinedData {
+  period: number;
+  dateRange: { start: string; end: string };
+  latestSoldMonth: string;
+  monthlyData: OrdersCombinedMonthly[];
+  cumulativeData: OrdersCombinedCumulative[];
+  totalSalesAmount: number;
+  totalSalesCount: number;
+  totalOrderAmount: number;
+  totalOrderCount: number;
+  irregularList: IrregularRecord[];
+}
+
 // 全社KPI型定義
 interface CompanyKPIData {
   recordId?: string;
@@ -283,10 +325,11 @@ function calcChange(current: number, previous: number): { value: number; trend: 
 }
 
 // タブ定義
-type TabType = "overview" | "region" | "office" | "salesperson" | "category" | "budget";
+type TabType = "overview" | "orders-combined" | "region" | "office" | "salesperson" | "category" | "budget";
 
 const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: "overview", label: "概要", icon: <BarChart3 className="w-3 h-3" /> },
+  { id: "orders-combined", label: "受注込", icon: <TrendingUp className="w-3 h-3" /> },
   { id: "region", label: "エリア別", icon: <MapPin className="w-3 h-3" /> },
   { id: "office", label: "営業所別", icon: <Building2 className="w-3 h-3" /> },
   { id: "salesperson", label: "担当者別", icon: <User className="w-3 h-3" /> },
@@ -297,6 +340,7 @@ const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
 // タブ名マップ
 const TAB_NAMES: Record<TabType, string> = {
   overview: "概要",
+  "orders-combined": "受注込分析",
   region: "エリア別分析",
   office: "営業所別分析",
   salesperson: "担当者別分析",
@@ -657,6 +701,7 @@ export default function BIDashboardPage() {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [budget, setBudget] = useState<BudgetData | null>(null);
   const [companyKPI, setCompanyKPI] = useState<CompanyKPIData | null>(null);
+  const [ordersCombined, setOrdersCombined] = useState<OrdersCombinedData | null>(null);
 
   // 営業担当者フィルター
   const [selectedOffice, setSelectedOffice] = useState<string>("");
@@ -701,6 +746,7 @@ export default function BIDashboardPage() {
         fetch(`/api/sales-dashboard?fromPeriod=${fromPeriod}&toPeriod=${toPeriod}`),
         fetch(`/api/sales-budget?period=${selectedPeriod}&office=全社`),
         fetch(`/api/company-kpi?period=${selectedPeriod}`),
+        fetch(`/api/sales-orders-combined?period=${selectedPeriod}`),
       ];
 
       const responses = await Promise.all(fetchPromises);
@@ -708,6 +754,7 @@ export default function BIDashboardPage() {
       const dashboardData = await responses[0].json();
       const budgetData = await responses[1].json();
       const kpiData = await responses[2].json();
+      const ordersCombinedData = await responses[3].json();
 
       if (dashboardData.success) {
         setData(dashboardData.data);
@@ -750,6 +797,10 @@ export default function BIDashboardPage() {
           advertisingBudget: 0,
           notes: "",
         });
+      }
+
+      if (ordersCombinedData.success) {
+        setOrdersCombined(ordersCombinedData.data);
       }
 
     } catch (err) {
@@ -2149,6 +2200,221 @@ export default function BIDashboardPage() {
                       </div>
                     )}
                   </div>
+                </>
+              )}
+
+              {/* 受注込タブ */}
+              {activeTab === "orders-combined" && ordersCombined && (
+                <>
+                  {/* 印刷ボタン */}
+                  <div className="flex justify-end mb-4 no-print">
+                    <PrintButton
+                      tabName={TAB_NAMES["orders-combined"]}
+                      period={selectedPeriod}
+                      dateRange={ordersCombined.dateRange}
+                    />
+                  </div>
+
+                  {/* KPIカード */}
+                  <div className="print-section">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {/* 売上合計 */}
+                      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                            <BarChart3 className="w-4 h-4 text-white" />
+                          </div>
+                          <span className="text-xs font-medium text-gray-500">売上合計</span>
+                        </div>
+                        <div className="text-xl font-bold text-gray-800">{formatAmount(ordersCombined.totalSalesAmount)}円</div>
+                        <div className="text-xs text-gray-500 mt-1">{ordersCombined.totalSalesCount}件</div>
+                      </div>
+                      {/* 受注残合計 */}
+                      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center">
+                            <TrendingUp className="w-4 h-4 text-white" />
+                          </div>
+                          <span className="text-xs font-medium text-gray-500">受注残合計</span>
+                        </div>
+                        <div className="text-xl font-bold text-gray-800">{formatAmount(ordersCombined.totalOrderAmount)}円</div>
+                        <div className="text-xs text-gray-500 mt-1">{ordersCombined.totalOrderCount}件</div>
+                      </div>
+                      {/* 売上+受注残合計 */}
+                      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center">
+                            <Sparkles className="w-4 h-4 text-white" />
+                          </div>
+                          <span className="text-xs font-medium text-gray-500">売上+受注残 合計</span>
+                        </div>
+                        <div className="text-xl font-bold text-gray-800">{formatAmount(ordersCombined.totalSalesAmount + ordersCombined.totalOrderAmount)}円</div>
+                        <div className="text-xs text-gray-500 mt-1">{ordersCombined.totalSalesCount + ordersCombined.totalOrderCount}件</div>
+                      </div>
+                      {/* 不正件数 */}
+                      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg flex items-center justify-center">
+                            <AlertTriangle className="w-4 h-4 text-white" />
+                          </div>
+                          <span className="text-xs font-medium text-gray-500">不正件数</span>
+                        </div>
+                        <div className="text-xl font-bold text-red-600">{ordersCombined.irregularList.length}件</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {formatAmount(ordersCombined.irregularList.reduce((sum, r) => sum + r.amount, 0))}円
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 月別積み上げ棒グラフ */}
+                  <div className="print-section bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                    <h3 className="text-sm font-bold text-gray-800 mb-4">月別 売上・受注残 推移</h3>
+                    <ResponsiveContainer width="100%" height={350}>
+                      <ComposedChart data={ordersCombined.monthlyData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                        <YAxis
+                          tickFormatter={(v) => formatAmount(v)}
+                          tick={{ fontSize: 11 }}
+                        />
+                        <Tooltip
+                          formatter={(value, name) => [
+                            `${Number(value).toLocaleString()}円`,
+                            String(name),
+                          ]}
+                        />
+                        <Legend />
+                        <Bar
+                          dataKey="salesAmount"
+                          name="売上"
+                          stackId="a"
+                          fill="#4e79a7"
+                        />
+                        <Bar
+                          dataKey="orderAmount"
+                          name="受注残"
+                          stackId="a"
+                          fill="#f28e2c"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="totalAmount"
+                          name="合計"
+                          stroke="#22c55e"
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* 累計折れ線グラフ */}
+                  <div className="print-section bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                    <h3 className="text-sm font-bold text-gray-800 mb-4">累計推移</h3>
+                    <ResponsiveContainer width="100%" height={350}>
+                      <LineChart data={ordersCombined.cumulativeData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                        <YAxis
+                          tickFormatter={(v) => formatAmount(v)}
+                          tick={{ fontSize: 11 }}
+                        />
+                        <Tooltip
+                          formatter={(value, name) => [
+                            `${Number(value).toLocaleString()}円`,
+                            String(name),
+                          ]}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="salesCumulative"
+                          name="売上累計"
+                          stroke="#4e79a7"
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="orderCumulative"
+                          name="受注残累計"
+                          stroke="#f28e2c"
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="totalCumulative"
+                          name="合計累計"
+                          stroke="#22c55e"
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* 不正リスト */}
+                  {ordersCombined.irregularList.length > 0 && (
+                    <div className="print-section bg-white rounded-xl shadow-lg p-4 border border-red-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="w-5 h-5 text-red-500" />
+                        <h3 className="text-sm font-bold text-red-800">
+                          不正リスト（売上見込日が最終売上月より前の受注残）
+                        </h3>
+                      </div>
+                      <div className="text-xs text-gray-600 mb-3">
+                        最終売上月: {ordersCombined.latestSoldMonth
+                          ? `${ordersCombined.latestSoldMonth.substring(0, 4)}年${ordersCombined.latestSoldMonth.substring(4)}月`
+                          : "不明"}
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="bg-red-50 border-b border-red-200">
+                              <th className="px-3 py-2 text-left font-bold text-red-800">製番</th>
+                              <th className="px-3 py-2 text-left font-bold text-red-800">得意先</th>
+                              <th className="px-3 py-2 text-left font-bold text-red-800">担当者</th>
+                              <th className="px-3 py-2 text-left font-bold text-red-800">営業所</th>
+                              <th className="px-3 py-2 text-right font-bold text-red-800">受注金額</th>
+                              <th className="px-3 py-2 text-left font-bold text-red-800">売上見込月</th>
+                              <th className="px-3 py-2 text-left font-bold text-red-800">PJ区分</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ordersCombined.irregularList.map((item, idx) => (
+                              <tr
+                                key={`${item.seiban}-${idx}`}
+                                className="border-b border-red-100 bg-red-50/50 hover:bg-red-100/50"
+                              >
+                                <td className="px-3 py-2 font-medium text-gray-800">{item.seiban}</td>
+                                <td className="px-3 py-2 text-gray-700">{item.customer}</td>
+                                <td className="px-3 py-2 text-gray-700">{item.tantousha}</td>
+                                <td className="px-3 py-2 text-gray-700">{item.office}</td>
+                                <td className="px-3 py-2 text-right font-medium text-red-700">
+                                  {item.amount.toLocaleString()}円
+                                </td>
+                                <td className="px-3 py-2 text-gray-700">{item.expectedMonth}</td>
+                                <td className="px-3 py-2 text-gray-700">{item.pjCategory}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-red-100 border-t-2 border-red-300">
+                              <td colSpan={4} className="px-3 py-2 font-bold text-red-800">
+                                合計 ({ordersCombined.irregularList.length}件)
+                              </td>
+                              <td className="px-3 py-2 text-right font-bold text-red-800">
+                                {ordersCombined.irregularList.reduce((sum, r) => sum + r.amount, 0).toLocaleString()}円
+                              </td>
+                              <td colSpan={2}></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 

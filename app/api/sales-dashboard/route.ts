@@ -113,12 +113,24 @@ function getPeriodDateRange(period: number): { start: string; end: string } {
   };
 }
 
-// 現在の期を計算
+// JST (UTC+9) オフセット（ミリ秒）
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+// DateオブジェクトからJST日付成分を取得
+function getJSTComponents(date: Date): { year: number; month: number; day: number } {
+  const jst = new Date(date.getTime() + JST_OFFSET_MS);
+  return {
+    year: jst.getUTCFullYear(),
+    month: jst.getUTCMonth() + 1, // 1-12
+    day: jst.getUTCDate(),
+  };
+}
+
+// 現在の期を計算（JST基準）
 // 50期 = 2025/08/01 〜 2026/07/31
 function getCurrentPeriod(): number {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
+  const { year, month } = getJSTComponents(now);
   return month >= 8 ? year - 1975 : year - 1976;
 }
 
@@ -128,7 +140,7 @@ function getFiscalMonthName(monthIndex: number): string {
   return months[monthIndex];
 }
 
-// テキスト型の日付文字列をDateオブジェクトに変換
+// テキスト型の日付文字列をDateオブジェクトに変換（JST午前0時として解釈）
 // 形式: "YYYY/MM/DD" または "YYYY-MM-DD"
 function parseDate(dateStr: string): Date | null {
   if (!dateStr || dateStr.trim() === "" || dateStr === "　") return null;
@@ -139,7 +151,8 @@ function parseDate(dateStr: string): Date | null {
   const month = parseInt(parts[1], 10);
   const day = parseInt(parts[2], 10);
   if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
-  return new Date(year, month - 1, day);
+  // JST午前0時 = UTC前日15:00 として生成
+  return new Date(Date.UTC(year, month - 1, day) - JST_OFFSET_MS);
 }
 
 // 日付が範囲内かどうかを判定
@@ -151,11 +164,11 @@ function isDateInRange(dateStr: string, startStr: string, endStr: string): boole
   return date >= start && date <= end;
 }
 
-// 日付文字列から期内の月インデックスを取得
+// 日付文字列から期内の月インデックスを取得（JST基準）
 function getFiscalMonthIndex(dateStr: string): number {
   const date = parseDate(dateStr);
   if (!date) return -1;
-  const month = date.getMonth() + 1; // 1-12
+  const { month } = getJSTComponents(date);
   return month >= 8 ? month - 8 : month + 4;
 }
 

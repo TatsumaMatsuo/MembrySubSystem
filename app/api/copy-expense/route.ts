@@ -454,7 +454,9 @@ export async function GET(request: NextRequest) {
     };
 
     setCachedData(cacheKey, responseData);
-    return NextResponse.json(responseData);
+    return NextResponse.json(responseData, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+    });
   } catch (error: any) {
     console.error("[copy-expense] Error:", error);
     const details = error?.message || error?.msg || String(error);

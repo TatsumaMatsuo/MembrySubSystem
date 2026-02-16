@@ -34,29 +34,32 @@ function setCachedData(key: string, data: any): void {
 // 月名配列（8月始まり）
 const FISCAL_MONTHS = ["8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月", "4月", "5月", "6月", "7月"];
 
+// JST (UTC+9) オフセット（ミリ秒）
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+// DateオブジェクトからJST日付成分を取得
+function getJSTComponents(date: Date): { year: number; month: number; day: number } {
+  const jst = new Date(date.getTime() + JST_OFFSET_MS);
+  return {
+    year: jst.getUTCFullYear(),
+    month: jst.getUTCMonth() + 1, // 1-12
+    day: jst.getUTCDate(),
+  };
+}
+
 // 日付から期の月インデックスを取得（8月=0, 9月=1, ..., 7月=11）
+// JST基準で月を判定
 function getFiscalMonthIndex(dateValue: number | string): number {
-  let date: Date;
-  if (typeof dateValue === "number") {
-    // Larkのタイムスタンプ（ミリ秒）
-    date = new Date(dateValue);
-  } else {
-    date = new Date(dateValue);
-  }
-  const month = date.getMonth() + 1; // 1-12
+  const date = typeof dateValue === "number" ? new Date(dateValue) : new Date(dateValue);
+  const { month } = getJSTComponents(date);
   return month >= 8 ? month - 8 : month + 4;
 }
 
 // 日付から期を取得（8月始まり）
+// JST基準で年月を判定
 function getPeriodFromDate(dateValue: number | string): number {
-  let date: Date;
-  if (typeof dateValue === "number") {
-    date = new Date(dateValue);
-  } else {
-    date = new Date(dateValue);
-  }
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
+  const date = typeof dateValue === "number" ? new Date(dateValue) : new Date(dateValue);
+  const { year, month } = getJSTComponents(date);
   // 8月以降は year - 1975、1-7月は year - 1976
   return month >= 8 ? year - 1975 : year - 1976;
 }

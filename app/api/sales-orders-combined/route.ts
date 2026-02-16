@@ -4,25 +4,13 @@ import { getLarkClient, getLarkBaseToken, listAllDepartments } from "@/lib/lark-
 // AWS Amplify SSRでのタイムアウト延長（最大60秒）
 export const maxDuration = 60;
 
-// テーブルID（案件一覧）
-const TABLE_ID = "tbl1ICzfUixpGqDy";
-
-// 売上情報テーブル（最終売上月取得用）
+// 売上情報テーブル（実際の売上データ）
 const SALES_TABLE_ID = "tbl65w6u6J72QFoz";
+const SALES_VIEW_ID = "vewJWLOWQP"; // 月PJ区分別売上情報
 
-// 必要なフィールド
-const REQUIRED_FIELDS = [
-  "製番",
-  "受注金額",
-  "売上見込日",
-  "担当者",
-  "部門",
-  "得意先宛名1",
-  "売上済フラグ",
-  "削除フラグ",
-  "PJ区分",
-  "産業分類",
-];
+// 案件一覧テーブル（受注残データ）
+const BACKLOG_TABLE_ID = "tbl1ICzfUixpGqDy";
+const BACKLOG_VIEW_ID = "vewCU8LrsT"; // 月部門担当者別受注残（売上済フラグ=0, 削除フラグ=0 でフィルター済み）
 
 // シンプルなインメモリキャッシュ（TTL: 15分）
 const cache = new Map<string, { data: any; timestamp: number }>();
@@ -93,19 +81,35 @@ function getJSTComponents(date: Date): { year: number; month: number; day: numbe
   };
 }
 
-// 日付から期の月インデックスを取得（8月=0, 9月=1, ..., 7月=11）
-function getFiscalMonthIndex(dateValue: number | string): number {
-  const date = typeof dateValue === "number" ? new Date(dateValue) : new Date(dateValue);
-  if (isNaN(date.getTime())) return -1;
-  const { month } = getJSTComponents(date);
-  return month >= 8 ? month - 8 : month + 4;
+// テキスト型の日付文字列をDateオブジェクトに変換（JST午前0時として解釈）
+// sales-dashboard と同じ方式
+function parseDate(dateStr: string): Date | null {
+  if (!dateStr || dateStr.trim() === "" || dateStr === "　") return null;
+  const cleaned = dateStr.trim().replace(/-/g, "/");
+  const parts = cleaned.split("/");
+  if (parts.length < 3) return null;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
+  return new Date(Date.UTC(year, month - 1, day) - JST_OFFSET_MS);
 }
 
-// 日付から期を取得（8月始まり）
-function getPeriodFromDate(dateValue: number | string): number {
-  const date = typeof dateValue === "number" ? new Date(dateValue) : new Date(dateValue);
-  const { year, month } = getJSTComponents(date);
-  return month >= 8 ? year - 1975 : year - 1976;
+// 日付が範囲内かどうかを判定
+function isDateInRange(dateStr: string, startStr: string, endStr: string): boolean {
+  const date = parseDate(dateStr);
+  const start = parseDate(startStr);
+  const end = parseDate(endStr);
+  if (!date || !start || !end) return false;
+  return date >= start && date <= end;
+}
+
+// 日付文字列から期内の月インデックスを取得（JST基準）
+function getFiscalMonthIndex(dateStr: string): number {
+  const date = parseDate(dateStr);
+  if (!date) return -1;
+  const { month } = getJSTComponents(date);
+  return month >= 8 ? month - 8 : month + 4;
 }
 
 // 期から日付範囲を計算（期初は8月）
@@ -123,19 +127,6 @@ function getCurrentPeriod(): number {
   const now = new Date();
   const { year, month } = getJSTComponents(now);
   return month >= 8 ? year - 1975 : year - 1976;
-}
-
-// テキスト型の日付文字列をDateオブジェクトに変換
-function parseDate(dateStr: string): Date | null {
-  if (!dateStr || dateStr.trim() === "" || dateStr === "　") return null;
-  const cleaned = dateStr.trim().replace(/-/g, "/");
-  const parts = cleaned.split("/");
-  if (parts.length < 3) return null;
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10);
-  const day = parseInt(parts[2], 10);
-  if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
-  return new Date(year, month - 1, day);
 }
 
 // フィールドからテキスト値を抽出
@@ -226,7 +217,8 @@ async function getLatestSoldMonth(client: any, baseToken: string): Promise<strin
     if (uriageDate) {
       const date = parseDate(uriageDate);
       if (date) {
-        latestMonth = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}`;
+        const { year, month } = getJSTComponents(date);
+        latestMonth = `${year}${String(month).padStart(2, "0")}`;
       }
     }
   }
@@ -279,36 +271,90 @@ export async function GET(request: NextRequest) {
     // 最新売上済月を取得
     const latestSoldMonth = await getLatestSoldMonth(client, baseToken);
 
-    // 案件一覧から全レコードを取得（フィルターなし、API側で分類）
-    let allRecords: any[] = [];
-    let pageToken: string | undefined;
+    // カットオフ日を計算（最新売上済月の翌月1日）
+    let cutoffDate = "";
+    if (latestSoldMonth) {
+      const year = parseInt(latestSoldMonth.substring(0, 4), 10);
+      const month = parseInt(latestSoldMonth.substring(4, 6), 10);
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      cutoffDate = `${nextYear}/${String(nextMonth).padStart(2, "0")}/01`;
+    }
 
-    const fetchStartTime = Date.now();
+    // ========================================
+    // 1. 売上情報テーブルから実売上データを取得
+    // ========================================
+    const salesDateFilter = `AND(CurrentValue.[売上日] >= "${dateRange.start}", CurrentValue.[売上日] <= "${dateRange.end}")`;
+    const salesFields = ["製番", "売上日", "金額"];
+
+    let salesRecords: any[] = [];
+    let salesPageToken: string | undefined;
+
+    const salesStartTime = Date.now();
     do {
+      const currentToken = salesPageToken;
       const response: any = await withRetry(() =>
         client.bitable.appTableRecord.list({
           path: {
             app_token: baseToken,
-            table_id: TABLE_ID,
+            table_id: SALES_TABLE_ID,
           },
           params: {
             page_size: 500,
-            page_token: pageToken,
-            field_names: JSON.stringify(REQUIRED_FIELDS),
+            page_token: currentToken,
+            filter: salesDateFilter,
+            field_names: JSON.stringify(salesFields),
+            view_id: SALES_VIEW_ID,
           },
         })
       );
 
       if (response.data?.items) {
-        allRecords.push(...response.data.items);
+        salesRecords.push(...response.data.items);
       }
-      pageToken = response.data?.page_token;
-    } while (pageToken);
+      salesPageToken = response.data?.page_token;
+    } while (salesPageToken);
 
-    const fetchElapsed = Date.now() - fetchStartTime;
-    console.log(`[sales-orders-combined] Fetched ${allRecords.length} records in ${fetchElapsed}ms`);
+    console.log(`[sales-orders-combined] Sales records: ${salesRecords.length} in ${Date.now() - salesStartTime}ms`);
 
-    // 月別集計
+    // ========================================
+    // 2. 案件一覧テーブルから受注残データを取得
+    //    ビューで売上済フラグ=0, 削除フラグ=0 はフィルター済み
+    // ========================================
+    const backlogFields = ["製番", "受注金額", "売上見込日", "担当者", "部門", "得意先宛名1", "PJ区分"];
+
+    let backlogRecords: any[] = [];
+    let backlogPageToken: string | undefined;
+
+    const backlogStartTime = Date.now();
+    do {
+      const currentToken = backlogPageToken;
+      const response: any = await withRetry(() =>
+        client.bitable.appTableRecord.list({
+          path: {
+            app_token: baseToken,
+            table_id: BACKLOG_TABLE_ID,
+          },
+          params: {
+            page_size: 500,
+            page_token: currentToken,
+            field_names: JSON.stringify(backlogFields),
+            view_id: BACKLOG_VIEW_ID,
+          },
+        })
+      );
+
+      if (response.data?.items) {
+        backlogRecords.push(...response.data.items);
+      }
+      backlogPageToken = response.data?.page_token;
+    } while (backlogPageToken);
+
+    console.log(`[sales-orders-combined] Backlog records: ${backlogRecords.length} in ${Date.now() - backlogStartTime}ms`);
+
+    // ========================================
+    // 3. 売上データを月別集計
+    // ========================================
     const monthlyMap = new Map<number, {
       salesAmount: number;
       salesCount: number;
@@ -316,7 +362,35 @@ export async function GET(request: NextRequest) {
       orderCount: number;
     }>();
 
-    // 不正リスト
+    let totalSalesAmount = 0;
+    let totalSalesCount = 0;
+
+    for (const record of salesRecords) {
+      const fields = record.fields as any;
+      const uriageDateStr = extractTextValue(fields?.売上日);
+      if (!uriageDateStr) continue;
+
+      // 期間内チェックは dateFilter で済んでいるが念のため
+      if (!isDateInRange(uriageDateStr, dateRange.start, dateRange.end)) continue;
+
+      const monthIndex = getFiscalMonthIndex(uriageDateStr);
+      if (monthIndex < 0 || monthIndex >= 12) continue;
+
+      const amount = parseFloat(String(fields?.金額 || 0)) || 0;
+
+      if (!monthlyMap.has(monthIndex)) {
+        monthlyMap.set(monthIndex, { salesAmount: 0, salesCount: 0, orderAmount: 0, orderCount: 0 });
+      }
+      const m = monthlyMap.get(monthIndex)!;
+      m.salesAmount += amount;
+      m.salesCount++;
+      totalSalesAmount += amount;
+      totalSalesCount++;
+    }
+
+    // ========================================
+    // 4. 受注残データを月別集計 + 不正リスト生成
+    // ========================================
     const irregularList: {
       seiban: string;
       customer: string;
@@ -327,35 +401,26 @@ export async function GET(request: NextRequest) {
       pjCategory: string;
     }[] = [];
 
-    let totalSalesAmount = 0;
-    let totalSalesCount = 0;
     let totalOrderAmount = 0;
     let totalOrderCount = 0;
 
-    for (const record of allRecords) {
+    for (const record of backlogRecords) {
       const fields = record.fields as any;
 
-      // 削除フラグチェック
-      const deleteFlag = fields?.["削除フラグ"];
-      if (deleteFlag === true || deleteFlag === "true") continue;
-
-      // 売上見込日
       const mikomiDateStr = extractTextValue(fields?.["売上見込日"]);
       if (!mikomiDateStr) continue;
 
+      // 期間内チェック
+      if (!isDateInRange(mikomiDateStr, dateRange.start, dateRange.end)) continue;
+
+      // カットオフ日以降のみ対象（売上見込日 >= カットオフ日、ただし不正リスト用に全期間データも処理）
       const mikomiDate = parseDate(mikomiDateStr);
       if (!mikomiDate) continue;
 
-      // 期間フィルタ
-      const recordPeriod = getPeriodFromDate(mikomiDate.getTime());
-      if (recordPeriod !== period) continue;
-
-      const monthIndex = getFiscalMonthIndex(mikomiDate.getTime());
+      const monthIndex = getFiscalMonthIndex(mikomiDateStr);
       if (monthIndex < 0 || monthIndex >= 12) continue;
 
       const amount = parseFloat(String(fields?.["受注金額"] || 0)) || 0;
-      const isSold = fields?.["売上済フラグ"] === true || fields?.["売上済フラグ"] === "true";
-
       const seiban = extractTextValue(fields?.["製番"]);
       const tantousha = extractTextValue(fields?.["担当者"]) || "未設定";
       let eigyosho = fields?.["部門"]
@@ -367,44 +432,38 @@ export async function GET(request: NextRequest) {
       const customer = extractTextValue(fields?.["得意先宛名1"]);
       const pjCategory = extractTextValue(fields?.["PJ区分"]);
 
+      // 不正リストチェック: 売上見込日の月 < 最終売上月
+      if (latestSoldMonth) {
+        const { year: mikomiYear, month: mikomiMonth } = getJSTComponents(mikomiDate);
+        const mikomiYM = `${mikomiYear}${String(mikomiMonth).padStart(2, "0")}`;
+        if (mikomiYM <= latestSoldMonth) {
+          irregularList.push({
+            seiban,
+            customer,
+            tantousha,
+            office: eigyosho,
+            amount,
+            expectedMonth: `${mikomiYear}/${String(mikomiMonth).padStart(2, "0")}`,
+            pjCategory,
+          });
+          // 不正リストのレコードも受注残として月別集計に含める
+        }
+      }
+
       // 月別集計に加算
       if (!monthlyMap.has(monthIndex)) {
         monthlyMap.set(monthIndex, { salesAmount: 0, salesCount: 0, orderAmount: 0, orderCount: 0 });
       }
       const m = monthlyMap.get(monthIndex)!;
-
-      if (isSold) {
-        m.salesAmount += amount;
-        m.salesCount++;
-        totalSalesAmount += amount;
-        totalSalesCount++;
-      } else {
-        m.orderAmount += amount;
-        m.orderCount++;
-        totalOrderAmount += amount;
-        totalOrderCount++;
-
-        // 不正リストチェック: 受注残で売上見込日の月 < 最終売上月
-        if (latestSoldMonth) {
-          const mikomiYear = mikomiDate.getFullYear();
-          const mikomiMonth = mikomiDate.getMonth() + 1;
-          const mikomiYM = `${mikomiYear}${String(mikomiMonth).padStart(2, "0")}`;
-          if (mikomiYM < latestSoldMonth) {
-            irregularList.push({
-              seiban,
-              customer,
-              tantousha,
-              office: eigyosho,
-              amount,
-              expectedMonth: `${mikomiYear}/${String(mikomiMonth).padStart(2, "0")}`,
-              pjCategory,
-            });
-          }
-        }
-      }
+      m.orderAmount += amount;
+      m.orderCount++;
+      totalOrderAmount += amount;
+      totalOrderCount++;
     }
 
-    // 月別データ配列を生成
+    // ========================================
+    // 5. レスポンスデータ生成
+    // ========================================
     const monthlyData = Array.from({ length: 12 }, (_, i) => {
       const data = monthlyMap.get(i);
       return {

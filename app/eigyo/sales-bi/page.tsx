@@ -760,7 +760,10 @@ export default function BIDashboardPage() {
         setData(dashboardData.data);
         setCurrentPeriod(dashboardData.currentPeriod);
       } else {
-        setError("データの取得に失敗しました");
+        console.error("Sales dashboard API error:", dashboardData);
+        const errorMsg = dashboardData.error || "不明なエラー";
+        const errorDetail = dashboardData.details || "";
+        setError(`データの取得に失敗しました: ${errorMsg}${errorDetail ? ` (${errorDetail})` : ""}`);
       }
 
       if (budgetData.success) {
@@ -803,9 +806,9 @@ export default function BIDashboardPage() {
         setOrdersCombined(ordersCombinedData.data);
       }
 
-    } catch (err) {
-      setError("データの取得中にエラーが発生しました");
-      console.error(err);
+    } catch (err: any) {
+      console.error("Fetch error:", err);
+      setError(`データの取得中にエラーが発生しました: ${err?.message || String(err)}`);
     } finally {
       setLoading(false);
     }

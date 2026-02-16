@@ -17,6 +17,8 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line,
 } from "recharts";
 import {
   BarChart3,
@@ -32,6 +34,7 @@ import {
   DollarSign,
   Hash,
   Sparkles,
+  Building2,
 } from "lucide-react";
 
 // 型定義
@@ -184,6 +187,7 @@ export default function SoumuKPIAnalysisPage() {
   const { status } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<CategoryType>("copy");
   const [selectedPeriod, setSelectedPeriod] = useState<number>(50);
+  const [activeTab, setActiveTab] = useState<"overview" | "offices">("overview");
   const [data, setData] = useState<CopyExpenseData | null>(null);
   const [comparisonData, setComparisonData] = useState<CopyExpenseData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -402,6 +406,45 @@ export default function SoumuKPIAnalysisPage() {
     return { chartData, categories };
   })();
 
+  // 事業所別タブ用: 事業所→月→印刷種別→枚数
+  const OFFICE_MONTHS = ["8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月", "4月", "5月", "6月", "7月"];
+  const PRINT_TYPES = ["カラー", "2色", "モノクロ"];
+  const officeData = (() => {
+    if (!data) return [];
+    const deptMap = new Map<string, Map<string, Map<string, number>>>();
+    for (const r of data.records) {
+      const dept = r.department || "不明";
+      const month = r.month;
+      const cat = r.category || "不明";
+      if (!month) continue;
+      if (!deptMap.has(dept)) deptMap.set(dept, new Map());
+      const monthMap = deptMap.get(dept)!;
+      if (!monthMap.has(month)) monthMap.set(month, new Map());
+      const catMap = monthMap.get(month)!;
+      catMap.set(cat, (catMap.get(cat) || 0) + r.sheets);
+    }
+    return Array.from(deptMap.entries()).map(([dept, monthMap]) => {
+      let totalSheets = 0;
+      for (const catMap of monthMap.values()) {
+        for (const sheets of catMap.values()) {
+          totalSheets += sheets;
+        }
+      }
+      const byType = PRINT_TYPES.map((type) => {
+        const months = OFFICE_MONTHS.map((month, i) => {
+          const sheets = monthMap.get(month)?.get(type) || 0;
+          const prevMonth = i > 0 ? OFFICE_MONTHS[i - 1] : null;
+          const prevSheets = prevMonth !== null ? (monthMap.get(prevMonth)?.get(type) || 0) : null;
+          const diff = prevSheets !== null ? sheets - prevSheets : null;
+          return { month, sheets, diff };
+        });
+        const total = months.reduce((sum, m) => sum + m.sheets, 0);
+        return { type, months, total };
+      });
+      return { dept, totalSheets, byType };
+    }).sort((a, b) => b.totalSheets - a.totalSheets);
+  })();
+
   // 円グラフ用: 上位7件 + その他にまとめる
   const departmentPieData = (() => {
     if (departmentDataAll.length <= 8) return departmentDataAll;
@@ -510,6 +553,33 @@ export default function SoumuKPIAnalysisPage() {
               </button>
             </div>
           </div>
+          {/* タブ */}
+          {selectedCategory === "copy" && (
+            <div className="flex gap-1 mt-2 overflow-x-auto">
+              <button
+                onClick={() => setActiveTab("overview")}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                  activeTab === "overview"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <BarChart3 className="w-3 h-3" />
+                概要
+              </button>
+              <button
+                onClick={() => setActiveTab("offices")}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                  activeTab === "offices"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                <Building2 className="w-3 h-3" />
+                事業所別
+              </button>
+            </div>
+          )}
         </div>
 
         {/* メインコンテンツ */}
@@ -566,8 +636,8 @@ export default function SoumuKPIAnalysisPage() {
               </div>
             )}
 
-            {/* データ表示 */}
-            {data && (
+            {/* データ表示: 概要タブ */}
+            {activeTab === "overview" && data && (
               <div className="space-y-6">
                 {/* KPIカード x4 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1183,6 +1253,184 @@ export default function SoumuKPIAnalysisPage() {
                     </div>
                   );
                 })()}
+              </div>
+            )}
+
+            {/* データ表示: 事業所別タブ */}
+            {activeTab === "offices" && data && (
+              <div className="space-y-6">
+                {/* サマリーKPIカード */}
+                {officeData.length > 0 && (() => {
+                  const totalAllSheets = officeData.reduce((sum, o) => sum + o.totalSheets, 0);
+                  const topOffice = officeData[0];
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <KPICard
+                        title="事業所数"
+                        value={String(officeData.length)}
+                        unit="拠点"
+                        icon={<Building2 className="w-5 h-5 text-white" />}
+                        color="blue"
+                      />
+                      <KPICard
+                        title="総印刷枚数"
+                        value={totalAllSheets.toLocaleString()}
+                        unit="枚"
+                        icon={<Hash className="w-5 h-5 text-white" />}
+                        color="purple"
+                        subText={`第${data.period}期 全事業所合計`}
+                      />
+                      <KPICard
+                        title="最多事業所"
+                        value={topOffice?.dept || "-"}
+                        unit={topOffice ? `${topOffice.totalSheets.toLocaleString()}枚` : ""}
+                        icon={<TrendingUp className="w-5 h-5 text-white" />}
+                        color="orange"
+                      />
+                    </div>
+                  );
+                })()}
+
+                {/* 事業所カード一覧 */}
+                {(() => {
+                  const totalAllSheets = officeData.reduce((sum, o) => sum + o.totalSheets, 0);
+                  const PRINT_TYPE_COLORS: Record<string, string> = {
+                    "カラー": "#f43f5e",
+                    "2色": "#f59e0b",
+                    "モノクロ": "#64748b",
+                  };
+                  return (
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                      {officeData.map((office, rank) => {
+                        const ratio = totalAllSheets > 0 ? (office.totalSheets / totalAllSheets) * 100 : 0;
+                        return (
+                          <div key={office.dept} className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                            {/* カードヘッダー */}
+                            <div className="p-5 pb-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold text-white ${
+                                    rank === 0 ? "bg-amber-500" : rank === 1 ? "bg-gray-400" : rank === 2 ? "bg-orange-700" : "bg-gray-300"
+                                  }`}>
+                                    {rank + 1}
+                                  </span>
+                                  <Building2 className="w-5 h-5 text-indigo-500" />
+                                  <h4 className="text-sm font-bold text-gray-800">{office.dept}</h4>
+                                </div>
+                                <span className="text-sm text-gray-500">
+                                  合計 <span className="font-bold text-gray-800">{office.totalSheets.toLocaleString()}</span> 枚
+                                  <span className="text-xs text-gray-400 ml-1">({ratio.toFixed(1)}%)</span>
+                                </span>
+                              </div>
+                              {/* 構成比バー */}
+                              <div className="w-full bg-gray-100 rounded-full h-1.5">
+                                <div
+                                  className="bg-indigo-400 h-1.5 rounded-full transition-all"
+                                  style={{ width: `${Math.min(ratio, 100)}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* テーブル */}
+                            <div className="px-5 pb-3 overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b border-gray-200">
+                                    <th className="text-left py-1.5 px-1.5 text-gray-400 font-medium w-20">種別</th>
+                                    {OFFICE_MONTHS.map((m) => (
+                                      <th key={m} className="text-center py-1.5 px-0.5 text-gray-400 font-medium min-w-[52px]">
+                                        {m.replace("月", "")}月
+                                      </th>
+                                    ))}
+                                    <th className="text-right py-1.5 px-1.5 text-gray-400 font-medium">計</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {office.byType.map((row) => (
+                                    <tr key={row.type} className="border-b border-gray-50">
+                                      <td className="py-2 px-1.5 whitespace-nowrap">
+                                        <div className="flex items-center gap-1.5">
+                                          <span
+                                            className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                                            style={{ backgroundColor: PRINT_TYPE_COLORS[row.type] || "#94a3b8" }}
+                                          />
+                                          <span className="text-gray-600 font-medium">{row.type}</span>
+                                        </div>
+                                      </td>
+                                      {row.months.map((m, i) => {
+                                        const bgClass = m.diff !== null && m.diff > 0
+                                          ? "bg-red-50"
+                                          : m.diff !== null && m.diff < 0
+                                            ? "bg-blue-50"
+                                            : "";
+                                        return (
+                                          <td key={i} className={`text-center py-2 px-0.5 ${bgClass}`}>
+                                            <div className="text-gray-700 leading-tight">
+                                              {m.sheets > 0 ? m.sheets.toLocaleString() : <span className="text-gray-300">-</span>}
+                                            </div>
+                                            {m.diff !== null && (m.sheets > 0 || m.diff !== 0) ? (
+                                              <div className={`text-xs leading-none mt-0.5 ${
+                                                m.diff > 0 ? "text-red-500" : m.diff < 0 ? "text-blue-500" : "text-gray-300"
+                                              }`}>
+                                                {m.diff > 0 ? `↑+${m.diff.toLocaleString()}` : m.diff < 0 ? `↓${m.diff.toLocaleString()}` : "→"}
+                                              </div>
+                                            ) : null}
+                                          </td>
+                                        );
+                                      })}
+                                      <td className="text-right py-2 px-1.5 text-gray-800 font-bold whitespace-nowrap">
+                                        {row.total > 0 ? row.total.toLocaleString() : "-"}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* ミニスパークライン */}
+                            <div className="px-5 pb-4 pt-1 border-t border-gray-50">
+                              <div className="text-[10px] text-gray-400 mb-1">月別推移</div>
+                              <ResponsiveContainer width="100%" height={60}>
+                                <LineChart data={OFFICE_MONTHS.map((month, i) => {
+                                  const row: Record<string, string | number> = { month: month.replace("月", "") };
+                                  office.byType.forEach((bt) => {
+                                    row[bt.type] = bt.months[i].sheets;
+                                  });
+                                  return row;
+                                })}>
+                                  <XAxis dataKey="month" hide />
+                                  <YAxis hide />
+                                  <Tooltip
+                                    contentStyle={{ fontSize: 11, padding: "4px 8px" }}
+                                    formatter={(value: any, name: any) => [`${Number(value).toLocaleString()}枚`, name]}
+                                    labelFormatter={(label) => `${label}月`}
+                                  />
+                                  {office.byType.map((bt) => (
+                                    <Line
+                                      key={bt.type}
+                                      type="monotone"
+                                      dataKey={bt.type}
+                                      stroke={PRINT_TYPE_COLORS[bt.type] || "#94a3b8"}
+                                      strokeWidth={1.5}
+                                      dot={false}
+                                    />
+                                  ))}
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+
+                {officeData.length === 0 && (
+                  <div className="text-center py-12 text-gray-400">
+                    <Building2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">事業所別のデータがありません</p>
+                  </div>
+                )}
               </div>
             )}
 

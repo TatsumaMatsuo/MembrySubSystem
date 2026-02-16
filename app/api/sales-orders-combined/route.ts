@@ -17,7 +17,7 @@ const REQUIRED_FIELDS = [
   "売上見込日",
   "担当者",
   "部門",
-  "得意先",
+  "得意先宛名1",
   "売上済フラグ",
   "削除フラグ",
   "PJ区分",
@@ -364,7 +364,7 @@ export async function GET(request: NextRequest) {
       if (tantousha === HQ_SALES_PERSON) {
         eigyosho = "本社";
       }
-      const customer = extractTextValue(fields?.["得意先"]);
+      const customer = extractTextValue(fields?.["得意先宛名1"]);
       const pjCategory = extractTextValue(fields?.["PJ区分"]);
 
       // 月別集計に加算

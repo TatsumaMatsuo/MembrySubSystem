@@ -41,13 +41,32 @@ function getCurrentPeriod(): number {
   return month >= 8 ? year - 1975 : year - 1976;
 }
 
+// JST (UTC+9) オフセット（ミリ秒）
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+// DateオブジェクトからJST日付成分を取得
+function getJSTComponents(date: Date): { year: number; month: number; day: number } {
+  const jst = new Date(date.getTime() + JST_OFFSET_MS);
+  return {
+    year: jst.getUTCFullYear(),
+    month: jst.getUTCMonth() + 1, // 1-12
+    day: jst.getUTCDate(),
+  };
+}
+
+// JST日付をYYYY-MM-DD文字列に変換
+function toJSTDateString(date: Date): string {
+  const { year, month, day } = getJSTComponents(date);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 // 月名を取得（8月始まり）
 function getFiscalMonthName(monthIndex: number): string {
   const months = ["8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月", "4月", "5月", "6月", "7月"];
   return months[monthIndex] || "";
 }
 
-// テキスト型の日付文字列をDateオブジェクトに変換
+// テキスト型の日付文字列をDateオブジェクトに変換（JST午前0時として解釈）
 function parseDate(dateStr: string): Date | null {
   if (!dateStr || dateStr.trim() === "" || dateStr === "　") return null;
   // タイムスタンプ（ミリ秒）の場合
@@ -61,7 +80,8 @@ function parseDate(dateStr: string): Date | null {
   const month = parseInt(parts[1], 10);
   const day = parseInt(parts[2], 10);
   if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
-  return new Date(year, month - 1, day);
+  // JST午前0時 = UTC前日15:00 として生成
+  return new Date(Date.UTC(year, month - 1, day) - JST_OFFSET_MS);
 }
 
 // フィールドからテキスト値を抽出
@@ -106,8 +126,9 @@ function isDateInRange(date: Date | null, startStr: string, endStr: string): boo
 }
 
 // 日付から期内の月インデックスを取得（8月=0, 9月=1, ... 7月=11）
+// JST基準で月を判定
 function getFiscalMonthIndex(date: Date): number {
-  const month = date.getMonth() + 1; // 1-12
+  const { month } = getJSTComponents(date);
   return month >= 8 ? month - 8 : month + 4;
 }
 
@@ -171,8 +192,7 @@ export async function GET(request: NextRequest) {
     try {
       const targetTimestamp = parseInt(monthParam, 10);
       const targetDate = new Date(targetTimestamp);
-      const targetYear = targetDate.getFullYear();
-      const targetMonth = targetDate.getMonth(); // 0-indexed
+      const { year: targetYear, month: targetMonth } = getJSTComponents(targetDate); // JST基準
 
       let allRecords: any[] = [];
       let pageToken: string | undefined;
@@ -188,12 +208,13 @@ export async function GET(request: NextRequest) {
         pageToken = response.data?.page_token;
       } while (pageToken);
 
-      // 指定月のレコードのみ抽出
+      // 指定月のレコードのみ抽出（JST基準）
       const monthRecords = allRecords.filter((record: any) => {
         const dateVal = record.fields?.["年月"];
         const date = extractDate(dateVal);
         if (!date) return false;
-        return date.getFullYear() === targetYear && date.getMonth() === targetMonth;
+        const jst = getJSTComponents(date);
+        return jst.year === targetYear && jst.month === targetMonth;
       });
 
       const records = monthRecords.map((record: any) => {
@@ -388,7 +409,7 @@ export async function GET(request: NextRequest) {
         q.sheets += sheets;
 
         records.push({
-          date: date.toISOString().substring(0, 10),
+          date: toJSTDateString(date),
           month: getFiscalMonthName(monthIndex),
           amount,
           sheets,

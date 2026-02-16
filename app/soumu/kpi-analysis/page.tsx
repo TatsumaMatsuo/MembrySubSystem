@@ -202,7 +202,7 @@ export default function SoumuKPIAnalysisPage() {
   const fetchPeriod = async (period: number, noCache = false): Promise<CopyExpenseData | null> => {
     const params = new URLSearchParams({ period: String(period) });
     if (noCache) params.set("noCache", "true");
-    const response = await fetch(`/api/copy-expense?${params}`);
+    const response = await fetch(`/api/copy-expense?${params}`, { cache: "no-store" });
     const result = await response.json().catch(() => null);
     if (!response.ok || !result || result.error) return null;
     return result;

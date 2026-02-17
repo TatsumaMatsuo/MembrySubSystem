@@ -35,11 +35,23 @@ const RETRYABLE_ERROR_CODES = [
   1254609, // Busy, please try again later
 ];
 
+// HTTP 400もリトライ対象（Lark APIが一時的に400を返すことがある）
+function isRetryableError(error: any): boolean {
+  const errorCode = error?.code || error?.data?.code;
+  if (RETRYABLE_ERROR_CODES.includes(errorCode)) return true;
+  const httpStatus = error?.response?.status || error?.status;
+  if ([400, 429, 500, 502, 503].includes(httpStatus)) return true;
+  const msg = error?.message || "";
+  if (/status code (400|429|5\d\d)/.test(msg)) return true;
+  return false;
+}
+
 // リトライ付きでLark API呼び出しを実行
 async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
-  delayMs: number = 2000
+  delayMs: number = 2000,
+  label: string = ""
 ): Promise<T> {
   let lastError: any;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -53,9 +65,9 @@ async function withRetry<T>(
       return result;
     } catch (error: any) {
       lastError = error;
-      const errorCode = error?.code || error?.data?.code;
-      if (RETRYABLE_ERROR_CODES.includes(errorCode) && attempt < maxRetries) {
-        console.log(`[sales-orders-combined] Retrying after error ${errorCode} (attempt ${attempt + 1}/${maxRetries})...`);
+      if (isRetryableError(error) && attempt < maxRetries) {
+        const detail = error?.message || error?.code || "unknown";
+        console.log(`[sales-orders-combined${label ? `:${label}` : ""}] Retrying after ${detail} (attempt ${attempt + 1}/${maxRetries})...`);
         await new Promise(resolve => setTimeout(resolve, delayMs * (attempt + 1)));
         continue;
       }
@@ -511,10 +523,18 @@ export async function GET(request: NextRequest) {
 
     setCachedData(cacheKey, result);
     return NextResponse.json(result);
-  } catch (error) {
-    console.error("[sales-orders-combined] Error:", error);
+  } catch (error: any) {
+    const responseData = error?.response?.data;
+    const responseStatus = error?.response?.status;
+    console.error(`[sales-orders-combined] Error: ${error?.message || error}, HTTP status: ${responseStatus || "N/A"}`);
+    if (responseData) {
+      console.error("[sales-orders-combined] Response data:", JSON.stringify(responseData).substring(0, 500));
+    }
+    const detail = responseData
+      ? `HTTP ${responseStatus}: ${JSON.stringify(responseData).substring(0, 200)}`
+      : (error?.message || String(error));
     return NextResponse.json(
-      { error: "受注込データの取得に失敗しました", details: String(error) },
+      { error: "受注込データの取得に失敗しました", details: detail },
       { status: 500 }
     );
   }

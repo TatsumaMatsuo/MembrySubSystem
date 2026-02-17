@@ -205,38 +205,20 @@ function extractOfficeFromDepartment(
   return departments[0] || "未設定";
 }
 
-// 最新売上済月を取得（降順ソートで最新1件のみ取得）
-async function getLatestSoldMonth(client: any, baseToken: string): Promise<string> {
-  const startTime = Date.now();
-
-  const response: any = await withRetry(() =>
-    client.bitable.appTableRecord.list({
-      path: {
-        app_token: baseToken,
-        table_id: SALES_TABLE_ID,
-      },
-      params: {
-        page_size: 1,
-        sort: JSON.stringify([{ field_name: "売上日", desc: true }]),
-        field_names: JSON.stringify(["売上日"]),
-      },
-    })
-  );
-
+// フェッチ済みの売上レコードから最新売上済月を計算
+function computeLatestSoldMonth(salesRecords: any[]): string {
   let latestMonth = "";
-  if (response.data?.items && response.data.items.length > 0) {
-    const uriageDate = extractTextValue(response.data.items[0].fields?.売上日);
-    if (uriageDate) {
-      const date = parseDate(uriageDate);
-      if (date) {
-        const { year, month } = getJSTComponents(date);
-        latestMonth = `${year}${String(month).padStart(2, "0")}`;
-      }
+  for (const record of salesRecords) {
+    const uriageDate = extractTextValue(record.fields?.売上日);
+    if (!uriageDate) continue;
+    const date = parseDate(uriageDate);
+    if (!date) continue;
+    const { year, month } = getJSTComponents(date);
+    const ym = `${year}${String(month).padStart(2, "0")}`;
+    if (ym > latestMonth) {
+      latestMonth = ym;
     }
   }
-
-  const elapsed = Date.now() - startTime;
-  console.log(`[sales-orders-combined] Found latest sold month: ${latestMonth} in ${elapsed}ms`);
   return latestMonth;
 }
 
@@ -280,19 +262,6 @@ export async function GET(request: NextRequest) {
       // 部署マッピング取得失敗時は空のまま継続
     }
 
-    // 最新売上済月を取得
-    const latestSoldMonth = await getLatestSoldMonth(client, baseToken);
-
-    // カットオフ日を計算（最新売上済月の翌月1日）
-    let cutoffDate = "";
-    if (latestSoldMonth) {
-      const year = parseInt(latestSoldMonth.substring(0, 4), 10);
-      const month = parseInt(latestSoldMonth.substring(4, 6), 10);
-      const nextMonth = month === 12 ? 1 : month + 1;
-      const nextYear = month === 12 ? year + 1 : year;
-      cutoffDate = `${nextYear}/${String(nextMonth).padStart(2, "0")}/01`;
-    }
-
     // ========================================
     // 1. 売上情報テーブルから実売上データを取得
     // ========================================
@@ -328,6 +297,20 @@ export async function GET(request: NextRequest) {
     } while (salesPageToken);
 
     console.log(`[sales-orders-combined] Sales records: ${salesRecords.length} in ${Date.now() - salesStartTime}ms`);
+
+    // 最新売上済月をフェッチ済みレコードから計算（ソートAPI不要）
+    const latestSoldMonth = computeLatestSoldMonth(salesRecords);
+    console.log(`[sales-orders-combined] Latest sold month: ${latestSoldMonth}`);
+
+    // カットオフ日を計算（最新売上済月の翌月1日）
+    let cutoffDate = "";
+    if (latestSoldMonth) {
+      const year = parseInt(latestSoldMonth.substring(0, 4), 10);
+      const month = parseInt(latestSoldMonth.substring(4, 6), 10);
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      cutoffDate = `${nextYear}/${String(nextMonth).padStart(2, "0")}/01`;
+    }
 
     // ========================================
     // 2. 案件一覧テーブルから受注残データを取得

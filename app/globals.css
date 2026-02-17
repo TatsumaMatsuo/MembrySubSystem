@@ -295,3 +295,146 @@ body {
     max-height: none !important;
   }
 }
+
+/* ========================================
+   印刷用スタイル - A4横向け（事業所別）
+   @page はJS側で動的に挿入する
+   ======================================== */
+@media print {
+  /* 印刷ボタン非表示 */
+  .print-trigger-btn {
+    display: none !important;
+  }
+
+  body.print-landscape .h-full.flex.flex-col.overflow-hidden {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body.print-landscape .flex-1.flex.overflow-hidden {
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  /* サイドバーを非表示 */
+  body.print-landscape .w-48.flex-shrink-0 {
+    display: none !important;
+  }
+
+  /* ヘッダーバーを非表示 */
+  body.print-landscape .flex-shrink-0.bg-white.border-b {
+    display: none !important;
+  }
+
+  /* メインコンテンツを全幅に */
+  body.print-landscape .flex-1.overflow-y-auto.p-6.bg-gray-50 {
+    overflow: visible !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* 印刷用ヘッダー表示 */
+  body.print-landscape .print-landscape-header {
+    display: block !important;
+    text-align: center;
+    padding: 3mm 0;
+    border-bottom: 2px solid #1f2937;
+    margin-bottom: 4mm;
+  }
+
+  body.print-landscape .print-landscape-header h1 {
+    font-size: 14pt !important;
+    font-weight: bold !important;
+    margin: 0 !important;
+  }
+
+  body.print-landscape .print-landscape-header .print-meta {
+    font-size: 8pt !important;
+    color: #666 !important;
+    margin-top: 1mm !important;
+  }
+
+  /* KPIカードを3列に */
+  body.print-landscape .office-kpi-print {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 3mm !important;
+    margin-bottom: 4mm !important;
+  }
+
+  body.print-landscape .office-kpi-print > div {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    transform: none !important;
+    padding: 2mm !important;
+  }
+
+  /* 事業所カードを1列全幅で配置（1年分の12ヶ月がきれいに収まる） */
+  body.print-landscape .office-print-grid {
+    display: block !important;
+  }
+
+  body.print-landscape .office-print-grid > div {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    border: 1px solid #d1d5db !important;
+    box-shadow: none !important;
+    transform: none !important;
+    margin-bottom: 3mm !important;
+    width: 100% !important;
+  }
+
+  /* 事業所カード内のテーブル - A4横全幅で余裕を持たせる */
+  body.print-landscape .office-print-grid table {
+    font-size: 8pt !important;
+    width: 100% !important;
+  }
+
+  body.print-landscape .office-print-grid th {
+    padding: 1.5px 3px !important;
+    font-size: 7.5pt !important;
+  }
+
+  body.print-landscape .office-print-grid td {
+    padding: 1.5px 3px !important;
+  }
+
+  /* 月別セルの最小幅確保（12ヶ月がきれいに並ぶ） */
+  body.print-landscape .office-print-grid th.text-center,
+  body.print-landscape .office-print-grid td.text-center {
+    min-width: 16mm !important;
+  }
+
+  /* スパークラインは印刷時非表示（スペース節約） */
+  body.print-landscape .office-print-grid .recharts-responsive-container,
+  body.print-landscape .office-print-grid .border-t.border-gray-50 {
+    display: none !important;
+  }
+
+  /* カードヘッダーをコンパクトに */
+  body.print-landscape .office-print-grid .p-5.pb-3 {
+    padding: 2mm 3mm !important;
+  }
+
+  body.print-landscape .office-print-grid .px-5.pb-3 {
+    padding: 0 3mm 2mm !important;
+  }
+
+  /* カード内 overflow を解除 */
+  body.print-landscape .office-print-grid .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  /* 構成比バーの色を印刷で維持 */
+  body.print-landscape .bg-indigo-400 {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 種別カラードットの色を印刷で維持 */
+  body.print-landscape .office-print-grid span.rounded-full,
+  body.print-landscape .office-print-grid span.inline-block {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

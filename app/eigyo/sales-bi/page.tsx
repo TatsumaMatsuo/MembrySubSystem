@@ -2284,9 +2284,13 @@ export default function BIDashboardPage() {
                             <div className={`text-xl font-bold ${progressRate >= 100 ? "text-green-600" : "text-purple-600"}`}>
                               {progressRate.toFixed(1)}%
                             </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              目標: {yearlyTarget > 0 ? `${formatAmount(yearlyTarget)}円` : "未設定"}
-                            </div>
+                            {yearlyTarget > 0 ? (
+                              <div className={`text-xs mt-1 font-medium ${yearlyTarget - combinedTotal >= 0 ? "text-red-500" : "text-green-500"}`}>
+                                残: {yearlyTarget - combinedTotal >= 0 ? "" : "+"}{formatAmount(Math.abs(yearlyTarget - combinedTotal))}円
+                              </div>
+                            ) : (
+                              <div className="text-xs text-gray-500 mt-1">目標: 未設定</div>
+                            )}
                           </div>
                           {/* 売上合計 */}
                           <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">

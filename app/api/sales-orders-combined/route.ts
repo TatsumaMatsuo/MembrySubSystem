@@ -410,15 +410,8 @@ export async function GET(request: NextRequest) {
       const mikomiDateStr = extractTextValue(fields?.["売上見込日"]);
       if (!mikomiDateStr) continue;
 
-      // 期間内チェック
-      if (!isDateInRange(mikomiDateStr, dateRange.start, dateRange.end)) continue;
-
-      // カットオフ日以降のみ対象（売上見込日 >= カットオフ日、ただし不正リスト用に全期間データも処理）
       const mikomiDate = parseDate(mikomiDateStr);
       if (!mikomiDate) continue;
-
-      const monthIndex = getFiscalMonthIndex(mikomiDateStr);
-      if (monthIndex < 0 || monthIndex >= 12) continue;
 
       const amount = parseFloat(String(fields?.["受注金額"] || 0)) || 0;
       const seiban = extractTextValue(fields?.["製番"]);
@@ -432,7 +425,7 @@ export async function GET(request: NextRequest) {
       const customer = extractTextValue(fields?.["得意先宛名1"]);
       const pjCategory = extractTextValue(fields?.["PJ区分"]);
 
-      // 不正リストチェック: 売上見込日の月 < 最終売上月
+      // 不正リストチェック: 売上見込日 <= 最終売上月（期間に関係なく全受注残が対象）
       if (latestSoldMonth) {
         const { year: mikomiYear, month: mikomiMonth } = getJSTComponents(mikomiDate);
         const mikomiYM = `${mikomiYear}${String(mikomiMonth).padStart(2, "0")}`;
@@ -446,9 +439,14 @@ export async function GET(request: NextRequest) {
             expectedMonth: `${mikomiYear}/${String(mikomiMonth).padStart(2, "0")}`,
             pjCategory,
           });
-          // 不正リストのレコードも受注残として月別集計に含める
         }
       }
+
+      // 月別集計は期間内のみ
+      if (!isDateInRange(mikomiDateStr, dateRange.start, dateRange.end)) continue;
+
+      const monthIndex = getFiscalMonthIndex(mikomiDateStr);
+      if (monthIndex < 0 || monthIndex >= 12) continue;
 
       // 月別集計に加算
       if (!monthlyMap.has(monthIndex)) {

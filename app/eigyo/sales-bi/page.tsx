@@ -2358,20 +2358,33 @@ export default function BIDashboardPage() {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* 不正リスト */}
-                  {ordersCombined.irregularList.length > 0 && (
-                    <div className="print-section bg-white rounded-xl shadow-lg p-4 border border-red-200">
-                      <div className="flex items-center gap-2 mb-3">
-                        <AlertTriangle className="w-5 h-5 text-red-500" />
-                        <h3 className="text-sm font-bold text-red-800">
-                          不正リスト（売上見込日が最終売上月より前の受注残）
-                        </h3>
+                  {/* 不正リスト明細 */}
+                  <div className="print-section bg-white rounded-xl shadow-lg p-4 border border-red-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <AlertTriangle className="w-5 h-5 text-red-500" />
+                      <h3 className="text-sm font-bold text-red-800">
+                        不正リスト（売上見込日が最終売上月以前の受注残）
+                      </h3>
+                      <span className="ml-auto text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">
+                        {ordersCombined.irregularList.length}件
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600 mb-3">
+                      最終売上月: {ordersCombined.latestSoldMonth
+                        ? `${ordersCombined.latestSoldMonth.substring(0, 4)}年${ordersCombined.latestSoldMonth.substring(4)}月`
+                        : "不明"}
+                      {ordersCombined.latestSoldMonth && (
+                        <span className="ml-2 text-gray-400">
+                          （{ordersCombined.latestSoldMonth.substring(0, 4)}年{ordersCombined.latestSoldMonth.substring(4)}月以前の売上見込日を持つ未売上の受注残を表示）
+                        </span>
+                      )}
+                    </div>
+                    {ordersCombined.irregularList.length === 0 ? (
+                      <div className="text-center py-6 text-gray-400">
+                        <AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">不正な受注残はありません</p>
                       </div>
-                      <div className="text-xs text-gray-600 mb-3">
-                        最終売上月: {ordersCombined.latestSoldMonth
-                          ? `${ordersCombined.latestSoldMonth.substring(0, 4)}年${ordersCombined.latestSoldMonth.substring(4)}月`
-                          : "不明"}
-                      </div>
+                    ) : (
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                           <thead>
@@ -2416,8 +2429,8 @@ export default function BIDashboardPage() {
                           </tfoot>
                         </table>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </>
               )}
 

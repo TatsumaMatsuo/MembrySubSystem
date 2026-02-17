@@ -760,28 +760,47 @@ export default function BIDashboardPage() {
         }
       };
 
-      const responses = await Promise.all([
-        fetch(`/api/sales-dashboard?fromPeriod=${fromPeriod}&toPeriod=${toPeriod}`),
+      // 売上ダッシュボードは期ごとに個別リクエスト（504タイムアウト回避）
+      const dashboardPeriods = Array.from({ length: toPeriod - fromPeriod + 1 }, (_, i) => fromPeriod + i);
+      const dashboardFetches = dashboardPeriods.map((p) =>
+        fetch(`/api/sales-dashboard?fromPeriod=${p}&toPeriod=${p}`)
+      );
+
+      const [budgetRes, kpiRes, ordersCombinedRes, ...dashboardResponses] = await Promise.all([
         fetch(`/api/sales-budget?period=${selectedPeriod}&office=全社`),
         fetch(`/api/company-kpi?period=${selectedPeriod}`),
         fetch(`/api/sales-orders-combined?period=${selectedPeriod}`),
+        ...dashboardFetches,
       ]);
 
-      const [dashboardData, budgetData, kpiData, ordersCombinedData] = await Promise.all([
-        safeJson(responses[0], "sales-dashboard"),
-        safeJson(responses[1], "sales-budget"),
-        safeJson(responses[2], "company-kpi"),
-        safeJson(responses[3], "sales-orders-combined"),
+      const [budgetData, kpiData, ordersCombinedData, ...dashboardResults] = await Promise.all([
+        safeJson(budgetRes, "sales-budget"),
+        safeJson(kpiRes, "company-kpi"),
+        safeJson(ordersCombinedRes, "sales-orders-combined"),
+        ...dashboardResponses.map((res, i) => safeJson(res, `sales-dashboard-${dashboardPeriods[i]}`)),
       ]);
 
-      if (dashboardData.success) {
-        setData(dashboardData.data);
-        setCurrentPeriod(dashboardData.currentPeriod);
-      } else {
-        console.error("Sales dashboard API error:", dashboardData);
-        const errorMsg = dashboardData.error || "不明なエラー";
-        const errorDetail = dashboardData.details || "";
-        setError(`データの取得に失敗しました: ${errorMsg}${errorDetail ? ` (${errorDetail})` : ""}`);
+      // 各期のダッシュボードデータを統合
+      const mergedData: any[] = [];
+      let mergedCurrentPeriod: number | null = null;
+      let dashboardError: string | null = null;
+      for (const result of dashboardResults) {
+        if (result.success && result.data) {
+          mergedData.push(...result.data);
+          if (result.currentPeriod) mergedCurrentPeriod = result.currentPeriod;
+        } else if (!dashboardError) {
+          const errorMsg = result.error || "不明なエラー";
+          const errorDetail = result.details || "";
+          dashboardError = `${errorMsg}${errorDetail ? ` (${errorDetail})` : ""}`;
+        }
+      }
+
+      if (mergedData.length > 0) {
+        setData(mergedData);
+        if (mergedCurrentPeriod) setCurrentPeriod(mergedCurrentPeriod);
+      } else if (dashboardError) {
+        console.error("Sales dashboard API error:", dashboardError);
+        setError(`データの取得に失敗しました: ${dashboardError}`);
       }
 
       if (budgetData.success) {

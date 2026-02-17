@@ -3,6 +3,9 @@ import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 import { DataMappingConfig, FieldMapping } from "@/types/data-mapping";
 import * as XLSX from "xlsx";
 
+// AWS Amplify SSRでのタイムアウト延長（最大60秒）
+export const maxDuration = 60;
+
 // マッピング設定テーブルID
 const MAPPING_TABLE_ID = "tbl9Vuq1DizM400V";
 

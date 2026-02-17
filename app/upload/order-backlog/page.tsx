@@ -129,8 +129,15 @@ export default function OrderBacklogUploadPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        setError(errorData.error || "アップロードに失敗しました");
+        let errorMsg = `アップロードに失敗しました (HTTP ${response.status})`;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorData.details || errorMsg;
+        } catch {
+          // JSONパースに失敗した場合（HTMLリダイレクト等）
+          errorMsg = `アップロードに失敗しました (HTTP ${response.status}: ${response.statusText})`;
+        }
+        setError(errorMsg);
         setLoading(false);
         return;
       }
@@ -184,13 +191,14 @@ export default function OrderBacklogUploadPage() {
           }
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       if (err instanceof Error && err.name === "AbortError") {
         setCancelled(true);
         // キャンセル時は現在の進捗を保持
       } else {
-        setError("アップロード中にエラーが発生しました");
-        console.error(err);
+        console.error("Upload error:", err);
+        const detail = err?.message || String(err);
+        setError(`アップロード中にエラーが発生しました: ${detail}`);
       }
     } finally {
       setLoading(false);

@@ -1310,10 +1310,16 @@ export async function GET(request: NextRequest) {
 
     setCachedData(cacheKey, responseData);
     return NextResponse.json(responseData);
-  } catch (error) {
-    console.error("Sales dashboard error:", error);
+  } catch (error: any) {
+    const errorMessage = error?.message || String(error);
+    const errorStack = error?.stack?.split("\n").slice(0, 3).join(" | ") || "";
+    console.error("Sales dashboard error:", errorMessage);
+    console.error("Sales dashboard stack:", errorStack);
     return NextResponse.json(
-      { error: "売上ダッシュボードデータの取得に失敗しました", details: String(error) },
+      {
+        error: "売上ダッシュボードデータの取得に失敗しました",
+        details: `${errorMessage}${errorStack ? ` [${errorStack}]` : ""}`
+      },
       { status: 500 }
     );
   }

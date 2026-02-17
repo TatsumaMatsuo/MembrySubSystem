@@ -35,6 +35,7 @@ import {
   Hash,
   Sparkles,
   Building2,
+  Printer,
 } from "lucide-react";
 
 // 型定義
@@ -457,6 +458,23 @@ export default function SoumuKPIAnalysisPage() {
       { name: `その他(${others.length}件)`, amount: othersAmount, ratio: (othersAmount / total) * 100 },
     ];
   })();
+
+  // 事業所別印刷（A4横）
+  const handlePrintOffices = () => {
+    // @page は top-level でないと効かないため動的に注入
+    const style = document.createElement("style");
+    style.id = "print-landscape-page";
+    style.textContent = "@page { size: A4 landscape; margin: 8mm 10mm; }";
+    document.head.appendChild(style);
+    document.body.classList.add("print-landscape");
+    const cleanup = () => {
+      document.body.classList.remove("print-landscape");
+      style.remove();
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
+    window.print();
+  };
 
   // AI分析を実行
   const runAiAnalysis = async () => {
@@ -1259,12 +1277,31 @@ export default function SoumuKPIAnalysisPage() {
             {/* データ表示: 事業所別タブ */}
             {activeTab === "offices" && data && (
               <div className="space-y-6">
+                {/* 印刷用ヘッダー（画面では非表示） */}
+                <div className="print-landscape-header hidden">
+                  <h1>コピー経費 事業所別レポート</h1>
+                  <div className="print-meta">
+                    第{data.period}期（{data.dateRange.start} 〜 {data.dateRange.end}） / 印刷日: {new Date().toLocaleDateString("ja-JP")}
+                  </div>
+                </div>
+
+                {/* 印刷ボタン */}
+                <div className="flex justify-end print-trigger-btn">
+                  <button
+                    onClick={handlePrintOffices}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                  >
+                    <Printer className="w-4 h-4" />
+                    A4横で印刷
+                  </button>
+                </div>
+
                 {/* サマリーKPIカード */}
                 {officeData.length > 0 && (() => {
                   const totalAllSheets = officeData.reduce((sum, o) => sum + o.totalSheets, 0);
                   const topOffice = officeData[0];
                   return (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 office-kpi-print">
                       <KPICard
                         title="事業所数"
                         value={String(officeData.length)}
@@ -1300,7 +1337,7 @@ export default function SoumuKPIAnalysisPage() {
                     "モノクロ": "#64748b",
                   };
                   return (
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 office-print-grid">
                       {officeData.map((office, rank) => {
                         const ratio = totalAllSheets > 0 ? (office.totalSheets / totalAllSheets) * 100 : 0;
                         return (

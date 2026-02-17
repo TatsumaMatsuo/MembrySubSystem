@@ -2256,54 +2256,76 @@ export default function BIDashboardPage() {
 
                   {/* KPIカード */}
                   <div className="print-section">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {/* 売上合計 */}
-                      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
-                            <BarChart3 className="w-4 h-4 text-white" />
+                    {(() => {
+                      const combinedTotal = ordersCombined.totalSalesAmount + ordersCombined.totalOrderAmount;
+                      const yearlyTarget = budget?.yearlyBudget || 0;
+                      const progressRate = yearlyTarget > 0 ? (combinedTotal / yearlyTarget) * 100 : 0;
+                      return (
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                          {/* 売上+受注残合計（一番左） */}
+                          <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center">
+                                <Sparkles className="w-4 h-4 text-white" />
+                              </div>
+                              <span className="text-xs font-medium text-gray-500">売上+受注残 合計</span>
+                            </div>
+                            <div className="text-xl font-bold text-gray-800">{formatAmount(combinedTotal)}円</div>
+                            <div className="text-xs text-gray-500 mt-1">{ordersCombined.totalSalesCount + ordersCombined.totalOrderCount}件</div>
                           </div>
-                          <span className="text-xs font-medium text-gray-500">売上合計</span>
-                        </div>
-                        <div className="text-xl font-bold text-gray-800">{formatAmount(ordersCombined.totalSalesAmount)}円</div>
-                        <div className="text-xs text-gray-500 mt-1">{ordersCombined.totalSalesCount}件</div>
-                      </div>
-                      {/* 受注残合計 */}
-                      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center">
-                            <TrendingUp className="w-4 h-4 text-white" />
+                          {/* 目標進捗率 */}
+                          <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={`w-8 h-8 bg-gradient-to-r ${progressRate >= 100 ? "from-green-500 to-emerald-500" : "from-purple-500 to-violet-500"} rounded-lg flex items-center justify-center`}>
+                                <Target className="w-4 h-4 text-white" />
+                              </div>
+                              <span className="text-xs font-medium text-gray-500">目標進捗率</span>
+                            </div>
+                            <div className={`text-xl font-bold ${progressRate >= 100 ? "text-green-600" : "text-purple-600"}`}>
+                              {progressRate.toFixed(1)}%
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              目標: {yearlyTarget > 0 ? `${formatAmount(yearlyTarget)}円` : "未設定"}
+                            </div>
                           </div>
-                          <span className="text-xs font-medium text-gray-500">受注残合計</span>
-                        </div>
-                        <div className="text-xl font-bold text-gray-800">{formatAmount(ordersCombined.totalOrderAmount)}円</div>
-                        <div className="text-xs text-gray-500 mt-1">{ordersCombined.totalOrderCount}件</div>
-                      </div>
-                      {/* 売上+受注残合計 */}
-                      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center">
-                            <Sparkles className="w-4 h-4 text-white" />
+                          {/* 売上合計 */}
+                          <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                                <BarChart3 className="w-4 h-4 text-white" />
+                              </div>
+                              <span className="text-xs font-medium text-gray-500">売上合計</span>
+                            </div>
+                            <div className="text-xl font-bold text-gray-800">{formatAmount(ordersCombined.totalSalesAmount)}円</div>
+                            <div className="text-xs text-gray-500 mt-1">{ordersCombined.totalSalesCount}件</div>
                           </div>
-                          <span className="text-xs font-medium text-gray-500">売上+受注残 合計</span>
-                        </div>
-                        <div className="text-xl font-bold text-gray-800">{formatAmount(ordersCombined.totalSalesAmount + ordersCombined.totalOrderAmount)}円</div>
-                        <div className="text-xs text-gray-500 mt-1">{ordersCombined.totalSalesCount + ordersCombined.totalOrderCount}件</div>
-                      </div>
-                      {/* 不正件数 */}
-                      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg flex items-center justify-center">
-                            <AlertTriangle className="w-4 h-4 text-white" />
+                          {/* 受注残合計 */}
+                          <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center">
+                                <TrendingUp className="w-4 h-4 text-white" />
+                              </div>
+                              <span className="text-xs font-medium text-gray-500">受注残合計</span>
+                            </div>
+                            <div className="text-xl font-bold text-gray-800">{formatAmount(ordersCombined.totalOrderAmount)}円</div>
+                            <div className="text-xs text-gray-500 mt-1">{ordersCombined.totalOrderCount}件</div>
                           </div>
-                          <span className="text-xs font-medium text-gray-500">不正件数</span>
+                          {/* 不正件数 */}
+                          <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg flex items-center justify-center">
+                                <AlertTriangle className="w-4 h-4 text-white" />
+                              </div>
+                              <span className="text-xs font-medium text-gray-500">不正件数</span>
+                            </div>
+                            <div className="text-xl font-bold text-red-600">{ordersCombined.irregularList.length}件</div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {formatAmount(ordersCombined.irregularList.reduce((sum, r) => sum + r.amount, 0))}円
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-xl font-bold text-red-600">{ordersCombined.irregularList.length}件</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {formatAmount(ordersCombined.irregularList.reduce((sum, r) => sum + r.amount, 0))}円
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
 
                   {/* 月別積み上げ棒グラフ */}

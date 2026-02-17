@@ -742,19 +742,37 @@ export default function BIDashboardPage() {
       const fromPeriod = selectedPeriod - 2;
       const toPeriod = selectedPeriod;
 
-      const fetchPromises: Promise<Response>[] = [
+      // 各APIを安全にフェッチ（1つが失敗しても他は継続）
+      const safeJson = async (res: Response, label: string) => {
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          console.error(`[${label}] HTTP ${res.status}: ${text.substring(0, 200)}`);
+          try { return JSON.parse(text); } catch { return { error: `HTTP ${res.status}`, details: text.substring(0, 200) }; }
+        }
+        const text = await res.text();
+        if (!text) {
+          console.error(`[${label}] Empty response body`);
+          return { error: "空のレスポンス" };
+        }
+        try { return JSON.parse(text); } catch {
+          console.error(`[${label}] Invalid JSON: ${text.substring(0, 200)}`);
+          return { error: "不正なレスポンス" };
+        }
+      };
+
+      const responses = await Promise.all([
         fetch(`/api/sales-dashboard?fromPeriod=${fromPeriod}&toPeriod=${toPeriod}`),
         fetch(`/api/sales-budget?period=${selectedPeriod}&office=全社`),
         fetch(`/api/company-kpi?period=${selectedPeriod}`),
         fetch(`/api/sales-orders-combined?period=${selectedPeriod}`),
-      ];
+      ]);
 
-      const responses = await Promise.all(fetchPromises);
-
-      const dashboardData = await responses[0].json();
-      const budgetData = await responses[1].json();
-      const kpiData = await responses[2].json();
-      const ordersCombinedData = await responses[3].json();
+      const [dashboardData, budgetData, kpiData, ordersCombinedData] = await Promise.all([
+        safeJson(responses[0], "sales-dashboard"),
+        safeJson(responses[1], "sales-budget"),
+        safeJson(responses[2], "company-kpi"),
+        safeJson(responses[3], "sales-orders-combined"),
+      ]);
 
       if (dashboardData.success) {
         setData(dashboardData.data);
@@ -773,7 +791,6 @@ export default function BIDashboardPage() {
       if (kpiData.success && kpiData.data) {
         setCompanyKPI(kpiData.data);
       } else {
-        // データがない場合は選択期のデフォルト値（0）を設定
         setCompanyKPI({
           period: selectedPeriod,
           salesTarget: 0,

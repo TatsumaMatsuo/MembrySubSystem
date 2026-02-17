@@ -40,29 +40,42 @@ const RETRYABLE_ERROR_CODES = [
   1254609, // Busy, please try again later
 ];
 
+// HTTP 400もリトライ対象（Lark APIが一時的に400を返すことがある）
+function isRetryableError(error: any): boolean {
+  const errorCode = error?.code || error?.data?.code;
+  if (RETRYABLE_ERROR_CODES.includes(errorCode)) return true;
+  // axiosスタイルのHTTPエラー（400, 429, 500, 502, 503）
+  const httpStatus = error?.response?.status || error?.status;
+  if ([400, 429, 500, 502, 503].includes(httpStatus)) return true;
+  // "Request failed with status code 400" 形式のメッセージ
+  const msg = error?.message || "";
+  if (/status code (400|429|5\d\d)/.test(msg)) return true;
+  return false;
+}
+
 // リトライ付きでLark API呼び出しを実行
 async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
-  delayMs: number = 2000
+  delayMs: number = 2000,
+  label: string = ""
 ): Promise<T> {
   let lastError: any;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const result = await fn();
-      // Lark APIのエラーレスポンスをチェック（response.codeまたはresponse.data.codeをチェック）
       const resultData = result as any;
       const errorCode = resultData?.code || resultData?.data?.code;
       if (errorCode && RETRYABLE_ERROR_CODES.includes(errorCode)) {
-        console.log(`[sales-dashboard] Lark API returned error ${errorCode}, will retry...`);
+        console.log(`[sales-dashboard${label ? `:${label}` : ""}] Lark API returned error ${errorCode}, will retry...`);
         throw { code: errorCode, msg: resultData?.msg || resultData?.data?.msg };
       }
       return result;
     } catch (error: any) {
       lastError = error;
-      const errorCode = error?.code || error?.data?.code;
-      if (RETRYABLE_ERROR_CODES.includes(errorCode) && attempt < maxRetries) {
-        console.log(`[sales-dashboard] Retrying after error ${errorCode} (attempt ${attempt + 1}/${maxRetries})...`);
+      if (isRetryableError(error) && attempt < maxRetries) {
+        const detail = error?.message || error?.code || "unknown";
+        console.log(`[sales-dashboard${label ? `:${label}` : ""}] Retrying after ${detail} (attempt ${attempt + 1}/${maxRetries})...`);
         await new Promise(resolve => setTimeout(resolve, delayMs * (attempt + 1)));
         continue;
       }
@@ -826,10 +839,10 @@ export async function GET(request: NextRequest) {
             page_token: currentPageToken,
             filter: dateFilter,
             field_names: JSON.stringify(requiredFields),
-            view_id: VIEWS.main, // ビューIDを使用してパフォーマンス改善
+            view_id: VIEWS.main,
           },
         });
-      });
+      }, 3, 2000, "sales-main");
 
       if (response.data?.items) {
         allRecords.push(...(response.data.items as SalesRecord[]));
@@ -1313,12 +1326,21 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     const errorMessage = error?.message || String(error);
     const errorStack = error?.stack?.split("\n").slice(0, 3).join(" | ") || "";
-    console.error("Sales dashboard error:", errorMessage);
-    console.error("Sales dashboard stack:", errorStack);
+    // Lark SDK (axios) エラーのレスポンスボディを取得
+    const responseData = error?.response?.data;
+    const responseStatus = error?.response?.status;
+    console.error(`[sales-dashboard] Error: ${errorMessage}, HTTP status: ${responseStatus || "N/A"}`);
+    if (responseData) {
+      console.error("[sales-dashboard] Response data:", JSON.stringify(responseData).substring(0, 500));
+    }
+    console.error("[sales-dashboard] Stack:", errorStack);
+    const detail = responseData
+      ? `HTTP ${responseStatus}: ${JSON.stringify(responseData).substring(0, 200)}`
+      : errorMessage;
     return NextResponse.json(
       {
         error: "売上ダッシュボードデータの取得に失敗しました",
-        details: `${errorMessage}${errorStack ? ` [${errorStack}]` : ""}`
+        details: detail,
       },
       { status: 500 }
     );

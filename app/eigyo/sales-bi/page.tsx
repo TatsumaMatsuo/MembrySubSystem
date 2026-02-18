@@ -167,6 +167,8 @@ interface PeriodDashboard {
   }[];
   salesPersonSummary: SalesPersonSummary[];
   officeSalesPersons: OfficeSalesPersons[];
+  officePjCategorySummary?: { office: string; categories: DimensionSummary[] }[];
+  salesPersonPjCategorySummary?: { name: string; office: string; categories: DimensionSummary[] }[];
   deficitAnalysis?: DeficitAnalysis;
 }
 
@@ -3564,6 +3566,155 @@ export default function BIDashboardPage() {
                     </div>
                   </div>
 
+                  {/* 営業所別PJ区分比較 */}
+                  {currentData.officePjCategorySummary && currentData.officePjCategorySummary.length > 0 && (
+                    <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                      <div className="bg-gradient-to-r from-teal-500 to-cyan-500 px-4 py-3">
+                        <h3 className="text-base font-bold text-white">
+                          {selectedOfficeForDetail ? `${selectedOfficeForDetail} PJ区分内訳` : "営業所別 PJ区分比較"}
+                        </h3>
+                      </div>
+                      <div className="p-4">
+                        {(() => {
+                          if (selectedOfficeForDetail) {
+                            // 選択営業所のPJ区分内訳（円グラフ + テーブル）
+                            const officeData = currentData.officePjCategorySummary?.find(o => o.office === selectedOfficeForDetail);
+                            if (!officeData || officeData.categories.length === 0) return <p className="text-sm text-gray-500">データなし</p>;
+                            const totalAmount = officeData.categories.reduce((s, c) => s + c.amount, 0);
+                            return (
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                  {/* 円グラフ */}
+                                  <div className="h-72">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                      <PieChart>
+                                        <Pie
+                                          data={officeData.categories.slice(0, 8)}
+                                          cx="50%"
+                                          cy="50%"
+                                          outerRadius={90}
+                                          dataKey="amount"
+                                          nameKey="name"
+                                          label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                          labelLine={false}
+                                        >
+                                          {officeData.categories.slice(0, 8).map((_, i) => (
+                                            <Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                          ))}
+                                        </Pie>
+                                        <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, ""]} />
+                                      </PieChart>
+                                    </ResponsiveContainer>
+                                  </div>
+                                  {/* テーブル */}
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                      <thead className="bg-gray-50 border-b border-gray-200">
+                                        <tr>
+                                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">PJ区分</th>
+                                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">売上金額</th>
+                                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">粗利</th>
+                                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">粗利率</th>
+                                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">件数</th>
+                                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">構成比</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-100">
+                                        {officeData.categories.map((cat, i) => {
+                                          const pr = cat.amount > 0 ? (cat.profit / cat.amount) * 100 : 0;
+                                          return (
+                                            <tr key={cat.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                                              <td className="px-3 py-2 text-sm font-medium text-gray-800 flex items-center gap-2">
+                                                <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                                {cat.name}
+                                              </td>
+                                              <td className="px-3 py-2 text-sm text-right text-gray-700">{formatAmount(cat.amount)}円</td>
+                                              <td className="px-3 py-2 text-sm text-right text-green-600">{formatAmount(cat.profit)}円</td>
+                                              <td className={`px-3 py-2 text-sm text-right font-bold ${pr >= 30 ? "text-green-600" : pr >= 20 ? "text-yellow-600" : "text-red-600"}`}>
+                                                {pr.toFixed(1)}%
+                                              </td>
+                                              <td className="px-3 py-2 text-sm text-right text-gray-700">{cat.count}件</td>
+                                              <td className="px-3 py-2 text-sm text-right text-gray-700">{(totalAmount > 0 ? (cat.amount / totalAmount) * 100 : 0).toFixed(1)}%</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          } else {
+                            // 全営業所のPJ区分比較（積み上げ横棒グラフ）
+                            const allCategories = [...new Set(currentData.officePjCategorySummary!.flatMap(o => o.categories.map(c => c.name)))];
+                            const topCategories = allCategories.slice(0, 8);
+                            const chartData = currentData.officePjCategorySummary!.slice(0, 10).map(o => {
+                              const row: Record<string, string | number> = { office: o.office };
+                              topCategories.forEach(cat => {
+                                row[cat] = o.categories.find(c => c.name === cat)?.amount || 0;
+                              });
+                              return row;
+                            });
+                            return (
+                              <div className="space-y-4">
+                                <div className="h-80">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={chartData} layout="vertical">
+                                      <CartesianGrid strokeDasharray="3 3" />
+                                      <XAxis type="number" tickFormatter={(v) => formatAmount(v)} />
+                                      <YAxis dataKey="office" type="category" width={100} tick={{ fontSize: 11 }} />
+                                      <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, ""]} />
+                                      <Legend />
+                                      {topCategories.map((cat, i) => (
+                                        <Bar key={cat} dataKey={cat} stackId="pj" fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                      ))}
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                                {/* 全営業所PJ区分比較テーブル */}
+                                <div className="overflow-x-auto">
+                                  <table className="w-full">
+                                    <thead className="bg-gray-50 border-b border-gray-200">
+                                      <tr>
+                                        <th className="px-3 py-2 text-left text-xs font-bold text-gray-700 sticky left-0 bg-gray-50">営業所</th>
+                                        {topCategories.map((cat, i) => (
+                                          <th key={cat} className="px-3 py-2 text-right text-xs font-bold text-gray-700">
+                                            <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                            {cat}
+                                          </th>
+                                        ))}
+                                        <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">合計</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                      {currentData.officePjCategorySummary!.slice(0, 10).map((o, i) => {
+                                        const total = o.categories.reduce((s, c) => s + c.amount, 0);
+                                        return (
+                                          <tr key={o.office} className={`cursor-pointer hover:bg-blue-50 ${i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`} onClick={() => setSelectedOfficeForDetail(o.office)}>
+                                            <td className="px-3 py-2 text-sm font-medium text-blue-600 sticky left-0 bg-inherit">{o.office}</td>
+                                            {topCategories.map(cat => {
+                                              const catData = o.categories.find(c => c.name === cat);
+                                              return (
+                                                <td key={cat} className="px-3 py-2 text-sm text-right text-gray-700">
+                                                  {catData ? `${formatAmount(catData.amount)}円` : "-"}
+                                                </td>
+                                              );
+                                            })}
+                                            <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatAmount(total)}円</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            );
+                          }
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
                   {/* AI分析（営業所別） */}
                   <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
                     <div className="flex items-center justify-between mb-4">
@@ -4239,6 +4390,158 @@ export default function BIDashboardPage() {
                         </div>
                       </div>
                     </>
+                  )}
+
+                  {/* 担当者別PJ区分比較 */}
+                  {currentData.salesPersonPjCategorySummary && currentData.salesPersonPjCategorySummary.length > 0 && (
+                    <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                      <div className="bg-gradient-to-r from-teal-500 to-cyan-500 px-4 py-3">
+                        <h3 className="text-base font-bold text-white">
+                          {selectedSalesPerson ? `${selectedSalesPerson} PJ区分内訳` : "営業担当者別 PJ区分比較"}
+                        </h3>
+                      </div>
+                      <div className="p-4">
+                        {(() => {
+                          if (selectedSalesPerson) {
+                            // 選択担当者のPJ区分内訳（円グラフ + テーブル）
+                            const personData = currentData.salesPersonPjCategorySummary?.find(p => p.name === selectedSalesPerson);
+                            if (!personData || personData.categories.length === 0) return <p className="text-sm text-gray-500">データなし</p>;
+                            const totalAmount = personData.categories.reduce((s, c) => s + c.amount, 0);
+                            return (
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                  {/* 円グラフ */}
+                                  <div className="h-72">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                      <PieChart>
+                                        <Pie
+                                          data={personData.categories.slice(0, 8)}
+                                          cx="50%"
+                                          cy="50%"
+                                          outerRadius={90}
+                                          dataKey="amount"
+                                          nameKey="name"
+                                          label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                          labelLine={false}
+                                        >
+                                          {personData.categories.slice(0, 8).map((_, i) => (
+                                            <Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                          ))}
+                                        </Pie>
+                                        <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, ""]} />
+                                      </PieChart>
+                                    </ResponsiveContainer>
+                                  </div>
+                                  {/* テーブル */}
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                      <thead className="bg-gray-50 border-b border-gray-200">
+                                        <tr>
+                                          <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">PJ区分</th>
+                                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">売上金額</th>
+                                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">粗利</th>
+                                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">粗利率</th>
+                                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">件数</th>
+                                          <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">構成比</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-100">
+                                        {personData.categories.map((cat, i) => {
+                                          const pr = cat.amount > 0 ? (cat.profit / cat.amount) * 100 : 0;
+                                          return (
+                                            <tr key={cat.name} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                                              <td className="px-3 py-2 text-sm font-medium text-gray-800 flex items-center gap-2">
+                                                <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                                {cat.name}
+                                              </td>
+                                              <td className="px-3 py-2 text-sm text-right text-gray-700">{formatAmount(cat.amount)}円</td>
+                                              <td className="px-3 py-2 text-sm text-right text-green-600">{formatAmount(cat.profit)}円</td>
+                                              <td className={`px-3 py-2 text-sm text-right font-bold ${pr >= 30 ? "text-green-600" : pr >= 20 ? "text-yellow-600" : "text-red-600"}`}>
+                                                {pr.toFixed(1)}%
+                                              </td>
+                                              <td className="px-3 py-2 text-sm text-right text-gray-700">{cat.count}件</td>
+                                              <td className="px-3 py-2 text-sm text-right text-gray-700">{(totalAmount > 0 ? (cat.amount / totalAmount) * 100 : 0).toFixed(1)}%</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          } else {
+                            // 全担当者のPJ区分比較（積み上げ横棒グラフ）
+                            const filteredPersonPj = selectedOffice && selectedOffice !== "全営業所"
+                              ? currentData.salesPersonPjCategorySummary!.filter(p => p.office === selectedOffice)
+                              : currentData.salesPersonPjCategorySummary!;
+                            const allCategories = [...new Set(filteredPersonPj.flatMap(p => p.categories.map(c => c.name)))];
+                            const topCategories = allCategories.slice(0, 8);
+                            const chartData = filteredPersonPj.slice(0, 15).map(p => {
+                              const row: Record<string, string | number> = { name: p.name };
+                              topCategories.forEach(cat => {
+                                row[cat] = p.categories.find(c => c.name === cat)?.amount || 0;
+                              });
+                              return row;
+                            });
+                            return (
+                              <div className="space-y-4">
+                                <div className="h-96">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={chartData} layout="vertical">
+                                      <CartesianGrid strokeDasharray="3 3" />
+                                      <XAxis type="number" tickFormatter={(v) => formatAmount(v)} />
+                                      <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11 }} />
+                                      <Tooltip formatter={(v) => [`${(v as number).toLocaleString()}円`, ""]} />
+                                      <Legend />
+                                      {topCategories.map((cat, i) => (
+                                        <Bar key={cat} dataKey={cat} stackId="pj" fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                      ))}
+                                    </BarChart>
+                                  </ResponsiveContainer>
+                                </div>
+                                {/* 全担当者PJ区分比較テーブル */}
+                                <div className="overflow-x-auto">
+                                  <table className="w-full">
+                                    <thead className="bg-gray-50 border-b border-gray-200">
+                                      <tr>
+                                        <th className="px-3 py-2 text-left text-xs font-bold text-gray-700 sticky left-0 bg-gray-50">担当者</th>
+                                        {topCategories.map((cat, i) => (
+                                          <th key={cat} className="px-3 py-2 text-right text-xs font-bold text-gray-700">
+                                            <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                            {cat}
+                                          </th>
+                                        ))}
+                                        <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">合計</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                      {filteredPersonPj.slice(0, 15).map((p, i) => {
+                                        const total = p.categories.reduce((s, c) => s + c.amount, 0);
+                                        return (
+                                          <tr key={p.name} className={`cursor-pointer hover:bg-blue-50 ${i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`} onClick={() => setSelectedSalesPerson(p.name)}>
+                                            <td className="px-3 py-2 text-sm font-medium text-indigo-600 sticky left-0 bg-inherit">{p.name}</td>
+                                            {topCategories.map(cat => {
+                                              const catData = p.categories.find(c => c.name === cat);
+                                              return (
+                                                <td key={cat} className="px-3 py-2 text-sm text-right text-gray-700">
+                                                  {catData ? `${formatAmount(catData.amount)}円` : "-"}
+                                                </td>
+                                              );
+                                            })}
+                                            <td className="px-3 py-2 text-sm text-right font-bold text-gray-800">{formatAmount(total)}円</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            );
+                          }
+                        })()}
+                      </div>
+                    </div>
                   )}
 
                   {/* AI分析（担当者別） */}

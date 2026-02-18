@@ -755,6 +755,10 @@ interface PeriodDashboard {
   salesPersonSummary: SalesPersonSummary[];
   // 営業所別担当者リスト
   officeSalesPersons: OfficeSalesPersons[];
+  // 営業所×PJ区分クロス集計
+  officePjCategorySummary: { office: string; categories: DimensionSummary[] }[];
+  // 担当者×PJ区分クロス集計
+  salesPersonPjCategorySummary: { name: string; office: string; categories: DimensionSummary[] }[];
   // 赤字案件分析
   deficitAnalysis: DeficitAnalysis;
   // 受注残詳細（includeBacklog時のみ）
@@ -885,6 +889,10 @@ export async function GET(request: NextRequest) {
       }>();
       // 営業所→担当者マップ
       const officeSalesPersonsMap = new Map<string, Set<string>>();
+      // 営業所×PJ区分クロス集計
+      const officePjCategoryMap = new Map<string, Map<string, SummaryData>>();
+      // 担当者×PJ区分クロス集計
+      const salesPersonPjCategoryMap = new Map<string, Map<string, SummaryData>>();
 
       let totalCount = 0;
       let totalAmount = 0;
@@ -1066,6 +1074,34 @@ export async function GET(request: NextRequest) {
           officeSalesPersonsMap.set(eigyosho, new Set());
         }
         officeSalesPersonsMap.get(eigyosho)!.add(tantousha);
+
+        // 営業所×PJ区分クロス集計
+        if (!officePjCategoryMap.has(officeKey)) {
+          officePjCategoryMap.set(officeKey, new Map());
+        }
+        const officePjMap = officePjCategoryMap.get(officeKey)!;
+        if (!officePjMap.has(pjCategory)) {
+          officePjMap.set(pjCategory, { count: 0, amount: 0, cost: 0, profit: 0 });
+        }
+        const opj = officePjMap.get(pjCategory)!;
+        opj.count++;
+        opj.amount += amount;
+        opj.cost += cost;
+        opj.profit += profit;
+
+        // 担当者×PJ区分クロス集計
+        if (!salesPersonPjCategoryMap.has(tantousha)) {
+          salesPersonPjCategoryMap.set(tantousha, new Map());
+        }
+        const spPjMap = salesPersonPjCategoryMap.get(tantousha)!;
+        if (!spPjMap.has(pjCategory)) {
+          spPjMap.set(pjCategory, { count: 0, amount: 0, cost: 0, profit: 0 });
+        }
+        const sppj = spPjMap.get(pjCategory)!;
+        sppj.count++;
+        sppj.amount += amount;
+        sppj.cost += cost;
+        sppj.profit += profit;
       });
 
       // 売上最終月を特定（売上がある最後の月のインデックス）
@@ -1257,6 +1293,35 @@ export async function GET(request: NextRequest) {
         normalCount: webNewMonthlyMap.get(i)?.normalCount || 0,
       }));
 
+      // 営業所×PJ区分クロス集計配列化
+      const officePjCategorySummary = Array.from(officePjCategoryMap.entries())
+        .map(([office, pjMap]) => ({
+          office,
+          categories: Array.from(pjMap.entries())
+            .map(([name, data]) => ({ name, count: data.count, amount: data.amount, cost: data.cost, profit: data.profit }))
+            .sort((a, b) => b.amount - a.amount),
+        }))
+        .sort((a, b) => {
+          const aTotal = a.categories.reduce((s, c) => s + c.amount, 0);
+          const bTotal = b.categories.reduce((s, c) => s + c.amount, 0);
+          return bTotal - aTotal;
+        });
+
+      // 担当者×PJ区分クロス集計配列化
+      const salesPersonPjCategorySummary = Array.from(salesPersonPjCategoryMap.entries())
+        .map(([name, pjMap]) => ({
+          name,
+          office: salesPersonMap.get(name)?.office || "未設定",
+          categories: Array.from(pjMap.entries())
+            .map(([catName, data]) => ({ name: catName, count: data.count, amount: data.amount, cost: data.cost, profit: data.profit }))
+            .sort((a, b) => b.amount - a.amount),
+        }))
+        .sort((a, b) => {
+          const aTotal = a.categories.reduce((s, c) => s + c.amount, 0);
+          const bTotal = b.categories.reduce((s, c) => s + c.amount, 0);
+          return bTotal - aTotal;
+        });
+
       // 赤字分析は別メニューに移行済み - 空のデフォルト値を設定
       const deficitAnalysis: DeficitAnalysis = {
         records: [],
@@ -1310,6 +1375,8 @@ export async function GET(request: NextRequest) {
         webNewMonthlyData,
         salesPersonSummary,
         officeSalesPersons,
+        officePjCategorySummary,
+        salesPersonPjCategorySummary,
         deficitAnalysis,
         backlogSummary: includeBacklog ? backlogSummary : undefined,
       });

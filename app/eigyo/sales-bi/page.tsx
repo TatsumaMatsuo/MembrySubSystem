@@ -3414,10 +3414,12 @@ export default function BIDashboardPage() {
                                   <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">受注金額</th>
                                   <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">予算</th>
                                   <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">受注込達成率</th>
-                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">予算差額</th>
-                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">粗利</th>
-                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">粗利率</th>
-                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">件数</th>
+                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">受注込予算差額</th>
+                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">売上済達成率</th>
+                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">売上済予算差額</th>
+                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">実績粗利</th>
+                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">実績粗利率</th>
+                                  <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">受注件数</th>
                                   <th className="px-4 py-2 text-right text-xs font-bold text-gray-700">構成比</th>
                                 </tr>
                               </thead>
@@ -3431,9 +3433,11 @@ export default function BIDashboardPage() {
                                     const personOrderAmount = personOrder?.amount || 0;
                                     const personBudget = budget?.salesPersonBudgets?.find((b) => b.salesPerson === person.name);
                                     const personBudgetAmount = personBudget?.yearlyBudget || 0;
+                                    const personSalesRate = personBudgetAmount > 0 ? (person.amount / personBudgetAmount) * 100 : 0;
+                                    const personSalesBudgetDiff = personBudgetAmount > 0 ? personBudgetAmount - person.amount : 0;
                                     const personCombinedAmount = person.amount + personOrderAmount;
                                     const personCombinedRate = personBudgetAmount > 0 ? (personCombinedAmount / personBudgetAmount) * 100 : 0;
-                                    const personBudgetDiff = personBudgetAmount > 0 ? personBudgetAmount - personCombinedAmount : 0;
+                                    const personCombinedBudgetDiff = personBudgetAmount > 0 ? personBudgetAmount - personCombinedAmount : 0;
                                     return (
                                       <tr
                                         key={person.name}
@@ -3451,8 +3455,14 @@ export default function BIDashboardPage() {
                                         <td className={`px-4 py-2 text-sm text-right font-bold ${personCombinedRate >= 100 ? "text-green-600" : personCombinedRate >= 80 ? "text-yellow-600" : personCombinedRate > 0 ? "text-blue-600" : "text-gray-400"}`}>
                                           {personBudgetAmount > 0 ? `${personCombinedRate.toFixed(1)}%` : "-"}
                                         </td>
-                                        <td className={`px-4 py-2 text-sm text-right font-bold ${personBudgetDiff <= 0 ? "text-green-600" : "text-red-600"}`}>
-                                          {personBudgetAmount > 0 ? `${personBudgetDiff <= 0 ? "+" : "-"}${formatAmount(Math.abs(personBudgetDiff))}円` : "-"}
+                                        <td className={`px-4 py-2 text-sm text-right font-bold ${personCombinedBudgetDiff <= 0 ? "text-green-600" : "text-red-600"}`}>
+                                          {personBudgetAmount > 0 ? `${personCombinedBudgetDiff <= 0 ? "+" : "-"}${formatAmount(Math.abs(personCombinedBudgetDiff))}円` : "-"}
+                                        </td>
+                                        <td className={`px-4 py-2 text-sm text-right font-bold ${personSalesRate >= 100 ? "text-green-600" : personSalesRate >= 80 ? "text-yellow-600" : personSalesRate > 0 ? "text-red-600" : "text-gray-400"}`}>
+                                          {personBudgetAmount > 0 ? `${personSalesRate.toFixed(1)}%` : "-"}
+                                        </td>
+                                        <td className={`px-4 py-2 text-sm text-right font-bold ${personSalesBudgetDiff <= 0 ? "text-green-600" : "text-red-600"}`}>
+                                          {personBudgetAmount > 0 ? `${personSalesBudgetDiff <= 0 ? "+" : "-"}${formatAmount(Math.abs(personSalesBudgetDiff))}円` : "-"}
                                         </td>
                                         <td className="px-4 py-2 text-sm text-right text-green-600">{formatAmount(person.profit)}円</td>
                                         <td className={`px-4 py-2 text-sm text-right font-bold ${profitRate >= 30 ? "text-green-600" : profitRate >= 20 ? "text-yellow-600" : "text-red-600"}`}>
@@ -3501,11 +3511,12 @@ export default function BIDashboardPage() {
                             <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">売上金額</th>
                             <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">受注金額</th>
                             <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">予算</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">達成率</th>
                             <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">受注込達成率</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">予算差額</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">粗利</th>
-                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">粗利率</th>
+                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">受注込予算差額</th>
+                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">売上済達成率</th>
+                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">売上済予算差額</th>
+                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">実績粗利</th>
+                            <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">実績粗利率</th>
                             <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">受注件数</th>
                             <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">構成比</th>
                           </tr>
@@ -3516,11 +3527,12 @@ export default function BIDashboardPage() {
                             const officeBudget = budget?.officeBudgets?.find((b) => b.office === office.name);
                             const officeBudgetAmount = officeBudget?.yearlyBudget || 0;
                             const achievementRate = officeBudgetAmount > 0 ? (office.amount / officeBudgetAmount) * 100 : 0;
+                            const salesBudgetDiff = officeBudgetAmount > 0 ? officeBudgetAmount - office.amount : 0;
                             const officeOrder = ordersCombined?.byOffice?.find((o) => o.name === office.name);
                             const officeOrderAmount = officeOrder?.amount || 0;
                             const combinedAmount = office.amount + officeOrderAmount;
                             const combinedAchievementRate = officeBudgetAmount > 0 ? (combinedAmount / officeBudgetAmount) * 100 : 0;
-                            const budgetDiff = officeBudgetAmount > 0 ? officeBudgetAmount - combinedAmount : 0;
+                            const combinedBudgetDiff = officeBudgetAmount > 0 ? officeBudgetAmount - combinedAmount : 0;
                             return (
                               <tr
                                 key={office.name}
@@ -3537,14 +3549,17 @@ export default function BIDashboardPage() {
                                 <td className="px-4 py-3 text-sm text-right text-purple-600">
                                   {officeBudgetAmount > 0 ? `${formatAmount(officeBudgetAmount)}円` : "-"}
                                 </td>
-                                <td className={`px-4 py-3 text-sm text-right font-bold ${achievementRate >= 100 ? "text-green-600" : achievementRate >= 80 ? "text-yellow-600" : achievementRate > 0 ? "text-red-600" : "text-gray-400"}`}>
-                                  {officeBudgetAmount > 0 ? `${achievementRate.toFixed(1)}%` : "-"}
-                                </td>
                                 <td className={`px-4 py-3 text-sm text-right font-bold ${combinedAchievementRate >= 100 ? "text-green-600" : combinedAchievementRate >= 80 ? "text-yellow-600" : combinedAchievementRate > 0 ? "text-blue-600" : "text-gray-400"}`}>
                                   {officeBudgetAmount > 0 ? `${combinedAchievementRate.toFixed(1)}%` : "-"}
                                 </td>
-                                <td className={`px-4 py-3 text-sm text-right font-bold ${budgetDiff <= 0 ? "text-green-600" : "text-red-600"}`}>
-                                  {officeBudgetAmount > 0 ? `${budgetDiff <= 0 ? "+" : "-"}${formatAmount(Math.abs(budgetDiff))}円` : "-"}
+                                <td className={`px-4 py-3 text-sm text-right font-bold ${combinedBudgetDiff <= 0 ? "text-green-600" : "text-red-600"}`}>
+                                  {officeBudgetAmount > 0 ? `${combinedBudgetDiff <= 0 ? "+" : "-"}${formatAmount(Math.abs(combinedBudgetDiff))}円` : "-"}
+                                </td>
+                                <td className={`px-4 py-3 text-sm text-right font-bold ${achievementRate >= 100 ? "text-green-600" : achievementRate >= 80 ? "text-yellow-600" : achievementRate > 0 ? "text-red-600" : "text-gray-400"}`}>
+                                  {officeBudgetAmount > 0 ? `${achievementRate.toFixed(1)}%` : "-"}
+                                </td>
+                                <td className={`px-4 py-3 text-sm text-right font-bold ${salesBudgetDiff <= 0 ? "text-green-600" : "text-red-600"}`}>
+                                  {officeBudgetAmount > 0 ? `${salesBudgetDiff <= 0 ? "+" : "-"}${formatAmount(Math.abs(salesBudgetDiff))}円` : "-"}
                                 </td>
                                 <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">
                                   {formatAmount(office.profit)}円
@@ -4316,11 +4331,12 @@ export default function BIDashboardPage() {
                                 <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">売上金額</th>
                                 <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">受注金額</th>
                                 <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">予算</th>
-                                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">達成率</th>
                                 <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">受注込達成率</th>
-                                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">予算差額</th>
-                                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">粗利</th>
-                                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">粗利率</th>
+                                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">受注込予算差額</th>
+                                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">売上済達成率</th>
+                                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">売上済予算差額</th>
+                                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">実績粗利</th>
+                                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">実績粗利率</th>
                                 <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">受注件数</th>
                                 <th className="px-4 py-3 text-right text-sm font-bold text-gray-700">構成比</th>
                               </tr>
@@ -4330,12 +4346,13 @@ export default function BIDashboardPage() {
                                 const profitRate = person.amount > 0 ? (person.profit / person.amount) * 100 : 0;
                                 const personBudget = budget?.salesPersonBudgets?.find((b) => b.salesPerson === person.name);
                                 const personBudgetAmount = personBudget?.yearlyBudget || 0;
-                                const achievementRate = personBudgetAmount > 0 ? (person.amount / personBudgetAmount) * 100 : 0;
+                                const salesAchievementRate = personBudgetAmount > 0 ? (person.amount / personBudgetAmount) * 100 : 0;
+                                const salesBudgetDiff = personBudgetAmount > 0 ? personBudgetAmount - person.amount : 0;
                                 const personOrder = ordersCombined?.byTantousha?.find((t) => t.name === person.name);
                                 const personOrderAmount = personOrder?.amount || 0;
                                 const combinedAmount = person.amount + personOrderAmount;
                                 const combinedAchievementRate = personBudgetAmount > 0 ? (combinedAmount / personBudgetAmount) * 100 : 0;
-                                const budgetDiff = personBudgetAmount > 0 ? personBudgetAmount - combinedAmount : 0;
+                                const combinedBudgetDiff = personBudgetAmount > 0 ? personBudgetAmount - combinedAmount : 0;
                                 return (
                                   <tr
                                     key={person.name}
@@ -4361,14 +4378,17 @@ export default function BIDashboardPage() {
                                     <td className="px-4 py-3 text-sm text-right text-purple-600">
                                       {personBudgetAmount > 0 ? `${formatAmount(personBudgetAmount)}円` : "-"}
                                     </td>
-                                    <td className={`px-4 py-3 text-sm text-right font-bold ${achievementRate >= 100 ? "text-green-600" : achievementRate >= 80 ? "text-yellow-600" : achievementRate > 0 ? "text-red-600" : "text-gray-400"}`}>
-                                      {personBudgetAmount > 0 ? `${achievementRate.toFixed(1)}%` : "-"}
-                                    </td>
                                     <td className={`px-4 py-3 text-sm text-right font-bold ${combinedAchievementRate >= 100 ? "text-green-600" : combinedAchievementRate >= 80 ? "text-yellow-600" : combinedAchievementRate > 0 ? "text-blue-600" : "text-gray-400"}`}>
                                       {personBudgetAmount > 0 ? `${combinedAchievementRate.toFixed(1)}%` : "-"}
                                     </td>
-                                    <td className={`px-4 py-3 text-sm text-right font-bold ${budgetDiff <= 0 ? "text-green-600" : "text-red-600"}`}>
-                                      {personBudgetAmount > 0 ? `${budgetDiff <= 0 ? "+" : "-"}${formatAmount(Math.abs(budgetDiff))}円` : "-"}
+                                    <td className={`px-4 py-3 text-sm text-right font-bold ${combinedBudgetDiff <= 0 ? "text-green-600" : "text-red-600"}`}>
+                                      {personBudgetAmount > 0 ? `${combinedBudgetDiff <= 0 ? "+" : "-"}${formatAmount(Math.abs(combinedBudgetDiff))}円` : "-"}
+                                    </td>
+                                    <td className={`px-4 py-3 text-sm text-right font-bold ${salesAchievementRate >= 100 ? "text-green-600" : salesAchievementRate >= 80 ? "text-yellow-600" : salesAchievementRate > 0 ? "text-red-600" : "text-gray-400"}`}>
+                                      {personBudgetAmount > 0 ? `${salesAchievementRate.toFixed(1)}%` : "-"}
+                                    </td>
+                                    <td className={`px-4 py-3 text-sm text-right font-bold ${salesBudgetDiff <= 0 ? "text-green-600" : "text-red-600"}`}>
+                                      {personBudgetAmount > 0 ? `${salesBudgetDiff <= 0 ? "+" : "-"}${formatAmount(Math.abs(salesBudgetDiff))}円` : "-"}
                                     </td>
                                     <td className="px-4 py-3 text-sm text-right text-green-600 font-medium">
                                       {formatAmount(person.profit)}円

@@ -4477,16 +4477,17 @@ export default function BIDashboardPage() {
                               : currentData.salesPersonPjCategorySummary!;
                             const allCategories = [...new Set(filteredPersonPj.flatMap(p => p.categories.map(c => c.name)))];
                             const topCategories = allCategories.slice(0, 8);
-                            const chartData = filteredPersonPj.slice(0, 15).map(p => {
+                            const chartData = filteredPersonPj.map(p => {
                               const row: Record<string, string | number> = { name: p.name };
                               topCategories.forEach(cat => {
                                 row[cat] = p.categories.find(c => c.name === cat)?.amount || 0;
                               });
                               return row;
                             });
+                            const chartHeight = Math.max(400, filteredPersonPj.length * 32);
                             return (
                               <div className="space-y-4">
-                                <div className="h-96">
+                                <div style={{ height: chartHeight }}>
                                   <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={chartData} layout="vertical">
                                       <CartesianGrid strokeDasharray="3 3" />
@@ -4516,7 +4517,7 @@ export default function BIDashboardPage() {
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                      {filteredPersonPj.slice(0, 15).map((p, i) => {
+                                      {filteredPersonPj.map((p, i) => {
                                         const total = p.categories.reduce((s, c) => s + c.amount, 0);
                                         return (
                                           <tr key={p.name} className={`cursor-pointer hover:bg-blue-50 ${i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`} onClick={() => setSelectedSalesPerson(p.name)}>

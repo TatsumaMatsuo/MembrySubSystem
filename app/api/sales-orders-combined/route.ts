@@ -488,6 +488,52 @@ export async function GET(request: NextRequest) {
     // 不正リストを金額降順でソート
     irregularList.sort((a, b) => b.amount - a.amount);
 
+    // ========================================
+    // 6. 営業所別・担当者別の受注金額集計
+    // ========================================
+    const officeOrderMap = new Map<string, { count: number; amount: number }>();
+    const personOrderMap = new Map<string, { office: string; count: number; amount: number }>();
+
+    for (const record of backlogRecords) {
+      const fields = record.fields as any;
+      const mikomiDateStr = extractTextValue(fields?.["売上見込日"]);
+      if (!mikomiDateStr) continue;
+      if (!isDateInRange(mikomiDateStr, dateRange.start, dateRange.end)) continue;
+
+      const amount = parseFloat(String(fields?.["受注金額"] || 0)) || 0;
+      const tantousha = extractTextValue(fields?.["担当者"]) || "未設定";
+      let eigyosho = fields?.["部門"]
+        ? extractOfficeFromDepartment(fields?.["部門"], departmentMap)
+        : "未設定";
+      if (tantousha === HQ_SALES_PERSON) {
+        eigyosho = "本社";
+      }
+
+      // 営業所別集計
+      if (!officeOrderMap.has(eigyosho)) {
+        officeOrderMap.set(eigyosho, { count: 0, amount: 0 });
+      }
+      const o = officeOrderMap.get(eigyosho)!;
+      o.count++;
+      o.amount += amount;
+
+      // 担当者別集計
+      if (!personOrderMap.has(tantousha)) {
+        personOrderMap.set(tantousha, { office: eigyosho, count: 0, amount: 0 });
+      }
+      const p = personOrderMap.get(tantousha)!;
+      p.count++;
+      p.amount += amount;
+    }
+
+    const byOffice = Array.from(officeOrderMap.entries())
+      .map(([name, data]) => ({ name, count: data.count, amount: data.amount }))
+      .sort((a, b) => b.amount - a.amount);
+
+    const byTantousha = Array.from(personOrderMap.entries())
+      .map(([name, data]) => ({ name, office: data.office, count: data.count, amount: data.amount }))
+      .sort((a, b) => b.amount - a.amount);
+
     const result = {
       success: true,
       data: {
@@ -501,6 +547,8 @@ export async function GET(request: NextRequest) {
         totalOrderAmount,
         totalOrderCount,
         irregularList,
+        byOffice,
+        byTantousha,
       },
     };
 

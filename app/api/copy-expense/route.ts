@@ -568,7 +568,7 @@ async function deleteRecordViaRest(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { yearMonth, records, existingRecordIds } = body as {
+    const { yearMonth, records } = body as {
       yearMonth: number;
       records: Array<{
         department: string;
@@ -576,7 +576,6 @@ export async function POST(request: NextRequest) {
         sheets: number;
         amount: number;
       }>;
-      existingRecordIds?: string[]; // 削除対象のrecord_id一覧
     };
 
     if (!yearMonth || !records || !Array.isArray(records)) {
@@ -594,19 +593,48 @@ export async function POST(request: NextRequest) {
     const tenantToken = await getTenantAccessToken();
     console.log("[copy-expense POST] Got fresh tenant_access_token, length:", tenantToken.length);
 
-    // 2. 既存レコードを削除（置換モード）
+    // 2. サーバー側で対象月の既存レコードを自動検出して削除（クライアント提供IDに依存しない）
     let deletedCount = 0;
-    if (existingRecordIds && existingRecordIds.length > 0) {
-      console.log(`[copy-expense POST] Deleting ${existingRecordIds.length} existing records`);
-      for (const recordId of existingRecordIds) {
-        const result = await deleteRecordViaRest(tenantToken, baseToken, tableId, recordId);
-        if (result.success) {
-          deletedCount++;
-        } else {
-          console.error(`[copy-expense POST] Failed to delete record ${recordId}:`, result.error);
+    const client = getLarkClient();
+    if (client) {
+      const targetDate = new Date(yearMonth);
+      const { year: targetYear, month: targetMonth } = getJSTComponents(targetDate);
+      console.log(`[copy-expense POST] Searching existing records for ${targetYear}-${targetMonth}`);
+
+      let existingRecords: any[] = [];
+      let pageToken: string | undefined;
+      do {
+        const response = await client.bitable.appTableRecord.list({
+          path: { app_token: baseToken, table_id: tableId },
+          params: { page_size: 500, page_token: pageToken },
+        });
+        if (response.data?.items) existingRecords.push(...response.data.items);
+        pageToken = response.data?.page_token;
+      } while (pageToken);
+
+      // 対象月のレコードのみ抽出
+      const monthRecordIds = existingRecords
+        .filter((record: any) => {
+          const dateVal = record.fields?.["年月"];
+          const date = extractDate(dateVal);
+          if (!date) return false;
+          const jst = getJSTComponents(date);
+          return jst.year === targetYear && jst.month === targetMonth;
+        })
+        .map((record: any) => record.record_id as string);
+
+      if (monthRecordIds.length > 0) {
+        console.log(`[copy-expense POST] Found ${monthRecordIds.length} existing records to delete`);
+        for (const recordId of monthRecordIds) {
+          const result = await deleteRecordViaRest(tenantToken, baseToken, tableId, recordId);
+          if (result.success) {
+            deletedCount++;
+          } else {
+            console.error(`[copy-expense POST] Failed to delete record ${recordId}:`, result.error);
+          }
         }
+        console.log(`[copy-expense POST] Deleted ${deletedCount}/${monthRecordIds.length} records`);
       }
-      console.log(`[copy-expense POST] Deleted ${deletedCount}/${existingRecordIds.length} records`);
     }
 
     // 3. 新規レコード登録（REST API直接呼び出し）

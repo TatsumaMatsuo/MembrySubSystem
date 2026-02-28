@@ -412,17 +412,26 @@ export default function SoumuKPIAnalysisPage() {
   const PRINT_TYPES = ["カラー", "2色", "モノクロ"];
   const officeData = (() => {
     if (!data) return [];
+    // デデュプリケーション: 同じ事業所/月/種別の重複レコードは最後の値で上書き（加算しない）
     const deptMap = new Map<string, Map<string, Map<string, number>>>();
+    const seen = new Set<string>();
     for (const r of data.records) {
       const dept = r.department || "不明";
       const month = r.month;
       const cat = r.category || "不明";
       if (!month) continue;
+      const key = `${dept}|${month}|${cat}`;
       if (!deptMap.has(dept)) deptMap.set(dept, new Map());
       const monthMap = deptMap.get(dept)!;
       if (!monthMap.has(month)) monthMap.set(month, new Map());
       const catMap = monthMap.get(month)!;
-      catMap.set(cat, (catMap.get(cat) || 0) + r.sheets);
+      if (seen.has(key)) {
+        // 重複レコード: 上書き（加算しない）
+        catMap.set(cat, r.sheets);
+      } else {
+        seen.add(key);
+        catMap.set(cat, r.sheets);
+      }
     }
     return Array.from(deptMap.entries()).map(([dept, monthMap]) => {
       let totalSheets = 0;

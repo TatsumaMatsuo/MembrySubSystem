@@ -1,6 +1,63 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 
+// tenant_access_tokenを直接取得
+async function getTenantAccessToken(): Promise<string> {
+  const appId = process.env.LARK_APP_ID || "cli_a9d79d0bbf389e1c";
+  const appSecret = process.env.LARK_APP_SECRET || "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE";
+  const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
+  const response = await fetch(`${larkDomain}/open-apis/auth/v3/tenant_access_token/internal`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+  });
+  const result = await response.json();
+  if (result.code !== 0) throw new Error(`Failed to get tenant_access_token: ${result.msg}`);
+  return result.tenant_access_token;
+}
+
+// バッチ削除（最大500件）
+async function batchDeleteRecords(tenantToken: string, appToken: string, tableId: string, recordIds: string[]): Promise<number> {
+  if (recordIds.length === 0) return 0;
+  const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
+  let deleted = 0;
+  for (let i = 0; i < recordIds.length; i += 500) {
+    const batch = recordIds.slice(i, i + 500);
+    const res = await fetch(`${larkDomain}/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/batch_delete`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tenantToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ records: batch }),
+    });
+    const text = await res.text();
+    try { const r = JSON.parse(text); if (r.code === 0) deleted += batch.length; else console.error("[snapshot] batch_delete error:", r.msg); }
+    catch { console.error("[snapshot] batch_delete invalid response:", text.substring(0, 200)); }
+  }
+  return deleted;
+}
+
+// バッチ作成（最大500件）
+async function batchCreateRecords(tenantToken: string, appToken: string, tableId: string, recordFields: Array<Record<string, any>>): Promise<{ saved: number; errors: string[] }> {
+  if (recordFields.length === 0) return { saved: 0, errors: [] };
+  const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
+  let saved = 0;
+  const errors: string[] = [];
+  for (let i = 0; i < recordFields.length; i += 500) {
+    const batch = recordFields.slice(i, i + 500);
+    const res = await fetch(`${larkDomain}/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/batch_create`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tenantToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ records: batch.map((fields) => ({ fields })) }),
+    });
+    const text = await res.text();
+    try {
+      const r = JSON.parse(text);
+      if (r.code === 0) saved += r.data?.records?.length || batch.length;
+      else errors.push(`batch_create error: code=${r.code}, msg=${r.msg}`);
+    } catch { errors.push(`batch_create invalid response: ${text.substring(0, 200)}`); }
+  }
+  return { saved, errors };
+}
+
 // テーブルID
 const ANKEN_TABLE_ID = "tbl1ICzfUixpGqDy"; // 案件一覧
 const SNAPSHOT_TABLE_ID = process.env.LARK_TABLE_ORDER_SNAPSHOT || ""; // 月次受注残スナップショット
@@ -9,6 +66,7 @@ const SNAPSHOT_TABLE_ID = process.env.LARK_TABLE_ORDER_SNAPSHOT || ""; // 月次
 const URIAGE_FLAG_FIELD = "売上済フラグ";
 const SAKUJO_FLAG_FIELD = "削除フラグ";
 const TANTOUSHA_FIELD = "担当者";
+const JUCHU_DATE_FIELD = "受注日";
 
 // ユーザーオブジェクトから名前を抽出
 function extractUserName(value: any): string {
@@ -36,6 +94,30 @@ function getCurrentMonthYYYYMM(): string {
   return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// 当月の1日のタイムスタンプ（ミリ秒）を取得
+// この日付以降の受注日を持つレコードを除外するために使用
+function getCurrentMonthStartTimestamp(): number {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+}
+
+// 日付値から Date を取得（Lark Base のタイムスタンプ対応）
+function parseLarkDate(value: any): Date | null {
+  if (!value) return null;
+  if (typeof value === "number") {
+    // ミリ秒タイムスタンプ
+    if (value > 1000000000000) return new Date(value);
+    // 秒タイムスタンプ
+    if (value > 1000000000) return new Date(value * 1000);
+    return null;
+  }
+  if (typeof value === "string") {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   const client = getLarkClient();
   if (!client) {
@@ -60,9 +142,16 @@ export async function POST(request: NextRequest) {
     console.log(`[monthly-order-snapshot] Starting snapshot for ${targetMonth} (dryRun: ${dryRun})`);
     const startTime = Date.now();
 
-    // 1. 案件一覧から全レコードを取得し、売上済フラグ=falseのものをカウント
+    // 当月1日のタイムスタンプ: これ以降の受注日を持つレコードは除外
+    // 理由: 20日～月末に入る新規受注を含めると前月末時点の受注残にならない
+    const currentMonthStart = getCurrentMonthStartTimestamp();
+    console.log(`[monthly-order-snapshot] Excluding orders with 受注日 >= ${new Date(currentMonthStart).toISOString()}`);
+
+    // 1. 案件一覧から全レコードを取得し、受注残をカウント
+    //    条件: 売上済フラグ=false AND 削除フラグ=false AND 受注日 < 当月1日
     const tantoushaCountMap = new Map<string, number>();
     let totalRecords = 0;
+    let excludedCurrentMonth = 0;
     let pageToken: string | undefined;
 
     do {
@@ -74,7 +163,7 @@ export async function POST(request: NextRequest) {
         params: {
           page_size: 500,
           page_token: pageToken,
-          field_names: JSON.stringify([URIAGE_FLAG_FIELD, SAKUJO_FLAG_FIELD, TANTOUSHA_FIELD]),
+          field_names: JSON.stringify([URIAGE_FLAG_FIELD, SAKUJO_FLAG_FIELD, TANTOUSHA_FIELD, JUCHU_DATE_FIELD]),
         },
       });
 
@@ -84,8 +173,15 @@ export async function POST(request: NextRequest) {
           const uriageFlag = fields?.[URIAGE_FLAG_FIELD];
           const sakujoFlag = fields?.[SAKUJO_FLAG_FIELD];
 
-          // 売上済フラグがtrue以外 かつ 削除フラグがtrue以外 のレコードをカウント = 受注残
+          // 売上済フラグがtrue以外 かつ 削除フラグがtrue以外 = 受注残候補
           if (uriageFlag !== true && sakujoFlag !== true) {
+            // 当月受注日のレコードを除外（前月末時点の受注残を求めるため）
+            const juchuDate = parseLarkDate(fields?.[JUCHU_DATE_FIELD]);
+            if (juchuDate && juchuDate.getTime() >= currentMonthStart) {
+              excludedCurrentMonth++;
+              continue;
+            }
+
             totalRecords++;
             const tantousha = extractUserName(fields?.[TANTOUSHA_FIELD]) || "未設定";
             tantoushaCountMap.set(tantousha, (tantoushaCountMap.get(tantousha) || 0) + 1);
@@ -95,7 +191,7 @@ export async function POST(request: NextRequest) {
       pageToken = response.data?.page_token;
     } while (pageToken);
 
-    console.log(`[monthly-order-snapshot] Found ${totalRecords} backlog records for ${tantoushaCountMap.size} tantousha`);
+    console.log(`[monthly-order-snapshot] Found ${totalRecords} backlog records (excluded ${excludedCurrentMonth} current month orders) for ${tantoushaCountMap.size} tantousha`);
 
     // 2. スナップショットを作成
     const snapshots: { tantousha: string; count: number }[] = [];
@@ -111,96 +207,47 @@ export async function POST(request: NextRequest) {
     const errors: string[] = [];
 
     if (!dryRun) {
-      // 既存の同月データを確認・削除（やり直し対応）
+      const tenantToken = await getTenantAccessToken();
+
+      // 既存の同月データを確認・一括削除（やり直し対応）
       console.log(`[monthly-order-snapshot] Checking existing records for ${targetMonth}...`);
-      let existingRecords: string[] = [];
+      let existingRecordIds: string[] = [];
       let checkPageToken: string | undefined;
 
       do {
         const checkResponse = await client.bitable.appTableRecord.list({
-          path: {
-            app_token: baseToken,
-            table_id: SNAPSHOT_TABLE_ID,
-          },
+          path: { app_token: baseToken, table_id: SNAPSHOT_TABLE_ID },
           params: {
             page_size: 500,
             page_token: checkPageToken,
             filter: `CurrentValue.[年月] = "${targetMonth}"`,
           },
         });
-
-        console.log(`[monthly-order-snapshot] Check response: code=${checkResponse.code}, items=${checkResponse.data?.items?.length || 0}`);
-
         if (checkResponse.data?.items) {
-          existingRecords.push(...checkResponse.data.items.map((i) => i.record_id!));
+          existingRecordIds.push(...checkResponse.data.items.map((i) => i.record_id!));
         }
         checkPageToken = checkResponse.data?.page_token;
       } while (checkPageToken);
 
-      // 既存データがあれば削除
-      if (existingRecords.length > 0) {
-        console.log(`[monthly-order-snapshot] Deleting ${existingRecords.length} existing records for ${targetMonth}`);
-        let deleteCount = 0;
-        for (const recordId of existingRecords) {
-          try {
-            const deleteResponse = await client.bitable.appTableRecord.delete({
-              path: {
-                app_token: baseToken,
-                table_id: SNAPSHOT_TABLE_ID,
-                record_id: recordId,
-              },
-            });
-            if (deleteResponse.code === 0) {
-              deleteCount++;
-            } else {
-              console.error(`[monthly-order-snapshot] Failed to delete record ${recordId}: code=${deleteResponse.code}, msg=${deleteResponse.msg}`);
-            }
-          } catch (e: any) {
-            console.error(`[monthly-order-snapshot] Exception deleting record ${recordId}:`, e.message);
-          }
-        }
-        console.log(`[monthly-order-snapshot] Deleted ${deleteCount}/${existingRecords.length} records`);
-      } else {
-        console.log(`[monthly-order-snapshot] No existing records found for ${targetMonth}`);
+      if (existingRecordIds.length > 0) {
+        console.log(`[monthly-order-snapshot] Batch deleting ${existingRecordIds.length} existing records`);
+        const deleteCount = await batchDeleteRecords(tenantToken, baseToken, SNAPSHOT_TABLE_ID, existingRecordIds);
+        console.log(`[monthly-order-snapshot] Deleted ${deleteCount}/${existingRecordIds.length} records`);
       }
 
-      // 新規レコードを作成
-      const now = new Date();
-      const createdAt = now.getTime(); // Lark Baseの日時フィールドはミリ秒タイムスタンプを期待
+      // 新規レコードを一括作成
+      const createdAt = Date.now();
+      const recordFields = snapshots.map((s) => ({
+        "年月": targetMonth,
+        "担当者": s.tantousha,
+        "受注残件数": s.count,
+        "作成日時": createdAt,
+      }));
 
-      console.log(`[monthly-order-snapshot] Creating ${snapshots.length} records to table: ${SNAPSHOT_TABLE_ID}`);
-
-      for (const snapshot of snapshots) {
-        try {
-          const createResponse = await client.bitable.appTableRecord.create({
-            path: {
-              app_token: baseToken,
-              table_id: SNAPSHOT_TABLE_ID,
-            },
-            data: {
-              fields: {
-                "年月": targetMonth,
-                "担当者": snapshot.tantousha,
-                "受注残件数": snapshot.count,
-                "作成日時": createdAt,
-              },
-            },
-          });
-          console.log(`[monthly-order-snapshot] Created record for ${snapshot.tantousha}:`, createResponse.code, createResponse.msg);
-
-          // Lark APIはエラー時も例外を投げず、codeフィールドにエラーコードを返す（成功は0）
-          if (createResponse.code !== 0) {
-            const errorDetail = `${snapshot.tantousha}: code=${createResponse.code}, msg=${createResponse.msg}`;
-            console.error(`[monthly-order-snapshot] API error:`, errorDetail);
-            errors.push(errorDetail);
-          } else {
-            savedCount++;
-          }
-        } catch (e: any) {
-          console.error(`[monthly-order-snapshot] Failed to create record for ${snapshot.tantousha}:`, e);
-          errors.push(`${snapshot.tantousha}: ${e.message}`);
-        }
-      }
+      console.log(`[monthly-order-snapshot] Batch creating ${recordFields.length} records`);
+      const createResult = await batchCreateRecords(tenantToken, baseToken, SNAPSHOT_TABLE_ID, recordFields);
+      savedCount = createResult.saved;
+      errors.push(...createResult.errors);
     }
 
     const duration = Date.now() - startTime;
@@ -212,6 +259,7 @@ export async function POST(request: NextRequest) {
       dryRun,
       summary: {
         totalBacklogRecords: totalRecords,
+        excludedCurrentMonthOrders: excludedCurrentMonth,
         uniqueTantousha: snapshots.length,
         savedRecords: savedCount,
         errorCount: errors.length,

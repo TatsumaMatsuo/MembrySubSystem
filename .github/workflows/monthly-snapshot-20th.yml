@@ -1,0 +1,75 @@
+name: Monthly Order Snapshot (20th)
+
+# 毎月20日 10:00 JST (01:00 UTC) に受注残スナップショットを保存
+on:
+  schedule:
+    - cron: '0 1 20 * *'
+  workflow_dispatch:
+    inputs:
+      target_month:
+        description: '対象月 (YYYYMM形式、空欄で当月)'
+        required: false
+        type: string
+      dry_run:
+        description: 'ドライラン（保存しない）'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  take-snapshot:
+    runs-on: ubuntu-latest
+    name: Take monthly order backlog snapshot
+    steps:
+      - name: Determine target month
+        id: month
+        run: |
+          if [ -n "${{ inputs.target_month }}" ]; then
+            echo "target=${{ inputs.target_month }}" >> "$GITHUB_OUTPUT"
+          else
+            # 前月のYYYYMMを計算（20日時点で前月売上確定済のため前月分として保存）
+            echo "target=$(date -d '1 month ago' +%Y%m)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Call snapshot API
+        env:
+          APP_URL: ${{ secrets.APP_URL || 'https://main.d4a0s1k3z8dqc.amplifyapp.com' }}
+          BATCH_SECRET: ${{ secrets.BATCH_SECRET }}
+        run: |
+          DRY_RUN="${{ inputs.dry_run || 'false' }}"
+          TARGET_MONTH="${{ steps.month.outputs.target }}"
+
+          echo "Calling snapshot API for ${TARGET_MONTH} (dryRun: ${DRY_RUN})"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${APP_URL}/api/batch/monthly-order-snapshot" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${BATCH_SECRET}" \
+            -d "{\"targetMonth\":\"${TARGET_MONTH}\",\"dryRun\":${DRY_RUN}}")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP Status: ${HTTP_CODE}"
+          echo "Response: ${BODY}"
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::error::Snapshot API returned HTTP ${HTTP_CODE}"
+            exit 1
+          fi
+
+          echo "result<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$BODY" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+        id: api_call
+
+      - name: Summary
+        run: |
+          echo "### Monthly Order Snapshot (20th)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target Month: ${{ steps.month.outputs.target }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dry Run: ${{ inputs.dry_run || 'false' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo '${{ steps.api_call.outputs.result }}' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

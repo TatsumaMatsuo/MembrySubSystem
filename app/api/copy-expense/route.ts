@@ -513,15 +513,16 @@ async function getTenantAccessToken(): Promise<string> {
   return result.tenant_access_token;
 }
 
-// Lark REST APIでレコード作成（SDK不使用）
-async function createRecordViaRest(
+// Lark REST APIでレコード一括作成（batch_create: 最大500件）
+async function batchCreateRecords(
   tenantToken: string,
   appToken: string,
   tableId: string,
-  fields: Record<string, any>
-): Promise<{ success: boolean; error?: string; detail?: any }> {
+  recordFields: Array<Record<string, any>>
+): Promise<{ success: boolean; successCount: number; error?: string; detail?: any }> {
+  if (recordFields.length === 0) return { success: true, successCount: 0 };
   const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
-  const url = `${larkDomain}/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records`;
+  const url = `${larkDomain}/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/batch_create`;
 
   const response = await fetch(url, {
     method: "POST",
@@ -529,46 +530,48 @@ async function createRecordViaRest(
       Authorization: `Bearer ${tenantToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ fields }),
+    body: JSON.stringify({ records: recordFields.map((fields) => ({ fields })) }),
   });
 
   const result = await response.json();
   if (result.code !== 0) {
-    return { success: false, error: `code=${result.code}, msg=${result.msg}`, detail: result };
+    return { success: false, successCount: 0, error: `code=${result.code}, msg=${result.msg}`, detail: result };
   }
-  return { success: true };
+  return { success: true, successCount: result.data?.records?.length || recordFields.length };
 }
 
-// Lark REST APIでレコード削除（SDK不使用）
-async function deleteRecordViaRest(
+// Lark REST APIでレコード一括削除（batch_delete: 最大500件）
+async function batchDeleteRecords(
   tenantToken: string,
   appToken: string,
   tableId: string,
-  recordId: string
-): Promise<{ success: boolean; error?: string }> {
+  recordIds: string[]
+): Promise<{ success: boolean; deletedCount: number; error?: string }> {
+  if (recordIds.length === 0) return { success: true, deletedCount: 0 };
   const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
-  const url = `${larkDomain}/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/${recordId}`;
+  const url = `${larkDomain}/open-apis/bitable/v1/apps/${appToken}/tables/${tableId}/records/batch_delete`;
 
   const response = await fetch(url, {
-    method: "DELETE",
+    method: "POST",
     headers: {
       Authorization: `Bearer ${tenantToken}`,
       "Content-Type": "application/json",
     },
+    body: JSON.stringify({ records: recordIds }),
   });
 
   const result = await response.json();
   if (result.code !== 0) {
-    return { success: false, error: `code=${result.code}, msg=${result.msg}` };
+    return { success: false, deletedCount: 0, error: `code=${result.code}, msg=${result.msg}` };
   }
-  return { success: true };
+  return { success: true, deletedCount: recordIds.length };
 }
 
 // POST: コピー経費レコードを一括登録（既存データは置換）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { yearMonth, records, existingRecordIds } = body as {
+    const { yearMonth, records } = body as {
       yearMonth: number;
       records: Array<{
         department: string;
@@ -576,7 +579,6 @@ export async function POST(request: NextRequest) {
         sheets: number;
         amount: number;
       }>;
-      existingRecordIds?: string[]; // 削除対象のrecord_id一覧
     };
 
     if (!yearMonth || !records || !Array.isArray(records)) {
@@ -594,68 +596,94 @@ export async function POST(request: NextRequest) {
     const tenantToken = await getTenantAccessToken();
     console.log("[copy-expense POST] Got fresh tenant_access_token, length:", tenantToken.length);
 
-    // 2. 既存レコードを削除（置換モード）
+    // 2. サーバー側で対象月の既存レコードを自動検出して一括削除
     let deletedCount = 0;
-    if (existingRecordIds && existingRecordIds.length > 0) {
-      console.log(`[copy-expense POST] Deleting ${existingRecordIds.length} existing records`);
-      for (const recordId of existingRecordIds) {
-        const result = await deleteRecordViaRest(tenantToken, baseToken, tableId, recordId);
-        if (result.success) {
-          deletedCount++;
-        } else {
-          console.error(`[copy-expense POST] Failed to delete record ${recordId}:`, result.error);
+    const client = getLarkClient();
+    if (client) {
+      const targetDate = new Date(yearMonth);
+      const { year: targetYear, month: targetMonth } = getJSTComponents(targetDate);
+      console.log(`[copy-expense POST] Searching existing records for ${targetYear}-${targetMonth}`);
+
+      let existingRecords: any[] = [];
+      let pageToken: string | undefined;
+      do {
+        const response = await client.bitable.appTableRecord.list({
+          path: { app_token: baseToken, table_id: tableId },
+          params: { page_size: 500, page_token: pageToken },
+        });
+        if (response.data?.items) existingRecords.push(...response.data.items);
+        pageToken = response.data?.page_token;
+      } while (pageToken);
+
+      // 対象月のレコードのみ抽出
+      const monthRecordIds = existingRecords
+        .filter((record: any) => {
+          const dateVal = record.fields?.["年月"];
+          const date = extractDate(dateVal);
+          if (!date) return false;
+          const jst = getJSTComponents(date);
+          return jst.year === targetYear && jst.month === targetMonth;
+        })
+        .map((record: any) => record.record_id as string);
+
+      if (monthRecordIds.length > 0) {
+        console.log(`[copy-expense POST] Found ${monthRecordIds.length} existing records to batch delete`);
+        // 500件ずつバッチ削除
+        for (let i = 0; i < monthRecordIds.length; i += 500) {
+          const batch = monthRecordIds.slice(i, i + 500);
+          const result = await batchDeleteRecords(tenantToken, baseToken, tableId, batch);
+          if (result.success) {
+            deletedCount += result.deletedCount;
+          } else {
+            console.error(`[copy-expense POST] Batch delete failed:`, result.error);
+          }
         }
+        console.log(`[copy-expense POST] Batch deleted ${deletedCount}/${monthRecordIds.length} records`);
       }
-      console.log(`[copy-expense POST] Deleted ${deletedCount}/${existingRecordIds.length} records`);
     }
 
-    // 3. 新規レコード登録（REST API直接呼び出し）
-    let successCount = 0;
-    let errorCount = 0;
-    const results: Array<{ success: boolean; department: string; category: string; error?: string; detail?: any }> = [];
-
+    // 3. 新規レコード一括登録（batch_create）
+    // 有効なレコードのフィールドを構築
+    const validRecordFields: Array<Record<string, any>> = [];
     for (const record of records) {
-      // 枚数・金額が0のレコードはスキップ
       if (record.sheets === 0 && record.amount === 0) continue;
-
-      const fields: Record<string, any> = {
+      validRecordFields.push({
         [COPY_EXPENSE_FIELDS.dateField]: yearMonth,
         [COPY_EXPENSE_FIELDS.departmentField!]: record.department,
         [COPY_EXPENSE_FIELDS.countField!]: record.sheets,
         [COPY_EXPENSE_FIELDS.amountField!]: record.amount,
-      };
+        [COPY_EXPENSE_FIELDS.categoryField!]: record.category,
+      });
+    }
 
-      // 印刷種別: テキスト名で指定（オプションIDではなく名前を使用）
-      fields[COPY_EXPENSE_FIELDS.categoryField!] = record.category;
+    let successCount = 0;
+    let errorCount = 0;
+    let batchError: string | undefined;
+    let batchDetail: any;
 
-      const result = await createRecordViaRest(tenantToken, baseToken, tableId, fields);
+    // 500件ずつバッチ作成
+    for (let i = 0; i < validRecordFields.length; i += 500) {
+      const batch = validRecordFields.slice(i, i + 500);
+      const result = await batchCreateRecords(tenantToken, baseToken, tableId, batch);
       if (result.success) {
-        successCount++;
-        results.push({ success: true, department: record.department, category: record.category });
+        successCount += result.successCount;
       } else {
-        errorCount++;
-        console.error(`[copy-expense POST] Create failed:`, JSON.stringify(result.detail, null, 2));
-        results.push({
-          success: false,
-          department: record.department,
-          category: record.category,
-          error: result.error,
-          detail: errorCount <= 1 ? result.detail : undefined, // 最初のエラーのみ詳細を含める
-        });
+        errorCount += batch.length;
+        batchError = result.error;
+        batchDetail = result.detail;
+        console.error(`[copy-expense POST] Batch create failed:`, result.error);
       }
     }
 
     // インメモリキャッシュをクリア
     cache.clear();
 
-    // エラー詳細を返す（デバッグ用）
-    const firstErrorDetail = results.find((r) => !r.success);
     const allFailed = successCount === 0 && errorCount > 0;
 
     return NextResponse.json({
       success: errorCount === 0,
       error: allFailed
-        ? `レコード登録に失敗しました: ${firstErrorDetail?.error || "不明"}`
+        ? `レコード登録に失敗しました: ${batchError || "不明"}`
         : undefined,
       message: deletedCount > 0
         ? `${deletedCount}件削除、${successCount}件登録、${errorCount}件エラー`
@@ -663,12 +691,12 @@ export async function POST(request: NextRequest) {
       deletedCount,
       successCount,
       errorCount,
-      results,
-      // デバッグ: 送信したフィールド情報
+      // デバッグ: バッチ処理結果
       debug: allFailed ? {
         baseToken: baseToken.substring(0, 10) + "...",
         tableId,
-        sampleFields: results[0] ? { department: results[0].department, category: results[0].category } : null,
+        batchError,
+        batchDetail,
         tokenLength: tenantToken.length,
       } : undefined,
     });

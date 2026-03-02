@@ -533,7 +533,12 @@ async function batchCreateRecords(
     body: JSON.stringify({ records: recordFields.map((fields) => ({ fields })) }),
   });
 
-  const result = await response.json();
+  const text = await response.text();
+  if (!text) {
+    return { success: false, successCount: 0, error: `Empty response (HTTP ${response.status})` };
+  }
+  let result: any;
+  try { result = JSON.parse(text); } catch { return { success: false, successCount: 0, error: `Invalid JSON (HTTP ${response.status}): ${text.substring(0, 200)}` }; }
   if (result.code !== 0) {
     return { success: false, successCount: 0, error: `code=${result.code}, msg=${result.msg}`, detail: result };
   }
@@ -560,7 +565,12 @@ async function batchDeleteRecords(
     body: JSON.stringify({ records: recordIds }),
   });
 
-  const result = await response.json();
+  const text = await response.text();
+  if (!text) {
+    return { success: false, deletedCount: 0, error: `Empty response (HTTP ${response.status})` };
+  }
+  let result: any;
+  try { result = JSON.parse(text); } catch { return { success: false, deletedCount: 0, error: `Invalid JSON (HTTP ${response.status}): ${text.substring(0, 200)}` }; }
   if (result.code !== 0) {
     return { success: false, deletedCount: 0, error: `code=${result.code}, msg=${result.msg}` };
   }

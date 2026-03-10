@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ja">
+    <html lang="ja" style={{ colorScheme: "light" }}>
       <body className="min-h-screen bg-background font-sans antialiased">
         <SessionProvider>{children}</SessionProvider>
       </body>

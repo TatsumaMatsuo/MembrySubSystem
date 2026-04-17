@@ -54,7 +54,8 @@
   --border: 214.3 31.8% 91.4%;
 }
 
-@media (prefers-color-scheme: dark) {
+/* ダークモード無効化: アプリ全体がライトモード前提のため強制的にライトモードを適用 */
+/* @media (prefers-color-scheme: dark) {
   :root {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
@@ -68,7 +69,7 @@
     --accent-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
   }
-}
+} */
 
 body {
   background-color: hsl(var(--background));

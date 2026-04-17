@@ -166,7 +166,15 @@ export default function OrderBacklogUploadPage() {
             try {
               const data = JSON.parse(line.slice(6));
 
-              if (data.type === "progress") {
+              if (data.type === "init") {
+                setProgress({
+                  current: 0,
+                  total: data.total,
+                  inserted: 0,
+                  updated: 0,
+                  percentage: 0,
+                });
+              } else if (data.type === "progress") {
                 setProgress({
                   current: data.current,
                   total: data.total,
@@ -174,6 +182,9 @@ export default function OrderBacklogUploadPage() {
                   updated: data.updated,
                   percentage: data.total > 0 ? Math.round((data.current / data.total) * 100) : 0,
                 });
+              } else if (data.type === "error") {
+                setError(data.errors?.[0] || "アップロード処理中にエラーが発生しました");
+                setProgress(null);
               } else if (data.type === "complete") {
                 setResult({
                   success: true,

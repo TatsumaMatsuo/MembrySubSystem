@@ -514,6 +514,7 @@ export interface ConstructionSpec {
 
   // 提出書類
   documents: {
+    koji_komoku: string[];           // ◆工事項目（案件一覧より）
     project_name: string;            // 工事名称
     confirmation_required: boolean;  // 確認申請
     application_creation: boolean;   // 申請書作成

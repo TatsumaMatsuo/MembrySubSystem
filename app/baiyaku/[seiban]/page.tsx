@@ -1897,6 +1897,24 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                     </button>
                     {!collapsedConstructionSections.has("documents") && (
                       <div className="p-6 space-y-4">
+                        {constructionSpec.documents.koji_komoku && constructionSpec.documents.koji_komoku.length > 0 && (
+                          <div className="border rounded-lg p-4 bg-amber-50/50">
+                            <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                              <span className="text-amber-600">◆</span>
+                              工事項目
+                            </h5>
+                            <div className="flex flex-wrap gap-2">
+                              {constructionSpec.documents.koji_komoku.map((item, idx) => (
+                                <span
+                                  key={`${item}-${idx}`}
+                                  className="inline-flex items-center px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-sm font-medium border border-amber-200"
+                                >
+                                  {item}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         {constructionSpec.documents.project_name && (
                           <div className="p-3 bg-amber-50 rounded-lg">
                             <span className="text-sm text-gray-500">工事名称</span>

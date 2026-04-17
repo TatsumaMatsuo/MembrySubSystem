@@ -65,32 +65,6 @@ export async function GET(request: NextRequest) {
       return 0;
     };
 
-    // 複数選択/テキストいずれの型でも string[] として取得するヘルパー
-    const getStringArray = (fieldName: string): string[] => {
-      const value = fields[fieldName];
-      if (value === undefined || value === null || value === "") return [];
-      if (Array.isArray(value)) {
-        return value
-          .map((v: any) => {
-            if (typeof v === "string") return v;
-            if (v && typeof v === "object" && "text" in v) return String(v.text || "");
-            if (v && typeof v === "object" && "name" in v) return String((v as any).name || "");
-            return String(v || "");
-          })
-          .filter((s) => s.length > 0);
-      }
-      if (typeof value === "string") {
-        return value
-          .split(/[,、\n\r\t]+/)
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0);
-      }
-      if (typeof value === "object" && value !== null && "text" in value) {
-        return [String((value as { text: string }).text || "")].filter((s) => s.length > 0);
-      }
-      return [String(value)].filter((s) => s.length > 0);
-    };
-
     // 工事仕様書データを構築
     const constructionSpec: ConstructionSpec = {
       // 基本情報
@@ -211,7 +185,6 @@ export async function GET(request: NextRequest) {
 
       // 提出書類
       documents: {
-        koji_komoku: getStringArray("◆工事項目"),
         project_name: getString("工事名称"),
         confirmation_required: getBoolean("確認申請"),
         application_creation: getBoolean("申請書作成"),

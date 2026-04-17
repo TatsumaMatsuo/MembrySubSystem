@@ -1903,24 +1903,6 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                             <p className="font-semibold text-amber-800">{constructionSpec.documents.project_name}</p>
                           </div>
                         )}
-                        {constructionSpec.documents.koji_komoku && constructionSpec.documents.koji_komoku.length > 0 && (
-                          <div className="border rounded-lg p-4 bg-amber-50/50">
-                            <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                              <span className="text-amber-600">◆</span>
-                              工事項目
-                            </h5>
-                            <div className="flex flex-wrap gap-2">
-                              {constructionSpec.documents.koji_komoku.map((item, idx) => (
-                                <span
-                                  key={`${item}-${idx}`}
-                                  className="inline-flex items-center px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-sm font-medium border border-amber-200"
-                                >
-                                  {item}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                         <div className="border rounded-lg p-4">
                           <h5 className="font-semibold text-gray-700 mb-3">申請書関連</h5>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">

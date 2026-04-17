@@ -80,11 +80,20 @@ export async function GET(request: NextRequest) {
     const contentType = fileResponse.headers.get("content-type") || "application/octet-stream";
     const arrayBuffer = await fileResponse.arrayBuffer();
 
+    // disposition: "inline" でブラウザ内表示、"attachment" でダウンロード
+    const disposition = searchParams.get("disposition") || "inline";
+    const fileName = searchParams.get("name") || "file";
+    const encodedFileName = encodeURIComponent(fileName);
+    const contentDisposition = disposition === "attachment"
+      ? `attachment; filename*=UTF-8''${encodedFileName}`
+      : `inline; filename*=UTF-8''${encodedFileName}`;
+
     return new NextResponse(arrayBuffer, {
       status: 200,
       headers: {
         "Content-Type": contentType,
         "Content-Length": String(arrayBuffer.byteLength),
+        "Content-Disposition": contentDisposition,
         "Cache-Control": "private, max-age=300",
       },
     });

@@ -102,6 +102,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null); // 削除中のファイルトークン
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [historyTarget, setHistoryTarget] = useState<{ docType: string } | null>(null); // 履歴表示対象
   const [documentHistory, setDocumentHistory] = useState<DocumentHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -914,9 +915,9 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
 
       {/* ヘッダー（固定・コンパクト） */}
       <header className="flex-shrink-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 shadow-lg z-30">
-        <div className="w-full px-4 py-2">
+        <div className="w-full px-3 sm:px-4 py-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               {/* メニューボタン */}
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -926,63 +927,113 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
               </button>
               <button
                 onClick={() => router.push("/baiyaku/kensaku")}
-                className="flex items-center gap-1.5 text-white/90 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-all duration-200 text-sm"
+                className="flex items-center gap-1 sm:gap-1.5 text-white/90 hover:text-white bg-white/10 hover:bg-white/20 px-2 sm:px-3 py-1.5 rounded-full transition-all duration-200 text-sm"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span className="font-medium">検索に戻る</span>
+                <span className="font-medium hidden sm:inline">検索に戻る</span>
               </button>
             </div>
             {baiyaku && (
-              <div className="flex-1 flex items-center justify-center gap-6 mx-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-white/70 text-xs">製番:</span>
-                  <span className="text-white font-bold">{baiyaku.seiban}</span>
+              <>
+                {/* モバイル: 製番のみ表示 */}
+                <div className="flex items-center gap-1 sm:hidden min-w-0 flex-1 mx-2">
+                  <span className="text-white font-bold text-sm truncate">{baiyaku.seiban}</span>
                 </div>
-                <div className="flex items-center gap-2 max-w-md">
-                  <span className="text-white/70 text-xs">案件:</span>
-                  <span className="text-white font-medium truncate">
-                    {baiyaku.hinmei}
-                    {baiyaku.hinmei2 && <span className="text-white/70"> / {baiyaku.hinmei2}</span>}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-white/70 text-xs">受注日:</span>
-                  <span className="text-white text-sm">{formatDate(baiyaku.juchu_date)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-white/70 text-xs">金額:</span>
-                  <span className="text-white text-sm">{formatCurrency(baiyaku.juchu_kingaku)}</span>
-                </div>
-                {baiyaku.tantousha && (
+                {/* PC: 全情報表示 */}
+                <div className="hidden sm:flex flex-1 items-center justify-center gap-6 mx-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-white/70 text-xs">担当:</span>
-                    <span className="text-white text-sm font-medium">{baiyaku.tantousha}</span>
+                    <span className="text-white/70 text-xs">製番:</span>
+                    <span className="text-white font-bold">{baiyaku.seiban}</span>
                   </div>
-                )}
-              </div>
+                  <div className="flex items-center gap-2 max-w-md">
+                    <span className="text-white/70 text-xs">案件:</span>
+                    <span className="text-white font-medium truncate">
+                      {baiyaku.hinmei}
+                      {baiyaku.hinmei2 && <span className="text-white/70"> / {baiyaku.hinmei2}</span>}
+                    </span>
+                  </div>
+                  <div className="hidden md:flex items-center gap-2">
+                    <span className="text-white/70 text-xs">受注日:</span>
+                    <span className="text-white text-sm">{formatDate(baiyaku.juchu_date)}</span>
+                  </div>
+                  <div className="hidden md:flex items-center gap-2">
+                    <span className="text-white/70 text-xs">金額:</span>
+                    <span className="text-white text-sm">{formatCurrency(baiyaku.juchu_kingaku)}</span>
+                  </div>
+                  {baiyaku.tantousha && (
+                    <div className="hidden lg:flex items-center gap-2">
+                      <span className="text-white/70 text-xs">担当:</span>
+                      <span className="text-white text-sm font-medium">{baiyaku.tantousha}</span>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               {user && (
-                <div className="flex items-center gap-1.5 text-white/90 text-sm bg-white/10 px-3 py-1.5 rounded-full">
+                <div className="hidden sm:flex items-center gap-1.5 text-white/90 text-sm bg-white/10 px-3 py-1.5 rounded-full">
                   <User className="w-4 h-4" />
                   <span className="font-medium">{user.name || user.email}</span>
                 </div>
               )}
               <button
                 onClick={() => signOut()}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-white bg-white/20 hover:bg-white/30 rounded-full transition-all duration-200 font-medium"
+                className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-sm text-white bg-white/20 hover:bg-white/30 rounded-full transition-all duration-200 font-medium"
               >
                 <LogOut className="w-4 h-4" />
-                ログアウト
+                <span className="hidden sm:inline">ログアウト</span>
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="flex-1 flex gap-4 px-2 py-3 w-full overflow-hidden">
-        {/* サイドメニュー（固定・左寄せ） */}
-        <aside className="w-52 flex-shrink-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col md:flex-row gap-0 md:gap-4 px-0 md:px-2 py-0 md:py-3 w-full overflow-hidden">
+        {/* モバイル: メニュー選択バー */}
+        <div className="md:hidden flex-shrink-0 bg-white border-b border-gray-200 px-3 py-2">
+          <button
+            onClick={() => setDetailMenuOpen(!detailMenuOpen)}
+            className="w-full flex items-center justify-between px-3 py-2 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200"
+          >
+            <div className="flex items-center gap-2">
+              <span className={menuItems.find(m => m.id === activeMenu)?.activeColor}>
+                {menuItems.find(m => m.id === activeMenu)?.icon}
+              </span>
+              <span className="text-sm font-semibold text-gray-800">
+                {menuItems.find(m => m.id === activeMenu)?.label}
+              </span>
+            </div>
+            <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${detailMenuOpen ? "rotate-180" : ""}`} />
+          </button>
+          {detailMenuOpen && (
+            <nav className="mt-2 space-y-1">
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveMenu(item.id);
+                    setDetailMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm rounded-md transition-all duration-200 ${
+                    activeMenu === item.id
+                      ? "bg-gradient-to-r from-indigo-50 to-purple-50 font-semibold border-l-3 border-indigo-500"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <span className={activeMenu === item.id ? item.activeColor : item.color}>
+                    {item.icon}
+                  </span>
+                  <span className={activeMenu === item.id ? "text-gray-800" : "text-gray-600"}>
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+            </nav>
+          )}
+        </div>
+
+        {/* PC: サイドメニュー（固定・左寄せ） */}
+        <aside className="hidden md:block w-52 flex-shrink-0 overflow-y-auto">
           <nav className="bg-white rounded-lg shadow-lg p-2 space-y-1 sticky top-0">
             {menuItems.map((item) => (
               <button
@@ -1006,7 +1057,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
         </aside>
 
         {/* メインコンテンツ（スクロール可能） */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto px-2 md:px-0 py-2 md:py-0">
           {activeMenu === "baiyaku-detail" && (
             <div className="bg-white rounded-lg shadow">
               <div className="px-6 py-4 border-b">

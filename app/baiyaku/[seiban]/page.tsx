@@ -402,6 +402,18 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       return;
     }
 
+    const isPdf = /\.pdf$/i.test(fileName);
+
+    if (isPdf) {
+      // PDFはビューアページで別タブ表示（ダウンロードボタン付き）
+      const params = new URLSearchParams({
+        file_token: fileToken,
+        name: fileName,
+      });
+      window.open(`/pdf-viewer?${params.toString()}`, '_blank');
+      return;
+    }
+
     setLoadingFile(fileToken);
 
     try {
@@ -415,14 +427,13 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       }
 
       const fileUrl = data.data.url;
-      const fileType = fileName.toLowerCase();
-      const isImage = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(fileType);
+      const isImage = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(fileName);
 
       if (isImage) {
         // 画像はモーダルで表示
         setViewingFile({ url: fileUrl, name: fileName, type: 'image' });
       } else {
-        // PDFやその他のファイルは新しいタブで開く（ダウンロードリンクなのでiframeでは表示できない）
+        // その他のファイルは新しいタブで開く
         window.open(fileUrl, '_blank');
       }
     } catch (error) {

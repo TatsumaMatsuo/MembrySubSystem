@@ -72,7 +72,7 @@ export default function BaiyakuSearchPage() {
   };
 
   const handleSelectBaiyaku = (baiyaku: BaiyakuInfo) => {
-    router.push(`/baiyaku/${encodeURIComponent(baiyaku.seiban)}`);
+    window.open(`/baiyaku/${encodeURIComponent(baiyaku.seiban)}`, '_blank');
   };
 
   const formatDate = (timestamp?: number) => {

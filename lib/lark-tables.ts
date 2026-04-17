@@ -106,6 +106,8 @@ export const BAIYAKU_FIELDS = {
   tokuisaki_atena2: "得意先宛名2",
   uriagezumi_flag: "売上済フラグ",
   sakujo_flag: "削除フラグ",
+  uriage_mikomi_date: "売上見込日",
+  uriage_date: "売上日",
 } as const;
 
 /**

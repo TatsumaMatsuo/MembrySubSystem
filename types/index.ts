@@ -17,6 +17,8 @@ export interface BaiyakuInfo {
   sekou_start_date?: number;
   tokuisaki_atena1?: string;
   tokuisaki_atena2?: string;
+  uriage_mikomi_date?: string;
+  uriage_date?: string;
 }
 
 /**
@@ -104,6 +106,8 @@ export interface SearchParams {
   tokuisaki?: string;
   juchu_date_from?: string;
   juchu_date_to?: string;
+  uriage_date_from?: string;
+  uriage_date_to?: string;
   sales_status?: SalesStatusFilter;
 }
 

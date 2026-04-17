@@ -17,6 +17,8 @@ export default function BaiyakuSearchPage() {
     tokuisaki: "",
     juchu_date_from: "",
     juchu_date_to: "",
+    uriage_date_from: "",
+    uriage_date_to: "",
     sales_status: "juchu_zan", // デフォルトは受注残
   });
   const [results, setResults] = useState<BaiyakuInfo[]>([]);
@@ -46,6 +48,18 @@ export default function BaiyakuSearchPage() {
         params.set(
           "juchu_date_to",
           searchParams.juchu_date_to.replace(/-/g, "/")
+        );
+      }
+      if (searchParams.uriage_date_from) {
+        params.set(
+          "uriage_date_from",
+          searchParams.uriage_date_from.replace(/-/g, "/")
+        );
+      }
+      if (searchParams.uriage_date_to) {
+        params.set(
+          "uriage_date_to",
+          searchParams.uriage_date_to.replace(/-/g, "/")
         );
       }
       if (searchParams.sales_status) {
@@ -80,6 +94,14 @@ export default function BaiyakuSearchPage() {
     return new Date(timestamp).toLocaleDateString("ja-JP");
   };
 
+  const getUriageDateLabel = () => {
+    switch (searchParams.sales_status) {
+      case "juchu_zan": return "売上見込日";
+      case "uriagezumi": return "売上日";
+      default: return "売上日";
+    }
+  };
+
   return (
     <MainLayout>
       <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden">
@@ -96,7 +118,7 @@ export default function BaiyakuSearchPage() {
               <Search className="w-5 h-5 text-indigo-500" />
               検索条件
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-3 mb-3">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   ステータス
@@ -213,6 +235,38 @@ export default function BaiyakuSearchPage() {
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 />
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  {getUriageDateLabel()}（From）
+                </label>
+                <input
+                  type="date"
+                  value={searchParams.uriage_date_from}
+                  onChange={(e) =>
+                    setSearchParams({
+                      ...searchParams,
+                      uriage_date_from: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  {getUriageDateLabel()}（To）
+                </label>
+                <input
+                  type="date"
+                  value={searchParams.uriage_date_to}
+                  onChange={(e) =>
+                    setSearchParams({
+                      ...searchParams,
+                      uriage_date_to: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                />
+              </div>
             </div>
             <button
               onClick={handleSearch}
@@ -244,22 +298,28 @@ export default function BaiyakuSearchPage() {
                 <table className="w-full table-fixed">
                   <thead>
                     <tr>
-                      <th className="w-[12%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                      <th className="w-[10%] px-4 py-2 text-left text-sm font-bold text-gray-700">
                         製番
                       </th>
-                      <th className="w-[25%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                      <th className="w-[20%] px-4 py-2 text-left text-sm font-bold text-gray-700">
                         案件名
                       </th>
-                      <th className="w-[20%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                      <th className="w-[16%] px-4 py-2 text-left text-sm font-bold text-gray-700">
                         得意先名
                       </th>
-                      <th className="w-[13%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                      <th className="w-[10%] px-4 py-2 text-left text-sm font-bold text-gray-700">
                         営業担当者
                       </th>
-                      <th className="w-[15%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                      <th className="w-[11%] px-4 py-2 text-left text-sm font-bold text-gray-700">
                         受注日
                       </th>
-                      <th className="w-[15%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                      <th className="w-[11%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                        売上見込日
+                      </th>
+                      <th className="w-[11%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                        売上日
+                      </th>
+                      <th className="w-[11%] px-4 py-2 text-left text-sm font-bold text-gray-700">
                         施工開始日
                       </th>
                     </tr>
@@ -277,10 +337,10 @@ export default function BaiyakuSearchPage() {
                           index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
                         }`}
                       >
-                        <td className="w-[12%] px-4 py-2.5 whitespace-nowrap text-sm font-bold text-indigo-600 hover:text-indigo-800">
+                        <td className="w-[10%] px-4 py-2.5 whitespace-nowrap text-sm font-bold text-indigo-600 hover:text-indigo-800">
                           {item.seiban}
                         </td>
-                        <td className="w-[25%] px-4 py-2.5 text-sm text-gray-800 truncate">
+                        <td className="w-[20%] px-4 py-2.5 text-sm text-gray-800 truncate">
                           {item.hinmei}
                           {item.hinmei2 && (
                             <span className="text-gray-500">
@@ -289,7 +349,7 @@ export default function BaiyakuSearchPage() {
                             </span>
                           )}
                         </td>
-                        <td className="w-[20%] px-4 py-2.5 text-sm text-gray-700 truncate">
+                        <td className="w-[16%] px-4 py-2.5 text-sm text-gray-700 truncate">
                           {item.tokuisaki_atena1 || "-"}
                           {item.tokuisaki_atena2 && (
                             <span className="text-gray-500">
@@ -298,13 +358,19 @@ export default function BaiyakuSearchPage() {
                             </span>
                           )}
                         </td>
-                        <td className="w-[13%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                        <td className="w-[10%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
                           {item.tantousha}
                         </td>
-                        <td className="w-[15%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                        <td className="w-[11%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
                           {item.juchu_date || "-"}
                         </td>
-                        <td className="w-[15%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                        <td className="w-[11%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                          {item.uriage_mikomi_date || "-"}
+                        </td>
+                        <td className="w-[11%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                          {item.uriage_date || "-"}
+                        </td>
+                        <td className="w-[11%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
                           {formatDate(item.sekou_start_date)}
                         </td>
                       </tr>

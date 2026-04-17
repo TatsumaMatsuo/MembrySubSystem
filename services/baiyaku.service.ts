@@ -56,6 +56,28 @@ export async function searchBaiyakuInfo(params: SearchParams): Promise<BaiyakuIn
     filters.push(`CurrentValue.[${BAIYAKU_FIELDS.juchu_date}] <= "${params.juchu_date_to}"`);
   }
 
+  // 売上日FROM/TO フィルタ（ステータスによって対象フィールドが異なる）
+  if (params.uriage_date_from || params.uriage_date_to) {
+    if (params.sales_status === "juchu_zan") {
+      // 受注残: 売上見込日で検索
+      if (params.uriage_date_from) {
+        filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriage_mikomi_date}] >= "${params.uriage_date_from}"`);
+      }
+      if (params.uriage_date_to) {
+        filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriage_mikomi_date}] <= "${params.uriage_date_to}"`);
+      }
+    } else if (params.sales_status === "uriagezumi") {
+      // 売上済: リンクフィールドの売上日で検索
+      if (params.uriage_date_from) {
+        filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriage_date}] >= "${params.uriage_date_from}"`);
+      }
+      if (params.uriage_date_to) {
+        filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriage_date}] <= "${params.uriage_date_to}"`);
+      }
+    }
+    // 全て: サーバーサイドでフィルタ不可（売上日有無で分岐が必要）→ 後処理でフィルタ
+  }
+
   const filter = filters.length > 0 ? `AND(${filters.join(", ")})` : undefined;
 
   console.log("[baiyaku.service] searchBaiyakuInfo filter:", filter);
@@ -71,7 +93,20 @@ export async function searchBaiyakuInfo(params: SearchParams): Promise<BaiyakuIn
     return [];
   }
 
-  return response.data.items.map((item) => ({
+  // リンクフィールドの売上日はテキストまたはリンク配列の場合があるため抽出用ヘルパー
+  const extractTextValue = (val: unknown): string | undefined => {
+    if (!val) return undefined;
+    if (typeof val === "string") return val;
+    if (Array.isArray(val)) {
+      // リンクフィールド: [{text: "2025/03/15", ...}] 形式
+      const first = val[0];
+      if (first?.text) return String(first.text);
+      if (typeof first === "string") return first;
+    }
+    return String(val);
+  };
+
+  let results: BaiyakuInfo[] = response.data.items.map((item) => ({
     record_id: item.record_id || "",
     seiban: String(item.fields?.[BAIYAKU_FIELDS.seiban] || ""),
     hinmei: String(item.fields?.[BAIYAKU_FIELDS.hinmei] || ""),
@@ -90,7 +125,22 @@ export async function searchBaiyakuInfo(params: SearchParams): Promise<BaiyakuIn
     tokuisaki_atena2: item.fields?.[BAIYAKU_FIELDS.tokuisaki_atena2]
       ? String(item.fields[BAIYAKU_FIELDS.tokuisaki_atena2])
       : undefined,
+    uriage_mikomi_date: extractTextValue(item.fields?.[BAIYAKU_FIELDS.uriage_mikomi_date]),
+    uriage_date: extractTextValue(item.fields?.[BAIYAKU_FIELDS.uriage_date]),
   }));
+
+  // ステータス「全て」の場合: 売上日があれば売上日、なければ売上見込日で日付フィルタ
+  if (params.sales_status === "all" && (params.uriage_date_from || params.uriage_date_to)) {
+    results = results.filter((item) => {
+      const targetDate = item.uriage_date || item.uriage_mikomi_date;
+      if (!targetDate) return false;
+      if (params.uriage_date_from && targetDate < params.uriage_date_from) return false;
+      if (params.uriage_date_to && targetDate > params.uriage_date_to) return false;
+      return true;
+    });
+  }
+
+  return results;
 }
 
 /**

@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
     const tokuisaki = searchParams.get("tokuisaki") || undefined;
     const juchu_date_from = searchParams.get("juchu_date_from") || undefined;
     const juchu_date_to = searchParams.get("juchu_date_to") || undefined;
+    const uriage_date_from = searchParams.get("uriage_date_from") || undefined;
+    const uriage_date_to = searchParams.get("uriage_date_to") || undefined;
     const sales_status = (searchParams.get("sales_status") || "juchu_zan") as SalesStatusFilter;
 
     const results = await searchBaiyakuInfo({
@@ -22,6 +24,8 @@ export async function GET(request: NextRequest) {
       tokuisaki,
       juchu_date_from,
       juchu_date_to,
+      uriage_date_from,
+      uriage_date_to,
       sales_status,
     });
 

@@ -65,6 +65,30 @@ export async function GET(request: NextRequest) {
       return 0;
     };
 
+    // テキスト/複数選択のいずれでも string[] として取得
+    const getStringArray = (fieldName: string): string[] => {
+      const value = fields[fieldName];
+      if (value === undefined || value === null || value === "") return [];
+      const toStr = (v: any): string => {
+        if (typeof v === "string") return v;
+        if (v && typeof v === "object" && "text" in v) return String((v as any).text || "");
+        if (v && typeof v === "object" && "name" in v) return String((v as any).name || "");
+        return String(v || "");
+      };
+      let joined = "";
+      if (Array.isArray(value)) {
+        joined = value.map(toStr).join("\n");
+      } else if (typeof value === "object" && value !== null) {
+        joined = toStr(value);
+      } else {
+        joined = String(value);
+      }
+      return joined
+        .split(/[,、\n\r\t]+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+    };
+
     // 工事仕様書データを構築
     const constructionSpec: ConstructionSpec = {
       // 基本情報
@@ -185,6 +209,7 @@ export async function GET(request: NextRequest) {
 
       // 提出書類
       documents: {
+        koji_komoku: getStringArray("◆工事項目"),
         project_name: getString("工事名称"),
         confirmation_required: getBoolean("確認申請"),
         application_creation: getBoolean("申請書作成"),

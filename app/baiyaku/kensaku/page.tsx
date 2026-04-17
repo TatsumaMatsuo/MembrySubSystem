@@ -104,7 +104,7 @@ export default function BaiyakuSearchPage() {
 
   return (
     <MainLayout>
-      <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden">
+      <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-blue-50 overflow-y-auto">
         {/* ページタイトル */}
         <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
           <h1 className="text-xl font-bold text-gray-800">売約情報検索</h1>
@@ -120,7 +120,7 @@ export default function BaiyakuSearchPage() {
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-3 mb-3">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
                   ステータス
                 </label>
                 <select
@@ -131,7 +131,7 @@ export default function BaiyakuSearchPage() {
                       sales_status: e.target.value as SalesStatusFilter,
                     })
                   }
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white"
+                  className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all bg-white"
                 >
                   <option value="juchu_zan">受注残</option>
                   <option value="uriagezumi">売上済</option>
@@ -139,7 +139,7 @@ export default function BaiyakuSearchPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
                   製番
                 </label>
                 <input
@@ -149,11 +149,11 @@ export default function BaiyakuSearchPage() {
                     setSearchParams({ ...searchParams, seiban: e.target.value })
                   }
                   placeholder="部分一致"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
                   営業担当者
                 </label>
                 <input
@@ -166,11 +166,11 @@ export default function BaiyakuSearchPage() {
                     })
                   }
                   placeholder="部分一致"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
                   案件名
                 </label>
                 <input
@@ -183,11 +183,11 @@ export default function BaiyakuSearchPage() {
                     })
                   }
                   placeholder="部分一致"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
                   得意先名
                 </label>
                 <input
@@ -200,12 +200,12 @@ export default function BaiyakuSearchPage() {
                     })
                   }
                   placeholder="部分一致"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  受注日（From）
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
+                  受注日From
                 </label>
                 <input
                   type="date"
@@ -216,12 +216,12 @@ export default function BaiyakuSearchPage() {
                       juchu_date_from: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  受注日（To）
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
+                  受注日To
                 </label>
                 <input
                   type="date"
@@ -232,12 +232,12 @@ export default function BaiyakuSearchPage() {
                       juchu_date_to: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  {getUriageDateLabel()}（From）
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
+                  {getUriageDateLabel()}From
                 </label>
                 <input
                   type="date"
@@ -248,12 +248,12 @@ export default function BaiyakuSearchPage() {
                       uriage_date_from: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  {getUriageDateLabel()}（To）
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">
+                  {getUriageDateLabel()}To
                 </label>
                 <input
                   type="date"
@@ -264,7 +264,7 @@ export default function BaiyakuSearchPage() {
                       uriage_date_to: e.target.value,
                     })
                   }
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 />
               </div>
             </div>
@@ -280,7 +280,7 @@ export default function BaiyakuSearchPage() {
         </div>
 
         {/* 検索結果 */}
-        <main className="flex-1 overflow-y-auto px-4 pb-4">
+        <div className="flex-shrink-0 px-4 pb-4">
           {error && (
             <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm font-medium">
               {error}
@@ -288,95 +288,144 @@ export default function BaiyakuSearchPage() {
           )}
 
           {results.length > 0 && (
-            <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden flex flex-col h-full">
-              <div className="flex-shrink-0 bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-2">
+            <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-2">
                 <h3 className="text-base font-bold text-white">
                   検索結果: {results.length}件
                 </h3>
               </div>
-              <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200">
-                <table className="w-full table-fixed">
-                  <thead>
-                    <tr>
-                      <th className="w-[10%] px-4 py-2 text-left text-sm font-bold text-gray-700">
-                        製番
-                      </th>
-                      <th className="w-[20%] px-4 py-2 text-left text-sm font-bold text-gray-700">
-                        案件名
-                      </th>
-                      <th className="w-[16%] px-4 py-2 text-left text-sm font-bold text-gray-700">
-                        得意先名
-                      </th>
-                      <th className="w-[10%] px-4 py-2 text-left text-sm font-bold text-gray-700">
-                        営業担当者
-                      </th>
-                      <th className="w-[11%] px-4 py-2 text-left text-sm font-bold text-gray-700">
-                        受注日
-                      </th>
-                      <th className="w-[11%] px-4 py-2 text-left text-sm font-bold text-gray-700">
-                        売上見込日
-                      </th>
-                      <th className="w-[11%] px-4 py-2 text-left text-sm font-bold text-gray-700">
-                        売上日
-                      </th>
-                      <th className="w-[11%] px-4 py-2 text-left text-sm font-bold text-gray-700">
-                        施工開始日
-                      </th>
-                    </tr>
-                  </thead>
-                </table>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <table className="w-full table-fixed">
-                  <tbody className="divide-y divide-gray-100">
-                    {results.map((item, index) => (
-                      <tr
-                        key={item.record_id}
-                        onClick={() => handleSelectBaiyaku(item)}
-                        className={`cursor-pointer transition-all duration-150 hover:bg-indigo-50 ${
-                          index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                        }`}
-                      >
-                        <td className="w-[10%] px-4 py-2.5 whitespace-nowrap text-sm font-bold text-indigo-600 hover:text-indigo-800">
-                          {item.seiban}
-                        </td>
-                        <td className="w-[20%] px-4 py-2.5 text-sm text-gray-800 truncate">
-                          {item.hinmei}
-                          {item.hinmei2 && (
-                            <span className="text-gray-500">
-                              {" "}
-                              / {item.hinmei2}
-                            </span>
-                          )}
-                        </td>
-                        <td className="w-[16%] px-4 py-2.5 text-sm text-gray-700 truncate">
-                          {item.tokuisaki_atena1 || "-"}
-                          {item.tokuisaki_atena2 && (
-                            <span className="text-gray-500">
-                              {" "}
-                              / {item.tokuisaki_atena2}
-                            </span>
-                          )}
-                        </td>
-                        <td className="w-[10%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
-                          {item.tantousha}
-                        </td>
-                        <td className="w-[11%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
-                          {item.juchu_date || "-"}
-                        </td>
-                        <td className="w-[11%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
-                          {item.uriage_mikomi_date || "-"}
-                        </td>
-                        <td className="w-[11%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
-                          {item.uriage_date || "-"}
-                        </td>
-                        <td className="w-[11%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
-                          {formatDate(item.sekou_start_date)}
-                        </td>
+
+              {/* PC用テーブル */}
+              <div className="hidden lg:block">
+                <div className="bg-gray-50 border-b border-gray-200">
+                  <table className="w-full table-fixed">
+                    <thead>
+                      <tr>
+                        <th className="w-[10%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                          製番
+                        </th>
+                        <th className="w-[20%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                          案件名
+                        </th>
+                        <th className="w-[16%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                          得意先名
+                        </th>
+                        <th className="w-[10%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                          営業担当者
+                        </th>
+                        <th className="w-[11%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                          受注日
+                        </th>
+                        <th className="w-[11%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                          売上見込日
+                        </th>
+                        <th className="w-[11%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                          売上日
+                        </th>
+                        <th className="w-[11%] px-4 py-2 text-left text-sm font-bold text-gray-700">
+                          施工開始日
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                  </table>
+                </div>
+                <div className="max-h-[60vh] overflow-y-auto">
+                  <table className="w-full table-fixed">
+                    <tbody className="divide-y divide-gray-100">
+                      {results.map((item, index) => (
+                        <tr
+                          key={item.record_id}
+                          onClick={() => handleSelectBaiyaku(item)}
+                          className={`cursor-pointer transition-all duration-150 hover:bg-indigo-50 ${
+                            index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                          }`}
+                        >
+                          <td className="w-[10%] px-4 py-2.5 whitespace-nowrap text-sm font-bold text-indigo-600 hover:text-indigo-800">
+                            {item.seiban}
+                          </td>
+                          <td className="w-[20%] px-4 py-2.5 text-sm text-gray-800 truncate">
+                            {item.hinmei}
+                            {item.hinmei2 && (
+                              <span className="text-gray-500">
+                                {" "}
+                                / {item.hinmei2}
+                              </span>
+                            )}
+                          </td>
+                          <td className="w-[16%] px-4 py-2.5 text-sm text-gray-700 truncate">
+                            {item.tokuisaki_atena1 || "-"}
+                            {item.tokuisaki_atena2 && (
+                              <span className="text-gray-500">
+                                {" "}
+                                / {item.tokuisaki_atena2}
+                              </span>
+                            )}
+                          </td>
+                          <td className="w-[10%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                            {item.tantousha}
+                          </td>
+                          <td className="w-[11%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                            {item.juchu_date || "-"}
+                          </td>
+                          <td className="w-[11%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                            {item.uriage_mikomi_date || "-"}
+                          </td>
+                          <td className="w-[11%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                            {item.uriage_date || "-"}
+                          </td>
+                          <td className="w-[11%] px-4 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                            {formatDate(item.sekou_start_date)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* モバイル用カードリスト */}
+              <div className="lg:hidden divide-y divide-gray-100">
+                {results.map((item, index) => (
+                  <div
+                    key={item.record_id}
+                    onClick={() => handleSelectBaiyaku(item)}
+                    className={`px-4 py-3 cursor-pointer active:bg-indigo-50 ${
+                      index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-bold text-indigo-600">
+                        {item.seiban}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {item.tantousha}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-800 truncate">
+                      {item.hinmei}
+                      {item.hinmei2 && (
+                        <span className="text-gray-500"> / {item.hinmei2}</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                      {item.tokuisaki_atena1 || "-"}
+                    </p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 text-xs text-gray-500">
+                      {item.juchu_date && (
+                        <span>受注: {item.juchu_date}</span>
+                      )}
+                      {item.uriage_mikomi_date && (
+                        <span>見込: {item.uriage_mikomi_date}</span>
+                      )}
+                      {item.uriage_date && (
+                        <span>売上: {item.uriage_date}</span>
+                      )}
+                      {item.sekou_start_date && (
+                        <span>施工: {formatDate(item.sekou_start_date)}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -391,7 +440,7 @@ export default function BaiyakuSearchPage() {
               </p>
             </div>
           )}
-        </main>
+        </div>
       </div>
     </MainLayout>
   );

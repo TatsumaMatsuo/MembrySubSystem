@@ -1977,23 +1977,6 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                             </div>
                           </div>
                         </div>
-                        {constructionSpec.documents.main_contractor && (
-                          <div className="border rounded-lg p-4">
-                            <h5 className="font-semibold text-gray-700 mb-3">元請け情報</h5>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <span className="text-gray-500">元請け名</span>
-                                <p className="font-medium">{constructionSpec.documents.main_contractor}</p>
-                              </div>
-                              {constructionSpec.documents.designer && (
-                                <div>
-                                  <span className="text-gray-500">設計者</span>
-                                  <p className="font-medium">{constructionSpec.documents.designer}</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
                         <div className="border rounded-lg p-4">
                           <h5 className="font-semibold text-gray-700 mb-3">製作・施工要領書</h5>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -2021,6 +2004,14 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                                 {constructionSpec.documents.construction_plan ? "必要" : "不要"}
                               </p>
                             </div>
+                            <div>
+                              <span className="text-gray-500">元請け名</span>
+                              <p className="font-medium">{constructionSpec.documents.main_contractor || "-"}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">設計者</span>
+                              <p className="font-medium">{constructionSpec.documents.designer || "-"}</p>
+                            </div>
                           </div>
                         </div>
                         <div className="border rounded-lg p-4">
@@ -2043,6 +2034,10 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                               <p className={`font-medium ${constructionSpec.documents.site_construction_photo ? "text-orange-600" : "text-gray-400"}`}>
                                 {constructionSpec.documents.site_construction_photo ? "必要" : "不要"}
                               </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">施工者</span>
+                              <p className="font-medium">{constructionSpec.documents.constructor || "-"}</p>
                             </div>
                           </div>
                         </div>
@@ -2233,6 +2228,18 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                               <p className="font-medium">{constructionSpec.site_construction.work_vehicle_count_per_day}台/日 × {constructionSpec.site_construction.work_vehicle_days}日</p>
                             </div>
                           </div>
+                          {constructionSpec.site_construction.crane_comment && (
+                            <div className="mt-3 text-sm">
+                              <span className="text-gray-500 block mb-1">重機コメント</span>
+                              <p className="font-medium whitespace-pre-wrap">{constructionSpec.site_construction.crane_comment}</p>
+                            </div>
+                          )}
+                          {constructionSpec.site_construction.work_vehicle_comment && (
+                            <div className="mt-3 text-sm">
+                              <span className="text-gray-500 block mb-1">作業車コメント</span>
+                              <p className="font-medium whitespace-pre-wrap">{constructionSpec.site_construction.work_vehicle_comment}</p>
+                            </div>
+                          )}
                         </div>
                         <div className="border rounded-lg p-4">
                           <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -2287,6 +2294,30 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                               </p>
                             </div>
                           </div>
+                          {constructionSpec.site_environment.vehicle_space_comment && (
+                            <div className="mt-3 text-sm">
+                              <span className="text-gray-500 block mb-1">車両スペースコメント</span>
+                              <p className="font-medium whitespace-pre-wrap">{constructionSpec.site_environment.vehicle_space_comment}</p>
+                            </div>
+                          )}
+                          {constructionSpec.site_environment.obstacle_comment && (
+                            <div className="mt-3 text-sm">
+                              <span className="text-gray-500 block mb-1">車両スペース障害物コメント</span>
+                              <p className="font-medium whitespace-pre-wrap">{constructionSpec.site_environment.obstacle_comment}</p>
+                            </div>
+                          )}
+                          {constructionSpec.site_environment.power_comment && (
+                            <div className="mt-3 text-sm">
+                              <span className="text-gray-500 block mb-1">電源コメント</span>
+                              <p className="font-medium whitespace-pre-wrap">{constructionSpec.site_environment.power_comment}</p>
+                            </div>
+                          )}
+                          {constructionSpec.site_environment.ground_comment && (
+                            <div className="mt-3 text-sm">
+                              <span className="text-gray-500 block mb-1">地面状況コメント</span>
+                              <p className="font-medium whitespace-pre-wrap">{constructionSpec.site_environment.ground_comment}</p>
+                            </div>
+                          )}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="border rounded-lg p-4">
@@ -2314,6 +2345,12 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                                 <p className="font-medium">{constructionSpec.electrical.lighting_work}</p>
                               </div>
                             </div>
+                            {constructionSpec.electrical.comment && (
+                              <div className="mt-3 text-sm">
+                                <span className="text-gray-500 block mb-1">電気工事コメント</span>
+                                <p className="font-medium whitespace-pre-wrap">{constructionSpec.electrical.comment}</p>
+                              </div>
+                            )}
                           </div>
                           <div className="border rounded-lg p-4">
                             <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -2331,6 +2368,32 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                                 <span className="text-gray-500">発注状況</span>
                                 <p className="font-medium">{constructionSpec.fire_protection.order_status}</p>
                               </div>
+                              <div>
+                                <span className="text-gray-500">発注先</span>
+                                <p className="font-medium">{constructionSpec.fire_protection.order_destination || "-"}</p>
+                              </div>
+                            </div>
+                            {constructionSpec.fire_protection.comment && (
+                              <div className="mt-3 text-sm">
+                                <span className="text-gray-500 block mb-1">消防設備コメント</span>
+                                <p className="font-medium whitespace-pre-wrap">{constructionSpec.fire_protection.comment}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="border rounded-lg p-4">
+                          <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                            <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                            張替
+                          </h5>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">張替前膜材</span>
+                              <p className="font-medium">{constructionSpec.replacement.previous_membrane || "-"}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">前回張替日</span>
+                              <p className="font-medium">{constructionSpec.replacement.previous_replacement_date || "-"}</p>
                             </div>
                           </div>
                         </div>

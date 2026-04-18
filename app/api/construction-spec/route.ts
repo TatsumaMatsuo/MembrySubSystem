@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
       // 張替
       replacement: {
         previous_membrane: getString("張替前膜材"),
-        previous_replacement_date: getString("前回張替日"),
+        previous_replacement_date: getString("前回取付日"),
       },
 
       // 特記事項
@@ -222,8 +222,8 @@ export async function GET(request: NextRequest) {
         raw_material_required: getBoolean("原反"),
         material_required: getBoolean("資材"),
         plating_test_report_required: getBoolean("メッキ試験報告書"),
-        main_contractor: getString("元請け名"),
-        designer: getString("設計者"),
+        main_contractor: getString("提出必要書類 元請け名"),
+        designer: getString("提出必要書類 設計者"),
         steel_frame_category: getBoolean("鉄骨製作区分"),
         steel_frame_manual: getBoolean("鉄骨製作要領書"),
         membrane_category: getBoolean("膜製作区分"),

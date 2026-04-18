@@ -2195,6 +2195,12 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                               <p className="font-medium">10t: {constructionSpec.transportation.ten_ton_count}台 / 4t: {constructionSpec.transportation.four_ton_count}台</p>
                             </div>
                           </div>
+                          {constructionSpec.transportation.comment && (
+                            <div className="mt-3 text-sm">
+                              <span className="text-gray-500 block mb-1">運搬コメント</span>
+                              <p className="font-medium whitespace-pre-wrap">{constructionSpec.transportation.comment}</p>
+                            </div>
+                          )}
                         </div>
                         <div className="border rounded-lg p-4">
                           <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">

@@ -2119,6 +2119,10 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                               <p className="font-medium">{constructionSpec.foundation.order_status}</p>
                             </div>
                             <div>
+                              <span className="text-gray-500">発注先</span>
+                              <p className="font-medium">{constructionSpec.foundation.order_destination || "-"}</p>
+                            </div>
+                            <div>
                               <span className="text-gray-500">基礎工事種別</span>
                               <p className="font-medium">{constructionSpec.foundation.foundation_type}</p>
                             </div>
@@ -2129,6 +2133,12 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                               </p>
                             </div>
                           </div>
+                          {constructionSpec.foundation.comment && (
+                            <div className="mt-3 p-3 bg-gray-50 rounded text-sm">
+                              <span className="text-gray-500 block mb-1">基礎工事コメント</span>
+                              <p className="text-gray-700 whitespace-pre-wrap">{constructionSpec.foundation.comment}</p>
+                            </div>
+                          )}
                         </div>
                         <div className="border rounded-lg p-4">
                           <h5 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">

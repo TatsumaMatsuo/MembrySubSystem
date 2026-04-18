@@ -2134,9 +2134,9 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                             </div>
                           </div>
                           {constructionSpec.foundation.comment && (
-                            <div className="mt-3 p-3 bg-gray-50 rounded text-sm">
+                            <div className="mt-3 text-sm">
                               <span className="text-gray-500 block mb-1">基礎工事コメント</span>
-                              <p className="text-gray-700 whitespace-pre-wrap">{constructionSpec.foundation.comment}</p>
+                              <p className="font-medium whitespace-pre-wrap">{constructionSpec.foundation.comment}</p>
                             </div>
                           )}
                         </div>

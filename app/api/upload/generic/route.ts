@@ -253,9 +253,20 @@ export async function POST(request: NextRequest): Promise<Response> {
   }
 
   // ファイルのArrayBufferを先に取得（formDataから読み込み、ストリーム内で参照するため）
-  const fileBuffer = await file.arrayBuffer();
-  const fileName = file.name;
-  const fileSize = file.size;
+  let fileBuffer: ArrayBuffer;
+  let fileName: string;
+  let fileSize: number;
+  try {
+    fileBuffer = await file.arrayBuffer();
+    fileName = file.name;
+    fileSize = file.size;
+  } catch (err: any) {
+    console.error("[generic-upload] file.arrayBuffer() failed:", err);
+    return NextResponse.json(
+      { error: `ファイル読み取りに失敗しました: ${err?.message || String(err)}` },
+      { status: 400 }
+    );
+  }
 
   // --- SSEストリームを即座に返す（重い処理はすべてストリーム内で実行） ---
   const encoder = new TextEncoder();
@@ -377,49 +388,81 @@ export async function POST(request: NextRequest): Promise<Response> {
       // テナントトークンを取得
       const tenantToken = await getTenantAccessToken();
 
-      // 既存レコードを取得
+      // Excelからユニークなキー値を抽出
+      const uploadKeys = new Set<string>();
+      for (const row of data) {
+        const keyValue = String(row[keyExcelColumn] || "").trim();
+        if (keyValue && keyValue !== "　") {
+          uploadKeys.add(keyValue);
+        }
+      }
+      const keyArray = Array.from(uploadKeys);
+      console.log(`[generic-upload] Unique keys to lookup: ${keyArray.length}`);
+
       await sendEvent({
         type: "progress", current: 0, total: data.length, inserted: 0, updated: 0, errors: [],
         configName: config.name,
-        message: "既存レコードを確認中...",
+        message: `既存レコードを確認中... (${keyArray.length}件のキーを検索)`,
       });
 
+      // キー項目の型を特定（filter構文の値クォートに使用）
+      const keyFieldType = keyMapping?.fieldType || "text";
+
+      // Lark filter用の値フォーマット
+      const formatKeyForFilter = (k: string): string => {
+        if (keyFieldType === "number") {
+          const n = parseFloat(k);
+          return isNaN(n) ? `"${k.replace(/"/g, '\\"')}"` : String(n);
+        }
+        return `"${k.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+      };
+
       const existingRecords = new Map<string, string>();
-      let pageToken: string | undefined;
-      let fetchedPages = 0;
+      const CHUNK_SIZE = 30; // 1クエリあたりのキー件数（filter長制限対策）
 
-      do {
-        const response = await client.bitable.appTableRecord.list({
-          path: { app_token: baseToken, table_id: config.tableId },
-          params: {
-            page_size: 500,
-            page_token: pageToken,
-            field_names: JSON.stringify([config.keyField]),
-          },
-        });
+      for (let i = 0; i < keyArray.length; i += CHUNK_SIZE) {
+        const chunk = keyArray.slice(i, i + CHUNK_SIZE);
+        const filterParts = chunk.map(
+          (k) => `CurrentValue.[${config.keyField}]=${formatKeyForFilter(k)}`
+        );
+        const filter =
+          filterParts.length === 1 ? filterParts[0] : `OR(${filterParts.join(",")})`;
 
-        if (response.data?.items) {
-          for (const item of response.data.items) {
-            const keyValue = (item.fields as any)?.[config.keyField];
-            if (keyValue && item.record_id) {
-              existingRecords.set(String(keyValue).trim(), item.record_id);
+        let pageToken: string | undefined;
+        do {
+          const response = await client.bitable.appTableRecord.list({
+            path: { app_token: baseToken, table_id: config.tableId },
+            params: {
+              page_size: 500,
+              page_token: pageToken,
+              filter,
+              field_names: JSON.stringify([config.keyField]),
+            },
+          });
+
+          if (response.data?.items) {
+            for (const item of response.data.items) {
+              const keyValue = (item.fields as any)?.[config.keyField];
+              if (keyValue && item.record_id) {
+                existingRecords.set(String(keyValue).trim(), item.record_id);
+              }
             }
           }
-        }
-        pageToken = response.data?.page_token;
-        fetchedPages++;
+          pageToken = response.data?.page_token;
+        } while (pageToken);
 
-        // 5ページごとにキープアライブ送信
-        if (fetchedPages % 5 === 0) {
+        // 5チャンクごとにキープアライブ送信
+        const chunkIndex = Math.floor(i / CHUNK_SIZE);
+        if (chunkIndex % 5 === 0) {
           await sendEvent({
             type: "progress", current: 0, total: data.length, inserted: 0, updated: 0, errors: [],
             configName: config.name,
-            message: `既存レコード確認中... (${existingRecords.size}件)`,
+            message: `既存レコード確認中... (${Math.min(i + CHUNK_SIZE, keyArray.length)}/${keyArray.length})`,
           });
         }
-      } while (pageToken);
+      }
 
-      console.log(`[generic-upload] Config: ${config.name}, Existing records: ${existingRecords.size}, Total rows: ${data.length}`);
+      console.log(`[generic-upload] Config: ${config.name}, Matched existing: ${existingRecords.size}/${keyArray.length}, Total rows: ${data.length}`);
 
       // データを新規 / 更新に分類
       const toCreate: Array<Record<string, any>> = [];

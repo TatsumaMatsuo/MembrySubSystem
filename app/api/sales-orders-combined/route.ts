@@ -14,7 +14,7 @@ const BACKLOG_VIEW_ID = "vewCU8LrsT"; // 月部門担当者別受注残（売上
 
 // シンプルなインメモリキャッシュ（TTL: 15分）
 const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 15 * 60 * 1000;
+const CACHE_TTL = 5 * 60 * 1000; // 5分
 
 function getCachedData(key: string): any | null {
   const cached = cache.get(key);

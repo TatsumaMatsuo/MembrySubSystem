@@ -1,11 +1,11 @@
+import { withSentryConfig } from "@sentry/nextjs";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
   // AWS Amplify SSR用: 環境変数をビルド時に埋め込み
-  // ※App Routerではprocess.envが直接使用されるため、envオブジェクトでの明示的な設定は不要
-  // ただしAWS Amplifyでは.env.productionファイルが必要な場合がある
   env: {
     NEXT_PUBLIC_LARK_OAUTH_CLIENT_ID: process.env.LARK_OAUTH_CLIENT_ID,
     NEXT_PUBLIC_LARK_OAUTH_REDIRECT_URI: process.env.LARK_OAUTH_REDIRECT_URI,
@@ -17,4 +17,17 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry 設定が無ければ Sentry wrap をスキップ
+const withSentry = process.env.SENTRY_ORG
+  ? (c) =>
+      withSentryConfig(c, {
+        org: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+        silent: !process.env.CI,
+        widenClientFileUpload: true,
+        tunnelRoute: "/monitoring",
+        sourcemaps: { deleteSourcemapsAfterUpload: true },
+      })
+  : (c) => c;
+
+export default withSentry(nextConfig);

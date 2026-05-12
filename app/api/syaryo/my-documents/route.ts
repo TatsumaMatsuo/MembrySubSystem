@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/syaryo/auth-utils";
+import { requireAuth, getCurrentEmployeeInfo } from "@/lib/syaryo/auth-utils";
 import { getDriversLicenses } from "@/lib/syaryo/services/drivers-license.service";
 import { getVehicleRegistrations } from "@/lib/syaryo/services/vehicle-registration.service";
 import { getInsurancePolicies } from "@/lib/syaryo/services/insurance-policy.service";
-import { getEmployeeByEmail } from "@/lib/syaryo/services/employee.service";
 
 /**
  * GET /api/my-documents
@@ -26,12 +25,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const employeeIdParam = searchParams.get("employee_id");
 
-    // 代理申請の場合はパラメータのIDを使用、それ以外はメールから社員コードを取得
+    // 代理申請の場合はパラメータのIDを使用、それ以外はセッションから社員コードを取得
+    // (email無しユーザーでもLark Open IDで解決できるよう getCurrentEmployeeInfo を使用)
     let userId = employeeIdParam;
-    if (!userId && authCheck.userId) {
-      // メールアドレスから社員コードを取得
-      const employee = await getEmployeeByEmail(authCheck.userId);
-      userId = employee?.employee_id || null;
+    if (!userId) {
+      const employee = await getCurrentEmployeeInfo();
+      userId = employee?.employeeId || null;
     }
 
     console.log(`[my-documents] userId: ${userId} (param: ${employeeIdParam}, auth: ${authCheck.userId})`);

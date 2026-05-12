@@ -53,6 +53,38 @@ async function resolveUserPermissions(): Promise<{
 }
 
 /**
+ * 現在のユーザーの社員情報を取得
+ * email → Lark Open ID の順で社員マスタを検索する
+ *
+ * Lark OIDCがemailを返さないアカウントでも社員IDを解決できるようにする共通ヘルパー
+ */
+export async function getCurrentEmployeeInfo(): Promise<{
+  email: string | null;
+  employeeId: string;
+  employeeName: string;
+  department: string;
+} | null> {
+  const session = await getServerSession();
+  if (!session?.user) return null;
+
+  const email = session.user.email || null;
+  const larkId = (session.user as any).id || null;
+
+  let employee = email ? await getEmployeeByEmail(email) : null;
+  if (!employee && larkId) {
+    employee = await getEmployeeByLarkId(larkId);
+  }
+  if (!employee) return null;
+
+  return {
+    email,
+    employeeId: employee.employeeId,
+    employeeName: employee.employeeName,
+    department: employee.department,
+  };
+}
+
+/**
  * 現在のユーザーのLark User ID（メールアドレス）を取得
  * MembrySubSystem の JWT セッションをラップ
  */

@@ -81,17 +81,15 @@ export default function PermitsPage() {
 
   useEffect(() => {
     async function fetchPermits() {
-      if (!session?.user?.email) return;
+      if (!session?.user) return;
 
       try {
-        // メールアドレスから社員コードを取得
-        const employeeResponse = await fetch(
-          `/api/syaryo/employees/by-email?email=${encodeURIComponent(session.user.email)}`
-        );
+        // セッションから社員情報を取得（email無し時はLark IDフォールバック）
+        const employeeResponse = await fetch("/api/syaryo/employees/me");
         const employeeResult = await employeeResponse.json();
 
         if (!employeeResult.success || !employeeResult.data) {
-          setError("社員情報が見つかりません");
+          setError(employeeResult.error || "社員情報が見つかりません");
           setLoading(false);
           return;
         }

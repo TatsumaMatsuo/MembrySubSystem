@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireViewPermission } from "@/lib/syaryo/auth-utils";
+import { requireAuth, requireViewPermission, getCurrentEmployeeInfo } from "@/lib/syaryo/auth-utils";
 import { getPermits } from "@/lib/syaryo/services/permit.service";
 
 /**
@@ -22,8 +22,12 @@ export async function GET(request: NextRequest) {
         return authCheck.response;
       }
 
+      // セッションから社員IDを解決して本人判定（email無しのアカウントにも対応）
+      const me = await getCurrentEmployeeInfo();
+      const isSelf = !!me && me.employeeId === employeeId;
+
       // 本人以外の場合は閲覧権限をチェック
-      if (authCheck.userId !== employeeId) {
+      if (!isSelf) {
         const viewCheck = await requireViewPermission();
         if (!viewCheck.authorized) {
           return viewCheck.response;

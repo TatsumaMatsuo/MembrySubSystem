@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, requireViewPermission, getCurrentLarkUserId } from "@/lib/syaryo/auth-utils";
+import { requireAdmin, requireViewPermission, getCurrentEmployeeInfo } from "@/lib/syaryo/auth-utils";
 import { getSystemSettings, updateSystemSettings } from "@/lib/syaryo/services/system-settings.service";
 
 /**
@@ -45,7 +45,9 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const userId = await getCurrentLarkUserId();
+    // 監査用の更新者識別子: 社員ID > email の優先順で解決（email無しアカウントにも対応）
+    const me = await getCurrentEmployeeInfo();
+    const userId = me?.employeeId || me?.email || null;
 
     if (!userId) {
       return NextResponse.json(

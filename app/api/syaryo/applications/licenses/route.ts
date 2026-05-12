@@ -55,10 +55,11 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error in POST /api/applications/licenses:", error);
+    const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to create drivers license",
+        error: `Failed to create drivers license: ${message}`,
       },
       { status: 500 }
     );

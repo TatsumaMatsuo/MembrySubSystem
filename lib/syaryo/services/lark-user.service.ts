@@ -187,16 +187,17 @@ export async function getLarkOpenIdByEmployeeId(employeeId: string): Promise<str
       return null;
     }
 
-    // Peopleフィールドからopen_idを取得
-    const nameField = employee.fields[EMPLOYEE_MASTER_FIELDS.employee_name] as unknown;
+    // Peopleフィールド（社員名 (メンバー )）から open_id を取得
+    // 「社員名」は単なるテキストフィールドなので Lark 識別子は持たない
+    const peopleField = employee.fields[EMPLOYEE_MASTER_FIELDS.people_field] as unknown;
 
-    if (Array.isArray(nameField) && nameField.length > 0) {
-      const firstItem = nameField[0] as Record<string, unknown>;
+    if (Array.isArray(peopleField) && peopleField.length > 0) {
+      const firstItem = peopleField[0] as Record<string, unknown>;
       if (firstItem && typeof firstItem === "object" && "id" in firstItem && typeof firstItem.id === "string") {
         return firstItem.id;
       }
-    } else if (nameField && typeof nameField === "object" && !Array.isArray(nameField)) {
-      const obj = nameField as Record<string, unknown>;
+    } else if (peopleField && typeof peopleField === "object" && !Array.isArray(peopleField)) {
+      const obj = peopleField as Record<string, unknown>;
       if ("id" in obj && typeof obj.id === "string") {
         return obj.id;
       }

@@ -7,7 +7,11 @@ export interface NotificationTemplate {
 }
 
 // システムのベースURL
-const SYSTEM_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://syaryo-kanren-system.vercel.app";
+// MembrySub 統合後のベースURL（AWS Amplify SSR で env が読めない場合のフォールバック）
+const SYSTEM_BASE_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  process.env.NEXTAUTH_URL ||
+  "https://main.d4a0s1k3z8dqc.amplifyapp.com";
 
 export interface MessageOptions {
   showActionButton?: boolean;
@@ -30,7 +34,7 @@ export async function sendLarkMessage(
 ): Promise<boolean> {
   const {
     showActionButton = true,
-    actionUrl = `${SYSTEM_BASE_URL}/dashboard`,
+    actionUrl = `${SYSTEM_BASE_URL}/soumu/syaryo/dashboard`,
     buttonText = "📋 申請メニューを開く",
     receiveIdType = "open_id",
   } = options;
@@ -312,7 +316,7 @@ export async function sendApprovalNotification(
 ): Promise<boolean> {
   const template = createApprovalNotificationTemplate(documentType, documentNumber, allApproved);
   return sendLarkMessage(userId, template, {
-    actionUrl: `${SYSTEM_BASE_URL}/dashboard`,
+    actionUrl: `${SYSTEM_BASE_URL}/soumu/syaryo/dashboard`,
     buttonText: allApproved ? "📋 許可証を確認する" : "📋 申請状況を確認する",
   });
 }
@@ -328,7 +332,7 @@ export async function sendRejectionNotification(
 ): Promise<boolean> {
   const template = createRejectionNotificationTemplate(documentType, documentNumber, reason);
   return sendLarkMessage(userId, template, {
-    actionUrl: `${SYSTEM_BASE_URL}/dashboard`,
+    actionUrl: `${SYSTEM_BASE_URL}/soumu/syaryo/dashboard`,
     buttonText: "📋 再申請する",
   });
 }

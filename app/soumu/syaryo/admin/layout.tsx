@@ -16,6 +16,7 @@ import {
   UserPlus,
   Download,
   BarChart3,
+  User,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -30,6 +31,13 @@ export default function AdminLayout({
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const menuItems = [
+    {
+      name: "申請者ダッシュボード",
+      href: "/soumu/syaryo/dashboard",
+      icon: User,
+      color: "text-sky-600",
+      openInNewTab: true,
+    },
     {
       name: "申請一覧",
       href: "/soumu/syaryo/admin/applications",
@@ -133,11 +141,13 @@ export default function AdminLayout({
         {/* メニュー */}
         <nav className="p-4 space-y-2">
           {menuItems.map((item) => {
-            const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+            const isActive = !item.openInNewTab && (pathname === item.href || pathname?.startsWith(item.href + "/"));
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                target={item.openInNewTab ? "_blank" : undefined}
+                rel={item.openInNewTab ? "noopener noreferrer" : undefined}
                 className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
                   isActive
                     ? "bg-blue-50 text-blue-700"

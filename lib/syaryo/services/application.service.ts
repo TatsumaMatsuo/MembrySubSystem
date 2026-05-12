@@ -229,41 +229,19 @@ export async function getApplicationOverview(
  * 承認待ちの申請一覧を取得
  *
  * 表示条件:
- * - 新規申請: 3つの書類（免許証・車検証・保険証）が全て揃っている場合のみ表示
- * - 更新申請（既に承認済み書類がある場合）: 単独の書類更新でも表示
+ * - 免許証・車検証・任意保険のいずれかが pending 状態であれば表示
+ *   （部分提出でも管理者が即時に確認・承認できるようにする）
  */
 export async function getPendingApplications(): Promise<ApplicationOverview[]> {
   try {
     const overviews = await getApplicationOverview();
 
     return overviews.filter((overview) => {
-      // pending状態の書類をチェック
       const licensePending = overview.license?.approval_status === "pending";
       const vehiclePending = overview.vehicles.some(v => v.approval_status === "pending");
       const insurancePending = overview.insurances.some(i => i.approval_status === "pending");
 
-      // いずれかの書類がpendingでなければ対象外
-      const hasPending = licensePending || vehiclePending || insurancePending;
-      if (!hasPending) {
-        return false;
-      }
-
-      // 既に承認済みの書類があるかチェック（更新申請かどうかの判定）
-      const hasApprovedLicense = overview.license?.approval_status === "approved";
-      const hasApprovedVehicle = overview.vehicles.some(v => v.approval_status === "approved");
-      const hasApprovedInsurance = overview.insurances.some(i => i.approval_status === "approved");
-      const isUpdateApplication = hasApprovedLicense || hasApprovedVehicle || hasApprovedInsurance;
-
-      if (isUpdateApplication) {
-        // 更新申請: いずれかがpendingなら表示（単独更新OK）
-        return true;
-      } else {
-        // 新規申請: 3つの書類が全て揃っている場合のみ表示
-        const hasLicense = overview.license !== null;
-        const hasVehicle = overview.vehicles.length > 0;
-        const hasInsurance = overview.insurances.length > 0;
-        return hasLicense && hasVehicle && hasInsurance;
-      }
+      return licensePending || vehiclePending || insurancePending;
     });
   } catch (error) {
     console.error("Error fetching pending applications:", error);

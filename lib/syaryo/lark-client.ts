@@ -15,11 +15,15 @@ export function getLarkClient(): lark.Client | null {
   }
 
   if (!_larkClient) {
+    // ドメイン判定: 環境変数で指定可能、デフォルトは国際版 Lark Suite
+    // MembrySub 本体と統一（Bot メッセージは Bot 登録ドメインと一致が必須）
+    const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
+
     _larkClient = new lark.Client({
       appId: process.env.LARK_APP_ID,
       appSecret: process.env.LARK_APP_SECRET,
       appType: lark.AppType.SelfBuild,
-      domain: lark.Domain.Feishu,
+      domain: larkDomain,
     });
   }
 

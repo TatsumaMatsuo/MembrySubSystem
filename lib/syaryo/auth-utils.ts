@@ -16,7 +16,15 @@ const PGM_SYARYO_VIEW = "PGM030";
 const PGM_SYARYO_ADMIN = "PGM031";
 
 /**
- * 現在のユーザーの社員情報と許可プログラムを取得（内部用）
+ * 車両管理システムが配置されている総務部メニュー
+ * - M002: 総務部 (L1)
+ * - M002-03: 車両管理システム (L2)
+ */
+const MENU_SOUMU = "M002";
+const MENU_SYARYO = "M002-03";
+
+/**
+ * 現在のユーザーの社員情報と許可プログラム・メニューを取得（内部用）
  */
 async function resolveUserPermissions(): Promise<{
   email: string | null;
@@ -24,6 +32,9 @@ async function resolveUserPermissions(): Promise<{
   employeeName: string;
   department: string;
   permittedPrograms: string[];
+  permittedMenus: string[];
+  deniedPrograms: string[];
+  deniedMenus: string[];
 } | null> {
   const session = await getServerSession();
   if (!session?.user) return null;
@@ -49,7 +60,40 @@ async function resolveUserPermissions(): Promise<{
     employeeName: employee.employeeName,
     department: employee.department,
     permittedPrograms: perms.permitted_programs,
+    permittedMenus: perms.permitted_menus,
+    deniedPrograms: perms.denied_programs,
+    deniedMenus: perms.denied_menus,
   };
+}
+
+/**
+ * 車両管理システムへのアクセス可否を判定する共通ロジック
+ *
+ * 以下のいずれかを満たせば「アクセス可」とする:
+ * 1. PGM031（管理者操作）が明示的に許可されている
+ * 2. PGM030（閲覧）が明示的に許可されている
+ * 3. M002メニュー（総務部）が許可されており、サイドバーに「車両管理システム」
+ *    (M002-03 + PGM030) が表示される状態（=メニュー権限経由でアクセス可）
+ *
+ * これにより、グループ権限の代わりに個別メニュー権限で M002 を持つ
+ * 管理者ユーザーも syaryo を利用できる。
+ */
+function canAccessSyaryo(perms: {
+  permittedPrograms: string[];
+  permittedMenus: string[];
+  deniedPrograms: string[];
+  deniedMenus: string[];
+}): boolean {
+  if (perms.permittedPrograms.includes(PGM_SYARYO_ADMIN)) return true;
+  if (perms.permittedPrograms.includes(PGM_SYARYO_VIEW)) return true;
+
+  // メニュー権限経由のアクセス（サイドバー表示時と同じ判定）
+  const m002Permitted = perms.permittedMenus.includes(MENU_SOUMU);
+  const m002Denied = perms.deniedMenus.includes(MENU_SOUMU);
+  const syaryoMenuDenied = perms.deniedMenus.includes(MENU_SYARYO);
+  const pgmViewDenied = perms.deniedPrograms.includes(PGM_SYARYO_VIEW);
+
+  return m002Permitted && !m002Denied && !syaryoMenuDenied && !pgmViewDenied;
 }
 
 /**
@@ -139,7 +183,10 @@ export async function requireAuth() {
 
 /**
  * 管理者権限をチェック
- * MembrySub の機能配置マスタで PGM031 (車両管理-管理者操作) が許可されているかで判定
+ *
+ * 「総務部全員を管理者」とする初期方針に沿って、車両管理システム（M002-03）に
+ * アクセスできるユーザー = 管理者として扱う。
+ * PGM031 個別付与の他、メニュー M002 への許可でも管理者として扱う。
  */
 export async function requireAdmin() {
   const result = await resolveUserPermissions();
@@ -149,8 +196,8 @@ export async function requireAdmin() {
       response: NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 }),
     };
   }
-  if (!result.permittedPrograms.includes(PGM_SYARYO_ADMIN)) {
-    console.log("[syaryo/auth-utils] Admin check failed for:", result.email, "permitted:", result.permittedPrograms);
+  if (!canAccessSyaryo(result)) {
+    console.log("[syaryo/auth-utils] Admin check failed for:", result.email, "permitted_programs:", result.permittedPrograms, "permitted_menus:", result.permittedMenus);
     return {
       authorized: false as const,
       response: NextResponse.json({ success: false, error: "Forbidden - Admin access required" }, { status: 403 }),
@@ -161,7 +208,8 @@ export async function requireAdmin() {
 
 /**
  * 閲覧権限以上をチェック（管理者または閲覧者）
- * PGM030 または PGM031 のいずれかが許可されていれば閲覧可
+ *
+ * PGM030/PGM031 個別付与、または M002（総務部メニュー）への許可があれば閲覧可。
  */
 export async function requireViewPermission() {
   const result = await resolveUserPermissions();
@@ -171,11 +219,8 @@ export async function requireViewPermission() {
       response: NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 }),
     };
   }
-  const ok =
-    result.permittedPrograms.includes(PGM_SYARYO_VIEW) ||
-    result.permittedPrograms.includes(PGM_SYARYO_ADMIN);
-  if (!ok) {
-    console.log("[syaryo/auth-utils] View check failed for:", result.email, "permitted:", result.permittedPrograms);
+  if (!canAccessSyaryo(result)) {
+    console.log("[syaryo/auth-utils] View check failed for:", result.email, "permitted_programs:", result.permittedPrograms, "permitted_menus:", result.permittedMenus);
     return {
       authorized: false as const,
       response: NextResponse.json({ success: false, error: "Forbidden - View access required" }, { status: 403 }),
@@ -192,9 +237,8 @@ export async function getCurrentUserPermission() {
   const result = await resolveUserPermissions();
   if (!result) return null;
 
-  const isAdmin = result.permittedPrograms.includes(PGM_SYARYO_ADMIN);
-  const hasView = isAdmin || result.permittedPrograms.includes(PGM_SYARYO_VIEW);
-  if (!hasView) return null;
+  if (!canAccessSyaryo(result)) return null;
+  const isAdmin = canAccessSyaryo(result); // 「総務部全員を管理者」方針
 
   return {
     id: result.employeeId,

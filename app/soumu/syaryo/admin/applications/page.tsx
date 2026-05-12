@@ -435,7 +435,7 @@ export default function AdminApplicationsPage() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
-                        onClick={() => router.push(`/admin/applications/${app.employee.employee_id}`)}
+                        onClick={() => router.push(`/soumu/syaryo/admin/applications/${app.employee.employee_id}`)}
                         className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center text-sm"
                       >
                         <ExternalLink className="h-4 w-4 mr-1" />

@@ -31,17 +31,12 @@ export default function NewLicensePage() {
     setError(null);
 
     try {
-      // 0. メールアドレスから社員コードを取得
-      const email = session.user.email;
-      if (!email) {
-        throw new Error("メールアドレスが取得できません");
-      }
-
-      const employeeResponse = await fetch(`/api/syaryo/employees/by-email?email=${encodeURIComponent(email)}`);
+      // 0. セッションから社員情報を取得（email無しの場合はLark IDフォールバック）
+      const employeeResponse = await fetch("/api/syaryo/employees/me");
       const employeeResult = await employeeResponse.json();
 
       if (!employeeResult.success || !employeeResult.data) {
-        throw new Error("社員情報が見つかりません。管理者にお問い合わせください。");
+        throw new Error(employeeResult.error || "社員情報が見つかりません。管理者にお問い合わせください。");
       }
 
       const employeeId = employeeResult.data.employee_id;

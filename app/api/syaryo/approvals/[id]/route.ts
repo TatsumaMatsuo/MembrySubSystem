@@ -225,9 +225,13 @@ export async function POST(
       }
 
       // Lark Bot通知を送信
+      let notification: any = { sent: false };
       try {
         const openId = await getLarkOpenIdByEmployeeId(applicationRecord.employee_id);
-        if (openId) {
+        if (!openId) {
+          notification = { sent: false, reason: "open_id_not_found", employee_id: applicationRecord.employee_id };
+          console.log(`Lark Open IDが見つからないため通知をスキップ: ${applicationRecord.employee_id}`);
+        } else {
           // 書類番号を取得
           let documentNumber = "";
           if (type === "license" && applicationRecord.license_number) {
@@ -238,20 +242,31 @@ export async function POST(
             documentNumber = applicationRecord.policy_number;
           }
 
-          await sendApprovalNotification(
+          const result = await sendApprovalNotification(
             openId,
             type as "license" | "vehicle" | "insurance",
             documentNumber,
             allApproved
           );
-          console.log(`承認通知を送信しました: ${applicationRecord.employee_id}`);
-        } else {
-          console.log(`Lark Open IDが見つからないため通知をスキップ: ${applicationRecord.employee_id}`);
+          notification = {
+            sent: result.ok,
+            code: result.code,
+            msg: result.msg,
+            error: result.error,
+            open_id_prefix: openId.substring(0, 8),
+          };
+          console.log("承認通知結果:", notification);
         }
-      } catch (notifyError) {
-        // 通知エラーは承認処理に影響させない
+      } catch (notifyError: any) {
+        notification = { sent: false, error: notifyError?.message || String(notifyError) };
         console.error("承認通知の送信に失敗:", notifyError);
       }
+
+      return NextResponse.json({
+        success: true,
+        message: "Application approved successfully",
+        notification,
+      });
     }
 
     return NextResponse.json({

@@ -222,7 +222,7 @@ export default function AdminApplicationsPage() {
     if (!confirm(`審査中の書類（${pendingDocs.length}件）をすべて承認しますか？`)) return;
 
     try {
-      const results = await Promise.all(
+      const responses = await Promise.all(
         pendingDocs.map(doc =>
           fetch(`/api/syaryo/approvals/${doc.id}`, {
             method: "POST",
@@ -232,13 +232,27 @@ export default function AdminApplicationsPage() {
         )
       );
 
-      const allSuccess = results.every(r => r.ok);
-      if (allSuccess) {
-        toast.success(`${app.employee.employee_name}さんの申請を承認しました`);
-        fetchApplications();
-      } else {
+      const allSuccess = responses.every(r => r.ok);
+      if (!allSuccess) {
         throw new Error("Some approvals failed");
       }
+
+      // 通知ステータスを確認
+      const payloads = await Promise.all(responses.map(r => r.json().catch(() => ({}))));
+      const notifResults = payloads.map((p: any) => p.notification).filter(Boolean);
+      const allNotified = notifResults.length > 0 && notifResults.every(n => n?.sent);
+      const failedNotifs = notifResults.filter(n => !n?.sent);
+
+      if (allNotified) {
+        toast.success(`${app.employee.employee_name}さんの申請を承認しました（通知送信済み）`);
+      } else if (failedNotifs.length > 0) {
+        const reasons = failedNotifs.map(n => n?.msg || n?.error || n?.reason || "unknown").join(", ");
+        toast.success(`${app.employee.employee_name}さんの申請を承認しました（通知失敗: ${reasons}）`);
+        console.warn("通知失敗詳細:", failedNotifs);
+      } else {
+        toast.success(`${app.employee.employee_name}さんの申請を承認しました`);
+      }
+      fetchApplications();
     } catch (error) {
       console.error("Failed to approve:", error);
       toast.error("承認に失敗しました。もう一度お試しください。");

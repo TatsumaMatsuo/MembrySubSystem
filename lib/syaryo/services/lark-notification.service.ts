@@ -27,11 +27,18 @@ export interface MessageOptions {
  * @param message 送信するメッセージ
  * @param options オプション設定
  */
+export interface SendResult {
+  ok: boolean;
+  code?: number;
+  msg?: string;
+  error?: string;
+}
+
 export async function sendLarkMessage(
   receiveId: string,
   message: NotificationTemplate,
   options: MessageOptions = {}
-): Promise<boolean> {
+): Promise<SendResult> {
   const {
     showActionButton = true,
     actionUrl = `${SYSTEM_BASE_URL}/soumu/syaryo/dashboard`,
@@ -71,6 +78,12 @@ export async function sendLarkMessage(
       });
     }
 
+    console.log("[lark-notification] sendLarkMessage:", {
+      receiveIdType,
+      receiveIdPrefix: receiveId?.substring(0, 8),
+      title: message.title,
+    });
+
     // Lark Message API を使用してメッセージを送信
     const response = await larkClient.im.message.create({
       params: {
@@ -95,10 +108,13 @@ export async function sendLarkMessage(
       },
     });
 
-    return response.code === 0;
-  } catch (error) {
+    if (response.code !== 0) {
+      console.error("[lark-notification] Lark API error:", { code: response.code, msg: response.msg });
+    }
+    return { ok: response.code === 0, code: response.code, msg: response.msg };
+  } catch (error: any) {
     console.error("Failed to send Lark message:", error);
-    return false;
+    return { ok: false, error: error?.message || String(error) };
   }
 }
 
@@ -209,7 +225,7 @@ export async function sendBulkNotifications(
       notification.message,
       notification.options
     );
-    if (result) {
+    if (result.ok) {
       success++;
     } else {
       failed++;
@@ -227,9 +243,9 @@ export async function sendBulkNotifications(
 export async function sendAdminNotification(
   adminUserId: string,
   message: NotificationTemplate
-): Promise<boolean> {
+): Promise<SendResult> {
   return sendLarkMessage(adminUserId, message, {
-    actionUrl: `${SYSTEM_BASE_URL}/admin/applications`,
+    actionUrl: `${SYSTEM_BASE_URL}/soumu/syaryo/admin/applications`,
     buttonText: "🔧 管理画面を開く",
   });
 }
@@ -313,7 +329,7 @@ export async function sendApprovalNotification(
   documentType: "license" | "vehicle" | "insurance",
   documentNumber: string,
   allApproved: boolean = false
-): Promise<boolean> {
+): Promise<SendResult> {
   const template = createApprovalNotificationTemplate(documentType, documentNumber, allApproved);
   return sendLarkMessage(userId, template, {
     actionUrl: `${SYSTEM_BASE_URL}/soumu/syaryo/dashboard`,
@@ -329,7 +345,7 @@ export async function sendRejectionNotification(
   documentType: "license" | "vehicle" | "insurance",
   documentNumber: string,
   reason: string
-): Promise<boolean> {
+): Promise<SendResult> {
   const template = createRejectionNotificationTemplate(documentType, documentNumber, reason);
   return sendLarkMessage(userId, template, {
     actionUrl: `${SYSTEM_BASE_URL}/soumu/syaryo/dashboard`,

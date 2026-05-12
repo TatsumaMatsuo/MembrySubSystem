@@ -61,7 +61,7 @@ export async function sendExpirationWarnings(): Promise<{
     }
 
     // Larkメッセージ送信（emailで送信）
-    const success = await sendLarkMessage(warning.employeeEmail, template, {
+    const sendResult = await sendLarkMessage(warning.employeeEmail, template, {
       receiveIdType: "email",
     });
 
@@ -73,10 +73,10 @@ export async function sendExpirationWarnings(): Promise<{
       document_id: warning.documentId,
       title: template.title,
       message: template.content,
-      status: success ? "sent" : "failed",
+      status: sendResult.ok ? "sent" : "failed",
     });
 
-    if (success) {
+    if (sendResult.ok) {
       console.log(
         `[ExpirationMonitor] Sent warning for ${warning.type} ${warning.documentNumber} to ${warning.employeeId}`
       );
@@ -148,7 +148,7 @@ export async function sendExpiredAlerts(): Promise<{
     }
 
     // Larkメッセージ送信（emailで送信）
-    const success = await sendLarkMessage(warning.employeeEmail, template, {
+    const sendResult = await sendLarkMessage(warning.employeeEmail, template, {
       receiveIdType: "email",
     });
 
@@ -160,10 +160,10 @@ export async function sendExpiredAlerts(): Promise<{
       document_id: warning.documentId,
       title: template.title,
       message: template.content,
-      status: success ? "sent" : "failed",
+      status: sendResult.ok ? "sent" : "failed",
     });
 
-    if (success) {
+    if (sendResult.ok) {
       console.log(
         `[ExpirationMonitor] Sent alert for ${warning.type} ${warning.documentNumber} to ${warning.employeeId}`
       );
@@ -212,7 +212,7 @@ export async function sendExpiredAlerts(): Promise<{
       }
 
       // Larkメッセージ送信（emailで送信）
-      const success = await sendLarkMessage(admin.user_email, adminTemplate, {
+      const sendResult = await sendLarkMessage(admin.user_email, adminTemplate, {
         receiveIdType: "email",
       });
 
@@ -221,10 +221,10 @@ export async function sendExpiredAlerts(): Promise<{
         notification_type: "admin_escalation",
         title: adminTemplate.title,
         message: adminTemplate.content,
-        status: success ? "sent" : "failed",
+        status: sendResult.ok ? "sent" : "failed",
       });
 
-      if (success) {
+      if (sendResult.ok) {
         adminSent++;
       }
 

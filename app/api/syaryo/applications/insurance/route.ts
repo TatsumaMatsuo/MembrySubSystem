@@ -3,6 +3,7 @@ import {
   getInsurancePolicies,
   createInsurancePolicy,
 } from "@/lib/syaryo/services/insurance-policy.service";
+import { notifyAdminsOfNewApplication } from "@/lib/syaryo/services/notify-admins";
 
 /**
  * GET /api/applications/insurance
@@ -57,9 +58,17 @@ export async function POST(request: NextRequest) {
       deleted_flag: false,
     });
 
+    // 管理者に Bot 通知
+    const adminNotification = await notifyAdminsOfNewApplication(
+      body.employee_id,
+      "insurance",
+      body.policy_number || ""
+    );
+
     return NextResponse.json({
       success: true,
       data: policy,
+      adminNotification,
     });
   } catch (error) {
     console.error("Error in POST /api/applications/insurance:", error);

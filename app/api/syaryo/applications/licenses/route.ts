@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDriversLicenses, createDriversLicense } from "@/lib/syaryo/services/drivers-license.service";
+import { notifyAdminsOfNewApplication } from "@/lib/syaryo/services/notify-admins";
 
 /**
  * GET /api/applications/licenses
@@ -49,9 +50,17 @@ export async function POST(request: NextRequest) {
       deleted_flag: false,
     });
 
+    // 管理者に Bot 通知（失敗しても申請自体には影響させない）
+    const adminNotification = await notifyAdminsOfNewApplication(
+      body.employee_id,
+      "license",
+      body.license_number || ""
+    );
+
     return NextResponse.json({
       success: true,
       data: license,
+      adminNotification,
     });
   } catch (error) {
     console.error("Error in POST /api/applications/licenses:", error);

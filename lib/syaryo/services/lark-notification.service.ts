@@ -369,3 +369,54 @@ export async function sendRejectionNotification(
     buttonText: "📋 再申請する",
   });
 }
+
+/**
+ * 新規申請通知のテンプレートを生成（管理者向け）
+ */
+export function createNewApplicationNotificationTemplate(
+  applicantName: string,
+  applicantDepartment: string,
+  documentType: "license" | "vehicle" | "insurance",
+  documentNumber: string
+): NotificationTemplate {
+  const documentTypeMap = {
+    license: "免許証",
+    vehicle: "車検証",
+    insurance: "任意保険証",
+  };
+  const docTypeName = documentTypeMap[documentType];
+
+  return {
+    title: `📝 ${docTypeName}の新規申請があります`,
+    content: `**${applicantName}** さん（${applicantDepartment}）から**${docTypeName}**の申請がありました。
+
+**書類種類**: ${docTypeName}
+**書類番号**: ${documentNumber}
+
+📌 **管理画面にて内容をご確認のうえ、承認/却下処理をお願いします。**`,
+  };
+}
+
+/**
+ * 管理者に新規申請通知を送信
+ */
+export async function sendNewApplicationNotification(
+  userId: string,
+  applicantName: string,
+  applicantDepartment: string,
+  documentType: "license" | "vehicle" | "insurance",
+  documentNumber: string,
+  receiveIdType: "open_id" | "email" = "open_id"
+): Promise<SendResult> {
+  const template = createNewApplicationNotificationTemplate(
+    applicantName,
+    applicantDepartment,
+    documentType,
+    documentNumber
+  );
+  return sendLarkMessage(userId, template, {
+    receiveIdType,
+    actionUrl: `${SYSTEM_BASE_URL}/soumu/syaryo/admin/applications`,
+    buttonText: "🔧 申請内容を確認する",
+  });
+}

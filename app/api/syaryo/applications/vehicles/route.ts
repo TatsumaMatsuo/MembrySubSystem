@@ -3,6 +3,7 @@ import {
   getVehicleRegistrations,
   createVehicleRegistration,
 } from "@/lib/syaryo/services/vehicle-registration.service";
+import { notifyAdminsOfNewApplication } from "@/lib/syaryo/services/notify-admins";
 
 /**
  * GET /api/applications/vehicles
@@ -55,9 +56,17 @@ export async function POST(request: NextRequest) {
       deleted_flag: false,
     });
 
+    // 管理者に Bot 通知
+    const adminNotification = await notifyAdminsOfNewApplication(
+      body.employee_id,
+      "vehicle",
+      body.vehicle_number || ""
+    );
+
     return NextResponse.json({
       success: true,
       data: vehicle,
+      adminNotification,
     });
   } catch (error) {
     console.error("Error in POST /api/applications/vehicles:", error);

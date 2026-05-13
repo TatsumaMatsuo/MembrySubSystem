@@ -87,9 +87,10 @@ export async function generatePermitPdf(
 
     console.log(`許可証PDFを生成しました: ${fileKey}`);
     return fileKey;
-  } catch (error) {
-    console.error("許可証PDF生成エラー:", error);
-    throw new Error("許可証PDFの生成に失敗しました");
+  } catch (error: any) {
+    console.error("許可証PDF生成エラー:", error?.stack || error);
+    const detail = error?.message || String(error);
+    throw new Error(`許可証PDFの生成に失敗しました: ${detail}`);
   }
 }
 
@@ -137,9 +138,10 @@ export async function generatePermitPdfBuffer(
     );
 
     return Buffer.from(pdfBuffer);
-  } catch (error) {
-    console.error("許可証PDF生成エラー:", error);
-    throw new Error("許可証PDFの生成に失敗しました");
+  } catch (error: any) {
+    console.error("許可証PDF生成エラー:", error?.stack || error);
+    const detail = error?.message || String(error);
+    throw new Error(`許可証PDFの生成に失敗しました: ${detail}`);
   }
 }
 

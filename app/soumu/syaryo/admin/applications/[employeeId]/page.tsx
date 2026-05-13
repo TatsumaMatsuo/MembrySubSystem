@@ -247,7 +247,18 @@ export default function ApplicationDetailPage() {
       });
 
       if (response.ok) {
-        toast.success(`${docName}を承認しました`);
+        const payload = await response.json().catch(() => ({}));
+        const notif = payload?.notification;
+        console.log("[承認] APIレスポンス:", payload);
+        if (notif?.sent) {
+          toast.success(`${docName}を承認しました（通知送信: ${notif.channel || "?"}）`);
+        } else if (notif) {
+          const reason = notif.msg || notif.error || notif.reason || "unknown";
+          toast.success(`${docName}を承認しました（通知失敗: ${reason}）`);
+          console.warn("[承認] 通知失敗詳細:", notif);
+        } else {
+          toast.success(`${docName}を承認しました`);
+        }
         // データを再取得して画面を更新
         const refreshResponse = await fetch(
           `/api/syaryo/applications/overview?employeeId=${employeeId}`
@@ -298,7 +309,7 @@ export default function ApplicationDetailPage() {
 
     setProcessing(true);
     try {
-      const results = await Promise.all(
+      const responses = await Promise.all(
         pendingDocs.map(doc =>
           fetch(`/api/syaryo/approvals/${doc.id}`, {
             method: "POST",
@@ -308,13 +319,25 @@ export default function ApplicationDetailPage() {
         )
       );
 
-      const allSuccess = results.every((r) => r.ok);
-      if (allSuccess) {
-        toast.success(`${application.employee.employee_name}さんのすべての審査中書類を承認しました`);
-        router.push("/soumu/syaryo/admin/applications");
+      const allSuccess = responses.every((r) => r.ok);
+      if (!allSuccess) throw new Error("Some approvals failed");
+
+      const payloads = await Promise.all(responses.map(r => r.json().catch(() => ({}))));
+      const notifs = payloads.map((p: any) => p?.notification).filter(Boolean);
+      console.log("[一括承認] APIレスポンス:", payloads);
+      const allSent = notifs.length > 0 && notifs.every(n => n?.sent);
+      const failed = notifs.filter(n => !n?.sent);
+
+      if (allSent) {
+        toast.success(`${application.employee.employee_name}さんのすべての審査中書類を承認しました（通知送信済み）`);
+      } else if (failed.length > 0) {
+        const reasons = failed.map(n => n?.msg || n?.error || n?.reason || "unknown").join(", ");
+        toast.success(`${application.employee.employee_name}さんのすべての書類を承認しました（通知失敗: ${reasons}）`);
+        console.warn("[一括承認] 通知失敗詳細:", failed);
       } else {
-        throw new Error("Some approvals failed");
+        toast.success(`${application.employee.employee_name}さんのすべての審査中書類を承認しました`);
       }
+      router.push("/soumu/syaryo/admin/applications");
     } catch (error) {
       console.error("Failed to approve:", error);
       toast.error("承認に失敗しました。もう一度お試しください。");

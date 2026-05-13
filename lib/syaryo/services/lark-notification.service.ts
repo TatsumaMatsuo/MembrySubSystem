@@ -113,8 +113,21 @@ export async function sendLarkMessage(
     }
     return { ok: response.code === 0, code: response.code, msg: response.msg };
   } catch (error: any) {
-    console.error("Failed to send Lark message:", error);
-    return { ok: false, error: error?.message || String(error) };
+    // Lark SDK は axios を内包しており、error.response.data に詳細レスポンスが入る
+    const data = error?.response?.data;
+    const detailCode = data?.code;
+    const detailMsg = data?.msg || data?.message || data?.error?.message;
+    const errMessage = detailMsg
+      ? `Lark API error: ${detailMsg} (code: ${detailCode ?? "?"})`
+      : (error?.message || String(error));
+    console.error("Failed to send Lark message:", {
+      message: errMessage,
+      detailCode,
+      detailMsg,
+      rawData: data,
+      status: error?.response?.status,
+    });
+    return { ok: false, code: detailCode, msg: detailMsg, error: errMessage };
   }
 }
 

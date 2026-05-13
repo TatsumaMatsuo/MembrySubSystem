@@ -17,7 +17,7 @@ import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/syaryo/lark-tables";
 import { recordApprovalHistory } from "@/lib/syaryo/services/approval-history.service";
 import { getEmployee } from "@/lib/syaryo/services/employee.service";
 import { sendRejectionNotification } from "@/lib/syaryo/services/lark-notification.service";
-import { getLarkOpenIdByEmployeeId } from "@/lib/syaryo/services/lark-user.service";
+import { getLarkNotificationTargetByEmployeeId } from "@/lib/syaryo/services/lark-user.service";
 
 /**
  * POST /api/approvals/:id/reject
@@ -108,10 +108,10 @@ export async function POST(
         timestamp: Date.now(),
       });
 
-      // Lark Bot通知を送信
+      // Lark Bot通知を送信（Open ID 優先、失敗時 email にフォールバック）
       try {
-        const openId = await getLarkOpenIdByEmployeeId(applicationRecord.employee_id);
-        if (openId) {
+        const target = await getLarkNotificationTargetByEmployeeId(applicationRecord.employee_id);
+        if (target && (target.openId || target.email)) {
           let documentNumber = "";
           if (type === "license" && applicationRecord.license_number) {
             documentNumber = applicationRecord.license_number;
@@ -121,15 +121,15 @@ export async function POST(
             documentNumber = applicationRecord.policy_number;
           }
 
-          await sendRejectionNotification(
-            openId,
-            type as "license" | "vehicle" | "insurance",
-            documentNumber,
-            reason
-          );
-          console.log(`却下通知を送信しました: ${applicationRecord.employee_id}`);
+          let result = target.openId
+            ? await sendRejectionNotification(target.openId, type as "license" | "vehicle" | "insurance", documentNumber, reason, "open_id")
+            : { ok: false };
+          if (!result.ok && target.email) {
+            result = await sendRejectionNotification(target.email, type as "license" | "vehicle" | "insurance", documentNumber, reason, "email");
+          }
+          console.log(`却下通知: ${applicationRecord.employee_id} → ${result.ok ? "送信成功" : "失敗"}`);
         } else {
-          console.log(`Lark Open IDが見つからないため通知をスキップ: ${applicationRecord.employee_id}`);
+          console.log(`通知先が見つからないためスキップ: ${applicationRecord.employee_id}`);
         }
       } catch (notifyError) {
         console.error("却下通知の送信に失敗:", notifyError);

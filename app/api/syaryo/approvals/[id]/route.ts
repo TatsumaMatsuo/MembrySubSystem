@@ -23,8 +23,8 @@ import {
 } from "@/lib/syaryo/services/permit.service";
 import { generatePermitPdf } from "@/lib/syaryo/services/pdf-generator.service";
 import { calculatePermitExpiration } from "@/lib/syaryo/permit-utils";
-import { sendApprovalNotification } from "@/lib/syaryo/services/lark-notification.service";
-import { getLarkOpenIdByEmployeeId } from "@/lib/syaryo/services/lark-user.service";
+import { sendApprovalNotification, type SendResult } from "@/lib/syaryo/services/lark-notification.service";
+import { getLarkNotificationTargetByEmployeeId } from "@/lib/syaryo/services/lark-user.service";
 
 /**
  * 全書類が承認済みかチェックし、許可証を発行
@@ -227,10 +227,10 @@ export async function POST(
       // Lark Bot通知を送信
       let notification: any = { sent: false };
       try {
-        const openId = await getLarkOpenIdByEmployeeId(applicationRecord.employee_id);
-        if (!openId) {
-          notification = { sent: false, reason: "open_id_not_found", employee_id: applicationRecord.employee_id };
-          console.log(`Lark Open IDが見つからないため通知をスキップ: ${applicationRecord.employee_id}`);
+        const target = await getLarkNotificationTargetByEmployeeId(applicationRecord.employee_id);
+        if (!target || (!target.openId && !target.email)) {
+          notification = { sent: false, reason: "no_notification_target", employee_id: applicationRecord.employee_id };
+          console.log(`通知先（Open ID/email）が見つからないためスキップ: ${applicationRecord.employee_id}`);
         } else {
           // 書類番号を取得
           let documentNumber = "";
@@ -242,18 +242,26 @@ export async function POST(
             documentNumber = applicationRecord.policy_number;
           }
 
-          const result = await sendApprovalNotification(
-            openId,
-            type as "license" | "vehicle" | "insurance",
-            documentNumber,
-            allApproved
-          );
+          // Open ID 優先、失敗時に email にフォールバック
+          let result: SendResult = target.openId
+            ? await sendApprovalNotification(target.openId, type as "license" | "vehicle" | "insurance", documentNumber, allApproved, "open_id")
+            : { ok: false, error: "no_open_id" };
+
+          let usedChannel: "open_id" | "email" | null = result.ok ? "open_id" : null;
+          if (!result.ok && target.email) {
+            console.log(`Open ID 送信失敗のため email でリトライ: ${target.email}`);
+            result = await sendApprovalNotification(target.email, type as "license" | "vehicle" | "insurance", documentNumber, allApproved, "email");
+            usedChannel = result.ok ? "email" : null;
+          }
+
           notification = {
             sent: result.ok,
+            channel: usedChannel,
             code: result.code,
             msg: result.msg,
             error: result.error,
-            open_id_prefix: openId.substring(0, 8),
+            has_open_id: !!target.openId,
+            has_email: !!target.email,
           };
           console.log("承認通知結果:", notification);
         }

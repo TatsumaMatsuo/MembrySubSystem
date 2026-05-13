@@ -24,7 +24,7 @@ import {
 import { generatePermitPdf } from "@/lib/syaryo/services/pdf-generator.service";
 import { calculatePermitExpiration } from "@/lib/syaryo/permit-utils";
 import { sendApprovalNotification } from "@/lib/syaryo/services/lark-notification.service";
-import { getLarkOpenIdByEmployeeId } from "@/lib/syaryo/services/lark-user.service";
+import { getLarkNotificationTargetByEmployeeId } from "@/lib/syaryo/services/lark-user.service";
 
 // 最大一括承認件数
 const MAX_BULK_ITEMS = 50;
@@ -222,10 +222,10 @@ async function approveSingleItem(
         await checkAndGeneratePermit(applicationRecord.employee_id, baseUrl);
       }
 
-      // Lark Bot通知を送信
+      // Lark Bot通知を送信（Open ID 優先、失敗時 email にフォールバック）
       try {
-        const openId = await getLarkOpenIdByEmployeeId(applicationRecord.employee_id);
-        if (openId) {
+        const target = await getLarkNotificationTargetByEmployeeId(applicationRecord.employee_id);
+        if (target && (target.openId || target.email)) {
           let documentNumber = "";
           if (item.type === "license" && applicationRecord.license_number) {
             documentNumber = applicationRecord.license_number;
@@ -235,12 +235,13 @@ async function approveSingleItem(
             documentNumber = applicationRecord.policy_number;
           }
 
-          await sendApprovalNotification(
-            openId,
-            item.type,
-            documentNumber,
-            allApproved
-          );
+          let result = target.openId
+            ? await sendApprovalNotification(target.openId, item.type, documentNumber, allApproved, "open_id")
+            : { ok: false };
+          if (!result.ok && target.email) {
+            result = await sendApprovalNotification(target.email, item.type, documentNumber, allApproved, "email");
+          }
+          console.log(`一括承認通知: ${applicationRecord.employee_id} → ${result.ok ? "送信成功" : "失敗"}`);
         }
       } catch (notifyError) {
         console.error("承認通知の送信に失敗:", notifyError);

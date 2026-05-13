@@ -328,10 +328,12 @@ export async function sendApprovalNotification(
   userId: string,
   documentType: "license" | "vehicle" | "insurance",
   documentNumber: string,
-  allApproved: boolean = false
+  allApproved: boolean = false,
+  receiveIdType: "open_id" | "email" = "open_id"
 ): Promise<SendResult> {
   const template = createApprovalNotificationTemplate(documentType, documentNumber, allApproved);
   return sendLarkMessage(userId, template, {
+    receiveIdType,
     actionUrl: `${SYSTEM_BASE_URL}/soumu/syaryo/dashboard`,
     buttonText: allApproved ? "📋 許可証を確認する" : "📋 申請状況を確認する",
   });
@@ -344,10 +346,12 @@ export async function sendRejectionNotification(
   userId: string,
   documentType: "license" | "vehicle" | "insurance",
   documentNumber: string,
-  reason: string
+  reason: string,
+  receiveIdType: "open_id" | "email" = "open_id"
 ): Promise<SendResult> {
   const template = createRejectionNotificationTemplate(documentType, documentNumber, reason);
   return sendLarkMessage(userId, template, {
+    receiveIdType,
     actionUrl: `${SYSTEM_BASE_URL}/soumu/syaryo/dashboard`,
     buttonText: "📋 再申請する",
   });

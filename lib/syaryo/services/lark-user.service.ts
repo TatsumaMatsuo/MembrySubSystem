@@ -176,6 +176,20 @@ export async function getCurrentLarkUser(
  * @returns Lark Open ID（取得できない場合はnull）
  */
 export async function getLarkOpenIdByEmployeeId(employeeId: string): Promise<string | null> {
+  const target = await getLarkNotificationTargetByEmployeeId(employeeId);
+  return target?.openId || null;
+}
+
+/**
+ * 社員IDからLark通知先（Open ID / email）を取得
+ * 承認通知などで Open ID が取れない場合 email にフォールバックするための共通ヘルパー。
+ *
+ * @param employeeId 社員ID
+ * @returns { openId, email } のいずれか or 両方を含むオブジェクト。レコード自体が無い場合のみ null
+ */
+export async function getLarkNotificationTargetByEmployeeId(
+  employeeId: string
+): Promise<{ openId: string | null; email: string | null } | null> {
   try {
     const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
       filter: `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}]="${employeeId}"`,
@@ -187,26 +201,34 @@ export async function getLarkOpenIdByEmployeeId(employeeId: string): Promise<str
       return null;
     }
 
-    // Peopleフィールド（社員名 (メンバー )）から open_id を取得
-    // 「社員名」は単なるテキストフィールドなので Lark 識別子は持たない
-    const peopleField = employee.fields[EMPLOYEE_MASTER_FIELDS.people_field] as unknown;
+    let openId: string | null = null;
+    let email: string | null = null;
 
-    if (Array.isArray(peopleField) && peopleField.length > 0) {
-      const firstItem = peopleField[0] as Record<string, unknown>;
-      if (firstItem && typeof firstItem === "object" && "id" in firstItem && typeof firstItem.id === "string") {
-        return firstItem.id;
+    // Peopleフィールド（社員名 (メンバー )）から open_id と email を抽出
+    const peopleField = employee.fields[EMPLOYEE_MASTER_FIELDS.people_field] as unknown;
+    const extract = (item: Record<string, unknown>) => {
+      if (!openId && typeof item.id === "string") openId = item.id;
+      if (!email && typeof item.email === "string") email = item.email;
+    };
+
+    if (Array.isArray(peopleField)) {
+      for (const it of peopleField) {
+        if (it && typeof it === "object") extract(it as Record<string, unknown>);
       }
-    } else if (peopleField && typeof peopleField === "object" && !Array.isArray(peopleField)) {
-      const obj = peopleField as Record<string, unknown>;
-      if ("id" in obj && typeof obj.id === "string") {
-        return obj.id;
-      }
+    } else if (peopleField && typeof peopleField === "object") {
+      extract(peopleField as Record<string, unknown>);
     }
 
-    console.log(`Open ID not found in employee record for ID: ${employeeId}`);
-    return null;
+    // email 専用テキストフィールドにもフォールバック（People未設定でテキスト直接入力されているケース）
+    if (!email) {
+      const directEmail = employee.fields[EMPLOYEE_MASTER_FIELDS.email];
+      if (typeof directEmail === "string" && directEmail) email = directEmail;
+    }
+
+    console.log(`[lark-user] Notification target for ${employeeId}: openId=${openId ? "found" : "null"}, email=${email ? "found" : "null"}`);
+    return { openId, email };
   } catch (error) {
-    console.error("Failed to get Lark open_id by employee_id:", error);
+    console.error("Failed to get Lark notification target:", error);
     return null;
   }
 }

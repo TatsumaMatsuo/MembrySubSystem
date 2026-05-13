@@ -29,7 +29,8 @@ function getAttachmentInfo(attachment: LarkAttachment | LarkAttachment[] | undef
   if (!att?.file_token) return { url: null, isPdf: false, filename: null };
 
   // URL構築（urlを優先、tmp_urlは一時URL取得APIなので使用しない）
-  const baseUrl = `/api/attachments/${att.file_token}`;
+  // MembrySub統合後の syaryo 専用API パスを使用
+  const baseUrl = `/api/syaryo/attachments/${att.file_token}`;
   const downloadUrl = att.url; // tmp_urlではなくurlを使用
   const url = downloadUrl ? `${baseUrl}?url=${encodeURIComponent(downloadUrl)}` : baseUrl;
 

@@ -10,6 +10,12 @@ const nextConfig = {
     NEXT_PUBLIC_LARK_OAUTH_CLIENT_ID: process.env.LARK_OAUTH_CLIENT_ID,
     NEXT_PUBLIC_LARK_OAUTH_REDIRECT_URI: process.env.LARK_OAUTH_REDIRECT_URI,
   },
+  // Amplify/Vercel の serverless function に許可証 PDF 用フォントを必ず同梱する
+  experimental: {
+    outputFileTracingIncludes: {
+      "/**": ["./public/fonts/syaryo/**"],
+    },
+  },
   webpack: (config) => {
     // PDF.js canvas module fix for browser-side rendering
     config.resolve.alias.canvas = false;

@@ -1,4 +1,5 @@
 import React from "react";
+import path from "path";
 import {
   Document,
   Page,
@@ -10,15 +11,19 @@ import {
 } from "@react-pdf/renderer";
 
 // 日本語フォント登録（Noto Sans JP）
+// 旧: fonts.gstatic.com/ea/ の Early Access エンドポイントは廃止されたため、
+// public/fonts/syaryo/ にバンドルしたファイルを参照する。
+// permit-template.tsx は pdf-generator.service.ts からサーバーサイドでのみ呼ばれる前提。
+const FONT_DIR = path.join(process.cwd(), "public", "fonts", "syaryo");
 Font.register({
   family: "NotoSansJP",
   fonts: [
     {
-      src: "https://fonts.gstatic.com/ea/notosansjp/v5/NotoSansJP-Regular.otf",
+      src: path.join(FONT_DIR, "NotoSansJP-Regular.woff"),
       fontWeight: "normal",
     },
     {
-      src: "https://fonts.gstatic.com/ea/notosansjp/v5/NotoSansJP-Bold.otf",
+      src: path.join(FONT_DIR, "NotoSansJP-Bold.woff"),
       fontWeight: "bold",
     },
   ],

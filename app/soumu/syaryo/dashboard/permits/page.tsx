@@ -89,7 +89,12 @@ export default function PermitsPage() {
         const employeeResult = await employeeResponse.json();
 
         if (!employeeResult.success || !employeeResult.data) {
-          setError(employeeResult.error || "社員情報が見つかりません");
+          const baseMessage = employeeResult.error || "社員情報が見つかりません";
+          const diag = employeeResult.diagnostic;
+          const diagText = diag
+            ? ` [診断: reason=${diag.reason}, session_email=${diag.session_email ?? "(なし)"}, lark_id=${diag.session_lark_id_present ? "あり" : "なし"}, tried=${(diag.tried || []).join("/") || "(なし)"}]`
+            : "";
+          setError(baseMessage + diagText);
           setLoading(false);
           return;
         }

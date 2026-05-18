@@ -2460,6 +2460,22 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
 
           {activeMenu === "documents" && (
             <div className="space-y-4">
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setCollapsedDepts(new Set())}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                  すべて展開
+                </button>
+                <button
+                  onClick={() => setCollapsedDepts(new Set(Object.keys(DOCUMENT_CATEGORIES) as DepartmentName[]))}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                  すべて閉じる
+                </button>
+              </div>
               {(Object.keys(DOCUMENT_CATEGORIES) as DepartmentName[]).map((dept) => {
                 const isCollapsed = collapsedDepts.has(dept);
                 const deptDocs = documents?.[dept];

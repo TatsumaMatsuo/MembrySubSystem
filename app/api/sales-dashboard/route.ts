@@ -32,7 +32,7 @@ const BACKLOG_TABLE_ID = "tbl1ICzfUixpGqDy";
 
 // シンプルなインメモリキャッシュ（TTL: 30分に延長）
 const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 30 * 60 * 1000;
+const CACHE_TTL = 5 * 60 * 1000; // 5分
 
 // リトライ可能なLark APIエラーコード
 const RETRYABLE_ERROR_CODES = [

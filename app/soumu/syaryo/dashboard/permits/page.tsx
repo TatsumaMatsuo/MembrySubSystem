@@ -145,8 +145,11 @@ export default function PermitsPage() {
     employee_id: (session.user as any).id || session.user.email || "N/A",
   };
 
-  const validPermits = permits.filter((p) => p.status === "valid");
-  const otherPermits = permits.filter((p) => p.status !== "valid");
+  // status=valid かつ有効期限が未来のものだけを表示（期限切れ・revoked は非表示）
+  const now = Date.now();
+  const validPermits = permits.filter(
+    (p) => p.status === "valid" && new Date(p.expiration_date).getTime() > now
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -181,10 +184,10 @@ export default function PermitsPage() {
           </div>
         )}
 
-        {permits.length === 0 ? (
+        {validPermits.length === 0 ? (
           <div className="bg-white rounded-lg p-8 text-center shadow">
             <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">発行済みの許可証はありません</p>
+            <p className="text-gray-600">有効な許可証はありません</p>
             <p className="text-sm text-gray-500 mt-2">
               すべての書類が承認されると許可証が自動で発行されます
             </p>
@@ -245,35 +248,6 @@ export default function PermitsPage() {
               </div>
             )}
 
-            {/* 過去の許可証 */}
-            {otherPermits.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                  過去の許可証
-                </h2>
-                <div className="bg-white rounded-lg divide-y divide-gray-200 shadow">
-                  {otherPermits.map((permit) => (
-                    <div
-                      key={permit.id}
-                      className="p-4 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Car className="w-5 h-5 text-gray-400" />
-                        <div>
-                          <p className="font-medium text-gray-700">
-                            {permit.vehicle_number}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            有効期限: {formatDate(permit.expiration_date)}
-                          </p>
-                        </div>
-                      </div>
-                      {getStatusBadge(permit.status)}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </main>

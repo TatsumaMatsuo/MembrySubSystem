@@ -306,16 +306,35 @@ export function Sidebar({
     if (hasPrograms && child.programs.length === 1) {
       const program = child.programs[0];
       const active = isActive(program.url_path);
+      const openInNewTab = program.program_id === "PGM030";
+      const linkClassName = `flex items-center gap-3 px-3 py-2.5 ml-4 rounded-lg transition-all duration-200 ${
+        active
+          ? "bg-indigo-100 text-indigo-700 font-semibold"
+          : "text-gray-700 hover:bg-gray-100"
+      }`;
+
+      if (openInNewTab) {
+        return (
+          <a
+            key={child.menu.menu_id}
+            href={program.url_path}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={handleLinkClick}
+            className={linkClassName}
+          >
+            {getIcon(child.menu.icon, true)}
+            <span className="text-sm">{child.menu.menu_name}</span>
+          </a>
+        );
+      }
+
       return (
         <Link
           key={child.menu.menu_id}
           href={program.url_path}
           onClick={handleLinkClick}
-          className={`flex items-center gap-3 px-3 py-2.5 ml-4 rounded-lg transition-all duration-200 ${
-            active
-              ? "bg-indigo-100 text-indigo-700 font-semibold"
-              : "text-gray-700 hover:bg-gray-100"
-          }`}
+          className={linkClassName}
         >
           {getIcon(child.menu.icon, true)}
           <span className="text-sm">{child.menu.menu_name}</span>
@@ -352,16 +371,34 @@ export function Sidebar({
             <div className="mt-1 space-y-1">
               {child.programs.map((program) => {
                 const active = isActive(program.url_path);
+                const openInNewTab = program.program_id === "PGM030";
+                const linkClassName = `flex items-center gap-3 px-3 py-2 ml-8 rounded-lg transition-all duration-200 ${
+                  active
+                    ? "bg-indigo-100 text-indigo-700 font-semibold"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`;
+
+                if (openInNewTab) {
+                  return (
+                    <a
+                      key={program.program_id}
+                      href={program.url_path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={handleLinkClick}
+                      className={linkClassName}
+                    >
+                      <span className="text-sm">{program.program_name}</span>
+                    </a>
+                  );
+                }
+
                 return (
                   <Link
                     key={program.program_id}
                     href={program.url_path}
                     onClick={handleLinkClick}
-                    className={`flex items-center gap-3 px-3 py-2 ml-8 rounded-lg transition-all duration-200 ${
-                      active
-                        ? "bg-indigo-100 text-indigo-700 font-semibold"
-                        : "text-gray-600 hover:bg-gray-100"
-                    }`}
+                    className={linkClassName}
                   >
                     <span className="text-sm">{program.program_name}</span>
                   </Link>

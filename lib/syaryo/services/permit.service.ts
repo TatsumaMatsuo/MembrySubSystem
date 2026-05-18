@@ -221,6 +221,17 @@ export async function createPermit(
     const now = Date.now();
     const verificationToken = generateUUID();
 
+    // 重複生成の発生源を追跡するための診断ログ。
+    // スタックトレースで呼び出しチェーン（どのAPIルート経由か）を残す。
+    const callerStack = new Error("createPermit caller").stack;
+    console.log("[permit.service] createPermit called", {
+      employee_id: data.employee_id,
+      vehicle_id: data.vehicle_id,
+      vehicle_number: data.vehicle_number,
+      ts: now,
+      caller: callerStack?.split("\n").slice(1, 6).join("\n"),
+    });
+
     const fields: Record<string, any> = {
       [PERMIT_FIELDS.employee_id]: data.employee_id,
       [PERMIT_FIELDS.employee_name]: data.employee_name,
@@ -239,6 +250,10 @@ export async function createPermit(
     };
 
     const response = await createBaseRecord(LARK_TABLES.PERMITS, fields);
+    console.log("[permit.service] createPermit DB record created", {
+      vehicle_id: data.vehicle_id,
+      record_id: response.data?.record?.record_id,
+    });
 
     return {
       id: response.data?.record?.record_id || "",

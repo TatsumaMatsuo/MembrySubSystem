@@ -415,13 +415,14 @@ export async function buildPermittedMenuStructure(
   console.log("[menu-permission] isDev:", isDev, "hasNoPermissions:", hasNoPermissions, "showAll:", showAll);
 
   for (const menu1 of level1Menus) {
-    // 権限チェック（開発環境で権限がない場合はスキップ）
+    // 権限チェック: 明示的に許可(permitted)されているもののみ表示
+    // 個別権限はグループ権限を上書きする(buildUserPermissions で実装済み)
     if (!showAll) {
       const isMenu1Permitted = permissions.permitted_menus.includes(menu1.menu_id);
       const isMenu1Denied = permissions.denied_menus.includes(menu1.menu_id);
 
       if (!isMenu1Permitted || isMenu1Denied) {
-        continue; // 許可されていないか、明示的に拒否されている
+        continue;
       }
     }
 
@@ -430,10 +431,11 @@ export async function buildPermittedMenuStructure(
     const permittedChildren: { menu: MenuDisplayMaster; programs: FunctionPlacementMaster[] }[] = [];
 
     for (const menu2 of childMenus) {
-      // 権限チェック
+      // Level 2 もチェックがついているもののみ表示
       if (!showAll) {
+        const isMenu2Permitted = permissions.permitted_menus.includes(menu2.menu_id);
         const isMenu2Denied = permissions.denied_menus.includes(menu2.menu_id);
-        if (isMenu2Denied) {
+        if (!isMenu2Permitted || isMenu2Denied) {
           continue;
         }
       }
@@ -448,10 +450,11 @@ export async function buildPermittedMenuStructure(
       // Level 3 子メニュー配下のプログラムも収集
       const level3Children = level3Menus.filter(m => m.parent_menu_id === menu2.menu_id);
       for (const menu3 of level3Children) {
-        // Level 3 メニューの権限チェック
+        // Level 3 もチェックがついているもののみ表示
         if (!showAll) {
+          const isMenu3Permitted = permissions.permitted_menus.includes(menu3.menu_id);
           const isMenu3Denied = permissions.denied_menus.includes(menu3.menu_id);
-          if (isMenu3Denied) {
+          if (!isMenu3Permitted || isMenu3Denied) {
             continue;
           }
         }
@@ -459,11 +462,13 @@ export async function buildPermittedMenuStructure(
         menuPrograms = [...menuPrograms, ...level3Programs];
       }
 
-      // 権限でフィルタ
+      // プログラムも明示的に許可されているもののみ表示
       const permittedPrograms = showAll
         ? menuPrograms
         : menuPrograms.filter(p => {
-            return !permissions.denied_programs.includes(p.program_id);
+            const isPermitted = permissions.permitted_programs.includes(p.program_id);
+            const isDenied = permissions.denied_programs.includes(p.program_id);
+            return isPermitted && !isDenied;
           });
 
       if (permittedPrograms.length > 0) {

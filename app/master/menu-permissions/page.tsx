@@ -258,111 +258,9 @@ interface GroupInfo {
   name: string;
 }
 
-interface SubRow {
-  kind: "menu" | "program";
-  level: number; // 2 / 3 / 4 (= 表示インデント段数, L1直下が2)
-  id: string; // menu_id or program_id
-  name: string;
-  targetType: "menu" | "program";
-}
-
-interface MenuWithSubRows {
-  menu: any; // Level 1 メニュー
-  rows: SubRow[]; // 配下の L2/L3 メニュー + プログラム (表示順)
-}
-
-const byOrder = (a: any, b: any) =>
-  (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0);
-
-/**
- * Level 1 メニュー配下を平坦化:
- *   - L1 直下の Program
- *   - L2 メニュー → L3 メニュー → L3 配下 Program → L2 配下 Program
- */
-function buildSubRows(menus: any[], programs: any[], l1MenuId: string): SubRow[] {
-  const rows: SubRow[] = [];
-
-  // L1 直下のプログラム
-  const l1Programs = programs
-    .filter((p) => p.fields?.["配置メニューID"] === l1MenuId)
-    .sort(byOrder);
-  for (const p of l1Programs) {
-    rows.push({
-      kind: "program",
-      level: 2,
-      id: p.fields?.["プログラムID"],
-      name: p.fields?.["プログラム名称"],
-      targetType: "program",
-    });
-  }
-
-  // L2 メニュー
-  const l2Menus = menus
-    .filter(
-      (m) =>
-        m.fields?.["親メニューID"] === l1MenuId &&
-        Number(m.fields?.["階層レベル"]) === 2
-    )
-    .sort(byOrder);
-  for (const l2 of l2Menus) {
-    const l2Id = l2.fields?.["メニューID"];
-    rows.push({
-      kind: "menu",
-      level: 2,
-      id: l2Id,
-      name: l2.fields?.["メニュー名"],
-      targetType: "menu",
-    });
-
-    // L3 メニュー
-    const l3Menus = menus
-      .filter(
-        (m) =>
-          m.fields?.["親メニューID"] === l2Id &&
-          Number(m.fields?.["階層レベル"]) === 3
-      )
-      .sort(byOrder);
-    for (const l3 of l3Menus) {
-      const l3Id = l3.fields?.["メニューID"];
-      rows.push({
-        kind: "menu",
-        level: 3,
-        id: l3Id,
-        name: l3.fields?.["メニュー名"],
-        targetType: "menu",
-      });
-
-      // L3 直下のプログラム
-      const l3Programs = programs
-        .filter((p) => p.fields?.["配置メニューID"] === l3Id)
-        .sort(byOrder);
-      for (const p of l3Programs) {
-        rows.push({
-          kind: "program",
-          level: 4,
-          id: p.fields?.["プログラムID"],
-          name: p.fields?.["プログラム名称"],
-          targetType: "program",
-        });
-      }
-    }
-
-    // L2 直下のプログラム (L3 メニューの後に表示)
-    const l2Programs = programs
-      .filter((p) => p.fields?.["配置メニューID"] === l2Id)
-      .sort(byOrder);
-    for (const p of l2Programs) {
-      rows.push({
-        kind: "program",
-        level: 3,
-        id: p.fields?.["プログラムID"],
-        name: p.fields?.["プログラム名称"],
-        targetType: "program",
-      });
-    }
-  }
-
-  return rows;
+interface MenuWithPrograms {
+  menu: any;
+  programs: any[];
 }
 
 interface LarkDepartment {
@@ -409,13 +307,22 @@ const GroupPermissionMatrix = ({
     ).values()
   ).filter((g) => g.id);
 
-  // メニュー階層を構築 (L1 + L1配下の L2/L3/Program を平坦化)
-  const menuHierarchy: MenuWithSubRows[] = menus
-    .filter((m) => Number(m.fields?.["階層レベル"]) === 1)
-    .sort(byOrder)
+  // メニュー階層を構築
+  const menuHierarchy: MenuWithPrograms[] = menus
+    .filter((m) => m.fields?.["階層レベル"] === 1 || m.fields?.["階層レベル"] === "1")
+    .sort((a, b) => (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0))
     .map((menu) => {
       const menuId = menu.fields?.["メニューID"];
-      return { menu, rows: buildSubRows(menus, programs, menuId) };
+      const childMenus = menus
+        .filter((m) => m.fields?.["親メニューID"] === menuId)
+        .sort((a, b) => (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0));
+
+      const menuPrograms = programs.filter((p) => {
+        const placementId = p.fields?.["配置メニューID"];
+        return placementId === menuId || childMenus.some((cm) => cm.fields?.["メニューID"] === placementId);
+      }).sort((a, b) => (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0));
+
+      return { menu, programs: menuPrograms };
     });
 
   // 権限チェック
@@ -566,15 +473,15 @@ const GroupPermissionMatrix = ({
             </tr>
           </thead>
           <tbody>
-            {menuHierarchy.map(({ menu, rows }) => {
+            {menuHierarchy.map(({ menu, programs: menuPrograms }) => {
               const menuId = menu.fields?.["メニューID"];
               const menuName = menu.fields?.["メニュー名"];
               const isExpanded = expandedMenus.has(menuId);
-              const hasChildren = rows.length > 0;
+              const hasChildren = menuPrograms.length > 0;
 
               return (
                 <React.Fragment key={menuId}>
-                  {/* Level 1 メニュー行 */}
+                  {/* メニュー行 */}
                   <tr className="bg-gray-100 hover:bg-gray-200">
                     <td className="sticky left-0 bg-gray-100 border-b border-r px-4 py-2 z-10">
                       <div className="flex items-center gap-2">
@@ -612,27 +519,29 @@ const GroupPermissionMatrix = ({
                     ))}
                     {groups.length === 0 && <td className="border-b border-r" />}
                   </tr>
-                  {/* L2 / L3 メニュー + プログラム行 (展開時のみ) */}
+                  {/* プログラム行 */}
                   {isExpanded &&
-                    rows.map((row) => {
-                      const isMenuRow = row.kind === "menu";
+                    menuPrograms.map((program) => {
+                      const programId = program.fields?.["プログラムID"];
+                      const programName = program.fields?.["プログラム名称"];
                       return (
-                        <tr key={`${row.targetType}-${row.id}`} className="hover:bg-blue-50">
-                          <td className={`sticky left-0 border-b border-r px-4 py-2 z-10 ${isMenuRow ? "bg-gray-50" : "bg-white"}`}>
-                            <div className="flex items-center gap-2" style={{ paddingLeft: `${(row.level - 1) * 20}px` }}>
-                              <span className={isMenuRow ? "text-sm font-medium text-gray-700" : "text-sm text-gray-600"}>
-                                {row.name}
-                              </span>
-                              <span className="text-xs text-gray-400">({row.id})</span>
+                        <tr key={programId} className="hover:bg-blue-50">
+                          <td className="sticky left-0 bg-white border-b border-r px-4 py-2 z-10">
+                            <div className="flex items-center gap-2 pl-8">
+                              <span className="text-sm text-gray-600">{programName}</span>
+                              <span className="text-xs text-gray-400">({programId})</span>
                             </div>
                           </td>
                           {groups.map((group) => (
-                            <td key={group.id} className={`border-b border-r px-3 py-2 text-center ${isMenuRow ? "bg-gray-50" : ""}`}>
+                            <td
+                              key={group.id}
+                              className="border-b border-r px-3 py-2 text-center"
+                            >
                               <input
                                 type="checkbox"
-                                checked={hasPermission(group.id, row.targetType, row.id)}
+                                checked={hasPermission(group.id, "program", programId)}
                                 onChange={(e) =>
-                                  onPermissionChange(group.id, row.targetType, row.id, e.target.checked)
+                                  onPermissionChange(group.id, "program", programId, e.target.checked)
                                 }
                                 disabled={saving}
                                 className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
@@ -869,13 +778,22 @@ const UserPermissionMatrix = ({
     ).values()
   ).filter((u) => u.id);
 
-  // メニュー階層を構築 (L1 + L1配下の L2/L3/Program を平坦化)
-  const menuHierarchy: MenuWithSubRows[] = menus
-    .filter((m) => Number(m.fields?.["階層レベル"]) === 1)
-    .sort(byOrder)
+  // メニュー階層を構築
+  const menuHierarchy: MenuWithPrograms[] = menus
+    .filter((m) => m.fields?.["階層レベル"] === 1 || m.fields?.["階層レベル"] === "1")
+    .sort((a, b) => (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0))
     .map((menu) => {
       const menuId = menu.fields?.["メニューID"];
-      return { menu, rows: buildSubRows(menus, programs, menuId) };
+      const childMenus = menus
+        .filter((m) => m.fields?.["親メニューID"] === menuId)
+        .sort((a, b) => (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0));
+
+      const menuPrograms = programs.filter((p) => {
+        const placementId = p.fields?.["配置メニューID"];
+        return placementId === menuId || childMenus.some((cm) => cm.fields?.["メニューID"] === placementId);
+      }).sort((a, b) => (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0));
+
+      return { menu, programs: menuPrograms };
     });
 
   // 権限チェック
@@ -1042,15 +960,15 @@ const UserPermissionMatrix = ({
             </tr>
           </thead>
           <tbody>
-            {menuHierarchy.map(({ menu, rows }) => {
+            {menuHierarchy.map(({ menu, programs: menuPrograms }) => {
               const menuId = menu.fields?.["メニューID"];
               const menuName = menu.fields?.["メニュー名"];
               const isExpanded = expandedMenus.has(menuId);
-              const hasChildren = rows.length > 0;
+              const hasChildren = menuPrograms.length > 0;
 
               return (
                 <React.Fragment key={menuId}>
-                  {/* Level 1 メニュー行 */}
+                  {/* メニュー行 */}
                   <tr className="bg-gray-100 hover:bg-gray-200">
                     <td className="sticky left-0 bg-gray-100 border-b border-r px-4 py-2 z-10">
                       <div className="flex items-center gap-2">
@@ -1088,27 +1006,29 @@ const UserPermissionMatrix = ({
                     ))}
                     {users.length === 0 && <td className="border-b border-r" />}
                   </tr>
-                  {/* L2 / L3 メニュー + プログラム行 (展開時のみ) */}
+                  {/* プログラム行 */}
                   {isExpanded &&
-                    rows.map((row) => {
-                      const isMenuRow = row.kind === "menu";
+                    menuPrograms.map((program) => {
+                      const programId = program.fields?.["プログラムID"];
+                      const programName = program.fields?.["プログラム名称"];
                       return (
-                        <tr key={`${row.targetType}-${row.id}`} className="hover:bg-blue-50">
-                          <td className={`sticky left-0 border-b border-r px-4 py-2 z-10 ${isMenuRow ? "bg-gray-50" : "bg-white"}`}>
-                            <div className="flex items-center gap-2" style={{ paddingLeft: `${(row.level - 1) * 20}px` }}>
-                              <span className={isMenuRow ? "text-sm font-medium text-gray-700" : "text-sm text-gray-600"}>
-                                {row.name}
-                              </span>
-                              <span className="text-xs text-gray-400">({row.id})</span>
+                        <tr key={programId} className="hover:bg-blue-50">
+                          <td className="sticky left-0 bg-white border-b border-r px-4 py-2 z-10">
+                            <div className="flex items-center gap-2 pl-8">
+                              <span className="text-sm text-gray-600">{programName}</span>
+                              <span className="text-xs text-gray-400">({programId})</span>
                             </div>
                           </td>
                           {users.map((user) => (
-                            <td key={user.id} className={`border-b border-r px-3 py-2 text-center ${isMenuRow ? "bg-gray-50" : ""}`}>
+                            <td
+                              key={user.id}
+                              className="border-b border-r px-3 py-2 text-center"
+                            >
                               <input
                                 type="checkbox"
-                                checked={hasPermission(user.id, row.targetType, row.id)}
+                                checked={hasPermission(user.id, "program", programId)}
                                 onChange={(e) =>
-                                  onPermissionChange(user.id, row.targetType, row.id, e.target.checked)
+                                  onPermissionChange(user.id, "program", programId, e.target.checked)
                                 }
                                 disabled={saving}
                                 className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
@@ -1361,17 +1281,6 @@ const TABS: TabConfig[] = [
   },
 ];
 
-// 権限マトリックスの未保存変更を保持する型
-interface PendingPermissionChange {
-  key: string; // ${entityId}:${targetType}:${targetId}
-  entityId: string; // groupId or userId
-  entityName: string; // groupName or userName
-  targetType: "menu" | "program";
-  targetId: string;
-  isAllowed: boolean;
-  existingRecordId?: string; // 既存レコードが Lark にある場合の record_id
-}
-
 export default function MenuPermissionsPage() {
   const [activeTab, setActiveTab] = useState<TabType>("menu");
   const [data, setData] = useState<Record<string, any[]>>({
@@ -1388,10 +1297,6 @@ export default function MenuPermissionsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRecord, setNewRecord] = useState<Record<string, any>>({});
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
-  // 権限マトリックスの未保存変更（右上「更新」ボタン押下時にまとめて保存）
-  const [pendingGroupChanges, setPendingGroupChanges] = useState<Map<string, PendingPermissionChange>>(new Map());
-  const [pendingUserChanges, setPendingUserChanges] = useState<Map<string, PendingPermissionChange>>(new Map());
-  const totalPendingChanges = pendingGroupChanges.size + pendingUserChanges.size;
 
   // データ取得
   const fetchData = async () => {
@@ -1639,63 +1544,68 @@ export default function MenuPermissionsPage() {
     setEditingData(data);
   };
 
-  // グループ権限の変更（マトリックス用 - 画面のみ更新、保存は「更新」ボタン押下時）
-  const handlePermissionChange = (
+  // グループ権限の変更（マトリックス用）
+  const handlePermissionChange = async (
     groupId: string,
     targetType: "menu" | "program",
     targetId: string,
     isAllowed: boolean
   ) => {
-    const key = `${groupId}:${targetType}:${targetId}`;
-    const existingRecord = data.group.find(
-      (p: any) =>
-        p.fields?.["グループID"] === groupId &&
-        p.fields?.["対象種別"] === targetType &&
-        p.fields?.["対象ID"] === targetId
-    );
-    const groupRecord = data.group.find((p: any) => p.fields?.["グループID"] === groupId);
-    const groupName = groupRecord?.fields?.["グループ名"] || groupId;
+    setSaving(true);
+    try {
+      // 既存レコードを検索
+      const existingRecord = data.group.find(
+        (p: any) =>
+          p.fields?.["グループID"] === groupId &&
+          p.fields?.["対象種別"] === targetType &&
+          p.fields?.["対象ID"] === targetId
+      );
 
-    // ローカルの data.group を更新して即座に画面反映
-    setData((prev) => {
-      const newGroup = [...prev.group];
       if (existingRecord) {
-        const idx = newGroup.indexOf(existingRecord);
-        newGroup[idx] = {
-          ...existingRecord,
-          fields: { ...existingRecord.fields, ["許可フラグ"]: isAllowed },
-        };
-      } else {
-        // 未保存の新規レコード（record_id 接頭辞で識別）
-        newGroup.push({
-          record_id: `__pending__${key}`,
-          fields: {
-            ["グループID"]: groupId,
-            ["グループ名"]: groupName,
-            ["対象種別"]: targetType,
-            ["対象ID"]: targetId,
-            ["許可フラグ"]: isAllowed,
-          },
+        // 既存レコードを更新
+        const response = await fetch("/api/master/menu-permissions", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "group",
+            record_id: existingRecord.record_id,
+            fields: { "許可フラグ": isAllowed },
+          }),
         });
-      }
-      return { ...prev, group: newGroup };
-    });
+        const result = await response.json();
+        if (!result.success) {
+          alert(result.error || "更新に失敗しました");
+        }
+      } else {
+        // 新規レコードを作成
+        const groupRecord = data.group.find((p: any) => p.fields?.["グループID"] === groupId);
+        const groupName = groupRecord?.fields?.["グループ名"] || groupId;
 
-    // 未保存リストへ追加（同一キーは上書き）
-    setPendingGroupChanges((prev) => {
-      const next = new Map(prev);
-      const isPendingRecord = existingRecord?.record_id?.startsWith("__pending__");
-      next.set(key, {
-        key,
-        entityId: groupId,
-        entityName: groupName,
-        targetType,
-        targetId,
-        isAllowed,
-        existingRecordId: existingRecord && !isPendingRecord ? existingRecord.record_id : undefined,
-      });
-      return next;
-    });
+        const response = await fetch("/api/master/menu-permissions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "group",
+            fields: {
+              "グループID": groupId,
+              "グループ名": groupName,
+              "対象種別": targetType,
+              "対象ID": targetId,
+              "許可フラグ": isAllowed,
+            },
+          }),
+        });
+        const result = await response.json();
+        if (!result.success) {
+          alert(result.error || "作成に失敗しました");
+        }
+      }
+      await fetchData();
+    } catch (err) {
+      alert("権限の更新に失敗しました");
+    } finally {
+      setSaving(false);
+    }
   };
 
   // グループ追加（マトリックス用）
@@ -1737,26 +1647,13 @@ export default function MenuPermissionsPage() {
   const handleRemoveGroup = async (groupId: string) => {
     setSaving(true);
     try {
-      // 削除対象は Lark に実在するレコードのみ（__pending__ は未保存なのでスキップ）
-      const groupRecords = data.group.filter(
-        (p: any) =>
-          p.fields?.["グループID"] === groupId &&
-          !String(p.record_id || "").startsWith("__pending__")
-      );
+      const groupRecords = data.group.filter((p: any) => p.fields?.["グループID"] === groupId);
       for (const record of groupRecords) {
         await fetch(
           `/api/master/menu-permissions?type=group&record_id=${record.record_id}`,
           { method: "DELETE" }
         );
       }
-      // このグループに対する未保存変更を破棄
-      setPendingGroupChanges((prev) => {
-        const next = new Map(prev);
-        for (const key of Array.from(next.keys())) {
-          if (key.startsWith(`${groupId}:`)) next.delete(key);
-        }
-        return next;
-      });
       await fetchData();
     } catch (err) {
       alert("グループの削除に失敗しました");
@@ -1765,133 +1662,65 @@ export default function MenuPermissionsPage() {
     }
   };
 
-  // 個別権限の変更（マトリックス用 - 画面のみ更新、保存は「更新」ボタン押下時）
-  const handleUserPermissionChange = (
+  // 個別権限の変更（マトリックス用）
+  const handleUserPermissionChange = async (
     userId: string,
     targetType: "menu" | "program",
     targetId: string,
     isAllowed: boolean
   ) => {
-    const key = `${userId}:${targetType}:${targetId}`;
-    const existingRecord = data.user.find(
-      (p: any) =>
-        p.fields?.["社員ID"] === userId &&
-        p.fields?.["対象種別"] === targetType &&
-        p.fields?.["対象ID"] === targetId
-    );
-    const userRecord = data.user.find((p: any) => p.fields?.["社員ID"] === userId);
-    const userName = userRecord?.fields?.["社員名"] || userId;
-
-    // ローカルの data.user を更新して即座に画面反映
-    setData((prev) => {
-      const newUser = [...prev.user];
-      if (existingRecord) {
-        const idx = newUser.indexOf(existingRecord);
-        newUser[idx] = {
-          ...existingRecord,
-          fields: { ...existingRecord.fields, ["許可フラグ"]: isAllowed },
-        };
-      } else {
-        newUser.push({
-          record_id: `__pending__${key}`,
-          fields: {
-            ["社員ID"]: userId,
-            ["社員名"]: userName,
-            ["対象種別"]: targetType,
-            ["対象ID"]: targetId,
-            ["許可フラグ"]: isAllowed,
-          },
-        });
-      }
-      return { ...prev, user: newUser };
-    });
-
-    setPendingUserChanges((prev) => {
-      const next = new Map(prev);
-      const isPendingRecord = existingRecord?.record_id?.startsWith("__pending__");
-      next.set(key, {
-        key,
-        entityId: userId,
-        entityName: userName,
-        targetType,
-        targetId,
-        isAllowed,
-        existingRecordId: existingRecord && !isPendingRecord ? existingRecord.record_id : undefined,
-      });
-      return next;
-    });
-  };
-
-  // 未保存の権限変更をまとめて保存
-  const handleSavePending = async () => {
-    if (totalPendingChanges === 0) {
-      await fetchData();
-      return;
-    }
     setSaving(true);
     try {
-      for (const change of pendingGroupChanges.values()) {
-        if (change.existingRecordId) {
-          await fetch("/api/master/menu-permissions", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "group",
-              record_id: change.existingRecordId,
-              fields: { ["許可フラグ"]: change.isAllowed },
-            }),
-          });
-        } else {
-          await fetch("/api/master/menu-permissions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "group",
-              fields: {
-                ["グループID"]: change.entityId,
-                ["グループ名"]: change.entityName,
-                ["対象種別"]: change.targetType,
-                ["対象ID"]: change.targetId,
-                ["許可フラグ"]: change.isAllowed,
-              },
-            }),
-          });
+      // 既存レコードを検索
+      const existingRecord = data.user.find(
+        (p: any) =>
+          p.fields?.["社員ID"] === userId &&
+          p.fields?.["対象種別"] === targetType &&
+          p.fields?.["対象ID"] === targetId
+      );
+
+      if (existingRecord) {
+        // 既存レコードを更新
+        const response = await fetch("/api/master/menu-permissions", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "user",
+            record_id: existingRecord.record_id,
+            fields: { "許可フラグ": isAllowed },
+          }),
+        });
+        const result = await response.json();
+        if (!result.success) {
+          alert(result.error || "更新に失敗しました");
+        }
+      } else {
+        // 新規レコードを作成
+        const userRecord = data.user.find((p: any) => p.fields?.["社員ID"] === userId);
+        const userName = userRecord?.fields?.["社員名"] || userId;
+
+        const response = await fetch("/api/master/menu-permissions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "user",
+            fields: {
+              "社員ID": userId,
+              "社員名": userName,
+              "対象種別": targetType,
+              "対象ID": targetId,
+              "許可フラグ": isAllowed,
+            },
+          }),
+        });
+        const result = await response.json();
+        if (!result.success) {
+          alert(result.error || "作成に失敗しました");
         }
       }
-      for (const change of pendingUserChanges.values()) {
-        if (change.existingRecordId) {
-          await fetch("/api/master/menu-permissions", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "user",
-              record_id: change.existingRecordId,
-              fields: { ["許可フラグ"]: change.isAllowed },
-            }),
-          });
-        } else {
-          await fetch("/api/master/menu-permissions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "user",
-              fields: {
-                ["社員ID"]: change.entityId,
-                ["社員名"]: change.entityName,
-                ["対象種別"]: change.targetType,
-                ["対象ID"]: change.targetId,
-                ["許可フラグ"]: change.isAllowed,
-              },
-            }),
-          });
-        }
-      }
-      setPendingGroupChanges(new Map());
-      setPendingUserChanges(new Map());
       await fetchData();
     } catch (err) {
-      alert("権限の保存に失敗しました");
-      console.error(err);
+      alert("権限の更新に失敗しました");
     } finally {
       setSaving(false);
     }
@@ -1936,25 +1765,13 @@ export default function MenuPermissionsPage() {
   const handleRemoveUser = async (userId: string) => {
     setSaving(true);
     try {
-      const userRecords = data.user.filter(
-        (p: any) =>
-          p.fields?.["社員ID"] === userId &&
-          !String(p.record_id || "").startsWith("__pending__")
-      );
+      const userRecords = data.user.filter((p: any) => p.fields?.["社員ID"] === userId);
       for (const record of userRecords) {
         await fetch(
           `/api/master/menu-permissions?type=user&record_id=${record.record_id}`,
           { method: "DELETE" }
         );
       }
-      // このユーザーに対する未保存変更を破棄
-      setPendingUserChanges((prev) => {
-        const next = new Map(prev);
-        for (const key of Array.from(next.keys())) {
-          if (key.startsWith(`${userId}:`)) next.delete(key);
-        }
-        return next;
-      });
       await fetchData();
     } catch (err) {
       alert("ユーザーの削除に失敗しました");
@@ -1987,27 +1804,14 @@ export default function MenuPermissionsPage() {
               <p className="text-sm text-gray-500">マスタ &gt; メニュー権限マスタ管理</p>
             </div>
             <div className="flex items-center gap-2">
-              {totalPendingChanges > 0 ? (
-                <button
-                  onClick={handleSavePending}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-3 py-2 text-white bg-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                  title="未保存の権限変更を Lark に保存"
-                >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  更新 ({totalPendingChanges}件)
-                </button>
-              ) : (
-                <button
-                  onClick={fetchData}
-                  disabled={loading}
-                  className="flex items-center gap-2 px-3 py-2 text-gray-600 bg-white border rounded-lg hover:bg-gray-50 transition-colors"
-                  title="サーバから最新データを再取得"
-                >
-                  <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                  更新
-                </button>
-              )}
+              <button
+                onClick={fetchData}
+                disabled={loading}
+                className="flex items-center gap-2 px-3 py-2 text-gray-600 bg-white border rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                更新
+              </button>
               {activeTab !== "group" && activeTab !== "user" && (
                 <button
                   onClick={() => {

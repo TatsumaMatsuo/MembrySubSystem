@@ -258,9 +258,111 @@ interface GroupInfo {
   name: string;
 }
 
-interface MenuWithPrograms {
-  menu: any;
-  programs: any[];
+interface SubRow {
+  kind: "menu" | "program";
+  level: number; // 2 / 3 / 4 (= 表示インデント段数, L1直下が2)
+  id: string; // menu_id or program_id
+  name: string;
+  targetType: "menu" | "program";
+}
+
+interface MenuWithSubRows {
+  menu: any; // Level 1 メニュー
+  rows: SubRow[]; // 配下の L2/L3 メニュー + プログラム (表示順)
+}
+
+const byOrder = (a: any, b: any) =>
+  (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0);
+
+/**
+ * Level 1 メニュー配下を平坦化:
+ *   - L1 直下の Program
+ *   - L2 メニュー → L3 メニュー → L3 配下 Program → L2 配下 Program
+ */
+function buildSubRows(menus: any[], programs: any[], l1MenuId: string): SubRow[] {
+  const rows: SubRow[] = [];
+
+  // L1 直下のプログラム
+  const l1Programs = programs
+    .filter((p) => p.fields?.["配置メニューID"] === l1MenuId)
+    .sort(byOrder);
+  for (const p of l1Programs) {
+    rows.push({
+      kind: "program",
+      level: 2,
+      id: p.fields?.["プログラムID"],
+      name: p.fields?.["プログラム名称"],
+      targetType: "program",
+    });
+  }
+
+  // L2 メニュー
+  const l2Menus = menus
+    .filter(
+      (m) =>
+        m.fields?.["親メニューID"] === l1MenuId &&
+        Number(m.fields?.["階層レベル"]) === 2
+    )
+    .sort(byOrder);
+  for (const l2 of l2Menus) {
+    const l2Id = l2.fields?.["メニューID"];
+    rows.push({
+      kind: "menu",
+      level: 2,
+      id: l2Id,
+      name: l2.fields?.["メニュー名"],
+      targetType: "menu",
+    });
+
+    // L3 メニュー
+    const l3Menus = menus
+      .filter(
+        (m) =>
+          m.fields?.["親メニューID"] === l2Id &&
+          Number(m.fields?.["階層レベル"]) === 3
+      )
+      .sort(byOrder);
+    for (const l3 of l3Menus) {
+      const l3Id = l3.fields?.["メニューID"];
+      rows.push({
+        kind: "menu",
+        level: 3,
+        id: l3Id,
+        name: l3.fields?.["メニュー名"],
+        targetType: "menu",
+      });
+
+      // L3 直下のプログラム
+      const l3Programs = programs
+        .filter((p) => p.fields?.["配置メニューID"] === l3Id)
+        .sort(byOrder);
+      for (const p of l3Programs) {
+        rows.push({
+          kind: "program",
+          level: 4,
+          id: p.fields?.["プログラムID"],
+          name: p.fields?.["プログラム名称"],
+          targetType: "program",
+        });
+      }
+    }
+
+    // L2 直下のプログラム (L3 メニューの後に表示)
+    const l2Programs = programs
+      .filter((p) => p.fields?.["配置メニューID"] === l2Id)
+      .sort(byOrder);
+    for (const p of l2Programs) {
+      rows.push({
+        kind: "program",
+        level: 3,
+        id: p.fields?.["プログラムID"],
+        name: p.fields?.["プログラム名称"],
+        targetType: "program",
+      });
+    }
+  }
+
+  return rows;
 }
 
 interface LarkDepartment {
@@ -307,22 +409,13 @@ const GroupPermissionMatrix = ({
     ).values()
   ).filter((g) => g.id);
 
-  // メニュー階層を構築
-  const menuHierarchy: MenuWithPrograms[] = menus
-    .filter((m) => m.fields?.["階層レベル"] === 1 || m.fields?.["階層レベル"] === "1")
-    .sort((a, b) => (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0))
+  // メニュー階層を構築 (L1 + L1配下の L2/L3/Program を平坦化)
+  const menuHierarchy: MenuWithSubRows[] = menus
+    .filter((m) => Number(m.fields?.["階層レベル"]) === 1)
+    .sort(byOrder)
     .map((menu) => {
       const menuId = menu.fields?.["メニューID"];
-      const childMenus = menus
-        .filter((m) => m.fields?.["親メニューID"] === menuId)
-        .sort((a, b) => (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0));
-
-      const menuPrograms = programs.filter((p) => {
-        const placementId = p.fields?.["配置メニューID"];
-        return placementId === menuId || childMenus.some((cm) => cm.fields?.["メニューID"] === placementId);
-      }).sort((a, b) => (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0));
-
-      return { menu, programs: menuPrograms };
+      return { menu, rows: buildSubRows(menus, programs, menuId) };
     });
 
   // 権限チェック
@@ -473,15 +566,15 @@ const GroupPermissionMatrix = ({
             </tr>
           </thead>
           <tbody>
-            {menuHierarchy.map(({ menu, programs: menuPrograms }) => {
+            {menuHierarchy.map(({ menu, rows }) => {
               const menuId = menu.fields?.["メニューID"];
               const menuName = menu.fields?.["メニュー名"];
               const isExpanded = expandedMenus.has(menuId);
-              const hasChildren = menuPrograms.length > 0;
+              const hasChildren = rows.length > 0;
 
               return (
                 <React.Fragment key={menuId}>
-                  {/* メニュー行 */}
+                  {/* Level 1 メニュー行 */}
                   <tr className="bg-gray-100 hover:bg-gray-200">
                     <td className="sticky left-0 bg-gray-100 border-b border-r px-4 py-2 z-10">
                       <div className="flex items-center gap-2">
@@ -519,29 +612,27 @@ const GroupPermissionMatrix = ({
                     ))}
                     {groups.length === 0 && <td className="border-b border-r" />}
                   </tr>
-                  {/* プログラム行 */}
+                  {/* L2 / L3 メニュー + プログラム行 (展開時のみ) */}
                   {isExpanded &&
-                    menuPrograms.map((program) => {
-                      const programId = program.fields?.["プログラムID"];
-                      const programName = program.fields?.["プログラム名称"];
+                    rows.map((row) => {
+                      const isMenuRow = row.kind === "menu";
                       return (
-                        <tr key={programId} className="hover:bg-blue-50">
-                          <td className="sticky left-0 bg-white border-b border-r px-4 py-2 z-10">
-                            <div className="flex items-center gap-2 pl-8">
-                              <span className="text-sm text-gray-600">{programName}</span>
-                              <span className="text-xs text-gray-400">({programId})</span>
+                        <tr key={`${row.targetType}-${row.id}`} className="hover:bg-blue-50">
+                          <td className={`sticky left-0 border-b border-r px-4 py-2 z-10 ${isMenuRow ? "bg-gray-50" : "bg-white"}`}>
+                            <div className="flex items-center gap-2" style={{ paddingLeft: `${(row.level - 1) * 20}px` }}>
+                              <span className={isMenuRow ? "text-sm font-medium text-gray-700" : "text-sm text-gray-600"}>
+                                {row.name}
+                              </span>
+                              <span className="text-xs text-gray-400">({row.id})</span>
                             </div>
                           </td>
                           {groups.map((group) => (
-                            <td
-                              key={group.id}
-                              className="border-b border-r px-3 py-2 text-center"
-                            >
+                            <td key={group.id} className={`border-b border-r px-3 py-2 text-center ${isMenuRow ? "bg-gray-50" : ""}`}>
                               <input
                                 type="checkbox"
-                                checked={hasPermission(group.id, "program", programId)}
+                                checked={hasPermission(group.id, row.targetType, row.id)}
                                 onChange={(e) =>
-                                  onPermissionChange(group.id, "program", programId, e.target.checked)
+                                  onPermissionChange(group.id, row.targetType, row.id, e.target.checked)
                                 }
                                 disabled={saving}
                                 className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
@@ -778,22 +869,13 @@ const UserPermissionMatrix = ({
     ).values()
   ).filter((u) => u.id);
 
-  // メニュー階層を構築
-  const menuHierarchy: MenuWithPrograms[] = menus
-    .filter((m) => m.fields?.["階層レベル"] === 1 || m.fields?.["階層レベル"] === "1")
-    .sort((a, b) => (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0))
+  // メニュー階層を構築 (L1 + L1配下の L2/L3/Program を平坦化)
+  const menuHierarchy: MenuWithSubRows[] = menus
+    .filter((m) => Number(m.fields?.["階層レベル"]) === 1)
+    .sort(byOrder)
     .map((menu) => {
       const menuId = menu.fields?.["メニューID"];
-      const childMenus = menus
-        .filter((m) => m.fields?.["親メニューID"] === menuId)
-        .sort((a, b) => (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0));
-
-      const menuPrograms = programs.filter((p) => {
-        const placementId = p.fields?.["配置メニューID"];
-        return placementId === menuId || childMenus.some((cm) => cm.fields?.["メニューID"] === placementId);
-      }).sort((a, b) => (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0));
-
-      return { menu, programs: menuPrograms };
+      return { menu, rows: buildSubRows(menus, programs, menuId) };
     });
 
   // 権限チェック
@@ -960,15 +1042,15 @@ const UserPermissionMatrix = ({
             </tr>
           </thead>
           <tbody>
-            {menuHierarchy.map(({ menu, programs: menuPrograms }) => {
+            {menuHierarchy.map(({ menu, rows }) => {
               const menuId = menu.fields?.["メニューID"];
               const menuName = menu.fields?.["メニュー名"];
               const isExpanded = expandedMenus.has(menuId);
-              const hasChildren = menuPrograms.length > 0;
+              const hasChildren = rows.length > 0;
 
               return (
                 <React.Fragment key={menuId}>
-                  {/* メニュー行 */}
+                  {/* Level 1 メニュー行 */}
                   <tr className="bg-gray-100 hover:bg-gray-200">
                     <td className="sticky left-0 bg-gray-100 border-b border-r px-4 py-2 z-10">
                       <div className="flex items-center gap-2">
@@ -1006,29 +1088,27 @@ const UserPermissionMatrix = ({
                     ))}
                     {users.length === 0 && <td className="border-b border-r" />}
                   </tr>
-                  {/* プログラム行 */}
+                  {/* L2 / L3 メニュー + プログラム行 (展開時のみ) */}
                   {isExpanded &&
-                    menuPrograms.map((program) => {
-                      const programId = program.fields?.["プログラムID"];
-                      const programName = program.fields?.["プログラム名称"];
+                    rows.map((row) => {
+                      const isMenuRow = row.kind === "menu";
                       return (
-                        <tr key={programId} className="hover:bg-blue-50">
-                          <td className="sticky left-0 bg-white border-b border-r px-4 py-2 z-10">
-                            <div className="flex items-center gap-2 pl-8">
-                              <span className="text-sm text-gray-600">{programName}</span>
-                              <span className="text-xs text-gray-400">({programId})</span>
+                        <tr key={`${row.targetType}-${row.id}`} className="hover:bg-blue-50">
+                          <td className={`sticky left-0 border-b border-r px-4 py-2 z-10 ${isMenuRow ? "bg-gray-50" : "bg-white"}`}>
+                            <div className="flex items-center gap-2" style={{ paddingLeft: `${(row.level - 1) * 20}px` }}>
+                              <span className={isMenuRow ? "text-sm font-medium text-gray-700" : "text-sm text-gray-600"}>
+                                {row.name}
+                              </span>
+                              <span className="text-xs text-gray-400">({row.id})</span>
                             </div>
                           </td>
                           {users.map((user) => (
-                            <td
-                              key={user.id}
-                              className="border-b border-r px-3 py-2 text-center"
-                            >
+                            <td key={user.id} className={`border-b border-r px-3 py-2 text-center ${isMenuRow ? "bg-gray-50" : ""}`}>
                               <input
                                 type="checkbox"
-                                checked={hasPermission(user.id, "program", programId)}
+                                checked={hasPermission(user.id, row.targetType, row.id)}
                                 onChange={(e) =>
-                                  onPermissionChange(user.id, "program", programId, e.target.checked)
+                                  onPermissionChange(user.id, row.targetType, row.id, e.target.checked)
                                 }
                                 disabled={saving}
                                 className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"

@@ -34,7 +34,8 @@ export default function SystemSettingsPage() {
   useEffect(() => {
     fetchSettings();
     checkAdminPermission();
-  }, [session]);
+    // session オブジェクトは毎レンダー新インスタンスのため、参照ではなく user.id を依存に取る
+  }, [session?.user?.id]);
 
   const fetchSettings = async () => {
     setLoading(true);

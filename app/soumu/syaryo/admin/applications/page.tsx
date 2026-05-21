@@ -222,19 +222,21 @@ export default function AdminApplicationsPage() {
     if (!confirm(`審査中の書類（${pendingDocs.length}件）をすべて承認しますか？`)) return;
 
     try {
-      const responses = await Promise.all(
-        pendingDocs.map(doc =>
-          fetch(`/api/syaryo/approvals/${doc.id}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: doc.type, action: "approve" }),
-          })
-        )
-      );
-
-      const allSuccess = responses.every(r => r.ok);
-      if (!allSuccess) {
-        throw new Error("Some approvals failed");
+      // 並列実行すると各リクエストが個別に checkAndGeneratePermit を呼び、
+      // 同一車両の重複 createPermit と PDF 生成の同時多重実行で Lambda が
+      // 28秒タイムアウトする。順次実行に変更して、最後の承認で全書類が揃った
+      // 時点でのみ permit 生成が走るようにする。
+      const responses: Response[] = [];
+      for (const doc of pendingDocs) {
+        const r = await fetch(`/api/syaryo/approvals/${doc.id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: doc.type, action: "approve" }),
+        });
+        if (!r.ok) {
+          throw new Error("Some approvals failed");
+        }
+        responses.push(r);
       }
 
       // 通知ステータスを確認

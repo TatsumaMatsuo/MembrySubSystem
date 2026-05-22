@@ -258,13 +258,18 @@ interface GroupInfo {
   name: string;
 }
 
-interface SubRow {
-  kind: "menu" | "program";
-  level: number; // 2 / 3 / 4 (= 表示インデント段数, L1直下が2)
-  id: string; // menu_id or program_id
-  name: string;
-  targetType: "menu" | "program";
-}
+// 単一メニュー行 / 単一プログラム行 / leafメニュー+プログラムを結合した行
+type SubRow =
+  | { kind: "menu"; level: number; id: string; name: string }
+  | { kind: "program"; level: number; id: string; name: string }
+  | {
+      kind: "menu+program";
+      level: number;
+      menuId: string;
+      menuName: string;
+      programId: string;
+      programName: string;
+    };
 
 interface MenuWithSubRows {
   menu: any; // Level 1 メニュー
@@ -285,9 +290,10 @@ const byProgramId = (a: any, b: any) =>
 
 /**
  * 指定メニュー配下を再帰的に平坦化 (メニューID昇順のツリー走査)
- *   各メニューについて:
- *     1. 子メニュー (メニューID昇順) → 再帰して孫メニュー/孫プログラムを連続表示
- *     2. そのメニュー直下のプログラム (プログラムID昇順)
+ *   各子メニューについて:
+ *     - leaf (子メニューを持たない) かつ プログラム1個配置 → "menu+program" として1行にマージ
+ *     - それ以外 → "menu" 行を出し、再帰で配下を続けて出力
+ *   そのあと、parentMenuId に直接配置されたプログラム (マージで吸収されていないもの) を出力。
  */
 function buildSubRows(
   menus: any[],
@@ -297,24 +303,40 @@ function buildSubRows(
 ): SubRow[] {
   const rows: SubRow[] = [];
 
-  // 子メニュー (メニューID昇順)
   const childMenus = menus
     .filter((m) => m.fields?.["親メニューID"] === parentMenuId)
     .sort(byMenuId);
   for (const child of childMenus) {
     const childId = child.fields?.["メニューID"];
-    rows.push({
-      kind: "menu",
-      level: parentLevel + 1,
-      id: childId,
-      name: child.fields?.["メニュー名"],
-      targetType: "menu",
-    });
-    // 再帰的に子メニュー配下を追加
-    rows.push(...buildSubRows(menus, programs, childId, parentLevel + 1));
+    const childName = child.fields?.["メニュー名"];
+    const grandChildren = menus.filter((m) => m.fields?.["親メニューID"] === childId);
+    const childPrograms = programs
+      .filter((p) => p.fields?.["配置メニューID"] === childId)
+      .sort(byProgramId);
+
+    if (grandChildren.length === 0 && childPrograms.length === 1) {
+      // leaf メニュー + プログラム1個 → 1行にマージ表示
+      const p = childPrograms[0];
+      rows.push({
+        kind: "menu+program",
+        level: parentLevel + 1,
+        menuId: childId,
+        menuName: childName,
+        programId: p.fields?.["プログラムID"],
+        programName: p.fields?.["プログラム名称"],
+      });
+    } else {
+      rows.push({
+        kind: "menu",
+        level: parentLevel + 1,
+        id: childId,
+        name: childName,
+      });
+      rows.push(...buildSubRows(menus, programs, childId, parentLevel + 1));
+    }
   }
 
-  // 直下のプログラム (プログラムID昇順)
+  // parentMenuId に直接配置されているプログラム (leaf マージで吸収されていないもの)
   const directPrograms = programs
     .filter((p) => p.fields?.["配置メニューID"] === parentMenuId)
     .sort(byProgramId);
@@ -324,7 +346,6 @@ function buildSubRows(
       level: parentLevel + 1,
       id: p.fields?.["プログラムID"],
       name: p.fields?.["プログラム名称"],
-      targetType: "program",
     });
   }
 
@@ -581,28 +602,76 @@ const GroupPermissionMatrix = ({
                   {/* L2 / L3 メニュー + プログラム行 (展開時のみ) */}
                   {isExpanded &&
                     rows.map((row) => {
-                      const isMenuRow = row.kind === "menu";
+                      // 行種別: menu / program / menu+program
+                      const isMenuOnly = row.kind === "menu";
+                      const isProgramOnly = row.kind === "program";
+                      const isMerged = row.kind === "menu+program";
+                      const rowKey = isMerged
+                        ? `mp-${row.menuId}`
+                        : `${row.kind}-${row.id}`;
+                      const labelText = isMerged
+                        ? row.menuName === row.programName
+                          ? row.menuName
+                          : `${row.menuName} / ${row.programName}`
+                        : row.name;
+                      const idText = isMerged
+                        ? `${row.menuId} / ${row.programId}`
+                        : `(${row.id})`;
+                      const bgRow = isMenuOnly || isMerged ? "bg-gray-50" : "bg-white";
+                      const fontStyle =
+                        isMenuOnly || isMerged
+                          ? "text-sm font-medium text-gray-700"
+                          : "text-sm text-gray-600";
                       return (
-                        <tr key={`${row.targetType}-${row.id}`} className="hover:bg-blue-50">
-                          <td className={`sticky left-0 border-b border-r px-4 py-2 z-10 ${isMenuRow ? "bg-gray-50" : "bg-white"}`}>
+                        <tr key={rowKey} className="hover:bg-blue-50">
+                          <td className={`sticky left-0 border-b border-r px-4 py-2 z-10 ${bgRow}`}>
                             <div className="flex items-center gap-2" style={{ paddingLeft: `${(row.level - 1) * 20}px` }}>
-                              <span className={isMenuRow ? "text-sm font-medium text-gray-700" : "text-sm text-gray-600"}>
-                                {row.name}
+                              <span className={fontStyle}>{labelText}</span>
+                              <span className="text-xs text-gray-400">
+                                {isMerged ? `(${idText})` : idText}
                               </span>
-                              <span className="text-xs text-gray-400">({row.id})</span>
                             </div>
                           </td>
                           {groups.map((group) => (
-                            <td key={group.id} className={`border-b border-r px-3 py-2 text-center ${isMenuRow ? "bg-gray-50" : ""}`}>
-                              <input
-                                type="checkbox"
-                                checked={hasPermission(group.id, row.targetType, row.id)}
-                                onChange={(e) =>
-                                  onPermissionChange(group.id, row.targetType, row.id, e.target.checked)
-                                }
-                                disabled={saving}
-                                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                              />
+                            <td key={group.id} className={`border-b border-r px-3 py-2 text-center ${(isMenuOnly || isMerged) ? "bg-gray-50" : ""}`}>
+                              {isMerged ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <label className="flex flex-col items-center cursor-pointer" title="メニュー権限">
+                                    <input
+                                      type="checkbox"
+                                      checked={hasPermission(group.id, "menu", row.menuId)}
+                                      onChange={(e) =>
+                                        onPermissionChange(group.id, "menu", row.menuId, e.target.checked)
+                                      }
+                                      disabled={saving}
+                                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-[10px] text-gray-500">M</span>
+                                  </label>
+                                  <label className="flex flex-col items-center cursor-pointer" title="プログラム権限">
+                                    <input
+                                      type="checkbox"
+                                      checked={hasPermission(group.id, "program", row.programId)}
+                                      onChange={(e) =>
+                                        onPermissionChange(group.id, "program", row.programId, e.target.checked)
+                                      }
+                                      disabled={saving}
+                                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-[10px] text-gray-500">P</span>
+                                  </label>
+                                </div>
+                              ) : (
+                                <input
+                                  type="checkbox"
+                                  checked={hasPermission(group.id, isProgramOnly ? "program" : "menu", row.id)}
+                                  onChange={(e) =>
+                                    onPermissionChange(group.id, isProgramOnly ? "program" : "menu", row.id, e.target.checked)
+                                  }
+                                  disabled={saving}
+                                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                />
+                              )}
                             </td>
                           ))}
                           {groups.length === 0 && <td className="border-b border-r" />}
@@ -1057,28 +1126,75 @@ const UserPermissionMatrix = ({
                   {/* L2 / L3 メニュー + プログラム行 (展開時のみ) */}
                   {isExpanded &&
                     rows.map((row) => {
-                      const isMenuRow = row.kind === "menu";
+                      const isMenuOnly = row.kind === "menu";
+                      const isProgramOnly = row.kind === "program";
+                      const isMerged = row.kind === "menu+program";
+                      const rowKey = isMerged
+                        ? `mp-${row.menuId}`
+                        : `${row.kind}-${row.id}`;
+                      const labelText = isMerged
+                        ? row.menuName === row.programName
+                          ? row.menuName
+                          : `${row.menuName} / ${row.programName}`
+                        : row.name;
+                      const idText = isMerged
+                        ? `${row.menuId} / ${row.programId}`
+                        : `(${row.id})`;
+                      const bgRow = isMenuOnly || isMerged ? "bg-gray-50" : "bg-white";
+                      const fontStyle =
+                        isMenuOnly || isMerged
+                          ? "text-sm font-medium text-gray-700"
+                          : "text-sm text-gray-600";
                       return (
-                        <tr key={`${row.targetType}-${row.id}`} className="hover:bg-blue-50">
-                          <td className={`sticky left-0 border-b border-r px-4 py-2 z-10 ${isMenuRow ? "bg-gray-50" : "bg-white"}`}>
+                        <tr key={rowKey} className="hover:bg-blue-50">
+                          <td className={`sticky left-0 border-b border-r px-4 py-2 z-10 ${bgRow}`}>
                             <div className="flex items-center gap-2" style={{ paddingLeft: `${(row.level - 1) * 20}px` }}>
-                              <span className={isMenuRow ? "text-sm font-medium text-gray-700" : "text-sm text-gray-600"}>
-                                {row.name}
+                              <span className={fontStyle}>{labelText}</span>
+                              <span className="text-xs text-gray-400">
+                                {isMerged ? `(${idText})` : idText}
                               </span>
-                              <span className="text-xs text-gray-400">({row.id})</span>
                             </div>
                           </td>
                           {users.map((user) => (
-                            <td key={user.id} className={`border-b border-r px-3 py-2 text-center ${isMenuRow ? "bg-gray-50" : ""}`}>
-                              <input
-                                type="checkbox"
-                                checked={hasPermission(user.id, row.targetType, row.id)}
-                                onChange={(e) =>
-                                  onPermissionChange(user.id, row.targetType, row.id, e.target.checked)
-                                }
-                                disabled={saving}
-                                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                              />
+                            <td key={user.id} className={`border-b border-r px-3 py-2 text-center ${(isMenuOnly || isMerged) ? "bg-gray-50" : ""}`}>
+                              {isMerged ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <label className="flex flex-col items-center cursor-pointer" title="メニュー権限">
+                                    <input
+                                      type="checkbox"
+                                      checked={hasPermission(user.id, "menu", row.menuId)}
+                                      onChange={(e) =>
+                                        onPermissionChange(user.id, "menu", row.menuId, e.target.checked)
+                                      }
+                                      disabled={saving}
+                                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-[10px] text-gray-500">M</span>
+                                  </label>
+                                  <label className="flex flex-col items-center cursor-pointer" title="プログラム権限">
+                                    <input
+                                      type="checkbox"
+                                      checked={hasPermission(user.id, "program", row.programId)}
+                                      onChange={(e) =>
+                                        onPermissionChange(user.id, "program", row.programId, e.target.checked)
+                                      }
+                                      disabled={saving}
+                                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-[10px] text-gray-500">P</span>
+                                  </label>
+                                </div>
+                              ) : (
+                                <input
+                                  type="checkbox"
+                                  checked={hasPermission(user.id, isProgramOnly ? "program" : "menu", row.id)}
+                                  onChange={(e) =>
+                                    onPermissionChange(user.id, isProgramOnly ? "program" : "menu", row.id, e.target.checked)
+                                  }
+                                  disabled={saving}
+                                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                />
+                              )}
                             </td>
                           ))}
                           {users.length === 0 && <td className="border-b border-r" />}

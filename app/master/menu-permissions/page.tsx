@@ -1281,6 +1281,17 @@ const TABS: TabConfig[] = [
   },
 ];
 
+// 権限マトリックスの未保存変更を保持する型
+interface PendingPermissionChange {
+  key: string; // ${entityId}:${targetType}:${targetId}
+  entityId: string; // groupId or userId
+  entityName: string; // groupName or userName
+  targetType: "menu" | "program";
+  targetId: string;
+  isAllowed: boolean;
+  existingRecordId?: string; // 既存レコードが Lark にある場合の record_id
+}
+
 export default function MenuPermissionsPage() {
   const [activeTab, setActiveTab] = useState<TabType>("menu");
   const [data, setData] = useState<Record<string, any[]>>({
@@ -1297,6 +1308,10 @@ export default function MenuPermissionsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newRecord, setNewRecord] = useState<Record<string, any>>({});
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+  // 権限マトリックスの未保存変更（右上「更新」ボタン押下時にまとめて保存）
+  const [pendingGroupChanges, setPendingGroupChanges] = useState<Map<string, PendingPermissionChange>>(new Map());
+  const [pendingUserChanges, setPendingUserChanges] = useState<Map<string, PendingPermissionChange>>(new Map());
+  const totalPendingChanges = pendingGroupChanges.size + pendingUserChanges.size;
 
   // データ取得
   const fetchData = async () => {
@@ -1544,68 +1559,63 @@ export default function MenuPermissionsPage() {
     setEditingData(data);
   };
 
-  // グループ権限の変更（マトリックス用）
-  const handlePermissionChange = async (
+  // グループ権限の変更（マトリックス用 - 画面のみ更新、保存は「更新」ボタン押下時）
+  const handlePermissionChange = (
     groupId: string,
     targetType: "menu" | "program",
     targetId: string,
     isAllowed: boolean
   ) => {
-    setSaving(true);
-    try {
-      // 既存レコードを検索
-      const existingRecord = data.group.find(
-        (p: any) =>
-          p.fields?.["グループID"] === groupId &&
-          p.fields?.["対象種別"] === targetType &&
-          p.fields?.["対象ID"] === targetId
-      );
+    const key = `${groupId}:${targetType}:${targetId}`;
+    const existingRecord = data.group.find(
+      (p: any) =>
+        p.fields?.["グループID"] === groupId &&
+        p.fields?.["対象種別"] === targetType &&
+        p.fields?.["対象ID"] === targetId
+    );
+    const groupRecord = data.group.find((p: any) => p.fields?.["グループID"] === groupId);
+    const groupName = groupRecord?.fields?.["グループ名"] || groupId;
 
+    // ローカルの data.group を更新して即座に画面反映
+    setData((prev) => {
+      const newGroup = [...prev.group];
       if (existingRecord) {
-        // 既存レコードを更新
-        const response = await fetch("/api/master/menu-permissions", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "group",
-            record_id: existingRecord.record_id,
-            fields: { "許可フラグ": isAllowed },
-          }),
-        });
-        const result = await response.json();
-        if (!result.success) {
-          alert(result.error || "更新に失敗しました");
-        }
+        const idx = newGroup.indexOf(existingRecord);
+        newGroup[idx] = {
+          ...existingRecord,
+          fields: { ...existingRecord.fields, ["許可フラグ"]: isAllowed },
+        };
       } else {
-        // 新規レコードを作成
-        const groupRecord = data.group.find((p: any) => p.fields?.["グループID"] === groupId);
-        const groupName = groupRecord?.fields?.["グループ名"] || groupId;
-
-        const response = await fetch("/api/master/menu-permissions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "group",
-            fields: {
-              "グループID": groupId,
-              "グループ名": groupName,
-              "対象種別": targetType,
-              "対象ID": targetId,
-              "許可フラグ": isAllowed,
-            },
-          }),
+        // 未保存の新規レコード（record_id 接頭辞で識別）
+        newGroup.push({
+          record_id: `__pending__${key}`,
+          fields: {
+            ["グループID"]: groupId,
+            ["グループ名"]: groupName,
+            ["対象種別"]: targetType,
+            ["対象ID"]: targetId,
+            ["許可フラグ"]: isAllowed,
+          },
         });
-        const result = await response.json();
-        if (!result.success) {
-          alert(result.error || "作成に失敗しました");
-        }
       }
-      await fetchData();
-    } catch (err) {
-      alert("権限の更新に失敗しました");
-    } finally {
-      setSaving(false);
-    }
+      return { ...prev, group: newGroup };
+    });
+
+    // 未保存リストへ追加（同一キーは上書き）
+    setPendingGroupChanges((prev) => {
+      const next = new Map(prev);
+      const isPendingRecord = existingRecord?.record_id?.startsWith("__pending__");
+      next.set(key, {
+        key,
+        entityId: groupId,
+        entityName: groupName,
+        targetType,
+        targetId,
+        isAllowed,
+        existingRecordId: existingRecord && !isPendingRecord ? existingRecord.record_id : undefined,
+      });
+      return next;
+    });
   };
 
   // グループ追加（マトリックス用）
@@ -1647,13 +1657,26 @@ export default function MenuPermissionsPage() {
   const handleRemoveGroup = async (groupId: string) => {
     setSaving(true);
     try {
-      const groupRecords = data.group.filter((p: any) => p.fields?.["グループID"] === groupId);
+      // 削除対象は Lark に実在するレコードのみ（__pending__ は未保存なのでスキップ）
+      const groupRecords = data.group.filter(
+        (p: any) =>
+          p.fields?.["グループID"] === groupId &&
+          !String(p.record_id || "").startsWith("__pending__")
+      );
       for (const record of groupRecords) {
         await fetch(
           `/api/master/menu-permissions?type=group&record_id=${record.record_id}`,
           { method: "DELETE" }
         );
       }
+      // このグループに対する未保存変更を破棄
+      setPendingGroupChanges((prev) => {
+        const next = new Map(prev);
+        for (const key of Array.from(next.keys())) {
+          if (key.startsWith(`${groupId}:`)) next.delete(key);
+        }
+        return next;
+      });
       await fetchData();
     } catch (err) {
       alert("グループの削除に失敗しました");
@@ -1662,65 +1685,133 @@ export default function MenuPermissionsPage() {
     }
   };
 
-  // 個別権限の変更（マトリックス用）
-  const handleUserPermissionChange = async (
+  // 個別権限の変更（マトリックス用 - 画面のみ更新、保存は「更新」ボタン押下時）
+  const handleUserPermissionChange = (
     userId: string,
     targetType: "menu" | "program",
     targetId: string,
     isAllowed: boolean
   ) => {
+    const key = `${userId}:${targetType}:${targetId}`;
+    const existingRecord = data.user.find(
+      (p: any) =>
+        p.fields?.["社員ID"] === userId &&
+        p.fields?.["対象種別"] === targetType &&
+        p.fields?.["対象ID"] === targetId
+    );
+    const userRecord = data.user.find((p: any) => p.fields?.["社員ID"] === userId);
+    const userName = userRecord?.fields?.["社員名"] || userId;
+
+    // ローカルの data.user を更新して即座に画面反映
+    setData((prev) => {
+      const newUser = [...prev.user];
+      if (existingRecord) {
+        const idx = newUser.indexOf(existingRecord);
+        newUser[idx] = {
+          ...existingRecord,
+          fields: { ...existingRecord.fields, ["許可フラグ"]: isAllowed },
+        };
+      } else {
+        newUser.push({
+          record_id: `__pending__${key}`,
+          fields: {
+            ["社員ID"]: userId,
+            ["社員名"]: userName,
+            ["対象種別"]: targetType,
+            ["対象ID"]: targetId,
+            ["許可フラグ"]: isAllowed,
+          },
+        });
+      }
+      return { ...prev, user: newUser };
+    });
+
+    setPendingUserChanges((prev) => {
+      const next = new Map(prev);
+      const isPendingRecord = existingRecord?.record_id?.startsWith("__pending__");
+      next.set(key, {
+        key,
+        entityId: userId,
+        entityName: userName,
+        targetType,
+        targetId,
+        isAllowed,
+        existingRecordId: existingRecord && !isPendingRecord ? existingRecord.record_id : undefined,
+      });
+      return next;
+    });
+  };
+
+  // 未保存の権限変更をまとめて保存
+  const handleSavePending = async () => {
+    if (totalPendingChanges === 0) {
+      await fetchData();
+      return;
+    }
     setSaving(true);
     try {
-      // 既存レコードを検索
-      const existingRecord = data.user.find(
-        (p: any) =>
-          p.fields?.["社員ID"] === userId &&
-          p.fields?.["対象種別"] === targetType &&
-          p.fields?.["対象ID"] === targetId
-      );
-
-      if (existingRecord) {
-        // 既存レコードを更新
-        const response = await fetch("/api/master/menu-permissions", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "user",
-            record_id: existingRecord.record_id,
-            fields: { "許可フラグ": isAllowed },
-          }),
-        });
-        const result = await response.json();
-        if (!result.success) {
-          alert(result.error || "更新に失敗しました");
-        }
-      } else {
-        // 新規レコードを作成
-        const userRecord = data.user.find((p: any) => p.fields?.["社員ID"] === userId);
-        const userName = userRecord?.fields?.["社員名"] || userId;
-
-        const response = await fetch("/api/master/menu-permissions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "user",
-            fields: {
-              "社員ID": userId,
-              "社員名": userName,
-              "対象種別": targetType,
-              "対象ID": targetId,
-              "許可フラグ": isAllowed,
-            },
-          }),
-        });
-        const result = await response.json();
-        if (!result.success) {
-          alert(result.error || "作成に失敗しました");
+      for (const change of pendingGroupChanges.values()) {
+        if (change.existingRecordId) {
+          await fetch("/api/master/menu-permissions", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "group",
+              record_id: change.existingRecordId,
+              fields: { ["許可フラグ"]: change.isAllowed },
+            }),
+          });
+        } else {
+          await fetch("/api/master/menu-permissions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "group",
+              fields: {
+                ["グループID"]: change.entityId,
+                ["グループ名"]: change.entityName,
+                ["対象種別"]: change.targetType,
+                ["対象ID"]: change.targetId,
+                ["許可フラグ"]: change.isAllowed,
+              },
+            }),
+          });
         }
       }
+      for (const change of pendingUserChanges.values()) {
+        if (change.existingRecordId) {
+          await fetch("/api/master/menu-permissions", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "user",
+              record_id: change.existingRecordId,
+              fields: { ["許可フラグ"]: change.isAllowed },
+            }),
+          });
+        } else {
+          await fetch("/api/master/menu-permissions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "user",
+              fields: {
+                ["社員ID"]: change.entityId,
+                ["社員名"]: change.entityName,
+                ["対象種別"]: change.targetType,
+                ["対象ID"]: change.targetId,
+                ["許可フラグ"]: change.isAllowed,
+              },
+            }),
+          });
+        }
+      }
+      setPendingGroupChanges(new Map());
+      setPendingUserChanges(new Map());
       await fetchData();
     } catch (err) {
-      alert("権限の更新に失敗しました");
+      alert("権限の保存に失敗しました");
+      console.error(err);
     } finally {
       setSaving(false);
     }
@@ -1765,13 +1856,25 @@ export default function MenuPermissionsPage() {
   const handleRemoveUser = async (userId: string) => {
     setSaving(true);
     try {
-      const userRecords = data.user.filter((p: any) => p.fields?.["社員ID"] === userId);
+      const userRecords = data.user.filter(
+        (p: any) =>
+          p.fields?.["社員ID"] === userId &&
+          !String(p.record_id || "").startsWith("__pending__")
+      );
       for (const record of userRecords) {
         await fetch(
           `/api/master/menu-permissions?type=user&record_id=${record.record_id}`,
           { method: "DELETE" }
         );
       }
+      // このユーザーに対する未保存変更を破棄
+      setPendingUserChanges((prev) => {
+        const next = new Map(prev);
+        for (const key of Array.from(next.keys())) {
+          if (key.startsWith(`${userId}:`)) next.delete(key);
+        }
+        return next;
+      });
       await fetchData();
     } catch (err) {
       alert("ユーザーの削除に失敗しました");
@@ -1804,14 +1907,27 @@ export default function MenuPermissionsPage() {
               <p className="text-sm text-gray-500">マスタ &gt; メニュー権限マスタ管理</p>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={fetchData}
-                disabled={loading}
-                className="flex items-center gap-2 px-3 py-2 text-gray-600 bg-white border rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                更新
-              </button>
+              {totalPendingChanges > 0 ? (
+                <button
+                  onClick={handleSavePending}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-3 py-2 text-white bg-indigo-600 border border-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                  title="未保存の権限変更を Lark に保存"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  更新 ({totalPendingChanges}件)
+                </button>
+              ) : (
+                <button
+                  onClick={fetchData}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-3 py-2 text-gray-600 bg-white border rounded-lg hover:bg-gray-50 transition-colors"
+                  title="サーバから最新データを再取得"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                  更新
+                </button>
+              )}
               {activeTab !== "group" && activeTab !== "user" && (
                 <button
                   onClick={() => {

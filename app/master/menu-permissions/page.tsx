@@ -271,95 +271,61 @@ interface MenuWithSubRows {
   rows: SubRow[]; // 配下の L2/L3 メニュー + プログラム (表示順)
 }
 
-const byOrder = (a: any, b: any) =>
-  (Number(a.fields?.["表示順"]) || 0) - (Number(b.fields?.["表示順"]) || 0);
+const byMenuId = (a: any, b: any) =>
+  String(a.fields?.["メニューID"] || "").localeCompare(
+    String(b.fields?.["メニューID"] || ""),
+    "ja"
+  );
+
+const byProgramId = (a: any, b: any) =>
+  String(a.fields?.["プログラムID"] || "").localeCompare(
+    String(b.fields?.["プログラムID"] || ""),
+    "ja"
+  );
 
 /**
- * Level 1 メニュー配下を平坦化:
- *   - L1 直下の Program
- *   - L2 メニュー → L3 メニュー → L3 配下 Program → L2 配下 Program
+ * 指定メニュー配下を再帰的に平坦化 (メニューID昇順のツリー走査)
+ *   各メニューについて:
+ *     1. 子メニュー (メニューID昇順) → 再帰して孫メニュー/孫プログラムを連続表示
+ *     2. そのメニュー直下のプログラム (プログラムID昇順)
  */
-function buildSubRows(menus: any[], programs: any[], l1MenuId: string): SubRow[] {
+function buildSubRows(
+  menus: any[],
+  programs: any[],
+  parentMenuId: string,
+  parentLevel: number
+): SubRow[] {
   const rows: SubRow[] = [];
 
-  // L1 直下のプログラム
-  const l1Programs = programs
-    .filter((p) => p.fields?.["配置メニューID"] === l1MenuId)
-    .sort(byOrder);
-  for (const p of l1Programs) {
+  // 子メニュー (メニューID昇順)
+  const childMenus = menus
+    .filter((m) => m.fields?.["親メニューID"] === parentMenuId)
+    .sort(byMenuId);
+  for (const child of childMenus) {
+    const childId = child.fields?.["メニューID"];
+    rows.push({
+      kind: "menu",
+      level: parentLevel + 1,
+      id: childId,
+      name: child.fields?.["メニュー名"],
+      targetType: "menu",
+    });
+    // 再帰的に子メニュー配下を追加
+    rows.push(...buildSubRows(menus, programs, childId, parentLevel + 1));
+  }
+
+  // 直下のプログラム (プログラムID昇順)
+  const directPrograms = programs
+    .filter((p) => p.fields?.["配置メニューID"] === parentMenuId)
+    .sort(byProgramId);
+  for (const p of directPrograms) {
     rows.push({
       kind: "program",
-      level: 2,
+      level: parentLevel + 1,
       id: p.fields?.["プログラムID"],
       name: p.fields?.["プログラム名称"],
       targetType: "program",
     });
-  }
-
-  // L2 メニュー
-  const l2Menus = menus
-    .filter(
-      (m) =>
-        m.fields?.["親メニューID"] === l1MenuId &&
-        Number(m.fields?.["階層レベル"]) === 2
-    )
-    .sort(byOrder);
-  for (const l2 of l2Menus) {
-    const l2Id = l2.fields?.["メニューID"];
-    rows.push({
-      kind: "menu",
-      level: 2,
-      id: l2Id,
-      name: l2.fields?.["メニュー名"],
-      targetType: "menu",
-    });
-
-    // L3 メニュー
-    const l3Menus = menus
-      .filter(
-        (m) =>
-          m.fields?.["親メニューID"] === l2Id &&
-          Number(m.fields?.["階層レベル"]) === 3
-      )
-      .sort(byOrder);
-    for (const l3 of l3Menus) {
-      const l3Id = l3.fields?.["メニューID"];
-      rows.push({
-        kind: "menu",
-        level: 3,
-        id: l3Id,
-        name: l3.fields?.["メニュー名"],
-        targetType: "menu",
-      });
-
-      // L3 直下のプログラム
-      const l3Programs = programs
-        .filter((p) => p.fields?.["配置メニューID"] === l3Id)
-        .sort(byOrder);
-      for (const p of l3Programs) {
-        rows.push({
-          kind: "program",
-          level: 4,
-          id: p.fields?.["プログラムID"],
-          name: p.fields?.["プログラム名称"],
-          targetType: "program",
-        });
-      }
-    }
-
-    // L2 直下のプログラム (L3 メニューの後に表示)
-    const l2Programs = programs
-      .filter((p) => p.fields?.["配置メニューID"] === l2Id)
-      .sort(byOrder);
-    for (const p of l2Programs) {
-      rows.push({
-        kind: "program",
-        level: 3,
-        id: p.fields?.["プログラムID"],
-        name: p.fields?.["プログラム名称"],
-        targetType: "program",
-      });
-    }
   }
 
   return rows;
@@ -409,13 +375,13 @@ const GroupPermissionMatrix = ({
     ).values()
   ).filter((g) => g.id);
 
-  // メニュー階層を構築 (L1 + L1配下の L2/L3/Program を平坦化)
+  // メニュー階層を構築 (L1 + L1配下を再帰的にメニューID昇順で平坦化)
   const menuHierarchy: MenuWithSubRows[] = menus
     .filter((m) => Number(m.fields?.["階層レベル"]) === 1)
-    .sort(byOrder)
+    .sort(byMenuId)
     .map((menu) => {
       const menuId = menu.fields?.["メニューID"];
-      return { menu, rows: buildSubRows(menus, programs, menuId) };
+      return { menu, rows: buildSubRows(menus, programs, menuId, 1) };
     });
 
   // 権限チェック
@@ -869,13 +835,13 @@ const UserPermissionMatrix = ({
     ).values()
   ).filter((u) => u.id);
 
-  // メニュー階層を構築 (L1 + L1配下の L2/L3/Program を平坦化)
+  // メニュー階層を構築 (L1 + L1配下を再帰的にメニューID昇順で平坦化)
   const menuHierarchy: MenuWithSubRows[] = menus
     .filter((m) => Number(m.fields?.["階層レベル"]) === 1)
-    .sort(byOrder)
+    .sort(byMenuId)
     .map((menu) => {
       const menuId = menu.fields?.["メニューID"];
-      return { menu, rows: buildSubRows(menus, programs, menuId) };
+      return { menu, rows: buildSubRows(menus, programs, menuId, 1) };
     });
 
   // 権限チェック

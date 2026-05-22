@@ -632,48 +632,46 @@ const GroupPermissionMatrix = ({
                               </span>
                             </div>
                           </td>
-                          {groups.map((group) => (
-                            <td key={group.id} className={`border-b border-r px-3 py-2 text-center ${(isMenuOnly || isMerged) ? "bg-gray-50" : ""}`}>
-                              {isMerged ? (
-                                <div className="flex items-center justify-center gap-2">
-                                  <label className="flex flex-col items-center cursor-pointer" title="メニュー権限">
-                                    <input
-                                      type="checkbox"
-                                      checked={hasPermission(group.id, "menu", row.menuId)}
-                                      onChange={(e) =>
-                                        onPermissionChange(group.id, "menu", row.menuId, e.target.checked)
+                          {groups.map((group) => {
+                            const mergedMenuChecked = isMerged && hasPermission(group.id, "menu", row.menuId);
+                            const mergedProgramChecked = isMerged && hasPermission(group.id, "program", row.programId);
+                            const mergedAllOn = mergedMenuChecked && mergedProgramChecked;
+                            return (
+                              <td key={group.id} className={`border-b border-r px-3 py-2 text-center ${(isMenuOnly || isMerged) ? "bg-gray-50" : ""}`}>
+                                {isMerged ? (
+                                  <input
+                                    type="checkbox"
+                                    checked={mergedAllOn}
+                                    ref={(el) => {
+                                      if (el) {
+                                        // 片方だけON = indeterminate (中間状態)
+                                        el.indeterminate =
+                                          (mergedMenuChecked || mergedProgramChecked) && !mergedAllOn;
                                       }
-                                      disabled={saving}
-                                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <span className="text-[10px] text-gray-500">M</span>
-                                  </label>
-                                  <label className="flex flex-col items-center cursor-pointer" title="プログラム権限">
-                                    <input
-                                      type="checkbox"
-                                      checked={hasPermission(group.id, "program", row.programId)}
-                                      onChange={(e) =>
-                                        onPermissionChange(group.id, "program", row.programId, e.target.checked)
-                                      }
-                                      disabled={saving}
-                                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <span className="text-[10px] text-gray-500">P</span>
-                                  </label>
-                                </div>
-                              ) : (
-                                <input
-                                  type="checkbox"
-                                  checked={hasPermission(group.id, isProgramOnly ? "program" : "menu", row.id)}
-                                  onChange={(e) =>
-                                    onPermissionChange(group.id, isProgramOnly ? "program" : "menu", row.id, e.target.checked)
-                                  }
-                                  disabled={saving}
-                                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                />
-                              )}
-                            </td>
-                          ))}
+                                    }}
+                                    onChange={(e) => {
+                                      const next = e.target.checked;
+                                      onPermissionChange(group.id, "menu", row.menuId, next);
+                                      onPermissionChange(group.id, "program", row.programId, next);
+                                    }}
+                                    disabled={saving}
+                                    title="メニュー権限+プログラム権限を一括ON/OFF"
+                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                  />
+                                ) : (
+                                  <input
+                                    type="checkbox"
+                                    checked={hasPermission(group.id, isProgramOnly ? "program" : "menu", row.id)}
+                                    onChange={(e) =>
+                                      onPermissionChange(group.id, isProgramOnly ? "program" : "menu", row.id, e.target.checked)
+                                    }
+                                    disabled={saving}
+                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                  />
+                                )}
+                              </td>
+                            );
+                          })}
                           {groups.length === 0 && <td className="border-b border-r" />}
                         </tr>
                       );
@@ -1155,48 +1153,45 @@ const UserPermissionMatrix = ({
                               </span>
                             </div>
                           </td>
-                          {users.map((user) => (
-                            <td key={user.id} className={`border-b border-r px-3 py-2 text-center ${(isMenuOnly || isMerged) ? "bg-gray-50" : ""}`}>
-                              {isMerged ? (
-                                <div className="flex items-center justify-center gap-2">
-                                  <label className="flex flex-col items-center cursor-pointer" title="メニュー権限">
-                                    <input
-                                      type="checkbox"
-                                      checked={hasPermission(user.id, "menu", row.menuId)}
-                                      onChange={(e) =>
-                                        onPermissionChange(user.id, "menu", row.menuId, e.target.checked)
+                          {users.map((user) => {
+                            const mergedMenuChecked = isMerged && hasPermission(user.id, "menu", row.menuId);
+                            const mergedProgramChecked = isMerged && hasPermission(user.id, "program", row.programId);
+                            const mergedAllOn = mergedMenuChecked && mergedProgramChecked;
+                            return (
+                              <td key={user.id} className={`border-b border-r px-3 py-2 text-center ${(isMenuOnly || isMerged) ? "bg-gray-50" : ""}`}>
+                                {isMerged ? (
+                                  <input
+                                    type="checkbox"
+                                    checked={mergedAllOn}
+                                    ref={(el) => {
+                                      if (el) {
+                                        el.indeterminate =
+                                          (mergedMenuChecked || mergedProgramChecked) && !mergedAllOn;
                                       }
-                                      disabled={saving}
-                                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <span className="text-[10px] text-gray-500">M</span>
-                                  </label>
-                                  <label className="flex flex-col items-center cursor-pointer" title="プログラム権限">
-                                    <input
-                                      type="checkbox"
-                                      checked={hasPermission(user.id, "program", row.programId)}
-                                      onChange={(e) =>
-                                        onPermissionChange(user.id, "program", row.programId, e.target.checked)
-                                      }
-                                      disabled={saving}
-                                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <span className="text-[10px] text-gray-500">P</span>
-                                  </label>
-                                </div>
-                              ) : (
-                                <input
-                                  type="checkbox"
-                                  checked={hasPermission(user.id, isProgramOnly ? "program" : "menu", row.id)}
-                                  onChange={(e) =>
-                                    onPermissionChange(user.id, isProgramOnly ? "program" : "menu", row.id, e.target.checked)
-                                  }
-                                  disabled={saving}
-                                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                                />
-                              )}
-                            </td>
-                          ))}
+                                    }}
+                                    onChange={(e) => {
+                                      const next = e.target.checked;
+                                      onPermissionChange(user.id, "menu", row.menuId, next);
+                                      onPermissionChange(user.id, "program", row.programId, next);
+                                    }}
+                                    disabled={saving}
+                                    title="メニュー権限+プログラム権限を一括ON/OFF"
+                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                  />
+                                ) : (
+                                  <input
+                                    type="checkbox"
+                                    checked={hasPermission(user.id, isProgramOnly ? "program" : "menu", row.id)}
+                                    onChange={(e) =>
+                                      onPermissionChange(user.id, isProgramOnly ? "program" : "menu", row.id, e.target.checked)
+                                    }
+                                    disabled={saving}
+                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                  />
+                                )}
+                              </td>
+                            );
+                          })}
                           {users.length === 0 && <td className="border-b border-r" />}
                         </tr>
                       );

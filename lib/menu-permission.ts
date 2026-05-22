@@ -312,12 +312,17 @@ export async function buildUserPermissions(
     groupNames,
   });
 
-  // 個別権限とグループ権限を両方取得し、同一ターゲットは個別権限が上書きする形でマージする
-  // （旧仕様: 個別権限が1件でも存在するとグループ権限を全て無視していた）
+  // 仕様:
+  //   ① 個別権限マスタにそのユーザの記録があれば、個別権限のみを使う(グループ権限は無視)
+  //   ② 個別権限マスタにユーザの記録がなければ、所属グループ(部署)の権限を使う
   const userPerms = await getUserPermissions(employeeId);
-  const groupPerms = await getGroupPermissions(groupNames);
+  const groupPerms = userPerms.length > 0 ? [] : await getGroupPermissions(groupNames);
   console.log("[menu-permission] User permissions found:", userPerms.length);
-  console.log("[menu-permission] Group permissions loaded:", groupPerms.length);
+  console.log(
+    "[menu-permission] Group permissions loaded:",
+    groupPerms.length,
+    userPerms.length > 0 ? "(個別ありなのでグループは使わない)" : ""
+  );
 
   const result: UserMenuPermissions = {
     employee_id: employeeId,
@@ -330,16 +335,10 @@ export async function buildUserPermissions(
     source: userPerms.length > 0 ? "user" : "group",
   };
 
-  // target_type:target_id をキーとしてマージ（後勝ち → 個別権限が最終的に優先）
+  // 個別優先(個別ありなら個別だけ、なければグループだけを採用)
   const merged = new Map<string, { target_type: string; target_id: string; is_allowed: boolean }>();
-  for (const perm of groupPerms) {
-    merged.set(`${perm.target_type}:${perm.target_id}`, {
-      target_type: perm.target_type,
-      target_id: perm.target_id,
-      is_allowed: perm.is_allowed,
-    });
-  }
-  for (const perm of userPerms) {
+  const effectivePerms = userPerms.length > 0 ? userPerms : groupPerms;
+  for (const perm of effectivePerms) {
     merged.set(`${perm.target_type}:${perm.target_id}`, {
       target_type: perm.target_type,
       target_id: perm.target_id,

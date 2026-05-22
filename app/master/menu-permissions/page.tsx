@@ -1901,74 +1901,96 @@ export default function MenuPermissionsPage() {
 
   // 未保存の権限変更をまとめて保存
   const handleSavePending = async () => {
+    console.log("[handleSavePending] start", {
+      groupCount: pendingGroupChanges.size,
+      userCount: pendingUserChanges.size,
+    });
     if (totalPendingChanges === 0) {
       await fetchData();
       return;
     }
     setSaving(true);
+    const failures: string[] = [];
     try {
+      // 1件保存ヘルパ。HTTPエラーも検出する。
+      const saveOne = async (body: any): Promise<void> => {
+        const method = body.record_id ? "PUT" : "POST";
+        console.log(`[handleSavePending] ${method}`, body);
+        let res: Response;
+        try {
+          res = await fetch("/api/master/menu-permissions", {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+        } catch (netErr: any) {
+          const label = body.type === "user" ? `社員 ${body.fields?.["社員ID"] || body.record_id}` : `グループ ${body.fields?.["グループID"] || body.record_id}`;
+          failures.push(`${label}: ネットワークエラー ${netErr?.message || netErr}`);
+          console.error("[handleSavePending] fetch failed", netErr);
+          return;
+        }
+        if (!res.ok) {
+          let detail = "";
+          try {
+            const j = await res.json();
+            detail = j?.error || j?.message || JSON.stringify(j);
+          } catch {}
+          const label = body.type === "user" ? `社員 ${body.fields?.["社員ID"] || body.record_id}` : `グループ ${body.fields?.["グループID"] || body.record_id}`;
+          failures.push(`${label}: HTTP ${res.status} ${detail}`);
+          console.error("[handleSavePending] response not ok", res.status, detail);
+        }
+      };
+
       for (const change of pendingGroupChanges.values()) {
         if (change.existingRecordId) {
-          await fetch("/api/master/menu-permissions", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "group",
-              record_id: change.existingRecordId,
-              fields: { ["許可フラグ"]: change.isAllowed },
-            }),
+          await saveOne({
+            type: "group",
+            record_id: change.existingRecordId,
+            fields: { ["許可フラグ"]: change.isAllowed },
           });
         } else {
-          await fetch("/api/master/menu-permissions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "group",
-              fields: {
-                ["グループID"]: change.entityId,
-                ["グループ名"]: change.entityName,
-                ["対象種別"]: change.targetType,
-                ["対象ID"]: change.targetId,
-                ["許可フラグ"]: change.isAllowed,
-              },
-            }),
+          await saveOne({
+            type: "group",
+            fields: {
+              ["グループID"]: change.entityId,
+              ["グループ名"]: change.entityName,
+              ["対象種別"]: change.targetType,
+              ["対象ID"]: change.targetId,
+              ["許可フラグ"]: change.isAllowed,
+            },
           });
         }
       }
       for (const change of pendingUserChanges.values()) {
         if (change.existingRecordId) {
-          await fetch("/api/master/menu-permissions", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "user",
-              record_id: change.existingRecordId,
-              fields: { ["許可フラグ"]: change.isAllowed },
-            }),
+          await saveOne({
+            type: "user",
+            record_id: change.existingRecordId,
+            fields: { ["許可フラグ"]: change.isAllowed },
           });
         } else {
-          await fetch("/api/master/menu-permissions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "user",
-              fields: {
-                ["社員ID"]: change.entityId,
-                ["社員名"]: change.entityName,
-                ["対象種別"]: change.targetType,
-                ["対象ID"]: change.targetId,
-                ["許可フラグ"]: change.isAllowed,
-              },
-            }),
+          await saveOne({
+            type: "user",
+            fields: {
+              ["社員ID"]: change.entityId,
+              ["社員名"]: change.entityName,
+              ["対象種別"]: change.targetType,
+              ["対象ID"]: change.targetId,
+              ["許可フラグ"]: change.isAllowed,
+            },
           });
         }
+      }
+
+      if (failures.length > 0) {
+        alert(`一部の保存に失敗しました:\n${failures.slice(0, 5).join("\n")}${failures.length > 5 ? `\n他 ${failures.length - 5} 件` : ""}`);
       }
       setPendingGroupChanges(new Map());
       setPendingUserChanges(new Map());
       await fetchData();
     } catch (err) {
-      alert("権限の保存に失敗しました");
-      console.error(err);
+      alert(`権限の保存に失敗しました: ${err instanceof Error ? err.message : String(err)}`);
+      console.error("[handleSavePending] unexpected error", err);
     } finally {
       setSaving(false);
     }

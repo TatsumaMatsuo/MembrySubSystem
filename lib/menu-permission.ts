@@ -324,8 +324,12 @@ export async function getGroupPermissions(groupNames: string[]): Promise<GroupPe
   if (groupNames.length === 0) return [];
 
   const baseToken = getLarkBaseTokenForMaster();
-  // グループ名でフィルタ（社員マスタから取得する部署名と一致させる）
-  const filterConditions = groupNames.map(name => `CurrentValue.[グループ名] = "${name}"`).join(" OR ");
+  // グループ名でフィルタ（社員マスタから取得する部署名と一致させる）。
+  // 注意: Lark Bitable では boolean の "A OR B" は InvalidFilter になるため
+  // 関数形式 OR(A, B) で記述する必要がある。
+  const conditions = groupNames.map((name) => `CurrentValue.[グループ名] = "${name}"`);
+  const filterConditions =
+    conditions.length === 1 ? conditions[0] : `OR(${conditions.join(", ")})`;
 
   console.log("[menu-permission] Querying group permissions for:", groupNames);
   console.log("[menu-permission] Filter:", filterConditions);

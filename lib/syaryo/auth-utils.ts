@@ -4,6 +4,7 @@ import {
   getEmployeeByEmail,
   getEmployeeByLarkId,
   buildUserPermissions,
+  expandDepartmentChain,
 } from "@/lib/menu-permission";
 import { MembershipType } from "@/types/syaryo";
 
@@ -48,10 +49,13 @@ async function resolveUserPermissions(): Promise<{
   }
   if (!employee) return null;
 
+  // 所属部署+その親階層全てをグループIDとして渡す。
+  // (例: "仙台営業所" → ["仙台営業所", "東日本営業部", "営業部"])
+  const groupChain = employee.department ? await expandDepartmentChain(employee.department) : [];
   const perms = await buildUserPermissions(
     employee.employeeId,
     employee.employeeName,
-    [employee.department]
+    groupChain
   );
 
   return {

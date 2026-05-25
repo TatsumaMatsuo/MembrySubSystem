@@ -8,6 +8,7 @@ import {
   getFunctionPlacementMaster,
   getEmployeeByEmail,
   getEmployeeByLarkId,
+  expandDepartmentChain,
 } from "@/lib/menu-permission";
 
 export const dynamic = "force-dynamic";
@@ -82,9 +83,11 @@ export async function GET(request: NextRequest) {
         // 社員情報が見つかった場合
         employeeId = employeeInfo.employeeId;
         employeeName = employeeInfo.employeeName || session.user.name || "";
-        // 部署をグループIDとして使用
+        // 所属部署 + その親階層全てをグループIDとして渡す。
+        // (例: "仙台営業所" → ["仙台営業所", "東日本営業部", "営業部"] となり、
+        //  グループ権限マスタに上位部門があれば自動的にマッチする)
         if (employeeInfo.department) {
-          groupIds = [employeeInfo.department];
+          groupIds = await expandDepartmentChain(employeeInfo.department);
         }
 
         console.log("[menu-permission] Employee info found:", {

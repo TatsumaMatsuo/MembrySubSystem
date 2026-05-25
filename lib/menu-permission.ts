@@ -1,7 +1,7 @@
 /**
  * メニュー権限システム ライブラリ
  */
-import { getBaseRecords, getLarkBaseTokenForMaster } from "./lark-client";
+import { getBaseRecords, getLarkBaseTokenForMaster, larkClient } from "./lark-client";
 import {
   MenuDisplayMaster,
   FunctionPlacementMaster,
@@ -17,6 +17,86 @@ const TABLE_MENU_DISPLAY = process.env.LARK_TABLE_MENU_DISPLAY || "tblQUDXmR38J6
 const TABLE_FUNCTION_PLACEMENT = process.env.LARK_TABLE_FUNCTION_PLACEMENT || "tblmFd1WLLegSKPO";
 const TABLE_GROUP_PERMISSION = process.env.LARK_TABLE_GROUP_PERMISSION || "tbldL8lBsCnhCJQx";
 const TABLE_USER_PERMISSION = process.env.LARK_TABLE_USER_PERMISSION || "tbl2hvSUkEe3fn7t";
+
+// Lark Contact 部門ツリーキャッシュ (Lambda インスタンス内で 5 分キャッシュ)
+interface LarkDept {
+  id: string;
+  name: string;
+  parent_id: string;
+}
+let _deptTreeCache: LarkDept[] | null = null;
+let _deptTreeCacheTime = 0;
+const DEPT_TREE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Lark Contact 部門ツリーを全件取得 (キャッシュあり)
+ */
+async function fetchLarkDepartmentTree(): Promise<LarkDept[]> {
+  const now = Date.now();
+  if (_deptTreeCache && now - _deptTreeCacheTime < DEPT_TREE_TTL_MS) {
+    return _deptTreeCache;
+  }
+
+  try {
+    const items: any[] = [];
+    let pageToken: string | undefined = undefined;
+    do {
+      const r: any = await larkClient.contact.department.list({
+        params: {
+          department_id_type: "open_department_id",
+          parent_department_id: "0",
+          fetch_child: true,
+          page_size: 50,
+          page_token: pageToken,
+        },
+      });
+      items.push(...(r.data?.items || []));
+      pageToken = r.data?.has_more ? r.data?.page_token : undefined;
+    } while (pageToken);
+
+    _deptTreeCache = items.map((d) => ({
+      id: d.open_department_id,
+      name: String(d.name || "").trim(),
+      parent_id: d.parent_department_id || "",
+    }));
+    _deptTreeCacheTime = now;
+    console.log(`[menu-permission] Lark 部門ツリー取得: ${_deptTreeCache.length}件`);
+    return _deptTreeCache;
+  } catch (err) {
+    console.error("[menu-permission] Lark 部門ツリー取得失敗:", err);
+    return _deptTreeCache || [];
+  }
+}
+
+/**
+ * 社員の所属部署名から、親階層を辿った部門名の配列を返す。
+ * 例: "仙台営業所" → ["仙台営業所", "東日本営業部", "営業部"]
+ * 部門が見つからない場合は [deptName] を返す。
+ */
+export async function expandDepartmentChain(deptName: string): Promise<string[]> {
+  if (!deptName) return [];
+  const tree = await fetchLarkDepartmentTree();
+  if (tree.length === 0) return [deptName];
+
+  const byId = new Map(tree.map((d) => [d.id, d]));
+  const byName = new Map(tree.map((d) => [d.name, d]));
+
+  let cur = byName.get(deptName.trim());
+  if (!cur) {
+    console.log(`[menu-permission] "${deptName}" は Lark 部門ツリーに見つからず`);
+    return [deptName];
+  }
+
+  const chain: string[] = [];
+  let depth = 0;
+  while (cur && depth < 10) {
+    chain.push(cur.name);
+    if (!cur.parent_id || cur.parent_id === "0") break;
+    cur = byId.get(cur.parent_id);
+    depth++;
+  }
+  return chain;
+}
 
 /**
  * 社員情報

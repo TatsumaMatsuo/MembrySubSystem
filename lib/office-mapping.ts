@@ -1,5 +1,5 @@
 /**
- * 担当者→営業所→地域 静的マッピング（PDF資料基準）
+ * 担当者→営業所→地域 静的マッピング（Lark Base 部門フィールド基準）
  */
 
 export interface OfficeInfo {
@@ -7,7 +7,7 @@ export interface OfficeInfo {
   region: string;
 }
 
-/** 営業所の表示順序（PDFの表示順に準拠） */
+/** 営業所の表示順序 */
 export const OFFICE_ORDER = [
   "佐賀", "福岡", "北九州", "宮崎", "大阪",  // 西日本
   "名古屋", "東京", "北関東", "仙台",          // 東日本
@@ -29,21 +29,24 @@ export const OFFICE_REGION_MAP: Record<string, string> = {
   "仙台": "東日本",
 };
 
-/** 担当者名→営業所マッピング（PDF資料基準） */
+/** 担当者名→営業所マッピング（Lark Base 部門フィールド基準） */
 const TANTOUSHA_OFFICE_MAP: Record<string, string> = {
   // 西日本 - 佐賀
   "山口篤樹": "佐賀",
   "野中一良": "佐賀",
+  "吉村一彦": "佐賀",
+  "宮地正義": "佐賀",
+  "小川智": "佐賀",
+  "北原裕二": "佐賀",
+  "小松広明": "佐賀",
+  "松尾達磨": "佐賀",
+  "柘植誠": "佐賀",
   // 西日本 - 福岡
-  "北原裕二": "福岡",
-  "吉村一彦": "福岡",
-  "小川智": "福岡",
-  "宮地正義": "福岡",
   "富永健二": "福岡",
   "野田章善": "福岡",
   "若山典亮": "福岡",
-  "山口秀樹": "福岡",
   // 西日本 - 北九州
+  "山口秀樹": "北九州",
   "小野克也": "北九州",
   "瀧澤宜規": "北九州",
   // 西日本 - 宮崎
@@ -58,6 +61,7 @@ const TANTOUSHA_OFFICE_MAP: Record<string, string> = {
   "郷田哲雄": "東京",
   "浅野衛": "東京",
   "柴田美枝": "東京",
+  "倉田知明": "東京",
   // 東日本 - 北関東
   "西野拓磨": "北関東",
   "芦川努": "北関東",
@@ -67,9 +71,15 @@ const TANTOUSHA_OFFICE_MAP: Record<string, string> = {
   "齋藤佑飛": "仙台",
 };
 
-/** 担当者名から営業所・地域情報を取得 */
+/** スペースを除去して正規化 */
+function normalizeName(name: string): string {
+  return name.replace(/[\s\u3000]/g, "");
+}
+
+/** 担当者名から営業所・地域情報を取得（スペースの有無を吸収） */
 export function getOfficeInfo(tantousha: string): OfficeInfo {
-  const office = TANTOUSHA_OFFICE_MAP[tantousha];
+  const normalized = normalizeName(tantousha);
+  const office = TANTOUSHA_OFFICE_MAP[normalized];
   if (office) {
     return { office, region: OFFICE_REGION_MAP[office] || "その他" };
   }

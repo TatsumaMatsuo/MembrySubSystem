@@ -9,6 +9,25 @@ const TABLE_FUNCTION_PLACEMENT = process.env.LARK_TABLE_FUNCTION_PLACEMENT || "t
 const TABLE_GROUP_PERMISSION = process.env.LARK_TABLE_GROUP_PERMISSION || "tbldL8lBsCnhCJQx";
 const TABLE_USER_PERMISSION = process.env.LARK_TABLE_USER_PERMISSION || "tbl2hvSUkEe3fn7t";
 
+/**
+ * Lark Bitable から指定テーブルの全レコードを取得 (ページネーション対応)
+ * 1回の API では最大 500 件しか返らないため、has_more が false になるまで繰り返す。
+ */
+async function getAllRecords(tableId: string, baseToken: string): Promise<any[]> {
+  const items: any[] = [];
+  let pageToken: string | undefined = undefined;
+  do {
+    const response: any = await getBaseRecords(tableId, {
+      baseToken,
+      pageSize: 500,
+      pageToken,
+    });
+    items.push(...(response.data?.items || []));
+    pageToken = response.data?.has_more ? response.data?.page_token : undefined;
+  } while (pageToken);
+  return items;
+}
+
 type TableType = "menu" | "program" | "group" | "user";
 
 function getTableId(type: TableType): string {
@@ -36,33 +55,33 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type") as TableType;
 
     if (!type) {
-      // 全テーブルのデータを取得
+      // 全テーブルのデータを取得 (各テーブル全件、ページネーションで取得)
       const baseToken = getLarkBaseTokenForMaster();
       const [menus, programs, groups, users] = await Promise.all([
-        getBaseRecords(TABLE_MENU_DISPLAY, { baseToken, pageSize: 500 }),
-        getBaseRecords(TABLE_FUNCTION_PLACEMENT, { baseToken, pageSize: 500 }),
-        getBaseRecords(TABLE_GROUP_PERMISSION, { baseToken, pageSize: 500 }),
-        getBaseRecords(TABLE_USER_PERMISSION, { baseToken, pageSize: 500 }),
+        getAllRecords(TABLE_MENU_DISPLAY, baseToken),
+        getAllRecords(TABLE_FUNCTION_PLACEMENT, baseToken),
+        getAllRecords(TABLE_GROUP_PERMISSION, baseToken),
+        getAllRecords(TABLE_USER_PERMISSION, baseToken),
       ]);
 
       return NextResponse.json({
         success: true,
         data: {
-          menus: menus.data?.items || [],
-          programs: programs.data?.items || [],
-          groups: groups.data?.items || [],
-          users: users.data?.items || [],
+          menus,
+          programs,
+          groups,
+          users,
         },
       });
     }
 
     const tableId = getTableId(type);
     const baseToken = getLarkBaseTokenForMaster();
-    const response = await getBaseRecords(tableId, { baseToken, pageSize: 500 });
+    const items = await getAllRecords(tableId, baseToken);
 
     return NextResponse.json({
       success: true,
-      data: response.data?.items || [],
+      data: items,
     });
   } catch (error) {
     console.error("[menu-permissions] GET Error:", error);

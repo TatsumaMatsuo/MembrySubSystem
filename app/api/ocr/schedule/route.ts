@@ -1,9 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { execFile } from "child_process";
-import { writeFile, unlink } from "fs/promises";
-import { join } from "path";
-import { tmpdir } from "os";
-import { randomUUID } from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { getLarkClient, getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
 import { getLarkTables, SCHEDULE_FIELDS } from "@/lib/lark-tables";
@@ -79,24 +74,28 @@ async function downloadFileFromLark(fileToken: string, tableId: string): Promise
 }
 
 async function pdfToTableImage(pdfBuffer: Buffer): Promise<string> {
-  const tmpPath = join(tmpdir(), `ocr-${randomUUID()}.pdf`);
-  await writeFile(tmpPath, pdfBuffer);
+  // @napi-rs/canvas はネイティブRustバイナリ同梱のためLambdaでも動作する
+  const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.js");
+  const { createCanvas } = require("@napi-rs/canvas");
 
-  try {
-    const scriptPath = join(process.cwd(), "scripts", "pdf-to-image.cjs");
-    const base64 = await new Promise<string>((resolve, reject) => {
-      execFile("node", [scriptPath, tmpPath], { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
-        if (err) {
-          reject(new Error(`PDF変換エラー: ${stderr || err.message}`));
-        } else {
-          resolve(stdout);
-        }
-      });
-    });
-    return base64;
-  } finally {
-    await unlink(tmpPath).catch(() => {});
-  }
+  const data = new Uint8Array(pdfBuffer);
+  const doc = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;
+  const page = await doc.getPage(1);
+  const viewport = page.getViewport({ scale: 5 });
+
+  const fullCanvas = createCanvas(viewport.width, viewport.height);
+  const fullCtx = fullCanvas.getContext("2d");
+  await (page.render({ canvasContext: fullCtx as any, viewport }) as any).promise;
+
+  const cropW = Math.round(viewport.width * 0.32);
+  const cropY = Math.round(viewport.height * 0.28);
+  const cropH = viewport.height - cropY - Math.round(viewport.height * 0.12);
+
+  const cropCanvas = createCanvas(cropW, cropH);
+  const cropCtx = cropCanvas.getContext("2d");
+  cropCtx.drawImage(fullCanvas, 0, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+  return cropCanvas.toBuffer("image/png").toString("base64");
 }
 
 async function ocrSchedulePdf(pdfBuffer: Buffer): Promise<Record<string, { start: string | null; end: string | null }>> {

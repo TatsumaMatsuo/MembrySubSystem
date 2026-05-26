@@ -1,5 +1,10 @@
 const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.js");
-const { createCanvas } = require("canvas");
+let createCanvas;
+try {
+  createCanvas = require("@napi-rs/canvas").createCanvas;
+} catch {
+  createCanvas = require("canvas").createCanvas;
+}
 const fs = require("fs");
 
 async function main() {

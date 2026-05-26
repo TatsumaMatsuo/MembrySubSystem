@@ -15,9 +15,12 @@ const nextConfig = {
     outputFileTracingIncludes: {
       "/**": ["./public/fonts/syaryo/**"],
     },
+    serverComponentsExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
   },
-  webpack: (config) => {
-    config.resolve.alias.canvas = false;
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.alias.canvas = false;
+    }
     return config;
   },
 };

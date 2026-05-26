@@ -394,18 +394,41 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
         const afterToken = data.data?.fileToken;
         await recordHistory(uploadTarget.docType, operationType, file.name, beforeToken, afterToken);
 
-        // 営業部/工程表の場合はOCR処理を実行
-        console.log("[OCR check]", { dept: uploadTarget.dept, docType: uploadTarget.docType, afterToken });
-        if (uploadTarget.dept === "営業部" && uploadTarget.docType === "工程表" && afterToken) {
+        // 営業部/工程表の場合はOCR処理を実行（クライアント側でPDF→画像変換）
+        if (uploadTarget.dept === "営業部" && uploadTarget.docType === "工程表" && file.type === "application/pdf") {
           alert(`「${file.name}」をアップロードしました。\n工程表のOCR読み取りを開始します...`);
           setOcrProcessing(true);
           setOcrResult(null);
           setOcrConfirm(null);
           try {
+            // ブラウザのCanvas APIでPDF→高解像度画像→クロップ
+            const pdfjs = await import("pdfjs-dist");
+            pdfjs.GlobalWorkerOptions.workerSrc = "";
+            const arrayBuf = await file.arrayBuffer();
+            const pdfDoc = await pdfjs.getDocument({ data: arrayBuf }).promise;
+            const pdfPage = await pdfDoc.getPage(1);
+            const scale = 5;
+            const vp = pdfPage.getViewport({ scale });
+            const fullCanvas = document.createElement("canvas");
+            fullCanvas.width = vp.width;
+            fullCanvas.height = vp.height;
+            await pdfPage.render({ canvasContext: fullCanvas.getContext("2d")!, viewport: vp }).promise;
+
+            // 日付列のみクロップ
+            const cropW = Math.round(vp.width * 0.32);
+            const cropY = Math.round(vp.height * 0.28);
+            const cropH = vp.height - cropY - Math.round(vp.height * 0.12);
+            const cropCanvas = document.createElement("canvas");
+            cropCanvas.width = cropW;
+            cropCanvas.height = cropH;
+            cropCanvas.getContext("2d")!.drawImage(fullCanvas, 0, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+            const imageBase64 = cropCanvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+
             const ocrResponse = await fetch("/api/ocr/schedule", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ seiban, fileToken: afterToken }),
+              body: JSON.stringify({ seiban, imageBase64 }),
             });
             if (!ocrResponse.ok) {
               const errText = await ocrResponse.text().catch(() => "");
@@ -419,7 +442,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
             }
           } catch (ocrError) {
             console.error("OCR error:", ocrError);
-            setOcrResult({ success: false, message: "OCR処理中にエラーが発生しました" });
+            setOcrResult({ success: false, message: ocrError instanceof Error ? ocrError.message : "OCR処理中にエラーが発生しました" });
           } finally {
             setOcrProcessing(false);
           }

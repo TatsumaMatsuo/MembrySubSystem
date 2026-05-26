@@ -1,10 +1,6 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-declare const __webpack_require__: unknown;
-declare const __non_webpack_require__: NodeRequire;
-
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { getLarkClient, getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
+import { getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
 import { getLarkTables, SCHEDULE_FIELDS } from "@/lib/lark-tables";
 
 export const dynamic = "force-dynamic";
@@ -47,80 +43,12 @@ function dateToTimestamp(dateStr: string): number | null {
   return null;
 }
 
-async function downloadFileFromLark(fileToken: string, tableId: string): Promise<Buffer> {
-  const client = getLarkClient();
-  if (!client) throw new Error("Lark client not initialized");
-
-  const extra = JSON.stringify({
-    bitablePerm: { tableId, rev: 0 },
-  });
-
-  const response = await client.drive.media.batchGetTmpDownloadUrl({
-    params: {
-      file_tokens: [fileToken],
-      extra,
-    },
-  });
-
-  if (response.code !== 0 || !response.data?.tmp_download_urls?.length) {
-    throw new Error(`Failed to get download URL: ${response.msg}`);
-  }
-
-  const downloadUrl = response.data.tmp_download_urls[0].tmp_download_url;
-  if (!downloadUrl) throw new Error("Download URL is empty");
-
-  const fileResponse = await fetch(downloadUrl);
-  if (!fileResponse.ok) {
-    throw new Error(`Failed to download file: ${fileResponse.status}`);
-  }
-
-  return Buffer.from(await fileResponse.arrayBuffer());
-}
-
-// webpackのバンドル対象から除外するためevalでrequireを呼ぶ
-const _require = typeof __webpack_require__ === "function" ? __non_webpack_require__ : require;
-
-async function pdfToTableImage(pdfBuffer: Buffer): Promise<string> {
-  const pdfjsLib = _require("pdfjs-dist/legacy/build/pdf.js");
-  const { createCanvas } = _require("@napi-rs/canvas");
-
-  const data = new Uint8Array(pdfBuffer);
-  const doc = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;
-  const page = await doc.getPage(1);
-  const viewport = page.getViewport({ scale: 5 });
-
-  const fullCanvas = createCanvas(viewport.width, viewport.height);
-  const fullCtx = fullCanvas.getContext("2d");
-  await (page.render({ canvasContext: fullCtx as any, viewport }) as any).promise;
-
-  const cropW = Math.round(viewport.width * 0.32);
-  const cropY = Math.round(viewport.height * 0.28);
-  const cropH = viewport.height - cropY - Math.round(viewport.height * 0.12);
-
-  const cropCanvas = createCanvas(cropW, cropH);
-  const cropCtx = cropCanvas.getContext("2d");
-  cropCtx.drawImage(fullCanvas, 0, cropY, cropW, cropH, 0, 0, cropW, cropH);
-
-  return cropCanvas.toBuffer("image/png").toString("base64");
-}
-
-async function ocrSchedulePdf(pdfBuffer: Buffer): Promise<Record<string, { start: string | null; end: string | null }>> {
+async function ocrScheduleImage(imageBase64: string): Promise<Record<string, { start: string | null; end: string | null }>> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY が設定されていません");
 
   const anthropic = new Anthropic({ apiKey });
-
-  // 高解像度画像変換を試行、失敗時はPDF直送にフォールバック
-  let contentBlock: Anthropic.Messages.ImageBlockParam | Anthropic.Messages.DocumentBlockParam;
-  try {
-    console.log("[ocr/schedule] Converting PDF to cropped table image...");
-    const imageBase64 = await pdfToTableImage(pdfBuffer);
-    console.log("[ocr/schedule] Cropped image base64 length:", imageBase64.length);
-    contentBlock = { type: "image", source: { type: "base64", media_type: "image/png", data: imageBase64 } };
-  } catch (imgErr) {
-    console.warn("[ocr/schedule] Image conversion failed, falling back to PDF:", imgErr instanceof Error ? imgErr.message : imgErr);
-    contentBlock = { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBuffer.toString("base64") } };
-  }
+  console.log("[ocr/schedule] Image base64 length:", imageBase64.length);
 
   const currentYear = new Date().getFullYear();
 
@@ -132,7 +60,10 @@ async function ocrSchedulePdf(pdfBuffer: Buffer): Promise<Record<string, { start
       {
         role: "user",
         content: [
-          contentBlock,
+          {
+            type: "image",
+            source: { type: "base64", media_type: "image/png", data: imageBase64 },
+          },
           {
             type: "text",
             text: `この工程表から、各行の「開始日」列と「終了日」列の数字を正確に読み取ってください。
@@ -197,17 +128,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Step 1: OCR抽出のみ（確認用データを返す）
-async function handleOcr(body: { seiban: string; fileToken: string }) {
-  const { seiban, fileToken } = body;
-  if (!seiban || !fileToken) {
-    return NextResponse.json({ success: false, error: "製番とファイルトークンが必要です" }, { status: 400 });
+// Step 1: クライアントから画像を受け取りOCR
+async function handleOcr(body: { seiban: string; imageBase64: string }) {
+  const { seiban, imageBase64 } = body;
+  if (!seiban || !imageBase64) {
+    return NextResponse.json({ success: false, error: "製番と画像データが必要です" }, { status: 400 });
   }
 
   console.log("[ocr/schedule] OCR start:", seiban);
-  const tables = getLarkTables();
-  const pdfBuffer = await downloadFileFromLark(fileToken, tables.PROJECT_DOCUMENTS);
-  const ocrResult = await ocrSchedulePdf(pdfBuffer);
+  const ocrResult = await ocrScheduleImage(imageBase64);
   console.log("[ocr/schedule] OCR result:", JSON.stringify(ocrResult, null, 2));
 
   // 全プロセスを網羅（OCR結果にないものはnull）

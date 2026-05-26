@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+declare const __webpack_require__: unknown;
+declare const __non_webpack_require__: NodeRequire;
+
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getLarkClient, getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
@@ -73,10 +77,12 @@ async function downloadFileFromLark(fileToken: string, tableId: string): Promise
   return Buffer.from(await fileResponse.arrayBuffer());
 }
 
+// webpackのバンドル対象から除外するためevalでrequireを呼ぶ
+const _require = typeof __webpack_require__ === "function" ? __non_webpack_require__ : require;
+
 async function pdfToTableImage(pdfBuffer: Buffer): Promise<string> {
-  // @napi-rs/canvas はネイティブRustバイナリ同梱のためLambdaでも動作する
-  const pdfjsLib = require("pdfjs-dist/legacy/build/pdf.js");
-  const { createCanvas } = require("@napi-rs/canvas");
+  const pdfjsLib = _require("pdfjs-dist/legacy/build/pdf.js");
+  const { createCanvas } = _require("@napi-rs/canvas");
 
   const data = new Uint8Array(pdfBuffer);
   const doc = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;

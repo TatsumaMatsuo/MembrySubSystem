@@ -105,9 +105,17 @@ async function ocrSchedulePdf(pdfBuffer: Buffer): Promise<Record<string, { start
 
   const anthropic = new Anthropic({ apiKey });
 
-  console.log("[ocr/schedule] Converting PDF to cropped table image...");
-  const imageBase64 = await pdfToTableImage(pdfBuffer);
-  console.log("[ocr/schedule] Cropped image base64 length:", imageBase64.length);
+  // 高解像度画像変換を試行、失敗時はPDF直送にフォールバック
+  let contentBlock: Anthropic.Messages.ImageBlockParam | Anthropic.Messages.DocumentBlockParam;
+  try {
+    console.log("[ocr/schedule] Converting PDF to cropped table image...");
+    const imageBase64 = await pdfToTableImage(pdfBuffer);
+    console.log("[ocr/schedule] Cropped image base64 length:", imageBase64.length);
+    contentBlock = { type: "image", source: { type: "base64", media_type: "image/png", data: imageBase64 } };
+  } catch (imgErr) {
+    console.warn("[ocr/schedule] Image conversion failed, falling back to PDF:", imgErr instanceof Error ? imgErr.message : imgErr);
+    contentBlock = { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBuffer.toString("base64") } };
+  }
 
   const currentYear = new Date().getFullYear();
 
@@ -119,22 +127,16 @@ async function ocrSchedulePdf(pdfBuffer: Buffer): Promise<Record<string, { start
       {
         role: "user",
         content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: "image/png",
-              data: imageBase64,
-            },
-          },
+          contentBlock,
           {
             type: "text",
-            text: `この表の画像から、各行の「開始日」列と「終了日」列の数字を正確に読み取ってください。
+            text: `この工程表から、各行の「開始日」列と「終了日」列の数字を正確に読み取ってください。
 
 - TOTAL期間の行は除外し、No.1から順番に読む
 - 日付がMM/DD形式なら${currentYear}年として出力。月が前行より小さくなったら${currentYear + 1}年
 - YYYY/MM/DD形式ならそのまま使用
 - 日付が空欄の行はnullとする
+- ガントチャートのバーではなく「開始日」「終了日」列のテキストを読むこと
 
 JSON配列のみ出力:
 [{ "start": "YYYY-MM-DD", "end": "YYYY-MM-DD" }, ...]`,

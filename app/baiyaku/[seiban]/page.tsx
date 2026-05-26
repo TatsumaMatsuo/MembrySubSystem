@@ -115,6 +115,12 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
   const [bulkDownloadCollapsedDepts, setBulkDownloadCollapsedDepts] = useState<Set<DepartmentName>>(new Set());
+  const [ocrProcessing, setOcrProcessing] = useState(false);
+  const [ocrResult, setOcrResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [ocrConfirm, setOcrConfirm] = useState<{
+    dates: Record<string, { start: string | null; end: string | null; startField: string | null; endField: string | null }>;
+  } | null>(null);
+  const [ocrSaving, setOcrSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ESCキーでメニューを閉じる
@@ -266,6 +272,24 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       if (data.success) {
         // 履歴を記録
         await recordHistory(docType, "削除", fileName);
+
+        // 営業部/工程表の場合は工程管理テーブルの日付をクリア
+        if (docType === "工程表") {
+          try {
+            const clearRes = await fetch("/api/ocr/schedule", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "clear", seiban }),
+            });
+            const clearData = await clearRes.json();
+            if (!clearData.success) {
+              console.error("Clear failed:", clearData.error);
+            }
+          } catch (e) {
+            console.error("Failed to clear schedule dates:", e);
+          }
+        }
+
         alert(`「${fileName}」を削除しました`);
         // ドキュメント一覧を再取得
         const docsResponse = await fetch(`/api/documents?seiban=${encodeURIComponent(seiban)}`);
@@ -369,7 +393,40 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
         const beforeToken = uploadTarget.replace ? uploadTarget.targetFileToken : undefined;
         const afterToken = data.data?.fileToken;
         await recordHistory(uploadTarget.docType, operationType, file.name, beforeToken, afterToken);
-        alert(`「${file.name}」をアップロードしました`);
+
+        // 営業部/工程表の場合はOCR処理を実行
+        console.log("[OCR check]", { dept: uploadTarget.dept, docType: uploadTarget.docType, afterToken });
+        if (uploadTarget.dept === "営業部" && uploadTarget.docType === "工程表" && afterToken) {
+          alert(`「${file.name}」をアップロードしました。\n工程表のOCR読み取りを開始します...`);
+          setOcrProcessing(true);
+          setOcrResult(null);
+          setOcrConfirm(null);
+          try {
+            const ocrResponse = await fetch("/api/ocr/schedule", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ seiban, fileToken: afterToken }),
+            });
+            if (!ocrResponse.ok) {
+              const errText = await ocrResponse.text().catch(() => "");
+              throw new Error(`サーバーエラー (${ocrResponse.status}): ${errText.substring(0, 200)}`);
+            }
+            const ocrData = await ocrResponse.json();
+            if (ocrData.success) {
+              setOcrConfirm({ dates: ocrData.data.extractedDates });
+            } else {
+              setOcrResult({ success: false, message: `OCR読み取りに失敗しました: ${ocrData.error}` });
+            }
+          } catch (ocrError) {
+            console.error("OCR error:", ocrError);
+            setOcrResult({ success: false, message: "OCR処理中にエラーが発生しました" });
+          } finally {
+            setOcrProcessing(false);
+          }
+        } else {
+          alert(`「${file.name}」をアップロードしました`);
+        }
+
         // ドキュメント一覧を再取得
         const docsResponse = await fetch(`/api/documents?seiban=${encodeURIComponent(seiban)}`);
         const docsData = await docsResponse.json();
@@ -2460,6 +2517,144 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
 
           {activeMenu === "documents" && (
             <div className="space-y-4">
+              {/* OCR処理状態バナー */}
+              {ocrProcessing && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                  <div>
+                    <p className="text-blue-800 font-medium">工程表OCR処理中...</p>
+                    <p className="text-blue-600 text-sm">PDFから日付情報を読み取っています。しばらくお待ちください。</p>
+                  </div>
+                </div>
+              )}
+              {ocrResult && (
+                <div className={`border rounded-lg p-4 flex items-start gap-3 ${
+                  ocrResult.success
+                    ? "bg-green-50 border-green-200"
+                    : "bg-red-50 border-red-200"
+                }`}>
+                  <span className="text-lg">{ocrResult.success ? "✅" : "❌"}</span>
+                  <div className="flex-1">
+                    <p className={`font-medium ${ocrResult.success ? "text-green-800" : "text-red-800"}`}>
+                      {ocrResult.success ? "工程管理テーブル更新完了" : "OCR読み取りエラー"}
+                    </p>
+                    <p className={`text-sm ${ocrResult.success ? "text-green-600" : "text-red-600"}`}>
+                      {ocrResult.message}
+                    </p>
+                  </div>
+                  <button onClick={() => setOcrResult(null)} className="text-gray-400 hover:text-gray-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+              {ocrConfirm && (
+                <>
+                  <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setOcrConfirm(null)} />
+                  <div className="fixed inset-4 md:inset-x-auto md:inset-y-12 md:max-w-2xl md:mx-auto z-50 flex flex-col bg-white rounded-xl shadow-2xl overflow-hidden">
+                    <div className="px-4 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between flex-shrink-0">
+                      <h3 className="font-bold text-blue-800">工程表 OCR 読み取り結果</h3>
+                      <span className="text-xs text-blue-600">日付を確認・修正してから保存</span>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-2 font-semibold text-gray-700">工程</th>
+                            <th className="text-left py-2 px-2 font-semibold text-gray-700">開始日</th>
+                            <th className="text-left py-2 px-2 font-semibold text-gray-700">終了日</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(ocrConfirm.dates).map(([process, d]) => (
+                            <tr key={process} className="border-b last:border-b-0 hover:bg-gray-50">
+                              <td className="py-2 px-2 font-medium text-gray-800">{process}</td>
+                              <td className="py-2 px-2">
+                                <input
+                                  type="date"
+                                  value={d.start || ""}
+                                  onChange={(e) => {
+                                    setOcrConfirm((prev) => {
+                                      if (!prev) return prev;
+                                      return {
+                                        dates: {
+                                          ...prev.dates,
+                                          [process]: { ...prev.dates[process], start: e.target.value || null },
+                                        },
+                                      };
+                                    });
+                                  }}
+                                  className="border border-gray-300 rounded px-2 py-1 text-sm w-36 focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
+                                />
+                              </td>
+                              <td className="py-2 px-2">
+                                <input
+                                  type="date"
+                                  value={d.end || ""}
+                                  onChange={(e) => {
+                                    setOcrConfirm((prev) => {
+                                      if (!prev) return prev;
+                                      return {
+                                        dates: {
+                                          ...prev.dates,
+                                          [process]: { ...prev.dates[process], end: e.target.value || null },
+                                        },
+                                      };
+                                    });
+                                  }}
+                                  className="border border-gray-300 rounded px-2 py-1 text-sm w-36 focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-4 py-3 bg-gray-50 border-t flex justify-end gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => setOcrConfirm(null)}
+                        className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        キャンセル
+                      </button>
+                      <button
+                        disabled={ocrSaving}
+                        onClick={async () => {
+                          setOcrSaving(true);
+                          try {
+                            const savePayload: Record<string, { start: string | null; end: string | null }> = {};
+                            for (const [proc, d] of Object.entries(ocrConfirm.dates)) {
+                              savePayload[proc] = { start: d.start, end: d.end };
+                            }
+                            const res = await fetch("/api/ocr/schedule", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ action: "save", seiban, dates: savePayload }),
+                            });
+                            const result = await res.json();
+                            if (result.success) {
+                              setOcrResult({
+                                success: true,
+                                message: `${result.data.updatedFields} 件の日付を工程管理テーブルに保存しました。`,
+                              });
+                            } else {
+                              setOcrResult({ success: false, message: result.error });
+                            }
+                          } catch (err) {
+                            setOcrResult({ success: false, message: "保存中にエラーが発生しました" });
+                          } finally {
+                            setOcrSaving(false);
+                            setOcrConfirm(null);
+                          }
+                        }}
+                        className="px-5 py-2.5 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center gap-2 shadow-lg"
+                      >
+                        {ocrSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                        工程管理テーブルに保存
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setCollapsedDepts(new Set())}

@@ -1,0 +1,304 @@
+import { NextRequest, NextResponse } from "next/server";
+import { execFile } from "child_process";
+import { writeFile, unlink } from "fs/promises";
+import { join } from "path";
+import { tmpdir } from "os";
+import { randomUUID } from "crypto";
+import Anthropic from "@anthropic-ai/sdk";
+import { getLarkClient, getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
+import { getLarkTables, SCHEDULE_FIELDS } from "@/lib/lark-tables";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+const SCHEDULE_DATE_FIELD_NAMES = Object.values(SCHEDULE_FIELDS).filter(
+  (v) => v.startsWith("社内工程表_")
+);
+
+const PROCESS_NAMES = [
+  "受注",
+  "計画図作成",
+  "申請必要情報確定",
+  "承認図作成",
+  "図面承認",
+  "申請図書作成",
+  "申請期間（構造）",
+  "申請期間（確認済）",
+  "製作図",
+  "材料手配",
+  "製作期間",
+  "基礎工事",
+  "施工期間",
+  "完了検査",
+];
+
+function dateToTimestamp(dateStr: string): number | null {
+  if (!dateStr) return null;
+  const fullMatch = dateStr.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (fullMatch) {
+    const [, year, month, day] = fullMatch;
+    return Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day));
+  }
+  const shortMatch = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+  if (shortMatch) {
+    const [, month, day] = shortMatch;
+    const year = new Date().getFullYear();
+    return Date.UTC(year, parseInt(month) - 1, parseInt(day));
+  }
+  return null;
+}
+
+async function downloadFileFromLark(fileToken: string, tableId: string): Promise<Buffer> {
+  const client = getLarkClient();
+  if (!client) throw new Error("Lark client not initialized");
+
+  const extra = JSON.stringify({
+    bitablePerm: { tableId, rev: 0 },
+  });
+
+  const response = await client.drive.media.batchGetTmpDownloadUrl({
+    params: {
+      file_tokens: [fileToken],
+      extra,
+    },
+  });
+
+  if (response.code !== 0 || !response.data?.tmp_download_urls?.length) {
+    throw new Error(`Failed to get download URL: ${response.msg}`);
+  }
+
+  const downloadUrl = response.data.tmp_download_urls[0].tmp_download_url;
+  if (!downloadUrl) throw new Error("Download URL is empty");
+
+  const fileResponse = await fetch(downloadUrl);
+  if (!fileResponse.ok) {
+    throw new Error(`Failed to download file: ${fileResponse.status}`);
+  }
+
+  return Buffer.from(await fileResponse.arrayBuffer());
+}
+
+async function pdfToTableImage(pdfBuffer: Buffer): Promise<string> {
+  const tmpPath = join(tmpdir(), `ocr-${randomUUID()}.pdf`);
+  await writeFile(tmpPath, pdfBuffer);
+
+  try {
+    const scriptPath = join(process.cwd(), "scripts", "pdf-to-image.cjs");
+    const base64 = await new Promise<string>((resolve, reject) => {
+      execFile("node", [scriptPath, tmpPath], { maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
+        if (err) {
+          reject(new Error(`PDF変換エラー: ${stderr || err.message}`));
+        } else {
+          resolve(stdout);
+        }
+      });
+    });
+    return base64;
+  } finally {
+    await unlink(tmpPath).catch(() => {});
+  }
+}
+
+async function ocrSchedulePdf(pdfBuffer: Buffer): Promise<Record<string, { start: string | null; end: string | null }>> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY が設定されていません");
+
+  const anthropic = new Anthropic({ apiKey });
+
+  console.log("[ocr/schedule] Converting PDF to cropped table image...");
+  const imageBase64 = await pdfToTableImage(pdfBuffer);
+  console.log("[ocr/schedule] Cropped image base64 length:", imageBase64.length);
+
+  const currentYear = new Date().getFullYear();
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 16000,
+    thinking: { type: "enabled", budget_tokens: 8000 },
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: "image/png",
+              data: imageBase64,
+            },
+          },
+          {
+            type: "text",
+            text: `この表の画像から、各行の「開始日」列と「終了日」列の数字を正確に読み取ってください。
+
+- TOTAL期間の行は除外し、No.1から順番に読む
+- 日付がMM/DD形式なら${currentYear}年として出力。月が前行より小さくなったら${currentYear + 1}年
+- YYYY/MM/DD形式ならそのまま使用
+- 日付が空欄の行はnullとする
+
+JSON配列のみ出力:
+[{ "start": "YYYY-MM-DD", "end": "YYYY-MM-DD" }, ...]`,
+          },
+        ],
+      },
+    ],
+  });
+
+  const textBlock = message.content.find((b) => b.type === "text");
+  const text = textBlock && textBlock.type === "text" ? textBlock.text : "";
+  console.log("[ocr/schedule] Raw OCR output:", text);
+  const jsonMatch = text.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) throw new Error("OCR結果からJSONを抽出できませんでした");
+
+  const rows: { start: string | null; end: string | null }[] = JSON.parse(jsonMatch[0]);
+
+  // 行番号で固定マッピング
+  const result: Record<string, { start: string | null; end: string | null }> = {};
+  for (let i = 0; i < PROCESS_NAMES.length && i < rows.length; i++) {
+    result[PROCESS_NAMES[i]] = rows[i];
+  }
+
+  return result;
+}
+
+function resolveFieldName(process: string): { start: string | null; end: string | null } {
+  const stripped = process.replace(/[（(]/g, "").replace(/[）)]/g, "");
+  return {
+    start: SCHEDULE_DATE_FIELD_NAMES.find((f) => f === `社内工程表_${stripped}開始日` || f === `社内工程表_${process}開始日`) || null,
+    end: SCHEDULE_DATE_FIELD_NAMES.find((f) => f === `社内工程表_${stripped}終了日` || f === `社内工程表_${process}終了日`) || null,
+  };
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+
+    if (body.action === "save") {
+      return handleSave(body);
+    }
+    if (body.action === "clear") {
+      return handleClear(body);
+    }
+    return handleOcr(body);
+  } catch (error) {
+    const msg = error instanceof Error ? `${error.message}\n${error.stack}` : String(error);
+    console.error("[ocr/schedule] Error:", msg);
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "OCR処理中にエラーが発生しました" },
+      { status: 500 }
+    );
+  }
+}
+
+// Step 1: OCR抽出のみ（確認用データを返す）
+async function handleOcr(body: { seiban: string; fileToken: string }) {
+  const { seiban, fileToken } = body;
+  if (!seiban || !fileToken) {
+    return NextResponse.json({ success: false, error: "製番とファイルトークンが必要です" }, { status: 400 });
+  }
+
+  console.log("[ocr/schedule] OCR start:", seiban);
+  const tables = getLarkTables();
+  const pdfBuffer = await downloadFileFromLark(fileToken, tables.PROJECT_DOCUMENTS);
+  const ocrResult = await ocrSchedulePdf(pdfBuffer);
+  console.log("[ocr/schedule] OCR result:", JSON.stringify(ocrResult, null, 2));
+
+  // 全プロセスを網羅（OCR結果にないものはnull）
+  const extractedDates: Record<string, { start: string | null; end: string | null; startField: string | null; endField: string | null }> = {};
+  for (const process of PROCESS_NAMES) {
+    const ocrDates = ocrResult[process] || { start: null, end: null };
+    const fields = resolveFieldName(process);
+    extractedDates[process] = { start: ocrDates.start, end: ocrDates.end, startField: fields.start, endField: fields.end };
+  }
+
+  return NextResponse.json({ success: true, data: { extractedDates } });
+}
+
+// Step 2: ユーザー確認後に保存（未設定の項目はnullで上書き）
+async function handleSave(body: { seiban: string; dates: Record<string, { start: string | null; end: string | null }> }) {
+  const { seiban, dates } = body;
+  if (!seiban || !dates) {
+    return NextResponse.json({ success: false, error: "製番と日付データが必要です" }, { status: 400 });
+  }
+
+  const tables = getLarkTables();
+  const updateFields: Record<string, number | null> = {};
+
+  for (const [process, values] of Object.entries(dates)) {
+    const fields = resolveFieldName(process);
+    if (fields.start) {
+      updateFields[fields.start] = values.start ? dateToTimestamp(values.start) : null;
+    }
+    if (fields.end) {
+      updateFields[fields.end] = values.end ? dateToTimestamp(values.end) : null;
+    }
+  }
+
+  const record = await findScheduleRecord(seiban, tables.SCHEDULE);
+  if (!record) {
+    return NextResponse.json({ success: false, error: `製番「${seiban}」のレコードが工程管理テーブルに見つかりません` });
+  }
+
+  const recordId = record.record_id as string;
+  console.log("[ocr/schedule] Saving to record:", recordId, "fields:", JSON.stringify(updateFields));
+  const result = await updateBaseRecord(tables.SCHEDULE, recordId, updateFields);
+  const resultAny = result as any;
+  if (resultAny?.code !== 0) {
+    console.error("[ocr/schedule] Lark update failed:", JSON.stringify(resultAny));
+    return NextResponse.json({
+      success: false,
+      error: `Lark更新エラー: ${resultAny?.msg || "不明"} (code: ${resultAny?.code})`,
+    });
+  }
+
+  const setCount = Object.values(updateFields).filter((v) => v !== null).length;
+  console.log("[ocr/schedule] Saved", setCount, "dates for", seiban);
+
+  return NextResponse.json({
+    success: true,
+    data: { seiban, recordId, updatedFields: setCount },
+  });
+}
+
+// 削除時: 全日付フィールドをクリア
+async function handleClear(body: { seiban: string }) {
+  const { seiban } = body;
+  if (!seiban) {
+    return NextResponse.json({ success: false, error: "製番が必要です" }, { status: 400 });
+  }
+
+  const tables = getLarkTables();
+  const record = await findScheduleRecord(seiban, tables.SCHEDULE);
+  if (!record) {
+    return NextResponse.json({ success: false, error: `製番「${seiban}」のレコードが工程管理テーブルに見つかりません` });
+  }
+
+  const clearFields: Record<string, null> = {};
+  for (const fieldName of SCHEDULE_DATE_FIELD_NAMES) {
+    clearFields[fieldName] = null;
+  }
+
+  const recordId = record.record_id as string;
+  console.log("[ocr/schedule] Clearing", SCHEDULE_DATE_FIELD_NAMES.length, "fields for record:", recordId);
+  const result = await updateBaseRecord(tables.SCHEDULE, recordId, clearFields);
+  const resultAny = result as any;
+  if (resultAny?.code !== 0) {
+    console.error("[ocr/schedule] Lark clear failed:", JSON.stringify(resultAny));
+    return NextResponse.json({
+      success: false,
+      error: `Larkクリアエラー: ${resultAny?.msg || "不明"} (code: ${resultAny?.code})`,
+    });
+  }
+  console.log("[ocr/schedule] Cleared all schedule dates for", seiban);
+
+  return NextResponse.json({
+    success: true,
+    data: { seiban, recordId, clearedFields: SCHEDULE_DATE_FIELD_NAMES.length },
+  });
+}
+
+async function findScheduleRecord(seiban: string, tableId: string) {
+  const filter = `CurrentValue.[製番2] = "${seiban}"`;
+  const records = await getBaseRecords(tableId, { filter });
+  return records.data?.items?.[0] || null;
+}

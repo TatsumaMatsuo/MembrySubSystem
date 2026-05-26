@@ -17,7 +17,6 @@ const nextConfig = {
     },
   },
   webpack: (config) => {
-    // PDF.js canvas module fix for browser-side rendering
     config.resolve.alias.canvas = false;
     return config;
   },

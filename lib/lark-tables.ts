@@ -40,6 +40,8 @@ export function getLarkTables() {
     COPY_EXPENSE: process.env.LARK_TABLE_COPY_EXPENSE || "tblAewkgMf7ZmEUv",
     // 事業所マスタテーブル
     OFFICES: process.env.LARK_TABLE_OFFICES || "tbl1S12KMGhVW91p",
+    // 社内工程表テーブル
+    SCHEDULE: process.env.LARK_TABLE_SCHEDULE || "tblhhTgv5ynrkFjN",
   };
 }
 
@@ -71,6 +73,8 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   COPY_EXPENSE: "project",
   // 事業所マスタ（プロジェクトBase）
   OFFICES: "project",
+  // 社内工程表（プロジェクトBase）
+  SCHEDULE: "project",
 };
 
 /**
@@ -338,6 +342,41 @@ export const QUIZ_ANSWER_HISTORY_FIELDS = {
  */
 export const OFFICE_FIELDS = {
   name: "事業所名",
+} as const;
+
+/**
+ * 社内工程表テーブルのフィールド定義
+ */
+export const SCHEDULE_FIELDS = {
+  seiban: "製番",
+  juchu_start: "社内工程表_受注開始日",
+  juchu_end: "社内工程表_受注終了日",
+  keikakuzu_start: "社内工程表_計画図作成開始日",
+  keikakuzu_end: "社内工程表_計画図作成終了日",
+  shinsei_joho_start: "社内工程表_申請必要情報確定開始日",
+  shinsei_joho_end: "社内工程表_申請必要情報確定終了日",
+  shoninzu_start: "社内工程表_承認図作成開始日",
+  shoninzu_end: "社内工程表_承認図作成終了日",
+  zumen_shonin_start: "社内工程表_図面承認開始日",
+  zumen_shonin_end: "社内工程表_図面承認終了日",
+  shinsei_tosho_start: "社内工程表_申請図書作成開始日",
+  shinsei_tosho_end: "社内工程表_申請図書作成終了日",
+  shinsei_kikan_kouzou_start: "社内工程表_申請期間構造開始日",
+  shinsei_kikan_kouzou_end: "社内工程表_申請期間構造終了日",
+  shinsei_kikan_kakunin_start: "社内工程表_申請期間確認済開始日",
+  shinsei_kikan_kakunin_end: "社内工程表_申請期間確認済終了日",
+  sesakuzu_start: "社内工程表_製作図開始日",
+  sesakuzu_end: "社内工程表_製作図終了日",
+  zairyo_tehai_start: "社内工程表_材料手配開始日",
+  zairyo_tehai_end: "社内工程表_材料手配終了日",
+  sesaku_kikan_start: "社内工程表_製作期間開始日",
+  sesaku_kikan_end: "社内工程表_製作期間終了日",
+  kiso_kouji_start: "社内工程表_基礎工事開始日",
+  kiso_kouji_end: "社内工程表_基礎工事終了日",
+  sekou_kikan_start: "社内工程表_施工期間開始日",
+  sekou_kikan_end: "社内工程表_施工期間終了日",
+  kanryo_kensa_start: "社内工程表_完了検査開始日",
+  kanryo_kensa_end: "社内工程表_完了検査終了日",
 } as const;
 
 /**

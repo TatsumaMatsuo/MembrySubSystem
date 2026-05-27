@@ -33,6 +33,12 @@ interface InsuranceInfo {
   passenger_injury_amount: number;
 }
 
+interface LicenseInfo {
+  license_type: string;
+  issue_date: string;
+  expiration_date: string;
+}
+
 interface Permit {
   id: string;
   employee_name: string;
@@ -48,6 +54,7 @@ interface Permit {
   companyInfo?: CompanyInfo;
   vehicle?: VehicleInfo;
   insurance?: InsuranceInfo;
+  license?: LicenseInfo;
 }
 
 function formatDate(dateValue: string | number | Date | null | undefined): string {
@@ -141,6 +148,27 @@ function PermitViewContent() {
                 <span style={{ fontSize: 14, fontWeight: "bold", color: "#1a202c" }}>{permit.employee_name}</span>
               </div>
             </div>
+
+            {/* 免許証情報 */}
+            {permit.license && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, color: "#4a5568", marginBottom: 4, borderBottom: "1px solid #e2e8f0", paddingBottom: 3 }}>
+                  運転免許証情報
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>免許種類</span>
+                  <span style={{ fontSize: 11, color: "#1a202c" }}>{permit.license.license_type || "-"}</span>
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>交付日</span>
+                  <span style={{ fontSize: 11, color: "#1a202c" }}>{formatDate(permit.license.issue_date)}</span>
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>有効期限</span>
+                  <span style={{ fontSize: 11, fontWeight: "bold", color: "#1a202c" }}>{formatDate(permit.license.expiration_date)}</span>
+                </div>
+              </div>
+            )}
 
             {/* 車両情報 */}
             <div style={{ marginBottom: 16 }}>

@@ -4,6 +4,7 @@ import { getPermitById } from "@/lib/syaryo/services/permit.service";
 import { getCompanyInfo } from "@/lib/syaryo/services/system-settings.service";
 import { getVehicleRegistrations } from "@/lib/syaryo/services/vehicle-registration.service";
 import { getInsurancePolicies } from "@/lib/syaryo/services/insurance-policy.service";
+import { getDriversLicenses } from "@/lib/syaryo/services/drivers-license.service";
 
 export const dynamic = "force-dynamic";
 
@@ -23,17 +24,19 @@ export async function GET(
     return NextResponse.json({ success: false, error: "許可証が見つかりません" }, { status: 404 });
   }
 
-  // 車検証・保険情報を並列取得
-  const [vehicles, insurances] = await Promise.all([
+  // 車検証・保険・免許証情報を並列取得
+  const [vehicles, insurances, licenses] = await Promise.all([
     getVehicleRegistrations(permit.employee_id),
     getInsurancePolicies(permit.employee_id),
+    getDriversLicenses(permit.employee_id),
   ]);
 
   const vehicle = vehicles.find(v => v.id === permit.vehicle_id || v.vehicle_number === permit.vehicle_number);
   const insurance = insurances.length > 0 ? insurances[0] : null;
+  const license = licenses.length > 0 ? { ...licenses[0], license_number: undefined } : null;
 
   return NextResponse.json({
     success: true,
-    data: { ...permit, companyInfo, vehicle, insurance },
+    data: { ...permit, companyInfo, vehicle, insurance, license },
   });
 }

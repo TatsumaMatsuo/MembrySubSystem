@@ -1846,8 +1846,24 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
 
             return (
               <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b">
+                <div className="px-6 py-4 border-b flex items-center justify-between">
                   <h2 className="text-lg font-semibold">部署別工程表</h2>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCollapsedDeptSections(new Set())}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                      すべて展開
+                    </button>
+                    <button
+                      onClick={() => setCollapsedDeptSections(new Set(DEPT_SECTIONS.map(d => d.key)))}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                      すべて閉じる
+                    </button>
+                  </div>
                 </div>
                 <div className="p-4">
                   {DEPT_SECTIONS.map((dept) => {

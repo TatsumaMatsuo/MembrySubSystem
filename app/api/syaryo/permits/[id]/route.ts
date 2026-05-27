@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/syaryo/auth-utils";
 import { getPermitById } from "@/lib/syaryo/services/permit.service";
+import { getCompanyInfo } from "@/lib/syaryo/services/system-settings.service";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +13,13 @@ export async function GET(
   if (!authCheck.authorized) return authCheck.response;
 
   const { id } = await params;
-  const permit = await getPermitById(id);
+  const [permit, companyInfo] = await Promise.all([
+    getPermitById(id),
+    getCompanyInfo(),
+  ]);
   if (!permit) {
     return NextResponse.json({ success: false, error: "許可証が見つかりません" }, { status: 404 });
   }
 
-  return NextResponse.json({ success: true, data: permit });
+  return NextResponse.json({ success: true, data: { ...permit, companyInfo } });
 }

@@ -6,6 +6,13 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Printer, Loader2 } from "lucide-react";
 
+interface CompanyInfo {
+  company_name: string;
+  company_postal_code: string;
+  company_address: string;
+  issuing_department: string;
+}
+
 interface Permit {
   id: string;
   employee_name: string;
@@ -18,6 +25,7 @@ interface Permit {
   expiration_date: string;
   status: string;
   verification_token?: string;
+  companyInfo?: CompanyInfo;
 }
 
 function formatDate(dateValue: string | number | Date | null | undefined): string {
@@ -160,8 +168,26 @@ function PermitViewContent() {
           </div>
         </div>
 
-        {/* フッター */}
+        {/* フッター: 発行者情報 */}
         <div style={{ marginTop: "auto", paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
+          {permit.companyInfo && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 9, color: "#4a5568", marginBottom: 4 }}>発行者</div>
+              <div style={{ fontSize: 11, fontWeight: "bold", color: "#1a202c" }}>
+                {permit.companyInfo.company_name}
+              </div>
+              {permit.companyInfo.company_address && (
+                <div style={{ fontSize: 9, color: "#4a5568", marginTop: 2 }}>
+                  〒{permit.companyInfo.company_postal_code} {permit.companyInfo.company_address}
+                </div>
+              )}
+              {permit.companyInfo.issuing_department && (
+                <div style={{ fontSize: 9, color: "#4a5568", marginTop: 2 }}>
+                  {permit.companyInfo.issuing_department}
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ textAlign: "center", marginTop: 8 }}>
             <p style={{ fontSize: 9, color: "#718096" }}>
               この許可証は構内における車両通行を許可するものです

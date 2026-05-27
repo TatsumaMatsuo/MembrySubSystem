@@ -13,6 +13,26 @@ interface CompanyInfo {
   issuing_department: string;
 }
 
+interface VehicleInfo {
+  vehicle_number: string;
+  vehicle_type: string;
+  manufacturer: string;
+  model_name: string;
+  inspection_expiration_date: string;
+  owner_name: string;
+}
+
+interface InsuranceInfo {
+  policy_number: string;
+  insurance_company: string;
+  policy_type: string;
+  coverage_start_date: string;
+  coverage_end_date: string;
+  liability_personal_unlimited: boolean;
+  liability_property_amount: number;
+  passenger_injury_amount: number;
+}
+
 interface Permit {
   id: string;
   employee_name: string;
@@ -26,6 +46,8 @@ interface Permit {
   status: string;
   verification_token?: string;
   companyInfo?: CompanyInfo;
+  vehicle?: VehicleInfo;
+  insurance?: InsuranceInfo;
 }
 
 function formatDate(dateValue: string | number | Date | null | undefined): string {
@@ -98,10 +120,10 @@ function PermitViewContent() {
         {/* ヘッダー */}
         <div style={{ borderBottom: "2px solid #1a365d", paddingBottom: 12, marginBottom: 15 }}>
           <h1 style={{ fontSize: 24, fontWeight: "bold", textAlign: "center", color: "#1a365d", marginBottom: 4 }}>
-            構内車両通行許可証
+            車両通勤許可証
           </h1>
           <p style={{ fontSize: 10, textAlign: "center", color: "#718096" }}>
-            Vehicle Access Permit
+            Vehicle Commuting Permit
           </p>
         </div>
 
@@ -135,17 +157,75 @@ function PermitViewContent() {
               </div>
             </div>
 
+            {/* 車検証情報 */}
+            {permit.vehicle && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, color: "#4a5568", marginBottom: 4, borderBottom: "1px solid #e2e8f0", paddingBottom: 3 }}>
+                  車検証情報
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>車両タイプ</span>
+                  <span style={{ fontSize: 11, color: "#1a202c" }}>{permit.vehicle.vehicle_type || "-"}</span>
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>所有者</span>
+                  <span style={{ fontSize: 11, color: "#1a202c" }}>{permit.vehicle.owner_name || "-"}</span>
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>車検有効期限</span>
+                  <span style={{ fontSize: 11, fontWeight: "bold", color: "#1a202c" }}>{formatDate(permit.vehicle.inspection_expiration_date)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* 任意保険情報 */}
+            {permit.insurance && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, color: "#4a5568", marginBottom: 4, borderBottom: "1px solid #e2e8f0", paddingBottom: 3 }}>
+                  任意保険情報
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>保険会社</span>
+                  <span style={{ fontSize: 11, color: "#1a202c" }}>{permit.insurance.insurance_company || "-"}</span>
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>証券番号</span>
+                  <span style={{ fontSize: 11, color: "#1a202c" }}>{permit.insurance.policy_number || "-"}</span>
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>保険種類</span>
+                  <span style={{ fontSize: 11, color: "#1a202c" }}>{permit.insurance.policy_type || "-"}</span>
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>保険期間</span>
+                  <span style={{ fontSize: 11, color: "#1a202c" }}>{formatDate(permit.insurance.coverage_start_date)} ～ {formatDate(permit.insurance.coverage_end_date)}</span>
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>対人補償</span>
+                  <span style={{ fontSize: 11, color: "#1a202c" }}>{permit.insurance.liability_personal_unlimited ? "無制限" : "-"}</span>
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>対物補償</span>
+                  <span style={{ fontSize: 11, color: "#1a202c" }}>{permit.insurance.liability_property_amount ? `${permit.insurance.liability_property_amount.toLocaleString()}万円` : "-"}</span>
+                </div>
+                <div style={{ display: "flex", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>搭乗者傷害</span>
+                  <span style={{ fontSize: 11, color: "#1a202c" }}>{permit.insurance.passenger_injury_amount ? `${permit.insurance.passenger_injury_amount.toLocaleString()}万円` : "-"}</span>
+                </div>
+              </div>
+            )}
+
             {/* 発行情報 */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 10, color: "#4a5568", marginBottom: 4, borderBottom: "1px solid #e2e8f0", paddingBottom: 3 }}>
                 許可情報
               </div>
               <div style={{ display: "flex", marginBottom: 6 }}>
-                <span style={{ fontSize: 10, color: "#718096", width: 80 }}>発行日</span>
+                <span style={{ fontSize: 10, color: "#718096", width: 100 }}>発行日</span>
                 <span style={{ fontSize: 11, color: "#1a202c" }}>{formatDate(permit.issue_date)}</span>
               </div>
               <div style={{ display: "flex", marginBottom: 6 }}>
-                <span style={{ fontSize: 10, color: "#718096", width: 80 }}>許可証番号</span>
+                <span style={{ fontSize: 10, color: "#718096", width: 100 }}>許可証番号</span>
                 <span style={{ fontSize: 9, color: "#718096" }}>{permit.id}</span>
               </div>
             </div>
@@ -190,7 +270,7 @@ function PermitViewContent() {
           )}
           <div style={{ textAlign: "center", marginTop: 8 }}>
             <p style={{ fontSize: 9, color: "#718096" }}>
-              この許可証は構内における車両通行を許可するものです
+              この許可証は車両通勤を許可するものです
             </p>
             <p style={{ fontSize: 8, color: "#a0aec0", marginTop: 3 }}>
               許可証の偽造・改ざんは固く禁じます

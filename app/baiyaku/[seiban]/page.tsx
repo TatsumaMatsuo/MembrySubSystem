@@ -90,6 +90,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [editingScheduleCell, setEditingScheduleCell] = useState<string | null>(null);
   const [savingSchedule, setSavingSchedule] = useState<string | null>(null);
   const [collapsedDeptSections, setCollapsedDeptSections] = useState<Set<string>>(new Set());
+  const [scheduleCollapsed, setScheduleCollapsed] = useState(false);
   const [costAnalysisData, setCostAnalysisData] = useState<CostAnalysisData | null>(null);
   const [loadingCostAnalysis, setLoadingCostAnalysis] = useState(false);
   const [constructionSpec, setConstructionSpec] = useState<ConstructionSpec | null>(null);
@@ -1601,12 +1602,59 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
               }
             };
 
+            const findCellPos = (ts: number) => {
+              for (let ci = 0; ci < gridCells.length; ci++) {
+                const nextTs = ci + 1 < gridCells.length ? gridCells[ci + 1].ts : gridEnd;
+                if (ts >= gridCells[ci].ts && ts < nextTs) {
+                  const cellSpan = (nextTs - gridCells[ci].ts) / DAY_MS;
+                  const offset = (ts - gridCells[ci].ts) / DAY_MS;
+                  return ci + (cellSpan > 0 ? offset / cellSpan : 0);
+                }
+              }
+              return ts >= gridEnd ? gridCells.length : 0;
+            };
+
+            const schedAllDates = Object.values(scheduleData.dates).flatMap(d => [d.start, d.end]).filter(Boolean) as number[];
+            const schedMin = schedAllDates.length > 0 ? Math.min(...schedAllDates) : null;
+            const schedMax = schedAllDates.length > 0 ? Math.max(...schedAllDates) : null;
+            const schedMinStr = schedMin ? `${new Date(schedMin).getUTCMonth() + 1}/${new Date(schedMin).getUTCDate()}` : "";
+            const schedMaxStr = schedMax ? `${new Date(schedMax).getUTCMonth() + 1}/${new Date(schedMax).getUTCDate()}` : "";
+
             return (
               <div className="bg-white rounded-lg shadow mb-4">
-                <div className="px-6 py-4 border-b">
-                  <h2 className="text-lg font-semibold">社内工程表</h2>
+                <div className="px-6 py-4 border-b flex items-center justify-between">
+                  <button
+                    onClick={() => setScheduleCollapsed(prev => !prev)}
+                    className="flex items-center gap-2"
+                  >
+                    {scheduleCollapsed ? <ChevronRight className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
+                    <h2 className="text-lg font-semibold">社内工程表</h2>
+                    {scheduleCollapsed && schedMinStr && (
+                      <span className="text-sm text-gray-400 ml-2">{schedMinStr} ～ {schedMaxStr}</span>
+                    )}
+                  </button>
                 </div>
-                <div className="p-4 flex">
+                {scheduleCollapsed && schedMin && schedMax && (
+                  <div className="px-4 py-2 flex">
+                    <div className="flex-shrink-0" style={{ width: labelW + 112 }} />
+                    <div className="flex-1 overflow-x-auto">
+                      <div className="relative" style={{ width: totalCells * cellW, height: 28 }}>
+                        <div className="absolute inset-0 flex">
+                          {gridCells.map((cell, i) => (
+                            <div key={i} className={cell.isMonthEnd ? "border-r-2 border-gray-200" : "border-r border-gray-50"} style={{ width: cellW, minWidth: cellW }} />
+                          ))}
+                        </div>
+                        <div className="absolute rounded" style={{
+                          left: findCellPos(schedMin) * cellW,
+                          width: Math.max(0.5, findCellPos(schedMax) - findCellPos(schedMin)) * cellW,
+                          top: 4, height: 20,
+                          backgroundColor: "#6366f1", opacity: 0.5,
+                        }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {!scheduleCollapsed && <div className="p-4 flex">
                   {/* 左固定列: 工程名 + 日付 */}
                   <div className="flex-shrink-0" style={{ width: labelW + 112 }}>
                     {/* ヘッダー分の空白 */}
@@ -1676,18 +1724,6 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                       {SCHED_PROCESSES.map((proc) => {
                         const d = scheduleData.dates[proc.key];
                         const hasBar = d?.start && d?.end;
-                        // バー位置をgridCellsベースで計算
-                        const findCellPos = (ts: number) => {
-                          for (let ci = 0; ci < gridCells.length; ci++) {
-                            const nextTs = ci + 1 < gridCells.length ? gridCells[ci + 1].ts : gridEnd;
-                            if (ts >= gridCells[ci].ts && ts < nextTs) {
-                              const cellSpan = (nextTs - gridCells[ci].ts) / DAY_MS;
-                              const offset = (ts - gridCells[ci].ts) / DAY_MS;
-                              return ci + (cellSpan > 0 ? offset / cellSpan : 0);
-                            }
-                          }
-                          return ts >= gridEnd ? gridCells.length : 0;
-                        };
                         const barStartPos = hasBar ? findCellPos(d.start!) : 0;
                         const barEndPos = hasBar ? findCellPos(d.end!) : 0;
                         const barWidthCells = hasBar ? Math.max(0.3, barEndPos - barStartPos) : 0;
@@ -1719,7 +1755,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                       })}
                     </div>
                   </div>
-                </div>
+                </div>}
               </div>
             );
           })()}

@@ -403,7 +403,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
           try {
             // ブラウザのCanvas APIでPDF→高解像度画像→クロップ
             const pdfjs = await import("pdfjs-dist");
-            pdfjs.GlobalWorkerOptions.workerSrc = "";
+            pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
             const arrayBuf = await file.arrayBuffer();
             const pdfDoc = await pdfjs.getDocument({ data: arrayBuf }).promise;
             const pdfPage = await pdfDoc.getPage(1);

@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Printer, Loader2 } from "lucide-react";
 
@@ -27,7 +27,7 @@ function formatDate(dateValue: string | number | Date | null | undefined): strin
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
-export default function PermitViewPage() {
+function PermitViewContent() {
   const searchParams = useSearchParams();
   const permitId = searchParams.get("id");
   const [permit, setPermit] = useState<Permit | null>(null);
@@ -173,5 +173,13 @@ export default function PermitViewPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PermitViewPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-100"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
+      <PermitViewContent />
+    </Suspense>
   );
 }

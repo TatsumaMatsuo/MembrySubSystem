@@ -143,7 +143,7 @@ export default function AdminPermitsPage() {
   }, []);
 
   const handleDownload = async (permitId: string) => {
-    window.open(`/api/syaryo/permits/download/${permitId}`, "_blank");
+    window.open(`/soumu/syaryo/admin/permits/view?id=${permitId}`, "_blank");
   };
 
   const handleRegenerate = async (permitId: string) => {

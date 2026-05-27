@@ -6,6 +6,7 @@ import {
   buildUserPermissions,
   expandDepartmentChain,
 } from "@/lib/menu-permission";
+import { getUserPermission } from "@/lib/syaryo/services/user-permission.service";
 import { MembershipType } from "@/types/syaryo";
 
 /**
@@ -200,14 +201,25 @@ export async function requireAdmin() {
       response: NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 }),
     };
   }
-  if (!canAccessSyaryo(result)) {
-    console.log("[syaryo/auth-utils] Admin check failed for:", result.email, "permitted_programs:", result.permittedPrograms, "permitted_menus:", result.permittedMenus);
-    return {
-      authorized: false as const,
-      response: NextResponse.json({ success: false, error: "Forbidden - Admin access required" }, { status: 403 }),
-    };
+
+  // 1. メニュー権限マスタでチェック
+  if (canAccessSyaryo(result)) {
+    return { authorized: true as const, userId: result.email };
   }
-  return { authorized: true as const, userId: result.email };
+
+  // 2. 車両管理USER_PERMISSIONSテーブルでチェック（権限設定マスタ）
+  if (result.email) {
+    const userPerm = await getUserPermission(result.email);
+    if (userPerm && userPerm.role === "admin") {
+      return { authorized: true as const, userId: result.email };
+    }
+  }
+
+  console.log("[syaryo/auth-utils] Admin check failed for:", result.email, "permitted_programs:", result.permittedPrograms, "permitted_menus:", result.permittedMenus);
+  return {
+    authorized: false as const,
+    response: NextResponse.json({ success: false, error: "Forbidden - Admin access required" }, { status: 403 }),
+  };
 }
 
 /**
@@ -223,14 +235,24 @@ export async function requireViewPermission() {
       response: NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 }),
     };
   }
-  if (!canAccessSyaryo(result)) {
-    console.log("[syaryo/auth-utils] View check failed for:", result.email, "permitted_programs:", result.permittedPrograms, "permitted_menus:", result.permittedMenus);
-    return {
-      authorized: false as const,
-      response: NextResponse.json({ success: false, error: "Forbidden - View access required" }, { status: 403 }),
-    };
+
+  if (canAccessSyaryo(result)) {
+    return { authorized: true as const, userId: result.email };
   }
-  return { authorized: true as const, userId: result.email };
+
+  // USER_PERMISSIONSテーブルでチェック（admin or viewer）
+  if (result.email) {
+    const userPerm = await getUserPermission(result.email);
+    if (userPerm) {
+      return { authorized: true as const, userId: result.email };
+    }
+  }
+
+  console.log("[syaryo/auth-utils] View check failed for:", result.email);
+  return {
+    authorized: false as const,
+    response: NextResponse.json({ success: false, error: "Forbidden - View access required" }, { status: 403 }),
+  };
 }
 
 /**
@@ -241,20 +263,40 @@ export async function getCurrentUserPermission() {
   const result = await resolveUserPermissions();
   if (!result) return null;
 
-  if (!canAccessSyaryo(result)) return null;
-  const isAdmin = canAccessSyaryo(result); // 「総務部全員を管理者」方針
+  // メニュー権限マスタでアクセス可なら管理者扱い
+  if (canAccessSyaryo(result)) {
+    return {
+      id: result.employeeId,
+      lark_user_id: result.email || "",
+      user_name: result.employeeName,
+      user_email: result.email || "",
+      role: "admin" as "admin" | "viewer",
+      granted_by: "menu-permission",
+      granted_at: new Date(),
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+  }
 
-  return {
-    id: result.employeeId,
-    lark_user_id: result.email || "",
-    user_name: result.employeeName,
-    user_email: result.email || "",
-    role: (isAdmin ? "admin" : "viewer") as "admin" | "viewer",
-    granted_by: "menu-permission",
-    granted_at: new Date(),
-    created_at: new Date(),
-    updated_at: new Date(),
-  };
+  // USER_PERMISSIONSテーブルでチェック
+  if (result.email) {
+    const userPerm = await getUserPermission(result.email);
+    if (userPerm) {
+      return {
+        id: result.employeeId,
+        lark_user_id: result.email,
+        user_name: result.employeeName,
+        user_email: result.email,
+        role: userPerm.role,
+        granted_by: userPerm.granted_by || "user-permission-table",
+        granted_at: userPerm.granted_at,
+        created_at: userPerm.created_at,
+        updated_at: userPerm.updated_at,
+      };
+    }
+  }
+
+  return null;
 }
 
 /**

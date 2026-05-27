@@ -57,15 +57,10 @@ export default function SystemSettingsPage() {
     if (!session?.user) return;
 
     try {
-      const response = await fetch("/api/syaryo/permissions");
+      const response = await fetch("/api/syaryo/permissions/me");
       const data = await response.json();
-
       if (data.success && data.data) {
-        const userEmail = session.user.email;
-        const userPermission = data.data.find(
-          (p: any) => p.user_email === userEmail
-        );
-        setIsAdmin(userPermission?.role === "admin");
+        setIsAdmin(data.data.role === "admin");
       }
     } catch (error) {
       console.error("Failed to check permission:", error);

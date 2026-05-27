@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 import { requireAdmin } from "@/lib/syaryo/auth-utils";
 import { getPermitById, updatePermitFileKey } from "@/lib/syaryo/services/permit.service";
 import { generatePermitPdf } from "@/lib/syaryo/services/pdf-generator.service";

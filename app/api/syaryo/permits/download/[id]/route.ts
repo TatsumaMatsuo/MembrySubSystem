@@ -3,6 +3,9 @@ import { requireAuth, requireViewPermission, getCurrentEmployeeInfo } from "@/li
 import { getPermitById } from "@/lib/syaryo/services/permit.service";
 import { readPermitPdf, generatePermitPdfBuffer } from "@/lib/syaryo/services/pdf-generator.service";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 /**
  * GET /api/permits/download/[id]
  * 許可証PDFをダウンロード

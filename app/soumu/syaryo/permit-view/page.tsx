@@ -139,8 +139,8 @@ function PermitViewContent() {
           {/* 左側: 情報 */}
           <div style={{ flex: 1 }}>
             {/* 使用者情報 */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, color: "#4a5568", marginBottom: 4, borderBottom: "1px solid #e2e8f0", paddingBottom: 3 }}>
+            <div style={{ marginBottom: 16, backgroundColor: "#ebf8ff", padding: 12, borderRadius: 6 }}>
+              <div style={{ fontSize: 10, color: "#2b6cb0", fontWeight: "bold", marginBottom: 4, borderBottom: "1px solid #bee3f8", paddingBottom: 3 }}>
                 使用者情報
               </div>
               <div style={{ display: "flex", marginBottom: 6 }}>
@@ -151,8 +151,8 @@ function PermitViewContent() {
 
             {/* 免許証情報 */}
             {permit.license && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 10, color: "#4a5568", marginBottom: 4, borderBottom: "1px solid #e2e8f0", paddingBottom: 3 }}>
+              <div style={{ marginBottom: 16, backgroundColor: "#f0fff4", padding: 12, borderRadius: 6 }}>
+                <div style={{ fontSize: 10, color: "#276749", fontWeight: "bold", marginBottom: 4, borderBottom: "1px solid #c6f6d5", paddingBottom: 3 }}>
                   運転免許証情報
                 </div>
                 <div style={{ display: "flex", marginBottom: 6 }}>
@@ -171,8 +171,8 @@ function PermitViewContent() {
             )}
 
             {/* 車両情報 */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, color: "#4a5568", marginBottom: 4, borderBottom: "1px solid #e2e8f0", paddingBottom: 3 }}>
+            <div style={{ marginBottom: 16, backgroundColor: "#fffff0", padding: 12, borderRadius: 6 }}>
+              <div style={{ fontSize: 10, color: "#744210", fontWeight: "bold", marginBottom: 4, borderBottom: "1px solid #fefcbf", paddingBottom: 3 }}>
                 車両情報
               </div>
               <div style={{ display: "flex", marginBottom: 6 }}>
@@ -187,8 +187,8 @@ function PermitViewContent() {
 
             {/* 車検証情報 */}
             {permit.vehicle && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 10, color: "#4a5568", marginBottom: 4, borderBottom: "1px solid #e2e8f0", paddingBottom: 3 }}>
+              <div style={{ marginBottom: 16, backgroundColor: "#faf5ff", padding: 12, borderRadius: 6 }}>
+                <div style={{ fontSize: 10, color: "#553c9a", fontWeight: "bold", marginBottom: 4, borderBottom: "1px solid #e9d8fd", paddingBottom: 3 }}>
                   車検証情報
                 </div>
                 <div style={{ display: "flex", marginBottom: 6 }}>
@@ -208,8 +208,8 @@ function PermitViewContent() {
 
             {/* 任意保険情報 */}
             {permit.insurance && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 10, color: "#4a5568", marginBottom: 4, borderBottom: "1px solid #e2e8f0", paddingBottom: 3 }}>
+              <div style={{ marginBottom: 16, backgroundColor: "#fff5f5", padding: 12, borderRadius: 6 }}>
+                <div style={{ fontSize: 10, color: "#9b2c2c", fontWeight: "bold", marginBottom: 4, borderBottom: "1px solid #fed7d7", paddingBottom: 3 }}>
                   任意保険情報
                 </div>
                 <div style={{ display: "flex", marginBottom: 6 }}>
@@ -243,9 +243,9 @@ function PermitViewContent() {
               </div>
             )}
 
-            {/* 発行情報 */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, color: "#4a5568", marginBottom: 4, borderBottom: "1px solid #e2e8f0", paddingBottom: 3 }}>
+            {/* 許可情報 */}
+            <div style={{ marginBottom: 16, backgroundColor: "#edf2f7", padding: 12, borderRadius: 6 }}>
+              <div style={{ fontSize: 10, color: "#2d3748", fontWeight: "bold", marginBottom: 4, borderBottom: "1px solid #cbd5e0", paddingBottom: 3 }}>
                 許可情報
               </div>
               <div style={{ display: "flex", marginBottom: 6 }}>

@@ -14,6 +14,16 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
+let _companyInfoCache: { data: CompanyInfo; ts: number } | null = null;
+async function getCachedCompanyInfo(): Promise<CompanyInfo> {
+  if (_companyInfoCache && Date.now() - _companyInfoCache.ts < 300000) {
+    return _companyInfoCache.data;
+  }
+  const info = await getCompanyInfo();
+  _companyInfoCache = { data: info, ts: Date.now() };
+  return info;
+}
+
 export interface GeneratePermitPdfInput {
   employeeName: string;
   vehicleNumber: string;
@@ -50,15 +60,12 @@ export async function generatePermitPdf(
     const validIssueDate = ensureValidDate(input.issueDate, now);
     const validExpirationDate = ensureValidDate(input.expirationDate, oneYearLater);
 
-    // QRコードを生成（verificationTokenが空の場合はpermitIdを使用）
+    // QRコード生成と会社情報取得を並列実行
     const verificationToken = input.verificationToken || input.permitId;
-    const qrCodeDataUrl = await generateVerificationQRCode(
-      input.baseUrl,
-      verificationToken
-    );
-
-    // 会社情報を取得
-    const companyInfo: CompanyInfo = await getCompanyInfo();
+    const [qrCodeDataUrl, companyInfo] = await Promise.all([
+      generateVerificationQRCode(input.baseUrl, verificationToken),
+      getCachedCompanyInfo(),
+    ]);
 
     // PDFテンプレートのprops（検証済みの日付を使用）
     const templateProps: PermitTemplateProps = {
@@ -109,15 +116,12 @@ export async function generatePermitPdfBuffer(
     const validIssueDate = ensureValidDate(input.issueDate, now);
     const validExpirationDate = ensureValidDate(input.expirationDate, oneYearLater);
 
-    // QRコードを生成（verificationTokenが空の場合はpermitIdを使用）
+    // QRコード生成と会社情報取得を並列実行
     const verificationToken = input.verificationToken || input.permitId;
-    const qrCodeDataUrl = await generateVerificationQRCode(
-      input.baseUrl,
-      verificationToken
-    );
-
-    // 会社情報を取得
-    const companyInfo: CompanyInfo = await getCompanyInfo();
+    const [qrCodeDataUrl, companyInfo] = await Promise.all([
+      generateVerificationQRCode(input.baseUrl, verificationToken),
+      getCachedCompanyInfo(),
+    ]);
 
     // PDFテンプレートのprops（検証済みの日付を使用）
     const templateProps: PermitTemplateProps = {

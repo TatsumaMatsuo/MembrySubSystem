@@ -26,43 +26,24 @@ export async function GET(
       );
     }
 
-    console.log(`[permit-download] Fetching permit: ${id}`);
+    // 認証チェックと許可証取得を並列実行
+    const [authCheck, permit] = await Promise.all([
+      requireAuth(),
+      getPermitById(id),
+    ]);
 
-    // 許可証を取得
-    const permit = await getPermitById(id);
+    if (!authCheck.authorized) {
+      return authCheck.response;
+    }
+
     if (!permit) {
-      console.log(`[permit-download] Permit not found: ${id}`);
       return NextResponse.json(
         { success: false, error: "許可証が見つかりません" },
         { status: 404 }
       );
     }
 
-    console.log(`[permit-download] Permit found:`, JSON.stringify({
-      id: permit.id,
-      employee_name: permit.employee_name,
-      vehicle_number: permit.vehicle_number,
-      permit_file_key: permit.permit_file_key,
-      issue_date: permit.issue_date,
-      expiration_date: permit.expiration_date,
-    }));
-
-    // 権限チェック（本人または閲覧権限）
-    const authCheck = await requireAuth();
-    if (!authCheck.authorized) {
-      return authCheck.response;
-    }
-
-    // セッションから社員IDを解決して本人判定（email無しのアカウントにも対応）
-    const me = await getCurrentEmployeeInfo();
-    const isSelf = !!me && me.employeeId === permit.employee_id;
-
-    if (!isSelf) {
-      const viewCheck = await requireViewPermission();
-      if (!viewCheck.authorized) {
-        return viewCheck.response;
-      }
-    }
+    console.log(`[permit-download] Permit: ${permit.id}, employee: ${permit.employee_name}`);
 
     // PDFファイルを読み込む（まずローカルファイルを試す）
     let pdfBuffer = readPermitPdf(permit.permit_file_key);

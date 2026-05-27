@@ -85,6 +85,11 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [qualityIssues, setQualityIssues] = useState<QualityIssue[]>([]);
   const [documents, setDocuments] = useState<Record<DepartmentName, Record<string, ProjectDocument | null>> | null>(null);
   const [ganttData, setGanttData] = useState<GanttChartData | null>(null);
+  const [scheduleData, setScheduleData] = useState<{ recordId: string; dates: Record<string, { start: number | null; end: number | null }>; deptFields: Record<string, string | null> } | null>(null);
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
+  const [editingScheduleCell, setEditingScheduleCell] = useState<string | null>(null);
+  const [savingSchedule, setSavingSchedule] = useState<string | null>(null);
+  const [collapsedDeptSections, setCollapsedDeptSections] = useState<Set<string>>(new Set());
   const [costAnalysisData, setCostAnalysisData] = useState<CostAnalysisData | null>(null);
   const [loadingCostAnalysis, setLoadingCostAnalysis] = useState(false);
   const [constructionSpec, setConstructionSpec] = useState<ConstructionSpec | null>(null);
@@ -574,6 +579,20 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
           const data = await response.json();
           if (data.success) {
             setGanttData(data.data);
+          }
+          if (!scheduleData) {
+            setLoadingSchedule(true);
+            try {
+              const schedRes = await fetch(`/api/schedule?seiban=${encodeURIComponent(seiban)}`);
+              const schedJson = await schedRes.json();
+              if (schedJson.success && schedJson.data) {
+                setScheduleData(schedJson.data);
+              }
+            } catch (e) {
+              console.error("Failed to load schedule:", e);
+            } finally {
+              setLoadingSchedule(false);
+            }
           }
         }
       } catch (error) {
@@ -1484,137 +1503,491 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
             </div>
           )}
 
-          {activeMenu === "gantt-chart" && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b">
-                <h2 className="text-lg font-semibold">ガントチャート</h2>
-              </div>
-              {ganttData ? (
-                <div className="p-6">
-                  {/* 凡例 */}
-                  <div className="flex flex-wrap gap-4 mb-6">
-                    {ganttData.tasks.map((task) => (
-                      <div key={task.id} className="flex items-center gap-2">
-                        <div
-                          className="w-4 h-4 rounded"
-                          style={{ backgroundColor: task.color }}
-                        />
-                        <span className="text-sm text-gray-600">{task.name}</span>
-                      </div>
-                    ))}
+          {activeMenu === "gantt-chart" && scheduleData && (() => {
+            const SCHED_PROCESSES = [
+              { key: "受注", label: "受注", color: "#6366f1" },
+              { key: "計画図作成", label: "計画図作成", color: "#3b82f6" },
+              { key: "申請必要情報確定", label: "申請必要情報確定", color: "#0ea5e9" },
+              { key: "承認図作成", label: "承認図作成", color: "#14b8a6" },
+              { key: "図面承認", label: "図面承認", color: "#22c55e" },
+              { key: "申請図書作成", label: "申請図書作成", color: "#84cc16" },
+              { key: "申請期間構造", label: "申請期間（構造）", color: "#eab308" },
+              { key: "申請期間確認済", label: "申請期間（確認済）", color: "#f59e0b" },
+              { key: "製作図", label: "製作図", color: "#f97316" },
+              { key: "材料手配", label: "材料手配", color: "#ef4444" },
+              { key: "製作期間", label: "製作期間", color: "#dc2626" },
+              { key: "基礎工事", label: "基礎工事", color: "#be185d" },
+              { key: "施工期間", label: "施工期間", color: "#9333ea" },
+              { key: "完了検査", label: "完了検査", color: "#7c3aed" },
+            ];
+            const fieldNameFor = (proc: string, type: "start" | "end") => `社内工程表_${proc}${type === "start" ? "開始日" : "終了日"}`;
+            const allDates = Object.values(scheduleData.dates).flatMap(d => [d.start, d.end]).filter(Boolean) as number[];
+            if (allDates.length === 0) return null;
+            const minDate = Math.min(...allDates);
+            const maxDate = Math.max(...allDates);
+            const DAY_MS = 86400000;
+            const startMonth = new Date(minDate);
+            startMonth.setUTCDate(1);
+            const gridStart = startMonth.getTime();
+            const endMonth = new Date(maxDate);
+            endMonth.setUTCMonth(endMonth.getUTCMonth() + 1, 1);
+            const gridEnd = endMonth.getTime();
+            const cellW = 32;
+            const labelW = 160;
+
+            // 各月の日付マーカーを生成
+            const DAY_MARKERS = [1, 5, 10, 15, 20, 25, 30];
+            const gridCells: { day: number; ts: number; isMonthEnd: boolean; monthLabel?: string }[] = [];
+            const months: { label: string; cellCount: number }[] = [];
+            const curMonth = new Date(gridStart);
+            while (curMonth.getTime() < gridEnd) {
+              const y = curMonth.getUTCFullYear();
+              const m = curMonth.getUTCMonth();
+              const daysInMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+              const markers = DAY_MARKERS.filter(d => d <= daysInMonth);
+              if (!markers.includes(daysInMonth) && daysInMonth === 28) markers.push(28);
+              let cellCount = 0;
+              for (let mi = 0; mi < markers.length; mi++) {
+                const day = markers[mi];
+                const ts = Date.UTC(y, m, day);
+                if (ts >= gridEnd) break;
+                const nextTs = mi + 1 < markers.length ? Date.UTC(y, m, markers[mi + 1]) : Date.UTC(y, m + 1, 1);
+                gridCells.push({ day, ts, isMonthEnd: nextTs >= Date.UTC(y, m + 1, 1), monthLabel: cellCount === 0 ? `${m + 1}月` : undefined });
+                cellCount++;
+              }
+              months.push({ label: `${m + 1}月`, cellCount });
+              curMonth.setUTCMonth(curMonth.getUTCMonth() + 1);
+              curMonth.setUTCDate(1);
+            }
+            const totalCells = gridCells.length;
+            const totalGridW = totalCells * cellW;
+
+            const tsToDate = (ts: number) => {
+              const d = new Date(ts);
+              return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+            };
+            const tsToDisplay = (ts: number | null) => {
+              if (!ts) return "";
+              const d = new Date(ts);
+              return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+            };
+
+            const handleDateChange = async (proc: string, type: "start" | "end", value: string) => {
+              const field = fieldNameFor(proc, type);
+              const cellKey = `${proc}-${type}`;
+              setSavingSchedule(cellKey);
+              try {
+                const res = await fetch("/api/schedule", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ seiban, process: proc, field, value }),
+                });
+                const json = await res.json();
+                if (json.success) {
+                  setScheduleData(prev => {
+                    if (!prev) return prev;
+                    const ts = value ? Date.UTC(parseInt(value.substring(0, 4)), parseInt(value.substring(5, 7)) - 1, parseInt(value.substring(8, 10))) : null;
+                    return {
+                      ...prev,
+                      dates: { ...prev.dates, [proc]: { ...prev.dates[proc], [type]: ts } },
+                    };
+                  });
+                }
+              } catch (e) {
+                console.error("Schedule update failed:", e);
+              } finally {
+                setSavingSchedule(null);
+                setEditingScheduleCell(null);
+              }
+            };
+
+            return (
+              <div className="bg-white rounded-lg shadow mb-4">
+                <div className="px-6 py-4 border-b">
+                  <h2 className="text-lg font-semibold">社内工程表</h2>
+                </div>
+                <div className="p-4 flex">
+                  {/* 左固定列: 工程名 + 日付 */}
+                  <div className="flex-shrink-0" style={{ width: labelW + 112 }}>
+                    {/* ヘッダー分の空白 */}
+                    <div className="border-b-2 border-gray-300 bg-gray-50" style={{ height: 20 }}>&nbsp;</div>
+                    <div style={{ height: 18 }}>&nbsp;</div>
+                    {/* 工程行 */}
+                    {SCHED_PROCESSES.map((proc) => {
+                      const d = scheduleData.dates[proc.key];
+                      return (
+                        <div key={proc.key} className="flex items-center border-b border-gray-100" style={{ height: 36 }}>
+                          <div className="text-xs font-semibold text-gray-700 truncate pr-2" style={{ width: labelW }}>
+                            {proc.label}
+                          </div>
+                          {(["start", "end"] as const).map((type) => {
+                            const cellKey = `${proc.key}-${type}`;
+                            const ts = d?.[type] || null;
+                            if (editingScheduleCell === cellKey) {
+                              return (
+                                <input
+                                  key={type}
+                                  type="date"
+                                  defaultValue={ts ? tsToDate(ts) : ""}
+                                  autoFocus
+                                  onBlur={(e) => handleDateChange(proc.key, type, e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingScheduleCell(null); }}
+                                  className="border border-blue-400 rounded px-1.5 py-1 text-xs w-[80px] flex-shrink-0 focus:ring-1 focus:ring-blue-300"
+                                />
+                              );
+                            }
+                            return (
+                              <button
+                                key={type}
+                                onClick={() => setEditingScheduleCell(cellKey)}
+                                className={`text-xs px-1.5 py-1 rounded hover:bg-blue-50 w-[56px] flex-shrink-0 text-center ${
+                                  savingSchedule === cellKey ? "opacity-50" : ""
+                                } ${ts ? "text-gray-700" : "text-gray-300"}`}
+                                disabled={savingSchedule === cellKey}
+                              >
+                                {savingSchedule === cellKey ? "..." : ts ? tsToDisplay(ts) : "--/--"}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
                   </div>
-
-                  {/* タイムライン */}
-                  <div className="overflow-x-auto">
-                    <div className="min-w-[600px]">
-                      {/* 月表示 */}
-                      <div className="flex border-b pb-2 mb-4">
-                        {(() => {
-                          const months: string[] = [];
-                          const start = new Date(ganttData.start_date);
-                          const end = new Date(ganttData.end_date);
-                          const current = new Date(start.getFullYear(), start.getMonth(), 1);
-                          while (current <= end) {
-                            months.push(`${current.getFullYear()}/${current.getMonth() + 1}`);
-                            current.setMonth(current.getMonth() + 1);
-                          }
-                          return months.map((month, i) => (
-                            <div key={i} className="flex-1 text-center text-xs text-gray-500">
-                              {month}
-                            </div>
-                          ));
-                        })()}
+                  {/* 右スクロール列: ガントチャート */}
+                  <div className="flex-1 overflow-x-auto">
+                    <div style={{ width: totalGridW }}>
+                      {/* 月ヘッダー */}
+                      <div className="flex">
+                        {months.map((m, i) => (
+                          <div key={i} className="text-center text-xs font-bold border-b-2 border-gray-300 border-r-2 border-r-gray-400 bg-gray-50" style={{ width: m.cellCount * cellW, height: 20 }}>
+                            {m.label}
+                          </div>
+                        ))}
                       </div>
+                      {/* 日付目盛り */}
+                      <div className="flex" style={{ height: 18 }}>
+                        {gridCells.map((cell, i) => (
+                          <div key={i} className={`text-center text-[10px] text-gray-400 ${cell.isMonthEnd ? "border-r-2 border-gray-400" : "border-r border-gray-200"}`} style={{ width: cellW, minWidth: cellW }}>
+                            {cell.day}
+                          </div>
+                        ))}
+                      </div>
+                      {/* 工程行バー */}
+                      {SCHED_PROCESSES.map((proc) => {
+                        const d = scheduleData.dates[proc.key];
+                        const hasBar = d?.start && d?.end;
+                        // バー位置をgridCellsベースで計算
+                        const findCellPos = (ts: number) => {
+                          for (let ci = 0; ci < gridCells.length; ci++) {
+                            const nextTs = ci + 1 < gridCells.length ? gridCells[ci + 1].ts : gridEnd;
+                            if (ts >= gridCells[ci].ts && ts < nextTs) {
+                              const cellSpan = (nextTs - gridCells[ci].ts) / DAY_MS;
+                              const offset = (ts - gridCells[ci].ts) / DAY_MS;
+                              return ci + (cellSpan > 0 ? offset / cellSpan : 0);
+                            }
+                          }
+                          return ts >= gridEnd ? gridCells.length : 0;
+                        };
+                        const barStartPos = hasBar ? findCellPos(d.start!) : 0;
+                        const barEndPos = hasBar ? findCellPos(d.end!) : 0;
+                        const barWidthCells = hasBar ? Math.max(0.3, barEndPos - barStartPos) : 0;
 
-                      {/* タスクバー */}
-                      <div className="space-y-3">
-                        {ganttData.tasks.map((task) => {
-                          const totalDuration = ganttData.end_date - ganttData.start_date;
-                          const taskStart = task.start_date - ganttData.start_date;
-                          const taskDuration = task.end_date - task.start_date;
-                          const leftPercent = (taskStart / totalDuration) * 100;
-                          const widthPercent = (taskDuration / totalDuration) * 100;
+                        return (
+                          <div key={proc.key} className="relative border-b border-gray-100" style={{ height: 36 }}>
+                            {/* グリッド線（月境界は太線） */}
+                            <div className="absolute inset-0 flex">
+                              {gridCells.map((cell, i) => (
+                                <div key={i} className={cell.isMonthEnd ? "border-r-2 border-gray-300" : "border-r border-gray-100"} style={{ width: cellW, minWidth: cellW }} />
+                              ))}
+                            </div>
+                            {/* バー */}
+                            {hasBar && (
+                              <div
+                                className="absolute rounded-sm"
+                                style={{
+                                  left: barStartPos * cellW,
+                                  width: barWidthCells * cellW,
+                                  top: 8,
+                                  height: 20,
+                                  backgroundColor: proc.color,
+                                  opacity: 0.85,
+                                }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
+          {activeMenu === "gantt-chart" && scheduleData?.deptFields && (() => {
+            const df = scheduleData.deptFields;
+            const DEPT_SECTIONS = [
+              { key: "設計", label: "設計", color: "#3b82f6", items: [
+                { label: "承認図", from: "承認図YMD_FROM", to: "承認図YMD_TO" },
+                { label: "製作図", from: "製作図YMD_FROM", to: "製作図YMD_TO" },
+              ]},
+              { key: "鉄工", label: "鉄工", color: "#10b981", items: [
+                { label: "材料", from: "材料YMD_FROM", to: "材料YMD_TO" },
+                { label: "原寸仮組", from: "原寸仮組YMD_FROM", to: "原寸仮組YMD_TO" },
+                { label: "本溶接", from: "本溶接YMD_FROM", to: "本溶接YMD_TO" },
+                { label: "塗装", from: "塗装YMD_FROM", to: "塗装YMD_TO" },
+                { label: "メッキ出日1", from: "メッキ出日1", to: null },
+                { label: "メッキ出日2", from: "メッキ出日2", to: null },
+                { label: "メッキ出日3", from: "メッキ出日3", to: null },
+                { label: "積込日1", from: "積込日1", to: null },
+                { label: "積込日2", from: "積込日2", to: null },
+                { label: "積込日3", from: "積込日3", to: null },
+              ]},
+              { key: "縫製", label: "縫製", color: "#8b5cf6", items: [
+                { label: "膜製作", from: "膜製作YMD_FROM", to: "膜製作YMD_TO" },
+              ]},
+              { key: "工務", label: "工務", color: "#f59e0b", items: [
+                { label: "施工", from: "施工YMD_FROM", to: "施工YMD_TO" },
+              ]},
+            ];
+
+            const parseTextDate = (val: string | null): number | null => {
+              if (!val) return null;
+              const m = val.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+              if (m) return Date.UTC(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+              const m2 = val.match(/(\d{1,2})[\/\-](\d{1,2})/);
+              if (m2) return Date.UTC(new Date().getFullYear(), parseInt(m2[1]) - 1, parseInt(m2[2]));
+              return null;
+            };
+
+            // 社内工程表と同じグリッドを共有するため、同じ日付範囲を使用
+            const allSchedDates = Object.values(scheduleData.dates).flatMap(d => [d.start, d.end]).filter(Boolean) as number[];
+            const allDeptDates = DEPT_SECTIONS.flatMap(s => s.items.flatMap(it => [parseTextDate(df[it.from]), it.to ? parseTextDate(df[it.to]) : null])).filter(Boolean) as number[];
+            const allD = [...allSchedDates, ...allDeptDates];
+            if (allD.length === 0) return null;
+
+            const DAY_MS2 = 86400000;
+            const DAY_MARKERS2 = [1, 5, 10, 15, 20, 25, 30];
+            const mn = Math.min(...allD);
+            const mx = Math.max(...allD);
+            const gs = new Date(mn); gs.setUTCDate(1);
+            const gridStart2 = gs.getTime();
+            const ge = new Date(mx); ge.setUTCMonth(ge.getUTCMonth() + 1, 1);
+            const gridEnd2 = ge.getTime();
+            const cellW2 = 32;
+            const labelW2 = 140;
+
+            const gridCells2: { day: number; ts: number; isMonthEnd: boolean }[] = [];
+            const months2: { label: string; cellCount: number }[] = [];
+            const cm2 = new Date(gridStart2);
+            while (cm2.getTime() < gridEnd2) {
+              const y = cm2.getUTCFullYear(), m = cm2.getUTCMonth();
+              const dim = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+              const markers = DAY_MARKERS2.filter(d => d <= dim);
+              if (!markers.includes(dim) && dim === 28) markers.push(28);
+              let cc = 0;
+              for (let mi = 0; mi < markers.length; mi++) {
+                const day = markers[mi];
+                const ts = Date.UTC(y, m, day);
+                if (ts >= gridEnd2) break;
+                const nextTs = mi + 1 < markers.length ? Date.UTC(y, m, markers[mi + 1]) : Date.UTC(y, m + 1, 1);
+                gridCells2.push({ day, ts, isMonthEnd: nextTs >= Date.UTC(y, m + 1, 1) });
+                cc++;
+              }
+              months2.push({ label: `${m + 1}月`, cellCount: cc });
+              cm2.setUTCMonth(cm2.getUTCMonth() + 1); cm2.setUTCDate(1);
+            }
+            const totalCells2 = gridCells2.length;
+
+            const findPos2 = (ts: number) => {
+              for (let ci = 0; ci < gridCells2.length; ci++) {
+                const nextTs = ci + 1 < gridCells2.length ? gridCells2[ci + 1].ts : gridEnd2;
+                if (ts >= gridCells2[ci].ts && ts < nextTs) {
+                  const span = (nextTs - gridCells2[ci].ts) / DAY_MS2;
+                  return ci + (span > 0 ? (ts - gridCells2[ci].ts) / DAY_MS2 / span : 0);
+                }
+              }
+              return ts >= gridEnd2 ? gridCells2.length : 0;
+            };
+
+            const textDateToInput = (val: string | null): string => {
+              const ts = parseTextDate(val);
+              if (!ts) return "";
+              const d = new Date(ts);
+              return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+            };
+            const textDateToDisplay = (val: string | null): string => {
+              const ts = parseTextDate(val);
+              if (!ts) return "";
+              const d = new Date(ts);
+              return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+            };
+
+            const handleDeptDateChange = async (field: string, value: string) => {
+              const cellKey = `dept-${field}`;
+              setSavingSchedule(cellKey);
+              try {
+                const res = await fetch("/api/schedule", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ seiban, field, value, fieldType: "text" }),
+                });
+                const json = await res.json();
+                if (json.success) {
+                  setScheduleData(prev => prev ? { ...prev, deptFields: { ...prev.deptFields, [field]: value || null } } : prev);
+                }
+              } catch (e) {
+                console.error("Dept schedule update failed:", e);
+              } finally {
+                setSavingSchedule(null);
+                setEditingScheduleCell(null);
+              }
+            };
+
+            return (
+              <div className="bg-white rounded-lg shadow">
+                <div className="px-6 py-4 border-b">
+                  <h2 className="text-lg font-semibold">部署別工程表</h2>
+                </div>
+                <div className="p-4">
+                  {DEPT_SECTIONS.map((dept) => {
+                    const isCollapsed = collapsedDeptSections.has(dept.key);
+                    return (
+                      <div key={dept.key} className="mb-2">
+                        <button
+                          onClick={() => setCollapsedDeptSections(prev => {
+                            const next = new Set(prev);
+                            next.has(dept.key) ? next.delete(dept.key) : next.add(dept.key);
+                            return next;
+                          })}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-t-lg hover:bg-gray-50 transition-colors"
+                          style={{ borderLeft: `4px solid ${dept.color}` }}
+                        >
+                          {isCollapsed ? <ChevronRight className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                          <span className="text-sm font-bold text-gray-800">{dept.label}</span>
+                          <span className="text-xs text-gray-400">({dept.items.length}項目)</span>
+                        </button>
+                        {isCollapsed && (() => {
+                          const deptDates = dept.items.flatMap(it => [parseTextDate(df[it.from]), it.to ? parseTextDate(df[it.to]) : null]).filter(Boolean) as number[];
+                          if (deptDates.length === 0) return null;
+                          const dMin = Math.min(...deptDates);
+                          const dMax = Math.max(...deptDates);
+                          const bS = findPos2(dMin);
+                          const bE = findPos2(dMax);
+                          const bW = Math.max(0.5, bE - bS);
+                          const dMinD = new Date(dMin);
+                          const dMaxD = new Date(dMax);
+                          const dMinStr = `${dMinD.getUTCMonth() + 1}/${dMinD.getUTCDate()}`;
+                          const dMaxStr = `${dMaxD.getUTCMonth() + 1}/${dMaxD.getUTCDate()}`;
                           return (
-                            <div key={task.id} className="flex items-center gap-4">
-                              <div className="w-24 flex-shrink-0">
-                                <div className="text-sm font-medium text-gray-700">{task.name}</div>
-                                <div className="text-xs text-gray-500">{task.department}</div>
+                            <div className="flex border-b border-gray-200 pb-1 mb-1">
+                              <div className="flex-shrink-0 flex items-center" style={{ width: labelW2 + 112 }}>
+                                <span className="text-xs text-gray-400 pl-6">{dMinStr} ～ {dMaxStr}</span>
                               </div>
-                              <div className="flex-1 relative h-8 bg-gray-100 rounded">
-                                <div
-                                  className="absolute h-full rounded-l overflow-hidden"
-                                  style={{
-                                    left: `${leftPercent}%`,
-                                    width: `${widthPercent}%`,
-                                    backgroundColor: task.color,
-                                  }}
-                                >
-                                  {/* 進捗バー */}
-                                  <div
-                                    className="h-full bg-black/20"
-                                    style={{ width: `${task.progress}%` }}
-                                  />
-                                  <div className="absolute inset-0 flex items-center justify-center text-xs text-white font-medium">
-                                    {task.progress}%
+                              <div className="flex-1 overflow-x-auto">
+                                <div className="relative" style={{ width: totalCells2 * cellW2, height: 24 }}>
+                                  <div className="absolute inset-0 flex">
+                                    {gridCells2.map((cell, i) => (
+                                      <div key={i} className={cell.isMonthEnd ? "border-r-2 border-gray-200" : "border-r border-gray-50"} style={{ width: cellW2, minWidth: cellW2 }} />
+                                    ))}
                                   </div>
+                                  <div className="absolute rounded" style={{
+                                    left: bS * cellW2, width: bW * cellW2, top: 4, height: 16,
+                                    backgroundColor: dept.color, opacity: 0.6,
+                                  }} />
                                 </div>
                               </div>
-                              <div className="w-32 flex-shrink-0 text-xs text-gray-500">
-                                {formatDate(task.start_date)} - {formatDate(task.end_date)}
-                              </div>
                             </div>
                           );
-                        })}
-                      </div>
-
-                      {/* 今日の線 */}
-                      {(() => {
-                        const now = Date.now();
-                        if (now >= ganttData.start_date && now <= ganttData.end_date) {
-                          const totalDuration = ganttData.end_date - ganttData.start_date;
-                          const todayPosition = ((now - ganttData.start_date) / totalDuration) * 100;
-                          return (
-                            <div
-                              className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-10"
-                              style={{ left: `calc(${todayPosition}% + 7rem)` }}
-                            >
-                              <div className="absolute -top-6 -left-3 text-xs text-red-500 font-medium">
-                                今日
+                        })()}
+                        {!isCollapsed && (
+                          <div className="flex border-b border-gray-200 pb-2 mb-2">
+                            {/* 左固定列 */}
+                            <div className="flex-shrink-0" style={{ width: labelW2 + 112 }}>
+                              {/* ヘッダー空白 */}
+                              <div style={{ height: 20 }}>&nbsp;</div>
+                              <div style={{ height: 18 }}>&nbsp;</div>
+                              {dept.items.map((item) => {
+                                const fromVal = df[item.from];
+                                const toVal = item.to ? df[item.to] : null;
+                                return (
+                                  <div key={item.label} className="flex items-center border-b border-gray-100" style={{ height: 32 }}>
+                                    <div className="text-xs text-gray-600 truncate pr-1" style={{ width: labelW2 }}>{item.label}</div>
+                                    {[{ field: item.from, val: fromVal }, { field: item.to, val: toVal }].map(({ field: f, val }, fi) => {
+                                      if (f === null) return <div key={fi} className="w-[56px] flex-shrink-0" />;
+                                      const cellKey = `dept-${f}`;
+                                      if (editingScheduleCell === cellKey) {
+                                        return (
+                                          <input key={fi} type="date" defaultValue={textDateToInput(val)} autoFocus
+                                            onBlur={(e) => handleDeptDateChange(f!, e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingScheduleCell(null); }}
+                                            className="border border-blue-400 rounded px-1 py-0.5 text-xs w-[80px] flex-shrink-0 focus:ring-1 focus:ring-blue-300"
+                                          />
+                                        );
+                                      }
+                                      return (
+                                        <button key={fi} onClick={() => setEditingScheduleCell(cellKey)}
+                                          className={`text-xs px-1 py-0.5 rounded hover:bg-blue-50 w-[56px] flex-shrink-0 text-center ${savingSchedule === cellKey ? "opacity-50" : ""} ${val ? "text-gray-700" : "text-gray-300"}`}
+                                          disabled={savingSchedule === cellKey}
+                                        >
+                                          {savingSchedule === cellKey ? "..." : textDateToDisplay(val) || "--/--"}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {/* 右スクロール列 */}
+                            <div className="flex-1 overflow-x-auto">
+                              <div style={{ width: totalCells2 * cellW2 }}>
+                                <div className="flex">
+                                  {months2.map((m, i) => (
+                                    <div key={i} className="text-center text-xs font-bold border-b-2 border-gray-300 border-r-2 border-r-gray-400 bg-gray-50" style={{ width: m.cellCount * cellW2, height: 20 }}>{m.label}</div>
+                                  ))}
+                                </div>
+                                <div className="flex" style={{ height: 18 }}>
+                                  {gridCells2.map((cell, i) => (
+                                    <div key={i} className={`text-center text-[10px] text-gray-400 ${cell.isMonthEnd ? "border-r-2 border-gray-400" : "border-r border-gray-200"}`} style={{ width: cellW2, minWidth: cellW2 }}>{cell.day}</div>
+                                  ))}
+                                </div>
+                                {dept.items.map((item) => {
+                                  const fromTs = parseTextDate(df[item.from]);
+                                  const toTs = item.to ? parseTextDate(df[item.to]) : null;
+                                  const isSingle = !item.to;
+                                  const hasBar = isSingle ? !!fromTs : (!!fromTs && !!toTs);
+                                  const bStart = hasBar ? findPos2(fromTs!) : 0;
+                                  const bEnd = hasBar ? (isSingle ? bStart + 0.3 : findPos2(toTs!)) : 0;
+                                  const bWidth = Math.max(0.2, bEnd - bStart);
+                                  return (
+                                    <div key={item.label} className="relative border-b border-gray-100" style={{ height: 32 }}>
+                                      <div className="absolute inset-0 flex">
+                                        {gridCells2.map((cell, i) => (
+                                          <div key={i} className={cell.isMonthEnd ? "border-r-2 border-gray-300" : "border-r border-gray-100"} style={{ width: cellW2, minWidth: cellW2 }} />
+                                        ))}
+                                      </div>
+                                      {hasBar && (
+                                        <div className="absolute rounded-sm" style={{
+                                          left: bStart * cellW2, width: bWidth * cellW2, top: 7, height: 18,
+                                          backgroundColor: dept.color, opacity: isSingle ? 1 : 0.75,
+                                        }}>
+                                          {isSingle && <div className="w-2 h-2 bg-white rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </div>
-                  </div>
-
-                  {/* サマリー */}
-                  <div className="mt-6 pt-4 border-t">
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                        <div className="text-xs text-gray-500">プロジェクト開始</div>
-                        <div className="text-sm font-medium">{formatDate(ganttData.start_date)}</div>
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <div className="text-xs text-gray-500">プロジェクト終了</div>
-                        <div className="text-sm font-medium">{formatDate(ganttData.end_date)}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500">総工程数</div>
-                        <div className="text-sm font-medium">{ganttData.tasks.length}工程</div>
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
-              ) : (
-                <div className="px-6 py-8 text-center text-gray-500">
-                  データを読み込み中...
-                </div>
-              )}
-            </div>
-          )}
+              </div>
+            );
+          })()}
 
           {activeMenu === "cost-analysis" && (
             <div className="space-y-6">

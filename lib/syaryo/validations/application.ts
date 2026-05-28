@@ -12,10 +12,16 @@ export const driversLicenseSchema = z.object({
   issue_date: z
     .date({
       message: "発行日を選択してください",
+    })
+    .refine((d) => !isNaN(d.getTime()), {
+      message: "発行日を正しく入力してください",
     }),
   expiration_date: z
     .date({
       message: "有効期限を選択してください",
+    })
+    .refine((d) => !isNaN(d.getTime()), {
+      message: "有効期限を正しく入力してください",
     }),
   image_file: z
     .instanceof(File, { message: "免許証（表面）の画像をアップロードしてください" })
@@ -47,6 +53,9 @@ export const vehicleRegistrationSchema = z.object({
   inspection_expiration_date: z
     .date({
       message: "車検有効期限を選択してください",
+    })
+    .refine((d) => !isNaN(d.getTime()), {
+      message: "車検有効期限を正しく入力してください",
     }),
   owner_name: z
     .string()
@@ -87,10 +96,16 @@ export const insurancePolicySchema = z.object({
   coverage_start_date: z
     .date({
       message: "補償開始日を選択してください",
+    })
+    .refine((d) => !isNaN(d.getTime()), {
+      message: "補償開始日を正しく入力してください",
     }),
   coverage_end_date: z
     .date({
       message: "補償終了日を選択してください",
+    })
+    .refine((d) => !isNaN(d.getTime()), {
+      message: "補償終了日を正しく入力してください",
     }),
   // 対人補償無制限チェック（必須）
   liability_personal_unlimited: z

@@ -5,6 +5,7 @@ import { useSession } from "@/lib/syaryo/session-shim";
 import { useRouter } from "next/navigation";
 import { VehicleRegistrationForm } from "@/components/features/syaryo/forms/vehicle-registration-form";
 import { VehicleRegistrationFormData } from "@/lib/syaryo/validations/application";
+import { toApiDateString } from "@/lib/syaryo/utils";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -76,7 +77,7 @@ export default function NewVehiclePage() {
           vehicle_type: data.vehicle_type,
           manufacturer: data.manufacturer,
           model_name: data.model_name,
-          inspection_expiration_date: data.inspection_expiration_date.toISOString(),
+          inspection_expiration_date: toApiDateString(data.inspection_expiration_date),
           owner_name: data.owner_name,
           image_attachment: imageAttachment,
         }),

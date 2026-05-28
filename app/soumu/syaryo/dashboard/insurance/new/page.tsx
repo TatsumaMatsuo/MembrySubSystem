@@ -5,6 +5,7 @@ import { useSession } from "@/lib/syaryo/session-shim";
 import { useRouter } from "next/navigation";
 import { InsurancePolicyForm } from "@/components/features/syaryo/forms/insurance-policy-form";
 import { InsurancePolicyFormData } from "@/lib/syaryo/validations/application";
+import { toApiDateString } from "@/lib/syaryo/utils";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -75,8 +76,8 @@ export default function NewInsurancePage() {
           policy_number: data.policy_number,
           insurance_company: data.insurance_company,
           policy_type: data.policy_type,
-          coverage_start_date: data.coverage_start_date.toISOString(),
-          coverage_end_date: data.coverage_end_date.toISOString(),
+          coverage_start_date: toApiDateString(data.coverage_start_date),
+          coverage_end_date: toApiDateString(data.coverage_end_date),
           insured_amount: data.insured_amount,
           // 補償内容フィールド
           liability_personal_unlimited: data.liability_personal_unlimited,

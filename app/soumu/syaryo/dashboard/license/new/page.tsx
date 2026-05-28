@@ -5,6 +5,7 @@ import { useSession } from "@/lib/syaryo/session-shim";
 import { useRouter } from "next/navigation";
 import { DriversLicenseForm } from "@/components/features/syaryo/forms/drivers-license-form";
 import { DriversLicenseFormData } from "@/lib/syaryo/validations/application";
+import { toApiDateString } from "@/lib/syaryo/utils";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -97,8 +98,8 @@ export default function NewLicensePage() {
           employee_id: employeeId,
           license_number: data.license_number,
           license_type: data.license_type,
-          issue_date: data.issue_date.toISOString(),
-          expiration_date: data.expiration_date.toISOString(),
+          issue_date: toApiDateString(data.issue_date),
+          expiration_date: toApiDateString(data.expiration_date),
           image_attachment: imageAttachment,
           image_attachment_ura: imageAttachmentUra,
         }),

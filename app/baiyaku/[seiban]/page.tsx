@@ -1504,38 +1504,14 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
             </div>
           )}
 
-          {activeMenu === "gantt-chart" && (() => {
-            if (loadingSchedule) {
-              return (
-                <div className="bg-white rounded-lg shadow p-8 flex items-center justify-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
-                  <span className="ml-3 text-gray-500">工程データを読み込み中...</span>
-                </div>
-              );
-            }
-            const hasSchedDates = scheduleData
-              ? Object.values(scheduleData.dates).flatMap(d => [d.start, d.end]).filter(Boolean).length > 0
-              : false;
-            const hasDeptDates = scheduleData?.deptFields
-              ? Object.values(scheduleData.deptFields).filter(v => v && v.trim()).length > 0
-              : false;
-            if (!scheduleData || (!hasSchedDates && !hasDeptDates)) {
-              return (
-                <div className="bg-white rounded-lg shadow p-8 text-center">
-                  <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-700 font-medium mb-1">工程データがありません</p>
-                  <p className="text-sm text-gray-500">
-                    {!scheduleData
-                      ? "Larkの工程管理テーブルにこの製番のレコードが登録されていません。"
-                      : "工程の日付がまだ入力されていません。営業部の工程表PDFをアップロードするか、各セルをクリックして日付を入力してください。"}
-                  </p>
-                </div>
-              );
-            }
-            return null;
-          })()}
+          {activeMenu === "gantt-chart" && loadingSchedule && (
+            <div className="bg-white rounded-lg shadow p-8 flex items-center justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+              <span className="ml-3 text-gray-500">工程データを読み込み中...</span>
+            </div>
+          )}
 
-          {activeMenu === "gantt-chart" && scheduleData && (() => {
+          {activeMenu === "gantt-chart" && !loadingSchedule && (() => {
             const SCHED_PROCESSES = [
               { key: "受注", label: "受注", color: "#6366f1" },
               { key: "計画図作成", label: "計画図作成", color: "#3b82f6" },
@@ -1553,11 +1529,31 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
               { key: "完了検査", label: "完了検査", color: "#7c3aed" },
             ];
             const fieldNameFor = (proc: string, type: "start" | "end") => `社内工程表_${proc}${type === "start" ? "開始日" : "終了日"}`;
-            const allDates = Object.values(scheduleData.dates).flatMap(d => [d.start, d.end]).filter(Boolean) as number[];
-            if (allDates.length === 0) return null;
-            const minDate = Math.min(...allDates);
-            const maxDate = Math.max(...allDates);
+            const dates = scheduleData?.dates ?? {};
+            const deptFieldsAll = scheduleData?.deptFields ?? {};
             const DAY_MS = 86400000;
+            const parseTextDateForRange = (val: string | null | undefined): number | null => {
+              if (!val) return null;
+              const m = val.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+              if (m) return Date.UTC(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+              const m2 = val.match(/(\d{1,2})[\/\-](\d{1,2})/);
+              if (m2) return Date.UTC(new Date().getFullYear(), parseInt(m2[1]) - 1, parseInt(m2[2]));
+              return null;
+            };
+            const schedDateValues = Object.values(dates).flatMap(d => [d?.start, d?.end]).filter(Boolean) as number[];
+            const deptDateValues = Object.values(deptFieldsAll).map(parseTextDateForRange).filter(Boolean) as number[];
+            const allDates = [...schedDateValues, ...deptDateValues];
+            let minDate: number;
+            let maxDate: number;
+            if (allDates.length === 0) {
+              const baseDate = baiyaku?.juchu_date ? new Date(baiyaku.juchu_date).getTime() : Date.now();
+              const validBase = isNaN(baseDate) ? Date.now() : baseDate;
+              minDate = validBase;
+              maxDate = validBase + 180 * DAY_MS;
+            } else {
+              minDate = Math.min(...allDates);
+              maxDate = Math.max(...allDates);
+            }
             const startMonth = new Date(minDate);
             startMonth.setUTCDate(1);
             const gridStart = startMonth.getTime();
@@ -1616,12 +1612,13 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                 });
                 const json = await res.json();
                 if (json.success) {
+                  const ts = value ? Date.UTC(parseInt(value.substring(0, 4)), parseInt(value.substring(5, 7)) - 1, parseInt(value.substring(8, 10))) : null;
                   setScheduleData(prev => {
-                    if (!prev) return prev;
-                    const ts = value ? Date.UTC(parseInt(value.substring(0, 4)), parseInt(value.substring(5, 7)) - 1, parseInt(value.substring(8, 10))) : null;
+                    const base = prev ?? { recordId: "", dates: {}, deptFields: {} };
+                    const existingProc = base.dates[proc] ?? { start: null, end: null };
                     return {
-                      ...prev,
-                      dates: { ...prev.dates, [proc]: { ...prev.dates[proc], [type]: ts } },
+                      ...base,
+                      dates: { ...base.dates, [proc]: { ...existingProc, [type]: ts } },
                     };
                   });
                 }
@@ -1645,9 +1642,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
               return ts >= gridEnd ? gridCells.length : 0;
             };
 
-            const schedAllDates = Object.values(scheduleData.dates).flatMap(d => [d.start, d.end]).filter(Boolean) as number[];
-            const schedMin = schedAllDates.length > 0 ? Math.min(...schedAllDates) : null;
-            const schedMax = schedAllDates.length > 0 ? Math.max(...schedAllDates) : null;
+            const schedMin = schedDateValues.length > 0 ? Math.min(...schedDateValues) : null;
+            const schedMax = schedDateValues.length > 0 ? Math.max(...schedDateValues) : null;
             const schedMinStr = schedMin ? `${new Date(schedMin).getUTCMonth() + 1}/${new Date(schedMin).getUTCDate()}` : "";
             const schedMaxStr = schedMax ? `${new Date(schedMax).getUTCMonth() + 1}/${new Date(schedMax).getUTCDate()}` : "";
 
@@ -1709,7 +1705,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                     <div style={{ height: 18 }}>&nbsp;</div>
                     {/* 工程行 */}
                     {SCHED_PROCESSES.map((proc) => {
-                      const d = scheduleData.dates[proc.key];
+                      const d = dates[proc.key];
                       return (
                         <div key={proc.key} className="flex items-center border-b border-gray-100" style={{ height: 36 }}>
                           <div className="text-xs font-semibold text-gray-700 truncate pr-2" style={{ width: labelW }}>
@@ -1769,7 +1765,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                       </div>
                       {/* 工程行バー */}
                       {SCHED_PROCESSES.map((proc) => {
-                        const d = scheduleData.dates[proc.key];
+                        const d = dates[proc.key];
                         const hasBar = d?.start && d?.end;
                         const barStartPos = hasBar ? findCellPos(d.start!) : 0;
                         const barEndPos = hasBar ? findCellPos(d.end!) : 0;
@@ -1807,8 +1803,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
             );
           })()}
 
-          {activeMenu === "gantt-chart" && scheduleData?.deptFields && (() => {
-            const df = scheduleData.deptFields;
+          {activeMenu === "gantt-chart" && !loadingSchedule && (() => {
+            const df = scheduleData?.deptFields ?? {};
             const DEPT_SECTIONS = [
               { key: "設計", label: "設計", color: "#3b82f6", items: [
                 { label: "承認図", from: "承認図YMD_FROM", to: "承認図YMD_TO" },
@@ -1844,15 +1840,23 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
             };
 
             // 社内工程表と同じグリッドを共有するため、同じ日付範囲を使用
-            const allSchedDates = Object.values(scheduleData.dates).flatMap(d => [d.start, d.end]).filter(Boolean) as number[];
+            const allSchedDates = Object.values(scheduleData?.dates ?? {}).flatMap(d => [d?.start, d?.end]).filter(Boolean) as number[];
             const allDeptDates = DEPT_SECTIONS.flatMap(s => s.items.flatMap(it => [parseTextDate(df[it.from]), it.to ? parseTextDate(df[it.to]) : null])).filter(Boolean) as number[];
             const allD = [...allSchedDates, ...allDeptDates];
-            if (allD.length === 0) return null;
 
             const DAY_MS2 = 86400000;
             const DAY_MARKERS2 = [1, 5, 10, 15, 20, 25, 30];
-            const mn = Math.min(...allD);
-            const mx = Math.max(...allD);
+            let mn: number;
+            let mx: number;
+            if (allD.length === 0) {
+              const baseDate = baiyaku?.juchu_date ? new Date(baiyaku.juchu_date).getTime() : Date.now();
+              const validBase = isNaN(baseDate) ? Date.now() : baseDate;
+              mn = validBase;
+              mx = validBase + 180 * DAY_MS2;
+            } else {
+              mn = Math.min(...allD);
+              mx = Math.max(...allD);
+            }
             const gs = new Date(mn); gs.setUTCDate(1);
             const gridStart2 = gs.getTime();
             const ge = new Date(mx); ge.setUTCMonth(ge.getUTCMonth() + 1, 1);
@@ -1917,7 +1921,10 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                 });
                 const json = await res.json();
                 if (json.success) {
-                  setScheduleData(prev => prev ? { ...prev, deptFields: { ...prev.deptFields, [field]: value || null } } : prev);
+                  setScheduleData(prev => {
+                    const base = prev ?? { recordId: "", dates: {}, deptFields: {} };
+                    return { ...base, deptFields: { ...base.deptFields, [field]: value || null } };
+                  });
                 }
               } catch (e) {
                 console.error("Dept schedule update failed:", e);
@@ -3115,6 +3122,16 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                                 success: true,
                                 message: `${result.data.updatedFields} 件の日付を工程管理テーブルに保存しました。`,
                               });
+                              // 保存した日付をガンチャートに即時反映するため scheduleData を再取得
+                              try {
+                                const schedRes = await fetch(`/api/schedule?seiban=${encodeURIComponent(seiban)}`);
+                                const schedJson = await schedRes.json();
+                                if (schedJson.success && schedJson.data) {
+                                  setScheduleData(schedJson.data);
+                                }
+                              } catch (e) {
+                                console.error("Failed to reload schedule after OCR save:", e);
+                              }
                             } else {
                               setOcrResult({ success: false, message: result.error });
                             }

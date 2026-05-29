@@ -1504,6 +1504,37 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
             </div>
           )}
 
+          {activeMenu === "gantt-chart" && (() => {
+            if (loadingSchedule) {
+              return (
+                <div className="bg-white rounded-lg shadow p-8 flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                  <span className="ml-3 text-gray-500">工程データを読み込み中...</span>
+                </div>
+              );
+            }
+            const hasSchedDates = scheduleData
+              ? Object.values(scheduleData.dates).flatMap(d => [d.start, d.end]).filter(Boolean).length > 0
+              : false;
+            const hasDeptDates = scheduleData?.deptFields
+              ? Object.values(scheduleData.deptFields).filter(v => v && v.trim()).length > 0
+              : false;
+            if (!scheduleData || (!hasSchedDates && !hasDeptDates)) {
+              return (
+                <div className="bg-white rounded-lg shadow p-8 text-center">
+                  <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-700 font-medium mb-1">工程データがありません</p>
+                  <p className="text-sm text-gray-500">
+                    {!scheduleData
+                      ? "Larkの工程管理テーブルにこの製番のレコードが登録されていません。"
+                      : "工程の日付がまだ入力されていません。営業部の工程表PDFをアップロードするか、各セルをクリックして日付を入力してください。"}
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           {activeMenu === "gantt-chart" && scheduleData && (() => {
             const SCHED_PROCESSES = [
               { key: "受注", label: "受注", color: "#6366f1" },

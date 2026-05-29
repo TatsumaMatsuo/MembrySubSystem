@@ -1,8 +1,11 @@
 /**
  * 新規申請を管理者全員に Bot 通知する共通ヘルパー
  * 各申請エンドポイント（免許/車検/任意保険）から呼び出す
+ *
+ * 通知対象: 「ユーザー権限管理」ページで role=admin に登録されたユーザのみ
+ * （PGM031 経由の総務部全員ではなく、明示的に admin 設定された人だけに送る）
  */
-import { getSyaryoAdmins } from "./syaryo-admin.service";
+import { getAdminUsersForNotification } from "./user-permission.service";
 import { getEmployee } from "./employee.service";
 import { sendNewApplicationNotification } from "./lark-notification.service";
 
@@ -10,7 +13,7 @@ export interface NotifyAdminsResult {
   total: number;
   sent: number;
   failed: number;
-  details: Array<{ employeeId: string; channel: "open_id" | "email" | null; ok: boolean; msg?: string }>;
+  details: Array<{ target: string; channel: "open_id" | "email" | null; ok: boolean; msg?: string }>;
 }
 
 /**
@@ -29,8 +32,8 @@ export async function notifyAdminsOfNewApplication(
     const applicantName = applicant?.employee_name || applicantEmployeeId;
     const applicantDepartment = applicant?.department || "";
 
-    // 管理者一覧を取得
-    const admins = await getSyaryoAdmins();
+    // 管理者一覧を取得（ユーザー権限管理で role=admin のユーザのみ）
+    const admins = await getAdminUsersForNotification();
     console.log(`[notify-admins] Admins found: ${admins.length}`);
 
     if (admins.length === 0) {
@@ -40,27 +43,28 @@ export async function notifyAdminsOfNewApplication(
     // 並行送信（管理者数 ≤ 数十名想定）
     const results = await Promise.all(
       admins.map(async (admin) => {
+        const targetLabel = admin.userName || admin.larkUserId || admin.userEmail;
         try {
           // Open ID 優先 → 失敗時 email フォールバック
-          let result = admin.openId
-            ? await sendNewApplicationNotification(admin.openId, applicantName, applicantDepartment, documentType, documentNumber, "open_id")
+          let result = admin.larkUserId
+            ? await sendNewApplicationNotification(admin.larkUserId, applicantName, applicantDepartment, documentType, documentNumber, "open_id")
             : { ok: false };
           let channel: "open_id" | "email" | null = result.ok ? "open_id" : null;
 
-          if (!result.ok && admin.email) {
-            result = await sendNewApplicationNotification(admin.email, applicantName, applicantDepartment, documentType, documentNumber, "email");
+          if (!result.ok && admin.userEmail) {
+            result = await sendNewApplicationNotification(admin.userEmail, applicantName, applicantDepartment, documentType, documentNumber, "email");
             channel = result.ok ? "email" : null;
           }
 
           return {
-            employeeId: admin.employeeId,
+            target: targetLabel,
             channel,
             ok: result.ok,
             msg: (result as any).msg || (result as any).error,
           };
         } catch (e: any) {
           return {
-            employeeId: admin.employeeId,
+            target: targetLabel,
             channel: null as "open_id" | "email" | null,
             ok: false,
             msg: e?.message || String(e),

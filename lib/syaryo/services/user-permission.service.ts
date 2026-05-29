@@ -167,6 +167,39 @@ export async function deleteUserPermission(id: string): Promise<void> {
 }
 
 /**
+ * 通知対象の管理者一覧を取得
+ * ユーザー権限管理ページで role=admin に登録されたユーザのみを返す
+ */
+export interface AdminNotificationTarget {
+  larkUserId: string;
+  userName: string;
+  userEmail: string;
+}
+
+export async function getAdminUsersForNotification(): Promise<AdminNotificationTarget[]> {
+  try {
+    const response = await getBaseRecords(LARK_TABLES.USER_PERMISSIONS, {
+      filter: `CurrentValue.[${USER_PERMISSION_FIELDS.role}] = "admin"`,
+    });
+
+    if (!response.data?.items) {
+      return [];
+    }
+
+    return response.data.items
+      .map((item: any) => ({
+        larkUserId: String(item.fields[USER_PERMISSION_FIELDS.lark_user_id] || ""),
+        userName: String(item.fields[USER_PERMISSION_FIELDS.user_name] || ""),
+        userEmail: String(item.fields[USER_PERMISSION_FIELDS.user_email] || ""),
+      }))
+      .filter((u: AdminNotificationTarget) => u.larkUserId || u.userEmail);
+  } catch (error) {
+    console.error("Failed to get admin users for notification:", error);
+    return [];
+  }
+}
+
+/**
  * ユーザーが管理者権限を持っているかチェック
  */
 export async function isAdmin(larkUserId: string): Promise<boolean> {

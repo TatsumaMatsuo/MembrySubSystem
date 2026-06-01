@@ -367,13 +367,19 @@ export async function POST(request: NextRequest): Promise<Response> {
               if (!isNaN(numValue)) value = numValue;
               else continue;
             } else if (mapping.fieldType === "date") {
-              if (typeof value === "number") {
+              if (value instanceof Date) {
+                // cellDates:true により日付セルはDateオブジェクトで渡される
+                if (isNaN(value.getTime())) continue;
+                value = value.getTime();
+              } else if (typeof value === "number") {
                 const excelEpoch = new Date(1899, 11, 30).getTime();
                 value = excelEpoch + value * 86400000;
               } else if (typeof value === "string") {
                 const dateValue = new Date(value);
                 if (!isNaN(dateValue.getTime())) value = dateValue.getTime();
                 else continue;
+              } else {
+                continue; // 想定外の型はスキップ
               }
             } else {
               value = String(value).trim();

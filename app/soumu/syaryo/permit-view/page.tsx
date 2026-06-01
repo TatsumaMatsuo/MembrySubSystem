@@ -188,10 +188,6 @@ function PermitViewContent() {
                   車検証情報
                 </div>
                 <div style={{ display: "flex", marginBottom: 6 }}>
-                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>車両タイプ</span>
-                  <span style={{ fontSize: 11, color: "#1a202c" }}>{permit.vehicle.vehicle_type || "-"}</span>
-                </div>
-                <div style={{ display: "flex", marginBottom: 6 }}>
                   <span style={{ fontSize: 10, color: "#718096", width: 100 }}>所有者</span>
                   <span style={{ fontSize: 11, color: "#1a202c" }}>{permit.vehicle.owner_name || "-"}</span>
                 </div>

@@ -117,7 +117,7 @@ export function DriversLicenseForm({ onSubmit, isLoading = false }: DriversLicen
           {/* 発行日 */}
           <div>
             <label htmlFor="issue_date" className="block text-sm font-medium text-gray-700">
-              発行日 <span className="text-red-500">*</span>
+              発行日
             </label>
             <input
               type="date"

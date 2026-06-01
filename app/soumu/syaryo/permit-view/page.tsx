@@ -160,10 +160,6 @@ function PermitViewContent() {
                   <span style={{ fontSize: 11, color: "#1a202c" }}>{permit.license.license_type || "-"}</span>
                 </div>
                 <div style={{ display: "flex", marginBottom: 6 }}>
-                  <span style={{ fontSize: 10, color: "#718096", width: 100 }}>交付日</span>
-                  <span style={{ fontSize: 11, color: "#1a202c" }}>{formatDate(permit.license.issue_date)}</span>
-                </div>
-                <div style={{ display: "flex", marginBottom: 6 }}>
                   <span style={{ fontSize: 10, color: "#718096", width: 100 }}>有効期限</span>
                   <span style={{ fontSize: 11, fontWeight: "bold", color: "#1a202c" }}>{formatDate(permit.license.expiration_date)}</span>
                 </div>

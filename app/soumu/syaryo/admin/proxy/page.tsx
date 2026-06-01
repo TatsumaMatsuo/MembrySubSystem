@@ -178,7 +178,7 @@ function ProxyApplicationContent() {
           employee_id: selectedEmployee.employee_id,
           license_number: data.license_number,
           license_type: data.license_type,
-          issue_date: data.issue_date.toISOString(),
+          issue_date: data.issue_date ? data.issue_date.toISOString() : "",
           expiration_date: data.expiration_date.toISOString(),
           image_attachment: imageAttachment,
           image_attachment_ura: imageAttachmentUra,

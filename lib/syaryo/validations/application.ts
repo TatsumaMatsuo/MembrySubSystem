@@ -10,12 +10,11 @@ export const driversLicenseSchema = z.object({
     .string()
     .min(1, "免許種類を選択してください"),
   issue_date: z
-    .date({
-      message: "発行日を選択してください",
-    })
+    .date()
     .refine((d) => !isNaN(d.getTime()), {
       message: "発行日を正しく入力してください",
-    }),
+    })
+    .optional(),
   expiration_date: z
     .date({
       message: "有効期限を選択してください",

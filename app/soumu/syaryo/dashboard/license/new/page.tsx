@@ -98,7 +98,7 @@ export default function NewLicensePage() {
           employee_id: employeeId,
           license_number: data.license_number,
           license_type: data.license_type,
-          issue_date: toApiDateString(data.issue_date),
+          issue_date: data.issue_date ? toApiDateString(data.issue_date) : "",
           expiration_date: toApiDateString(data.expiration_date),
           image_attachment: imageAttachment,
           image_attachment_ura: imageAttachmentUra,

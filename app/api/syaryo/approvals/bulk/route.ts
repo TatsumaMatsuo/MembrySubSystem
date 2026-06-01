@@ -12,8 +12,6 @@ import {
   getInsurancePolicies,
 } from "@/lib/syaryo/services/insurance-policy.service";
 import { requireAdmin, getCurrentUser } from "@/lib/syaryo/auth-utils";
-import { getBaseRecords } from "@/lib/syaryo/lark-client";
-import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/syaryo/lark-tables";
 import { recordApprovalHistory } from "@/lib/syaryo/services/approval-history.service";
 import { getEmployee } from "@/lib/syaryo/services/employee.service";
 import {
@@ -26,12 +24,17 @@ import { calculatePermitExpiration } from "@/lib/syaryo/permit-utils";
 import { sendApprovalNotification } from "@/lib/syaryo/services/lark-notification.service";
 import { getLarkNotificationTargetByEmployeeId } from "@/lib/syaryo/services/lark-user.service";
 
+// AWS Amplify SSR でのタイムアウト延長（許可証PDF生成を含むため）
+export const maxDuration = 60;
+
 // 最大一括承認件数
 const MAX_BULK_ITEMS = 50;
 
+type DocType = "license" | "vehicle" | "insurance";
+
 interface BulkApprovalItem {
   id: string;
-  type: "license" | "vehicle" | "insurance";
+  type: DocType;
 }
 
 interface BulkApprovalRequest {
@@ -47,23 +50,31 @@ interface BulkApprovalResult {
   error?: string;
 }
 
+interface PrefetchedLists {
+  licenses: any[];
+  vehicles: any[];
+  insurances: any[];
+}
+
 /**
  * 全書類が承認済みかチェックし、許可証を発行
+ * 事前取得済みのリストを渡すと再フェッチを省略する（パフォーマンス最適化）
  */
 async function checkAndGeneratePermit(
   employeeId: string,
-  baseUrl: string
+  baseUrl: string,
+  prefetched?: PrefetchedLists
 ): Promise<void> {
   try {
-    const licenses = await getDriversLicenses(employeeId);
+    const licenses = prefetched?.licenses ?? (await getDriversLicenses(employeeId));
     const approvedLicense = licenses.find((l) => l.approval_status === "approved");
     if (!approvedLicense) return;
 
-    const vehicles = await getVehicleRegistrations(employeeId);
+    const vehicles = prefetched?.vehicles ?? (await getVehicleRegistrations(employeeId));
     const approvedVehicles = vehicles.filter((v) => v.approval_status === "approved");
     if (approvedVehicles.length === 0) return;
 
-    const insurances = await getInsurancePolicies(employeeId);
+    const insurances = prefetched?.insurances ?? (await getInsurancePolicies(employeeId));
     const approvedInsurance = insurances.find((i) => i.approval_status === "approved");
     if (!approvedInsurance) return;
 
@@ -85,7 +96,8 @@ async function checkAndGeneratePermit(
           // 有効期限が同じ場合はスキップ（再発行不要）
           const existingExpTime = existingPermit.expiration_date.getTime();
           const newExpTime = expirationDate.getTime();
-          if (Math.abs(existingExpTime - newExpTime) < 86400000) { // 1日以内の差は同じとみなす
+          if (Math.abs(existingExpTime - newExpTime) < 86400000) {
+            // 1日以内の差は同じとみなす
             console.log(`許可証は既に発行済みです（有効期限同一）: ${vehicle.vehicle_number}`);
             continue;
           }
@@ -135,134 +147,38 @@ async function checkAndGeneratePermit(
   }
 }
 
-/**
- * 従業員名を取得
- */
-async function getEmployeeName(employeeId: string): Promise<string> {
-  try {
-    const employee = await getEmployee(employeeId);
-    if (employee) {
-      return employee.employee_name || "不明";
-    }
-  } catch (error) {
-    console.error("Failed to get employee name:", error);
+/** 書類種別に応じて承認処理を実行 */
+async function approveByType(type: DocType, id: string): Promise<void> {
+  switch (type) {
+    case "license":
+      await approveDriversLicense(id);
+      break;
+    case "vehicle":
+      await approveVehicleRegistration(id);
+      break;
+    case "insurance":
+      await approveInsurancePolicy(id);
+      break;
   }
-  return "不明";
 }
 
-/**
- * 単一の申請を承認
- */
-async function approveSingleItem(
-  item: BulkApprovalItem,
-  currentUser: any,
-  baseUrl: string
-): Promise<BulkApprovalResult> {
-  try {
-    let applicationRecord: any = null;
-
-    switch (item.type) {
-      case "license":
-        const licenses = await getDriversLicenses();
-        applicationRecord = licenses.find((r) => r.id === item.id);
-        if (!applicationRecord) {
-          return { id: item.id, type: item.type, success: false, error: "Record not found" };
-        }
-        await approveDriversLicense(item.id);
-        break;
-      case "vehicle":
-        const vehicles = await getVehicleRegistrations();
-        applicationRecord = vehicles.find((r) => r.id === item.id);
-        if (!applicationRecord) {
-          return { id: item.id, type: item.type, success: false, error: "Record not found" };
-        }
-        await approveVehicleRegistration(item.id);
-        break;
-      case "insurance":
-        const insurances = await getInsurancePolicies();
-        applicationRecord = insurances.find((r) => r.id === item.id);
-        if (!applicationRecord) {
-          return { id: item.id, type: item.type, success: false, error: "Record not found" };
-        }
-        await approveInsurancePolicy(item.id);
-        break;
-      default:
-        return { id: item.id, type: item.type, success: false, error: "Invalid type" };
-    }
-
-    // 承認履歴を記録
-    if (applicationRecord) {
-      const employeeName = await getEmployeeName(applicationRecord.employee_id);
-
-      await recordApprovalHistory({
-        application_type: item.type,
-        application_id: item.id,
-        employee_id: applicationRecord.employee_id || "",
-        employee_name: employeeName,
-        action: "approved",
-        approver_id: currentUser.id || currentUser.email || "",
-        approver_name: currentUser.name || currentUser.email || "不明",
-        timestamp: Date.now(),
-      });
-
-      // 許可証の自動発行チェック
-      let allApproved = false;
-      if (applicationRecord.employee_id) {
-        // 許可証発行前に全書類が承認済みかチェック
-        const licenses = await getDriversLicenses(applicationRecord.employee_id);
-        const vehicles = await getVehicleRegistrations(applicationRecord.employee_id);
-        const insurances = await getInsurancePolicies(applicationRecord.employee_id);
-
-        const hasApprovedLicense = licenses.some(l => l.approval_status === "approved");
-        const hasApprovedVehicle = vehicles.some(v => v.approval_status === "approved");
-        const hasApprovedInsurance = insurances.some(i => i.approval_status === "approved");
-
-        allApproved = hasApprovedLicense && hasApprovedVehicle && hasApprovedInsurance;
-
-        await checkAndGeneratePermit(applicationRecord.employee_id, baseUrl);
-      }
-
-      // Lark Bot通知を送信（Open ID 優先、失敗時 email にフォールバック）
-      try {
-        const target = await getLarkNotificationTargetByEmployeeId(applicationRecord.employee_id);
-        if (target && (target.openId || target.email)) {
-          let documentNumber = "";
-          if (item.type === "license" && applicationRecord.license_number) {
-            documentNumber = applicationRecord.license_number;
-          } else if (item.type === "vehicle" && applicationRecord.vehicle_number) {
-            documentNumber = applicationRecord.vehicle_number;
-          } else if (item.type === "insurance" && applicationRecord.policy_number) {
-            documentNumber = applicationRecord.policy_number;
-          }
-
-          let result = target.openId
-            ? await sendApprovalNotification(target.openId, item.type, documentNumber, allApproved, "open_id")
-            : { ok: false };
-          if (!result.ok && target.email) {
-            result = await sendApprovalNotification(target.email, item.type, documentNumber, allApproved, "email");
-          }
-          console.log(`一括承認通知: ${applicationRecord.employee_id} → ${result.ok ? "送信成功" : "失敗"}`);
-        }
-      } catch (notifyError) {
-        console.error("承認通知の送信に失敗:", notifyError);
-      }
-    }
-
-    return { id: item.id, type: item.type, success: true };
-  } catch (error) {
-    console.error(`Error approving ${item.type} ${item.id}:`, error);
-    return {
-      id: item.id,
-      type: item.type,
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+/** 申請レコードから書類番号を取得 */
+function getDocumentNumber(record: any, type: DocType): string {
+  if (type === "license") return record?.license_number || "";
+  if (type === "vehicle") return record?.vehicle_number || "";
+  if (type === "insurance") return record?.policy_number || "";
+  return "";
 }
 
 /**
  * POST /api/approvals/bulk
  * 複数の申請を一括承認（管理者のみ）
+ *
+ * パフォーマンス最適化:
+ * 1. 書類種別ごとに申請レコードを1回だけ取得（従来は項目ごとに全件取得）
+ * 2. 承認・履歴記録を並列実行
+ * 3. 許可証の発行は「社員ごとに最後に1回だけ」実行（従来は項目ごとに実行され、
+ *    同一車両のPDFを多重生成してLambdaがタイムアウトしていた）
  */
 export async function POST(request: NextRequest) {
   // 管理者権限チェック
@@ -277,10 +193,7 @@ export async function POST(request: NextRequest) {
 
     // バリデーション
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "No items provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "No items provided" }, { status: 400 });
     }
 
     if (items.length > MAX_BULK_ITEMS) {
@@ -307,25 +220,147 @@ export async function POST(request: NextRequest) {
 
     const currentUser = await getCurrentUser();
     if (!currentUser) {
-      return NextResponse.json(
-        { success: false, error: "User not found" },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: "User not found" }, { status: 401 });
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
 
-    // 並行処理で一括承認（最大10件ずつ）
-    const results: BulkApprovalResult[] = [];
-    const batchSize = 10;
+    // --- Phase 0: 申請レコードを書類種別ごとに1回だけ取得 ---
+    const typesPresent = new Set(items.map((i) => i.type));
+    const [allLicenses, allVehicles, allInsurances] = await Promise.all([
+      typesPresent.has("license") ? getDriversLicenses() : Promise.resolve([]),
+      typesPresent.has("vehicle") ? getVehicleRegistrations() : Promise.resolve([]),
+      typesPresent.has("insurance") ? getInsurancePolicies() : Promise.resolve([]),
+    ]);
+    const recordMap = new Map<string, any>();
+    allLicenses.forEach((r) => recordMap.set(`license-${r.id}`, r));
+    allVehicles.forEach((r) => recordMap.set(`vehicle-${r.id}`, r));
+    allInsurances.forEach((r) => recordMap.set(`insurance-${r.id}`, r));
 
-    for (let i = 0; i < items.length; i += batchSize) {
-      const batch = items.slice(i, i + batchSize);
-      const batchResults = await Promise.all(
-        batch.map((item) => approveSingleItem(item, currentUser, baseUrl))
-      );
-      results.push(...batchResults);
+    // 社員名を一括取得（同一社員の重複取得を回避）
+    const employeeIds = Array.from(
+      new Set(
+        items
+          .map((i) => recordMap.get(`${i.type}-${i.id}`)?.employee_id)
+          .filter((v): v is string => !!v)
+      )
+    );
+    const employeeNameMap = new Map<string, string>();
+    await Promise.all(
+      employeeIds.map(async (eid) => {
+        try {
+          const emp = await getEmployee(eid);
+          employeeNameMap.set(eid, emp?.employee_name || "不明");
+        } catch {
+          employeeNameMap.set(eid, "不明");
+        }
+      })
+    );
+
+    // --- Phase 1: 承認 + 履歴記録（並列） ---
+    interface ApprovedItem extends BulkApprovalResult {
+      employeeId?: string;
+      record?: any;
     }
+
+    const results: ApprovedItem[] = await Promise.all(
+      items.map(async (item): Promise<ApprovedItem> => {
+        const record = recordMap.get(`${item.type}-${item.id}`);
+        if (!record) {
+          return { id: item.id, type: item.type, success: false, error: "Record not found" };
+        }
+        try {
+          await approveByType(item.type, item.id);
+
+          await recordApprovalHistory({
+            application_type: item.type,
+            application_id: item.id,
+            employee_id: record.employee_id || "",
+            employee_name: employeeNameMap.get(record.employee_id) || "不明",
+            action: "approved",
+            approver_id: currentUser.id || currentUser.email || "",
+            approver_name: currentUser.name || currentUser.email || "不明",
+            timestamp: Date.now(),
+          });
+
+          return {
+            id: item.id,
+            type: item.type,
+            success: true,
+            employeeId: record.employee_id,
+            record,
+          };
+        } catch (error) {
+          console.error(`Error approving ${item.type} ${item.id}:`, error);
+          return {
+            id: item.id,
+            type: item.type,
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          };
+        }
+      })
+    );
+
+    // --- Phase 2: 社員ごとに許可証発行（1回だけ）+ 通知 ---
+    const successByEmployee = new Map<string, ApprovedItem[]>();
+    for (const r of results) {
+      if (r.success && r.employeeId) {
+        const list = successByEmployee.get(r.employeeId) || [];
+        list.push(r);
+        successByEmployee.set(r.employeeId, list);
+      }
+    }
+
+    await Promise.all(
+      Array.from(successByEmployee.entries()).map(async ([employeeId, empItems]) => {
+        // 承認状況を1回だけ取得し、許可証発行判定と通知の両方に使う
+        const [licenses, vehicles, insurances] = await Promise.all([
+          getDriversLicenses(employeeId),
+          getVehicleRegistrations(employeeId),
+          getInsurancePolicies(employeeId),
+        ]);
+
+        const allApproved =
+          licenses.some((l) => l.approval_status === "approved") &&
+          vehicles.some((v) => v.approval_status === "approved") &&
+          insurances.some((i) => i.approval_status === "approved");
+
+        // 全書類が承認済みなら許可証を発行（社員ごとに1回）
+        if (allApproved) {
+          await checkAndGeneratePermit(employeeId, baseUrl, { licenses, vehicles, insurances });
+        }
+
+        // Lark Bot通知（Open ID 優先・email フォールバック）
+        try {
+          const target = await getLarkNotificationTargetByEmployeeId(employeeId);
+          if (target && (target.openId || target.email)) {
+            const sendOne = async (type: DocType, documentNumber: string) => {
+              let result = target.openId
+                ? await sendApprovalNotification(target.openId, type, documentNumber, allApproved, "open_id")
+                : { ok: false };
+              if (!result.ok && target.email) {
+                result = await sendApprovalNotification(target.email, type, documentNumber, allApproved, "email");
+              }
+              return result;
+            };
+
+            if (allApproved) {
+              // 全承認時は1通だけ送信（最後に承認した書類を代表に）
+              const last = empItems[empItems.length - 1];
+              await sendOne(last.type as DocType, getDocumentNumber(last.record, last.type as DocType));
+            } else {
+              // 一部承認時は承認した書類ごとに送信
+              for (const it of empItems) {
+                await sendOne(it.type as DocType, getDocumentNumber(it.record, it.type as DocType));
+              }
+            }
+          }
+        } catch (notifyError) {
+          console.error("承認通知の送信に失敗:", notifyError);
+        }
+      })
+    );
 
     const successCount = results.filter((r) => r.success).length;
     const failedCount = results.filter((r) => !r.success).length;
@@ -333,7 +368,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: failedCount === 0,
       message: `${successCount}件の承認が完了しました${failedCount > 0 ? `（${failedCount}件失敗）` : ""}`,
-      results,
+      results: results.map((r) => ({ id: r.id, type: r.type, success: r.success, error: r.error })),
       summary: {
         total: items.length,
         success: successCount,
@@ -343,10 +378,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error in POST /api/approvals/bulk:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to process bulk approval",
-      },
+      { success: false, error: "Failed to process bulk approval" },
       { status: 500 }
     );
   }

@@ -309,40 +309,33 @@ export default function ApplicationDetailPage() {
 
     setProcessing(true);
     try {
-      // 並列実行すると各リクエストが個別に checkAndGeneratePermit を呼び、
-      // 同一車両の重複 createPermit と PDF 生成の同時多重実行で Lambda が
-      // 28秒タイムアウトする。順次実行に変更して、最後の承認で全書類が揃った
-      // 時点でのみ permit 生成が走るようにする。
-      const responses: Response[] = [];
-      for (const doc of pendingDocs) {
-        const r = await fetch(`/api/syaryo/approvals/${doc.id}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: doc.category }),
-        });
-        if (!r.ok) throw new Error("Some approvals failed");
-        responses.push(r);
+      // 一括承認APIを1回だけ呼ぶ。サーバー側で承認を並列実行し、
+      // 許可証の発行（PDF生成）は全書類が揃った時点で社員ごとに1回だけ走るため、
+      // 従来の「個別APIを書類数だけ逐次実行」よりも大幅に高速。
+      const response = await fetch("/api/syaryo/approvals/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "approve",
+          items: pendingDocs.map((doc) => ({ id: doc.id, type: doc.category })),
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.success) {
+        const failedCount = payload?.summary?.failed;
+        throw new Error(
+          failedCount ? `${failedCount}件の承認に失敗しました` : payload?.error || "Some approvals failed"
+        );
       }
 
-      const payloads = await Promise.all(responses.map(r => r.json().catch(() => ({}))));
-      const notifs = payloads.map((p: any) => p?.notification).filter(Boolean);
-      console.log("[一括承認] APIレスポンス:", payloads);
-      const allSent = notifs.length > 0 && notifs.every(n => n?.sent);
-      const failed = notifs.filter(n => !n?.sent);
-
-      if (allSent) {
-        toast.success(`${application.employee.employee_name}さんのすべての審査中書類を承認しました（通知送信済み）`);
-      } else if (failed.length > 0) {
-        const reasons = failed.map(n => n?.msg || n?.error || n?.reason || "unknown").join(", ");
-        toast.success(`${application.employee.employee_name}さんのすべての書類を承認しました（通知失敗: ${reasons}）`);
-        console.warn("[一括承認] 通知失敗詳細:", failed);
-      } else {
-        toast.success(`${application.employee.employee_name}さんのすべての審査中書類を承認しました`);
-      }
+      toast.success(`${application.employee.employee_name}さんのすべての審査中書類を承認しました`);
       router.push("/soumu/syaryo/admin/applications");
     } catch (error) {
       console.error("Failed to approve:", error);
-      toast.error("承認に失敗しました。もう一度お試しください。");
+      toast.error(
+        error instanceof Error ? error.message : "承認に失敗しました。もう一度お試しください。"
+      );
     } finally {
       setProcessing(false);
     }

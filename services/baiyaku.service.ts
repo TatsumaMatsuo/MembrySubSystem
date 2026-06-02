@@ -12,13 +12,13 @@ export async function searchBaiyakuInfo(params: SearchParams): Promise<BaiyakuIn
   // 削除フラグ = 1(チェック済み) は常に除外
   filters.push(`CurrentValue.[${BAIYAKU_FIELDS.sakujo_flag}] = 0`);
 
-  // 売上ステータスフィルター（チェックボックス型: 1=チェック済み, 0=未チェック）
+  // 売上ステータスフィルター（文字列型: "1"=売上済, "0"=未売上）
   if (params.sales_status === "juchu_zan") {
-    // 受注残: 売上済フラグ = 0（未チェック）
-    filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriagezumi_flag}] = 0`);
+    // 受注残: 売上済フラグ != "1"（未売上。空文字や "0" を含めるため != で判定）
+    filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriagezumi_flag}] != "1"`);
   } else if (params.sales_status === "uriagezumi") {
-    // 売上済: 売上済フラグ = 1（チェック済み）
-    filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriagezumi_flag}] = 1`);
+    // 売上済: 売上済フラグ = "1"
+    filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriagezumi_flag}] = "1"`);
   }
   // "all" の場合は売上済フラグの条件を追加しない
 

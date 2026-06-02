@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken, listAllDepartments } from "@/lib/lark-client";
+import { isUriagezumi } from "@/lib/lark-tables";
 
 // AWS Amplify SSRでのタイムアウト延長（最大60秒）
 export const maxDuration = 60;
@@ -408,12 +409,10 @@ export async function GET(request: NextRequest) {
       const fields = record.fields as any;
 
       // 売上済の製番は受注残から除外（売上金額との二重計上を防止）
-      // ビューの売上済フラグ=0フィルタに加え、売上テーブル実績と売上済フラグの両面でガード
+      // ビューの売上済フラグフィルタに加え、売上テーブル実績と売上済フラグの両面でガード
       const seiban = extractTextValue(fields?.["製番"]);
-      const uriagezumiFlag = fields?.["売上済フラグ"];
       const isSold =
-        uriagezumiFlag === true ||
-        uriagezumiFlag === 1 ||
+        isUriagezumi(fields?.["売上済フラグ"]) ||
         (!!seiban && soldSeibanSet.has(seiban));
       if (isSold) continue;
 
@@ -513,10 +512,8 @@ export async function GET(request: NextRequest) {
 
       // 売上済の製番は受注残から除外（二重計上防止）
       const seiban = extractTextValue(fields?.["製番"]);
-      const uriagezumiFlag = fields?.["売上済フラグ"];
       if (
-        uriagezumiFlag === true ||
-        uriagezumiFlag === 1 ||
+        isUriagezumi(fields?.["売上済フラグ"]) ||
         (!!seiban && soldSeibanSet.has(seiban))
       ) {
         continue;

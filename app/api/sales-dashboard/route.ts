@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken, listAllDepartments } from "@/lib/lark-client";
+import { isUriagezumi } from "@/lib/lark-tables";
 
 // AWS Amplify SSRでのタイムアウト延長（最大60秒）
 export const maxDuration = 60;
@@ -294,8 +295,8 @@ async function fetchBacklogData(
   const backlogMap = new Map<number, { count: number; amount: number }>();
   let pageToken: string | undefined;
 
-  // 必要なフィールドのみ取得（ビューでフィルター済みなのでフラグは不要）
-  const BACKLOG_FIELDS = ["製番", "受注金額", "売上見込日"];
+  // 売上済フラグはビュー側に加えコードでも除外するため取得する
+  const BACKLOG_FIELDS = ["製番", "受注金額", "売上見込日", "売上済フラグ"];
 
   // 期間の開始・終了日をDateオブジェクトに変換
   const startDate = parseDate(dateRange.start);
@@ -339,6 +340,9 @@ async function fetchBacklogData(
 
         for (const item of response.data.items) {
           const fields = item.fields as any;
+
+          // 売上済("1")は受注残から除外（ビューフィルタに加えコード側でもガード）
+          if (isUriagezumi(fields?.["売上済フラグ"])) continue;
 
           // 売上見込日を取得
           const mikomiDate = extractTextValue(fields?.["売上見込日"]);
@@ -392,7 +396,7 @@ async function fetchBacklogRecords(
   // 詳細表示に必要なフィールド（ビューでフィルター済みなのでフラグは不要）
   const BACKLOG_DETAIL_FIELDS = [
     "製番", "受注金額", "売上見込日",
-    "担当者", "部門", "PJ区分", "産業分類", "得意先"
+    "担当者", "部門", "PJ区分", "産業分類", "得意先", "売上済フラグ"
   ];
 
   // 期間の開始・終了日をDateオブジェクトに変換
@@ -440,6 +444,9 @@ async function fetchBacklogRecords(
       if (response.data?.items) {
         for (const item of response.data.items) {
           const fields = item.fields as any;
+
+          // 売上済("1")は受注残から除外（ビューフィルタに加えコード側でもガード）
+          if (isUriagezumi(fields?.["売上済フラグ"])) continue;
 
           // 売上見込日を取得
           const mikomiDate = extractTextValue(fields?.["売上見込日"]);

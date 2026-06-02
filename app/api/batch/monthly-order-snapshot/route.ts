@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
+import { isUriagezumi } from "@/lib/lark-tables";
 
 // tenant_access_tokenを直接取得
 async function getTenantAccessToken(): Promise<string> {
@@ -173,8 +174,8 @@ export async function POST(request: NextRequest) {
           const uriageFlag = fields?.[URIAGE_FLAG_FIELD];
           const sakujoFlag = fields?.[SAKUJO_FLAG_FIELD];
 
-          // 売上済フラグがtrue以外 かつ 削除フラグがtrue以外 = 受注残候補
-          if (uriageFlag !== true && sakujoFlag !== true) {
+          // 売上済("1")以外 かつ 削除フラグがtrue以外 = 受注残候補
+          if (!isUriagezumi(uriageFlag) && sakujoFlag !== true) {
             // 当月受注日のレコードを除外（前月末時点の受注残を求めるため）
             const juchuDate = parseLarkDate(fields?.[JUCHU_DATE_FIELD]);
             if (juchuDate && juchuDate.getTime() >= currentMonthStart) {

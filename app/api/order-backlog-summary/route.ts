@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken, listAllDepartments } from "@/lib/lark-client";
+import { isUriagezumi } from "@/lib/lark-tables";
 
 // AWS Amplify SSRでのタイムアウト延長（最大60秒）
 export const maxDuration = 60;
@@ -18,13 +19,14 @@ const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 15 * 60 * 1000;
 
 // 必要なフィールドのみ取得（パフォーマンス最適化）
-// ビューでフィルター済みなのでフラグは不要
+// 売上済フラグはビュー側に加えコードでも除外するため取得する
 const REQUIRED_FIELDS = [
   "製番",
   "受注金額",
   "売上見込日",
   "担当者",
   "部門",
+  "売上済フラグ",
 ];
 
 function getCachedData(key: string): any | null {
@@ -373,6 +375,9 @@ export async function GET(request: NextRequest) {
     // 売上見込日でフィルタ（ビューではフラグのみフィルター済み）
     const backlogRecords = allRecords.filter((record) => {
       const fields = record.fields as any;
+
+      // 売上済("1")は受注残から除外（ビューフィルタに加えコード側でもガード）
+      if (isUriagezumi(fields?.["売上済フラグ"])) return false;
 
       // 売上見込日がカットオフ日以降であること
       const mikomiDate = extractTextValue(fields?.["売上見込日"]);

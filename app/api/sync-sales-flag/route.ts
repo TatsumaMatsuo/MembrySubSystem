@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
+import { isUriagezumi } from "@/lib/lark-tables";
 
 // テーブルID
 const ANKEN_TABLE_ID = "tbl1ICzfUixpGqDy"; // 案件一覧
@@ -8,6 +9,8 @@ const URIAGE_TABLE_ID = "tbl65w6u6J72QFoz"; // 売上情報
 // フィールド名
 const SEIBAN_FIELD = "製番";
 const URIAGE_FLAG_FIELD = "売上済フラグ";
+// 売上済フラグは文字列型 "1"=売上済 / "0"=未売上
+const URIAGE_FLAG_ON = "1";
 
 export async function POST(request: NextRequest) {
   const client = getLarkClient();
@@ -104,7 +107,7 @@ export async function POST(request: NextRequest) {
             ankenRecords.push({
               recordId: item.record_id,
               seiban: seibanStr.trim(),
-              currentFlag: currentFlag === true,
+              currentFlag: isUriagezumi(currentFlag),
             });
           }
         }
@@ -140,7 +143,7 @@ export async function POST(request: NextRequest) {
             },
             data: {
               fields: {
-                [URIAGE_FLAG_FIELD]: true,
+                [URIAGE_FLAG_FIELD]: URIAGE_FLAG_ON,
               },
             },
           });
@@ -247,7 +250,7 @@ export async function GET(request: NextRequest) {
       if (response.data?.items) {
         ankenTotal += response.data.items.length;
         for (const item of response.data.items) {
-          if ((item.fields as any)?.[URIAGE_FLAG_FIELD] === true) {
+          if (isUriagezumi((item.fields as any)?.[URIAGE_FLAG_FIELD])) {
             flaggedCount++;
           }
         }

@@ -115,6 +115,16 @@ export const BAIYAKU_FIELDS = {
 } as const;
 
 /**
+ * 売上済フラグの判定ヘルパー
+ *
+ * 案件一覧の売上済フラグは文字列 "0"(未売上)/"1"(売上済) で表現される。
+ * 旧チェックボックス（boolean）や数値で入っている場合にも後方互換で対応する。
+ */
+export function isUriagezumi(value: unknown): boolean {
+  return value === "1" || value === 1 || value === true;
+}
+
+/**
  * 顧客要求事項変更履歴テーブルのフィールド定義
  */
 export const CUSTOMER_REQUEST_FIELDS = {

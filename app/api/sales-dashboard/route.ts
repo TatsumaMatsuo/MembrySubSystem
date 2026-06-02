@@ -328,6 +328,8 @@ async function fetchBacklogData(
             page_size: 500,
             page_token: currentPageToken,
             field_names: JSON.stringify(BACKLOG_FIELDS),
+            // 売上見込日が当期内のレコードのみ取得（全件取得による504回避）
+            filter: `AND(CurrentValue.[売上見込日] >= "${dateRange.start}", CurrentValue.[売上見込日] <= "${dateRange.end}")`,
             view_id: BACKLOG_VIEWS.pjCategory, // ビューを使用（フィルター済み）
           },
         });
@@ -396,7 +398,7 @@ async function fetchBacklogRecords(
   // 詳細表示に必要なフィールド（ビューでフィルター済みなのでフラグは不要）
   const BACKLOG_DETAIL_FIELDS = [
     "製番", "受注金額", "売上見込日",
-    "担当者", "部門", "PJ区分", "産業分類", "得意先", "売上済フラグ"
+    "担当者", "部門", "PJ区分", "産業分類", "得意先宛名1", "売上済フラグ"
   ];
 
   // 期間の開始・終了日をDateオブジェクトに変換
@@ -436,6 +438,8 @@ async function fetchBacklogRecords(
             page_size: 500,
             page_token: currentPageToken,
             field_names: JSON.stringify(BACKLOG_DETAIL_FIELDS),
+            // 売上見込日が当期内のレコードのみ取得（全件取得による504回避）
+            filter: `AND(CurrentValue.[売上見込日] >= "${dateRange.start}", CurrentValue.[売上見込日] <= "${dateRange.end}")`,
             view_id: BACKLOG_VIEWS.tantousha, // ビューを使用（フィルター済み）
           },
         });
@@ -472,7 +476,7 @@ async function fetchBacklogRecords(
           }
           const pjCategory = extractTextValue(fields?.["PJ区分"]) || "未分類";
           const industry = extractTextValue(fields?.["産業分類"]) || "未分類";
-          const customer = extractTextValue(fields?.["得意先"]) || "";
+          const customer = extractTextValue(fields?.["得意先宛名1"]) || "";
           const monthIndex = getFiscalMonthIndex(mikomiDate);
 
           // レコード追加

@@ -118,10 +118,20 @@ export const BAIYAKU_FIELDS = {
  * 売上済フラグの判定ヘルパー
  *
  * 案件一覧の売上済フラグは文字列 "0"(未売上)/"1"(売上済) で表現される。
- * 旧チェックボックス（boolean）や数値で入っている場合にも後方互換で対応する。
+ * Lark のテキスト型はAPI取得時に [{ text: "1", type: "text" }] のセグメント配列で
+ * 返るため、その形式も解釈する。旧チェックボックス(boolean)/数値にも後方互換で対応。
  */
 export function isUriagezumi(value: unknown): boolean {
-  return value === "1" || value === 1 || value === true;
+  if (value === "1" || value === 1 || value === true) return true;
+  let text = "";
+  if (Array.isArray(value)) {
+    text = value
+      .map((v: any) => (v && typeof v === "object" && v.text != null ? v.text : v))
+      .join("");
+  } else if (value && typeof value === "object" && (value as any).text != null) {
+    text = String((value as any).text);
+  }
+  return text.trim() === "1";
 }
 
 /**

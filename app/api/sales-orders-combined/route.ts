@@ -316,8 +316,11 @@ export async function GET(request: NextRequest) {
     // ========================================
     // 2. 案件一覧テーブルから受注残データを取得
     //    ビューで売上済フラグ=0, 削除フラグ=0 はフィルター済み
+    //    売上見込日が当期内のレコードのみをサーバー側で抽出（全件取得による504回避）
     // ========================================
     const backlogFields = ["製番", "受注金額", "売上見込日", "担当者", "部門", "得意先宛名1", "PJ区分", "売上済フラグ"];
+    // 売上見込日(テキスト型 "YYYY/MM/DD")で当期(例:50期=2025/08/01〜2026/07/31)に絞り込み
+    const backlogDateFilter = `AND(CurrentValue.[売上見込日] >= "${dateRange.start}", CurrentValue.[売上見込日] <= "${dateRange.end}")`;
 
     let backlogRecords: any[] = [];
     let backlogPageToken: string | undefined;
@@ -335,6 +338,7 @@ export async function GET(request: NextRequest) {
             page_size: 500,
             page_token: currentToken,
             field_names: JSON.stringify(backlogFields),
+            filter: backlogDateFilter,
             view_id: BACKLOG_VIEW_ID,
           },
         })
@@ -433,7 +437,7 @@ export async function GET(request: NextRequest) {
       const customer = extractTextValue(fields?.["得意先宛名1"]);
       const pjCategory = extractTextValue(fields?.["PJ区分"]);
 
-      // 不正リストチェック: 売上見込日 <= 最終売上月（期間に関係なく全受注残が対象）
+      // 不正リストチェック: 売上見込日 <= 最終売上月（当期内の受注残のうち見込月が過ぎているもの）
       if (latestSoldMonth) {
         const { year: mikomiYear, month: mikomiMonth } = getJSTComponents(mikomiDate);
         const mikomiYM = `${mikomiYear}${String(mikomiMonth).padStart(2, "0")}`;

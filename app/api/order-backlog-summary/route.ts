@@ -345,6 +345,8 @@ export async function GET(request: NextRequest) {
 
     // 案件一覧から受注残データを取得（ビュー使用で高速化）
     // ビューには売上済フラグ=0, 削除フラグ=0 のフィルターが設定済み
+    // 売上見込日が当期内のレコードのみサーバー側で抽出（全件取得による504回避）
+    const backlogDateFilter = `AND(CurrentValue.[売上見込日] >= "${dateRange.start}", CurrentValue.[売上見込日] <= "${dateRange.end}")`;
     let allRecords: any[] = [];
     let pageToken: string | undefined;
 
@@ -359,6 +361,7 @@ export async function GET(request: NextRequest) {
           page_size: 500,
           page_token: pageToken,
           field_names: JSON.stringify(REQUIRED_FIELDS),
+          filter: backlogDateFilter,
           view_id: BACKLOG_VIEW_ID, // ビューを使用（フィルター済み）
         },
       });

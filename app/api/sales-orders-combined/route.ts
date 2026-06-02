@@ -316,7 +316,7 @@ export async function GET(request: NextRequest) {
     // 2. 案件一覧テーブルから受注残データを取得
     //    ビューで売上済フラグ=0, 削除フラグ=0 はフィルター済み
     // ========================================
-    const backlogFields = ["製番", "受注金額", "売上見込日", "担当者", "部門", "得意先宛名1", "PJ区分"];
+    const backlogFields = ["製番", "受注金額", "売上見込日", "担当者", "部門", "得意先宛名1", "PJ区分", "売上済フラグ"];
 
     let backlogRecords: any[] = [];
     let backlogPageToken: string | undefined;
@@ -360,8 +360,13 @@ export async function GET(request: NextRequest) {
     let totalSalesAmount = 0;
     let totalSalesCount = 0;
 
+    // 売上済の製番セット（受注残から売上済を除外して二重計上を防ぐため）
+    const soldSeibanSet = new Set<string>();
+
     for (const record of salesRecords) {
       const fields = record.fields as any;
+      const soldSeiban = extractTextValue(fields?.製番);
+      if (soldSeiban) soldSeibanSet.add(soldSeiban);
       const uriageDateStr = extractTextValue(fields?.売上日);
       if (!uriageDateStr) continue;
 
@@ -402,6 +407,16 @@ export async function GET(request: NextRequest) {
     for (const record of backlogRecords) {
       const fields = record.fields as any;
 
+      // 売上済の製番は受注残から除外（売上金額との二重計上を防止）
+      // ビューの売上済フラグ=0フィルタに加え、売上テーブル実績と売上済フラグの両面でガード
+      const seiban = extractTextValue(fields?.["製番"]);
+      const uriagezumiFlag = fields?.["売上済フラグ"];
+      const isSold =
+        uriagezumiFlag === true ||
+        uriagezumiFlag === 1 ||
+        (!!seiban && soldSeibanSet.has(seiban));
+      if (isSold) continue;
+
       const mikomiDateStr = extractTextValue(fields?.["売上見込日"]);
       if (!mikomiDateStr) continue;
 
@@ -409,7 +424,6 @@ export async function GET(request: NextRequest) {
       if (!mikomiDate) continue;
 
       const amount = parseFloat(String(fields?.["受注金額"] || 0)) || 0;
-      const seiban = extractTextValue(fields?.["製番"]);
       const tantousha = extractTextValue(fields?.["担当者"]) || "未設定";
       let eigyosho = fields?.["部門"]
         ? extractOfficeFromDepartment(fields?.["部門"], departmentMap)
@@ -496,6 +510,18 @@ export async function GET(request: NextRequest) {
 
     for (const record of backlogRecords) {
       const fields = record.fields as any;
+
+      // 売上済の製番は受注残から除外（二重計上防止）
+      const seiban = extractTextValue(fields?.["製番"]);
+      const uriagezumiFlag = fields?.["売上済フラグ"];
+      if (
+        uriagezumiFlag === true ||
+        uriagezumiFlag === 1 ||
+        (!!seiban && soldSeibanSet.has(seiban))
+      ) {
+        continue;
+      }
+
       const mikomiDateStr = extractTextValue(fields?.["売上見込日"]);
       if (!mikomiDateStr) continue;
       if (!isDateInRange(mikomiDateStr, dateRange.start, dateRange.end)) continue;

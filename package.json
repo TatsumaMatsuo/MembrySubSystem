@@ -13,7 +13,9 @@
     "miyabi": "miyabi",
     "miyabi:status": "miyabi status",
     "miyabi:doctor": "miyabi doctor",
-    "miyabi:auto": "miyabi auto"
+    "miyabi:auto": "miyabi auto",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "repository": {
     "type": "git",
@@ -73,6 +75,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/qrcode": "^1.5.6",
     "miyabi": "^0.22.0",
-    "rimraf": "^6.1.2"
+    "rimraf": "^6.1.2",
+    "vitest": "^2.1.9"
   }
 }

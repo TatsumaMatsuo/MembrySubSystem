@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>★達成評価(モック) - 部署ごと</title>
+<style>
+  :root{
+    --panel:#fff; --ink:#1e293b; --sub:#64748b; --line:#e2e8f0;
+    --navy:#1f3864; --green:#16a34a; --amber:#d97706; --red:#dc2626; --blue:#2563eb; --soft:#f1f5f9;
+    --gold:#eab308; --goldbg:#fffbeb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;background:#eef2f7;color:var(--ink);}
+  .wrap{max-width:1340px;margin:0 auto;padding:20px;}
+  .mockbar{background:#dbeafe;color:#1e3a8a;font-size:12px;padding:6px 14px;border-radius:8px;margin-bottom:14px;font-weight:600;}
+  header.top{display:flex;align-items:center;justify-content:space-between;background:var(--navy);color:#fff;border-radius:14px;padding:16px 24px;margin-bottom:14px;}
+  header.top h1{font-size:19px;margin:0;font-weight:700;}
+  header.top .meta{display:flex;gap:10px;align-items:center;font-size:13px;}
+  header.top select,header.top .chip{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;}
+  .tabs{display:flex;gap:8px;margin-bottom:12px;}
+  .tab{padding:8px 16px;border-radius:9px;background:#dde5ef;color:#475569;font-size:13px;font-weight:600;cursor:pointer;}
+  .tab.active{background:var(--navy);color:#fff;}
+  .rule{font-size:11px;color:var(--sub);margin:0 0 12px 2px;}
+  .section-title{font-size:13px;font-weight:700;color:var(--navy);margin:18px 4px 10px;display:flex;align-items:center;gap:8px;}
+  .section-title::before{content:"";width:5px;height:15px;background:var(--navy);border-radius:3px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 1px 3px rgba(15,23,42,.05);overflow-x:auto;}
+  /* ranking */
+  .rank-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:13px;}
+  .rank-row .rk{width:24px;text-align:center;font-weight:800;color:var(--gold);}
+  .rank-row .lbl{width:96px;font-weight:600;}
+  .rank-bar{flex:1;height:16px;background:#f1f5f9;border-radius:8px;overflow:hidden;}
+  .rank-bar>span{display:block;height:100%;background:linear-gradient(90deg,#facc15,#eab308);border-radius:8px;}
+  .rank-num{width:48px;text-align:right;font-weight:800;color:#a16207;}
+  .crown{font-size:13px;}
+  /* star grid */
+  table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap;}
+  th,td{padding:6px 7px;border:1px solid var(--line);text-align:center;}
+  thead th{background:var(--soft);color:var(--sub);font-weight:600;font-size:11px;}
+  td.dept,th.dept{position:sticky;left:0;background:#fff;z-index:1;text-align:left;font-weight:700;min-width:92px;}
+  thead th.dept{z-index:2;background:var(--soft);}
+  td.item{text-align:left;color:#475569;min-width:130px;}
+  td.tgt{color:var(--sub);font-size:11px;}
+  .star{color:var(--gold);font-weight:800;}
+  .blank{color:#e2e8f0;}
+  td.sum{background:var(--goldbg);font-weight:800;color:#a16207;}
+  tr.subtotal td{background:#f8fafc;font-weight:800;}
+  tr.manual td{background:#fff7ed;}
+  td.input{background:#fef9c3;outline:2px solid #facc15;outline-offset:-2px;border-radius:4px;font-weight:700;color:#92400e;cursor:text;}
+  tr.total td{background:#1f3864;color:#fff;font-weight:800;}
+  .legend{font-size:11px;color:var(--sub);margin-top:10px;line-height:1.8;}
+  .dept-block{margin-bottom:18px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="mockbar">ⓘ 設計すり合わせ用モック。数値は <b>Excel「04_製造部★達成表」「05_間接部門★達成表」(50期・経過9ヶ月)の実値</b>。<b>★達成評価は部署ごと</b>(Lark部署単位)。月間目標達成=★(自動)/5S大賞・労災=手入力。</div>
+
+  <header class="top">
+    <h1>★達成評価 ― 部署ごと</h1>
+    <div class="meta">
+      <select><option>50期(令和7年8月〜)</option></select>
+      <span class="chip">経過 9ヶ月</span>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-t="seizo">製造部(6課)</div>
+    <div class="tab" data-t="kansetsu">間接部門(調達・管理・検査)</div>
+  </div>
+  <div class="rule" id="ruleText"></div>
+
+  <!-- ランキング -->
+  <div class="section-title">★達成ランキング(部署ごと・総合計★)</div>
+  <div class="card" id="ranking"></div>
+
+  <!-- 部署別★表 -->
+  <div class="section-title">部署別 ★達成表(行=項目 × 列=月／月間目標達成で★)</div>
+  <div id="grids"></div>
+
+  <div class="legend" style="padding:0 4px;">
+    実装時: 月間★は <code>SEISAN_KPI_ACTUAL</code> と月間目標の比較で自動判定(<code>lib/kpi/</code>)。5S大賞・労災は <code>SEISAN_KPI_STAR_ADJ</code>(手入力)。総合計★=自動★+期末ボーナス(年間達成で★+3)+手入力調整。部署=Lark部門。
+  </div>
+
+</div>
+
+<script>
+// 月配列: 8月..7月(12)。1=★, 0=空白(未達 or 未到来)
+var M=["8月","9月","10月","11月","12月","1月","2月","3月","4月","5月","6月","7月"];
+var sum=a=>a.reduce((s,v)=>s+v,0);
+
+// ===== 製造部6課(Excel 04 実値) =====
+var seizo=[
+  {dept:"本社鉄工", items:[
+    {n:"品質(クレーム)",tg:"0",s:[1,1,1,0,1,1,1,1,1,0,0,0]},
+    {n:"品質(不具合)",tg:"0",s:[0,0,0,0,1,1,1,1,0,0,0,0]},
+    {n:"納期(LT)",tg:"9.2",s:[1,1,1,1,1,1,1,1,1,0,0,0]},
+    {n:"原価(生産効率)",tg:"25",s:[0,0,1,0,0,0,0,1,1,0,0,0]}]},
+  {dept:"第二鉄工", items:[
+    {n:"品質(クレーム)",tg:"0",s:[1,1,1,1,1,1,1,1,1,0,0,0]},
+    {n:"品質(不具合)",tg:"0",s:[0,1,0,1,1,1,1,0,1,0,0,0]},
+    {n:"納期(LT)",tg:"6.9",s:[0,1,1,1,1,1,0,1,1,0,0,0]},
+    {n:"原価(生産効率)",tg:"26.8",s:[1,1,0,1,0,0,0,0,0,0,0,0]}]},
+  {dept:"北関東鉄工", items:[
+    {n:"品質(クレーム)",tg:"0",s:[0,1,1,1,1,1,1,1,1,0,0,0]},
+    {n:"品質(不具合)",tg:"0",s:[1,1,0,1,1,1,1,1,1,0,0,0]},
+    {n:"納期(LT)",tg:"4.1",s:[1,1,0,1,0,1,1,1,0,0,0,0]},
+    {n:"原価(生産効率)",tg:"23.1",s:[0,0,0,0,0,0,0,1,0,0,0,0]}]},
+  {dept:"本社縫製", items:[
+    {n:"品質(クレーム)",tg:"0",s:[1,1,1,1,1,1,1,1,1,0,0,0]},
+    {n:"品質(不具合)",tg:"0",s:[1,0,1,1,1,0,0,1,0,0,0,0]},
+    {n:"納期(LT)",tg:"14",s:[1,1,1,1,1,1,1,1,1,0,0,0]},
+    {n:"原価(生産効率)",tg:"8.9",s:[0,0,0,0,0,1,0,1,0,0,0,0]}]},
+  {dept:"北多久縫製", items:[
+    {n:"品質(クレーム)",tg:"0",s:[1,1,1,1,1,1,1,1,1,0,0,0]},
+    {n:"品質(不具合)",tg:"0",s:[1,1,1,1,1,1,1,1,1,0,0,0]},
+    {n:"納期(LT)",tg:"25.6",s:[1,1,1,0,1,0,1,1,1,0,0,0]},
+    {n:"原価(生産効率)",tg:"5.6",s:[0,1,0,1,0,1,0,0,0,0,0,0]}]},
+  {dept:"北関東縫製", items:[
+    {n:"品質(クレーム)",tg:"0",s:[1,1,1,1,0,1,1,0,1,0,0,0]},
+    {n:"品質(不具合)",tg:"0",s:[1,0,0,1,1,1,1,0,1,0,0,0]},
+    {n:"納期(LT)",tg:"16.8",s:[1,1,1,1,1,1,1,1,1,0,0,0]},
+    {n:"原価(生産効率)",tg:"7.8",s:[0,0,0,0,0,0,0,0,0,0,0,0]}]}
+];
+// ===== 間接3課(Excel 05 実値) =====
+var kansetsu=[
+  {dept:"調達", items:[
+    {n:"品質(クレーム)",tg:"0",s:[1,1,1,1,1,1,1,0,1,0,0,0]},
+    {n:"品質(不具合)",tg:"0",s:[1,0,1,1,1,1,1,1,0,0,0,0]},
+    {n:"不動在庫削減",tg:"1000",s:[1,0,0,0,0,0,1,0,0,0,0,0]},
+    {n:"仕入(値引額)",tg:"1750",s:[0,1,1,1,0,1,1,0,1,0,0,0]}]},
+  {dept:"管理", items:[
+    {n:"鉄工課生産性",tg:"25",s:[0,0,0,0,0,0,0,1,1,0,0,0]},
+    {n:"縫製課生産性",tg:"6.9",s:[0,0,0,0,0,1,0,1,0,0,0,0]},
+    {n:"効率化(納期変更率)",tg:"11",s:[1,0,0,1,0,0,0,0,0,0,0,0]},
+    {n:"生産性向上(BN改善)",tg:"1",s:[0,0,1,1,1,1,1,1,1,0,0,0]}]},
+  {dept:"検査", items:[
+    {n:"品質(クレーム)",tg:"0",s:[1,1,1,1,1,1,1,1,1,0,0,0]},
+    {n:"品質(不具合)",tg:"0",s:[0,0,1,0,1,1,0,1,1,0,0,0]},
+    {n:"外注内不具合削減",tg:"10",s:[1,1,0,0,0,0,0,1,0,0,0,0]},
+    {n:"検査時発見割合",tg:"85",s:[1,1,1,1,1,1,1,1,1,0,0,0]}]}
+];
+var rules={
+  seizo:"【ルール】月間目標達成で★ / 年間目標を期末累計で達成すると★+3(期末のみ) / 5S大賞・労災は手入力",
+  kansetsu:"【ルール】月間目標達成で★(経過月内の空欄も達成扱い) / 年間目標を期末累計で達成すると★+3(期末のみ) / 5S大賞・労災は手入力"
+};
+
+function deptTotal(d){ return sum(d.items.map(it=>sum(it.s))); }
+
+function renderRanking(data){
+  var rows=data.map(d=>({dept:d.dept,star:deptTotal(d)})).sort((a,b)=>b.star-a.star);
+  var max=Math.max.apply(null,rows.map(r=>r.star));
+  var crowns=["🥇","🥈","🥉"];
+  document.getElementById("ranking").innerHTML=rows.map((r,i)=>
+    '<div class="rank-row"><span class="rk">'+(i+1)+'</span>'+
+    '<span class="lbl">'+(crowns[i]||"")+' '+r.dept+'</span>'+
+    '<span class="rank-bar"><span style="width:'+(r.star/max*100)+'%"></span></span>'+
+    '<span class="rank-num">★'+r.star+'</span></div>').join("");
+}
+function renderGrids(data){
+  var html="";
+  data.forEach(function(d){
+    var head='<tr><th class="dept">部署</th><th>項目</th><th>月間目標</th>'+M.map(m=>'<th>'+m+'</th>').join("")+'<th>合計★</th></tr>';
+    var body="";
+    d.items.forEach(function(it,idx){
+      body+='<tr>'+(idx===0?'<td class="dept" rowspan="'+(d.items.length)+'">'+d.dept+'</td>':'')+
+        '<td class="item">'+it.n+'</td><td class="tgt">'+it.tg+'</td>'+
+        it.s.map(v=>v?'<td class="star">★</td>':'<td class="blank">・</td>').join("")+
+        '<td class="sum">'+sum(it.s)+'</td></tr>';
+    });
+    // subtotal
+    body+='<tr class="subtotal"><td class="dept"></td><td colspan="2" style="text-align:right">合計★数(自動)</td>'+
+      M.map((m,mi)=>'<td>'+(sum(d.items.map(it=>it.s[mi]))||"")+'</td>').join("")+'<td class="sum">'+deptTotal(d)+'</td></tr>';
+    // manual rows
+    body+='<tr class="manual"><td class="dept"></td><td colspan="2" style="text-align:right">5S大賞(手入力)</td>'+M.map(()=>'<td class="input">＋</td>').join("")+'<td class="sum">0</td></tr>';
+    body+='<tr class="manual"><td class="dept"></td><td colspan="2" style="text-align:right">労災発生(手入力)</td>'+M.map(()=>'<td class="input">－</td>').join("")+'<td class="sum">0</td></tr>';
+    // total
+    body+='<tr class="total"><td class="dept"></td><td colspan="2" style="text-align:right">総合計★数(5S・労災込)</td>'+M.map(()=>'<td></td>').join("")+'<td>★'+deptTotal(d)+'</td></tr>';
+    html+='<div class="card dept-block"><table>'+head+body+'</table></div>';
+  });
+  document.getElementById("grids").innerHTML=html;
+}
+function render(t){
+  var data=(t==="seizo")?seizo:kansetsu;
+  document.getElementById("ruleText").textContent=rules[t];
+  renderRanking(data); renderGrids(data);
+}
+document.querySelectorAll(".tab").forEach(function(tab){
+  tab.onclick=function(){
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    tab.classList.add("active"); render(tab.dataset.t);
+  };
+});
+render("seizo");
+</script>
+</body>
+</html>

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>過去実績参照(モック) - 全社/部署別/グループ別</title>
+<style>
+  :root{
+    --panel:#fff; --ink:#1e293b; --sub:#64748b; --line:#e2e8f0;
+    --navy:#1f3864; --green:#16a34a; --amber:#d97706; --red:#dc2626; --blue:#2563eb; --soft:#f1f5f9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;background:#eef2f7;color:var(--ink);}
+  .wrap{max-width:1280px;margin:0 auto;padding:20px;}
+  .mockbar{background:#dbeafe;color:#1e3a8a;font-size:12px;padding:6px 14px;border-radius:8px;margin-bottom:14px;font-weight:600;}
+  header.top{display:flex;align-items:center;justify-content:space-between;background:var(--navy);color:#fff;border-radius:14px;padding:16px 24px;margin-bottom:14px;}
+  header.top h1{font-size:19px;margin:0;font-weight:700;}
+  .tabs{display:flex;gap:8px;margin-bottom:12px;}
+  .tab{padding:8px 16px;border-radius:9px;background:#dde5ef;color:#475569;font-size:13px;font-weight:600;cursor:pointer;}
+  .tab.active{background:var(--navy);color:#fff;}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:13px;}
+  .toolbar select{border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;background:#fff;}
+  .src{font-size:11px;color:var(--sub);margin-left:auto;}
+  .section-title{font-size:13px;font-weight:700;color:var(--navy);margin:6px 4px 12px;}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
+  .pane{display:none;} .pane.active{display:block;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 1px 3px rgba(15,23,42,.05);}
+  .card h3{font-size:13px;margin:0 0 4px;color:var(--navy);}
+  .verdict{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;display:inline-block;margin-bottom:8px;}
+  .v-stretch{background:#fee2e2;color:#991b1b;} .v-ok{background:#dcfce7;color:#166534;} .v-watch{background:#fef3c7;color:#92400e;}
+  table{border-collapse:collapse;width:100%;font-size:11.5px;margin-top:8px;}
+  th,td{padding:5px 7px;border-bottom:1px solid var(--line);text-align:right;}
+  th{color:var(--sub);font-weight:600;}
+  td.lbl,th.lbl{text-align:left;font-weight:600;}
+  td.tgt{background:#eff6ff;color:#1e40af;font-weight:800;}
+  .badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;color:#fff;}
+  .b-green{background:var(--green);} .b-amber{background:var(--amber);} .b-red{background:var(--red);}
+  .dept-table th,.dept-table td{text-align:right;}
+  .dept-table td.lbl{text-align:left;}
+  .dup-note{background:#fffbeb;border:1px solid #fde68a;color:#92400e;font-size:11px;border-radius:8px;padding:6px 10px;margin-bottom:10px;}
+  .foot{font-size:11px;color:var(--sub);margin-top:16px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="mockbar">ⓘ 設計すり合わせ用モック。過去実績を <b>全社・部門 / 部署別 / グループ別</b> で抽出。50期〜は当システム実績(部署別が充実)、43-49期は移行レガシー(集約中心)。数値はExcel 06実値＋サンプル。</div>
+
+  <header class="top">
+    <h1>過去実績参照 ― 目標妥当性の検証</h1>
+    <div style="font-size:12px;">スコープを切替えて 全社/部署/グループ で照会</div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-p="zensha">全社・部門</div>
+    <div class="tab" data-p="busho">部署別</div>
+    <div class="tab" data-p="group">グループ別</div>
+  </div>
+
+  <!-- ===== 全社・部門 ===== -->
+  <div class="pane active" id="p-zensha">
+    <div class="toolbar"><span class="src">データ源: 43-49期=移行レガシー / 50期目標=KPIマスタ</span></div>
+    <div class="grid" id="grid-zensha"></div>
+  </div>
+
+  <!-- ===== 部署別 ===== -->
+  <div class="pane" id="p-busho">
+    <div class="toolbar">
+      <select id="bushoSel">
+        <option>本社鉄工課</option><option>第二鉄工課</option><option>北関東鉄工課</option>
+        <option>本社縫製課</option><option>北多久縫製課</option><option>北関東縫製課</option>
+        <option>調達課</option><option>生産管理課</option><option>検査課</option>
+      </select>
+      <span class="src">データ源: 50期=当システム実績 / 49期=前期実績 / 50期目標=KPIマスタ</span>
+    </div>
+    <div class="card">
+      <h3 id="busho-title">本社鉄工課 ― KPI別 過去/現在</h3>
+      <table class="dept-table">
+        <thead><tr><th class="lbl">KPI</th><th>単位</th><th>49期実績</th><th>50期目標</th><th>50期現在(経過9ヶ月)</th><th>判定</th></tr></thead>
+        <tbody id="busho-body"></tbody>
+      </table>
+      <div class="foot">※ 43-48期の部署別時系列は、当システム運用を重ねるほど蓄積(移行分があれば併記)。</div>
+    </div>
+  </div>
+
+  <!-- ===== グループ別 ===== -->
+  <div class="pane" id="p-group">
+    <div class="toolbar">
+      <select id="groupSel">
+        <option value="tekko">鉄工課グループ(本社/第二/北関東 鉄工)</option>
+        <option value="houkanto">北関東工場グループ(北関東 鉄工/縫製)</option>
+        <option value="housei">縫製課グループ(本社/北多久/北関東 縫製)</option>
+      </select>
+      <span class="src">所属部署を合算(累計系)/平均(率系)。北関東鉄工課は複数Gで重複計上</span>
+    </div>
+    <div class="dup-note" id="group-dup"></div>
+    <div class="card">
+      <h3 id="group-title"></h3>
+      <table class="dept-table">
+        <thead><tr><th class="lbl">指標(グループ集計)</th><th>集計</th><th>49期</th><th>50期目標</th><th>50期現在</th></tr></thead>
+        <tbody id="group-body"></tbody>
+      </table>
+      <div class="foot">合算=クレーム/不具合/生産量など累計系、平均=生産効率/LTなど率系。所属部署の値を集計。</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    実装時: 50期〜=<code>SEISAN_KPI_ACTUAL</code>(部署×KPI×月)、43-49期=<code>SEISAN_KPI_HISTORY</code>。グループ別は <code>SEISAN_KPI_GROUP_MEMBER</code> 経由で所属部署を合算。折れ線は recharts。
+  </div>
+
+</div>
+
+<script>
+var P=["43期","44期","45期","46期","47期","48期","49期"];
+// ===== 全社・部門 =====
+var series=[
+  {t:"鉄工 生産量(t/年)",unit:"t",data:[1377,1189,1237,1379,1437,1504,1362],tgt:1505,verdict:"v-stretch",vlabel:"ストレッチ(過去最高1504超)"},
+  {t:"鉄工 一人当たり(t/人)",unit:"t/人",data:[4.8,3.5,4.3,4.4,4.0,4.4,3.9],tgt:4.1,verdict:"v-ok",vlabel:"妥当(過去平均圏)"},
+  {t:"縫製 生産量(㎡/年)",unit:"㎡",data:[347194,388614,370312,373379,408000,343936,420581],tgt:447058,verdict:"v-stretch",vlabel:"ストレッチ(過去最高420581超)"},
+  {t:"クレーム件数(件/年)",unit:"件",data:[40,30,20,18,14,10,16],tgt:6,verdict:"v-stretch",vlabel:"高ストレッチ(過去最少10超え)"},
+  {t:"社内不具合件数(件/年)",unit:"件",data:[115,89,81,76,84,65,64],tgt:51,verdict:"v-watch",vlabel:"要努力(過去最少64の20%減)"},
+  {t:"粗利率(%)",unit:"%",data:[null,null,null,null,null,null,34.8],tgt:35,verdict:"v-ok",vlabel:"妥当(49期34.8→35)"},
+  {t:"総資産回転率(回)",unit:"回",data:[null,null,null,null,1.04,1.04,1.16],tgt:1.25,verdict:"v-watch",vlabel:"やや高め(1.16→1.25)"}
+];
+function drawChart(svg,data,tgt){
+  var W=480,H=140,padL=52,padR=16,padT=12,padB=22;
+  var vals=data.filter(v=>v!=null).concat([tgt]);
+  var min=Math.min.apply(null,vals),max=Math.max.apply(null,vals);var sp=(max-min)||1;min-=sp*0.12;max+=sp*0.12;
+  var n=P.length,x=i=>padL+(W-padL-padR)*i/(n-1),y=v=>padT+(H-padT-padB)*(1-(v-min)/(max-min));
+  var ns="http://www.w3.org/2000/svg";function el(t,a){var e=document.createElementNS(ns,t);for(var k in a)e.setAttribute(k,a[k]);return e;}
+  svg.appendChild(el("line",{x1:padL,y1:y(tgt),x2:W-padR,y2:y(tgt),stroke:"#2563eb","stroke-width":1.4,"stroke-dasharray":"5 4"}));
+  var tl=el("text",{x:W-padR,y:y(tgt)-4,"text-anchor":"end","font-size":"10",fill:"#2563eb"});tl.textContent="50期目標 "+tgt;svg.appendChild(tl);
+  var d="",st=false;data.forEach(function(v,i){if(v==null)return;d+=(st?"L":"M")+x(i)+" "+y(v)+" ";st=true;});
+  svg.appendChild(el("path",{d:d,fill:"none",stroke:"#1f3864","stroke-width":2.2}));
+  data.forEach(function(v,i){if(v==null)return;svg.appendChild(el("circle",{cx:x(i),cy:y(v),r:3,fill:"#1f3864"}));});
+  P.forEach(function(t,i){var xt=el("text",{x:x(i),y:H-7,"text-anchor":"middle","font-size":"9",fill:"#64748b"});xt.textContent=t;svg.appendChild(xt);});
+}
+var gz=document.getElementById("grid-zensha");
+series.forEach(function(s){
+  var c=document.createElement("div");c.className="card";
+  var rows='<tr><th class="lbl">指標</th>'+P.map(p=>'<th>'+p+'</th>').join("")+'<th>50期目標</th></tr>';
+  rows+='<tr><td class="lbl">'+s.unit+'</td>'+s.data.map(v=>'<td>'+(v==null?'―':v.toLocaleString())+'</td>').join("")+'<td class="tgt">'+s.tgt.toLocaleString()+'</td></tr>';
+  c.innerHTML='<h3>'+s.t+'</h3><span class="verdict '+s.verdict+'">'+s.vlabel+'</span><svg width="100%" height="140" viewBox="0 0 480 140"></svg><table>'+rows+'</table>';
+  gz.appendChild(c);drawChart(c.querySelector("svg"),s.data,s.tgt);
+});
+
+// ===== 部署別(KPIマスタ49期実績/年間目標 + 50期現在) =====
+var bushoData={
+  "本社鉄工課":[
+    {n:"クレーム件数",u:"件",p49:1,tgt:1,cur:1,j:"red"},
+    {n:"社内不具合件数",u:"件",p49:13,tgt:9,cur:9,j:"red"},
+    {n:"リードタイム",u:"日/t",p49:"―",tgt:9.2,cur:4.86,j:"green"},
+    {n:"生産量(補助)",u:"t/月",p49:51.8,tgt:57.3,cur:"451.1(累計)",j:"amber"},
+    {n:"生産効率",u:"kg/h",p49:"―",tgt:25,cur:22.37,j:"amber"}],
+  "北関東鉄工課":[
+    {n:"クレーム件数",u:"件",p49:3,tgt:1,cur:1,j:"red"},
+    {n:"社内不具合件数",u:"件",p49:11,tgt:8,cur:1,j:"green"},
+    {n:"リードタイム",u:"日/t",p49:"―",tgt:4.1,cur:3.56,j:"green"},
+    {n:"生産効率",u:"kg/h",p49:"―",tgt:23.1,cur:19,j:"amber"}],
+  "検査課":[
+    {n:"クレーム件数",u:"件",p49:0,tgt:0,cur:0,j:"green"},
+    {n:"社内不具合件数",u:"件",p49:18,tgt:11,cur:4,j:"green"},
+    {n:"外注内不具合削減",u:"件",p49:166,tgt:120,cur:144,j:"red"},
+    {n:"検査時発見割合",u:"%",p49:82,tgt:85,cur:97.9,j:"green"}]
+};
+var jl={green:"緑",amber:"黄",red:"赤"};
+function renderBusho(){
+  var d=document.getElementById("bushoSel").value;
+  document.getElementById("busho-title").textContent=d+" ― KPI別 過去/現在";
+  var rows=(bushoData[d]||[{n:"(この部署のサンプルデータは未設定)",u:"",p49:"―",tgt:"―",cur:"―",j:"green"}]);
+  document.getElementById("busho-body").innerHTML=rows.map(function(r){
+    return '<tr><td class="lbl">'+r.n+'</td><td>'+r.u+'</td><td>'+r.p49+'</td><td class="tgt">'+r.tgt+'</td><td>'+r.cur+'</td>'+
+      '<td><span class="badge b-'+r.j+'">'+jl[r.j]+'</span></td></tr>';
+  }).join("");
+}
+document.getElementById("bushoSel").onchange=renderBusho;
+
+// ===== グループ別(所属部署を合算/平均・サンプル) =====
+var groupData={
+  tekko:{name:"鉄工課グループ",members:"本社鉄工 + 第二鉄工 + 北関東鉄工",dup:false,rows:[
+    {n:"クレーム件数(合算)",a:"合算",p49:5,tgt:3,cur:2},
+    {n:"社内不具合件数(合算)",a:"合算",p49:28,tgt:20,cur:14},
+    {n:"生産量(合算 t)",a:"合算",p49:1523,tgt:1510,cur:1175},
+    {n:"生産効率(平均 kg/h)",a:"平均",p49:"―",tgt:24.97,cur:21.1}]},
+  houkanto:{name:"北関東工場グループ",members:"北関東鉄工 + 北関東縫製",dup:true,rows:[
+    {n:"クレーム件数(合算)",a:"合算",p49:6,tgt:2,cur:3},
+    {n:"社内不具合件数(合算)",a:"合算",p49:15,tgt:14,cur:4},
+    {n:"生産効率 鉄工(平均)",a:"平均",p49:"―",tgt:23.1,cur:19},
+    {n:"生産効率 縫製(平均)",a:"平均",p49:"―",tgt:7.8,cur:5.8}]},
+  housei:{name:"縫製課グループ",members:"本社縫製 + 北多久縫製 + 北関東縫製",dup:false,rows:[
+    {n:"クレーム件数(合算)",a:"合算",p49:11,tgt:3,cur:2},
+    {n:"社内不具合件数(合算)",a:"合算",p49:11,tgt:15,cur:10},
+    {n:"生産効率(平均 ㎡/h)",a:"平均",p49:"―",tgt:7.43,cur:5.53}]}
+};
+function renderGroup(){
+  var g=groupData[document.getElementById("groupSel").value];
+  document.getElementById("group-title").textContent=g.name+" ― グループ集計("+g.members+")";
+  document.getElementById("group-dup").style.display=g.dup?"block":"none";
+  document.getElementById("group-dup").innerHTML="⭐ <b>北関東鉄工課</b>はこのグループと「鉄工課グループ」の両方に所属 → 両グループで重複計上(表示)。実績は部署単位で1回登録。";
+  document.getElementById("group-body").innerHTML=g.rows.map(function(r){
+    return '<tr><td class="lbl">'+r.n+'</td><td>'+r.a+'</td><td>'+r.p49+'</td><td class="tgt">'+r.tgt+'</td><td>'+r.cur+'</td></tr>';
+  }).join("");
+}
+document.getElementById("groupSel").onchange=renderGroup;
+
+// tabs
+document.querySelectorAll(".tab").forEach(function(t){
+  t.onclick=function(){
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".pane").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");document.getElementById("p-"+t.dataset.p).classList.add("active");
+    if(t.dataset.p==="busho")renderBusho();
+    if(t.dataset.p==="group")renderGroup();
+  };
+});
+renderBusho();renderGroup();
+</script>
+</body>
+</html>

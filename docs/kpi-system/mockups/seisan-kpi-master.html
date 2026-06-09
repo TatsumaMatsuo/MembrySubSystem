@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPIマスタ / グループマスタ管理(モック)</title>
+<style>
+  :root{
+    --panel:#fff; --ink:#1e293b; --sub:#64748b; --line:#e2e8f0;
+    --navy:#1f3864; --green:#16a34a; --amber:#d97706; --red:#dc2626; --blue:#2563eb; --soft:#f1f5f9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;background:#eef2f7;color:var(--ink);}
+  .wrap{max-width:1340px;margin:0 auto;padding:20px;}
+  .mockbar{background:#fee2e2;color:#991b1b;font-size:12px;padding:6px 14px;border-radius:8px;margin-bottom:14px;font-weight:600;}
+  header.top{display:flex;align-items:center;justify-content:space-between;background:var(--navy);color:#fff;border-radius:14px;padding:16px 24px;margin-bottom:14px;}
+  header.top h1{font-size:19px;margin:0;font-weight:700;}
+  header.top .meta{display:flex;gap:10px;align-items:center;font-size:13px;}
+  header.top select,header.top .chip,header.top button{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;}
+  .tabs{display:flex;gap:8px;margin-bottom:12px;}
+  .tab{padding:8px 16px;border-radius:9px;background:#dde5ef;color:#475569;font-size:13px;font-weight:600;cursor:pointer;}
+  .tab.active{background:var(--navy);color:#fff;}
+  .pane{display:none;} .pane.active{display:block;}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:13px;}
+  .toolbar select,.toolbar input{border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;background:#fff;}
+  .btn{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;}
+  .btn.ghost{background:#fff;color:var(--navy);border:1px solid var(--navy);}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 1px 3px rgba(15,23,42,.05);overflow-x:auto;}
+  table{border-collapse:collapse;width:100%;font-size:12px;white-space:nowrap;}
+  th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;}
+  thead th{background:var(--soft);color:var(--sub);font-weight:600;font-size:11px;position:sticky;top:0;}
+  td.ed{background:#fcfcfd;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .chip{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;}
+  .lv2{background:#e0e7ff;color:#3730a3;} .lv3{background:#dbeafe;color:#1e40af;} .lv4{background:#f1f5f9;color:#475569;}
+  .cat-q{background:#fee2e2;color:#991b1b;} .cat-n{background:#fef3c7;color:#92400e;} .cat-c{background:#dcfce7;color:#166534;} .cat-s{background:#e0e7ff;color:#3730a3;}
+  .toggle{display:inline-block;width:34px;height:18px;border-radius:10px;background:var(--green);position:relative;}
+  .toggle::after{content:"";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;}
+  .note{font-size:11px;color:var(--sub);margin-top:10px;line-height:1.7;}
+  /* group */
+  .gwrap{display:grid;grid-template-columns:300px 1fr;gap:14px;align-items:start;}
+  .glist .grow{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;font-size:13px;}
+  .glist .grow b{font-weight:700;}
+  .gtype{font-size:10px;color:var(--sub);}
+  .matrix th,.matrix td{text-align:center;border:1px solid var(--line);}
+  .matrix td.dept{text-align:left;font-weight:600;white-space:nowrap;}
+  .matrix input{width:16px;height:16px;accent-color:var(--blue);}
+  .dup{background:#fffbeb;}
+  .badge-dup{font-size:10px;color:#92400e;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="mockbar">⚠ 設計すり合わせ用モック(管理者専用)。数値はダミー/Excel 07相当。KPI定義・目標値・グループ構成を管理。変更はAUDIT記録。</div>
+
+  <header class="top">
+    <h1>KPIマスタ / グループマスタ管理</h1>
+    <div class="meta">
+      <select><option>50期</option><option>49期</option></select>
+      <button>＋ 新期作成(前期を複製)</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-p="kpi">KPIマスタ管理(63指標)</div>
+    <div class="tab" data-p="group">グループマスタ管理</div>
+  </div>
+
+  <!-- ===== KPIマスタ ===== -->
+  <div class="pane active" id="p-kpi">
+    <div class="toolbar">
+      <select><option>階層: すべて</option><option>Lv2</option><option>Lv3</option><option>Lv4</option></select>
+      <select><option>部門: すべて</option><option>製造部</option><option>生産管理部</option></select>
+      <select><option>カテゴリ: すべて</option><option>品質</option><option>納期</option><option>原価</option><option>安全</option></select>
+      <input placeholder="KPI名称で検索">
+      <button class="btn" style="margin-left:auto">＋ KPI追加</button>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th>KPI_ID</th><th>階層</th><th>部署(Lark)</th><th>カテゴリ</th><th>KPI名称</th><th>単位</th>
+          <th>集計</th><th>方向</th><th>年間目標</th><th>月次目標</th><th>オーナー</th><th>有効</th><th></th>
+        </tr></thead>
+        <tbody id="kpi-body"></tbody>
+      </table>
+      <div class="note">編集項目: KPI名称・単位・集計タイプ・良い方向・年間目標・月次目標換算・オーナー・データソース・入力タイミング・有効フラグ・備考。<b>期切替=新期作成で前期定義を複製→目標値のみ更新</b>。部署は Lark Contact 部門から選択(改称追従)。</div>
+    </div>
+  </div>
+
+  <!-- ===== グループマスタ ===== -->
+  <div class="pane" id="p-group">
+    <div class="gwrap">
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;">グループ一覧 <button class="btn ghost" style="float:right;padding:3px 10px;font-size:11px">＋追加</button></div>
+        <div class="glist">
+          <div class="grow"><span><b>鉄工課グループ</b><div class="gtype">機能別 ・ 3部署</div></span><span class="toggle"></span></div>
+          <div class="grow"><span><b>北関東工場グループ</b><div class="gtype">拠点別 ・ 2部署</div></span><span class="toggle"></span></div>
+          <div class="grow"><span><b>縫製課グループ</b><div class="gtype">機能別 ・ 3部署</div></span><span class="toggle"></span></div>
+          <div class="grow"><span><b>生産管理部グループ</b><div class="gtype">機能別 ・ 3部署</div></span><span class="toggle"></span></div>
+        </div>
+        <div class="note">グループ種別(機能別/拠点別)・並び順・有効フラグを設定。期ごとに構成変更可。</div>
+      </div>
+
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;">所属マトリクス(行=Lark部署 × 列=グループ) ― チェックで所属。<span class="badge-dup">1部署を複数グループに重複所属可</span></div>
+        <table class="matrix">
+          <thead><tr><th class="dept">部署 \ グループ</th><th>鉄工課G</th><th>北関東工場G</th><th>縫製課G</th><th>生産管理部G</th></tr></thead>
+          <tbody id="mx-body"></tbody>
+        </table>
+        <div class="note">⭐ <b>北関東鉄工課</b>は「鉄工課G」と「北関東工場G」の両方にチェック → 両グループで重複表示。実績は部署単位で1回登録(複製なし)。</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===== KPIマスタ(抜粋・Excel 07相当) =====
+var kpis=[
+  ["M-01","Lv2","生産本部全体","原価","粗利率","%","基礎データ算出","高い","35","35","山口本部長"],
+  ["M-03","Lv2","生産本部全体","品質","クレーム件数(年累計)","件","累計","少ない","6","0","山口本部長"],
+  ["M-12","Lv3","製造部全体","納期","鉄工トータルLT","日/t","平均","少ない","6.6","6.6","製造部次長"],
+  ["M-14","Lv3","製造部全体","原価","鉄工生産効率","kg/h","平均","高い","25","25","製造部次長"],
+  ["M-30","Lv4","本社鉄工課","品質","クレーム件数(年累計)","件","累計","少ない","1","0","本社鉄工課長"],
+  ["M-31","Lv4","本社鉄工課","品質","社内不具合件数(年累計)","件","累計","少ない","9","0","本社鉄工課長"],
+  ["M-32","Lv4","本社鉄工課","納期","リードタイム","日/t","平均","少ない","9.2","9.2","本社鉄工課長"],
+  ["M-50","Lv4","北関東鉄工課","品質","クレーム件数(年累計)","件","累計","少ない","1","0","北関東鉄工課長"],
+  ["M-113","Lv4","生産管理課","納期","納期変更率","%","平均","少ない","11","11","生産管理課長"],
+  ["M-123","Lv4","検査課","品質","検査時発見割合","%","平均","高い","85","85","検査課長"]
+];
+var lvc={Lv2:"lv2",Lv3:"lv3",Lv4:"lv4"};
+var catc={品質:"cat-q",納期:"cat-n",原価:"cat-c",安全:"cat-s"};
+document.getElementById("kpi-body").innerHTML=kpis.map(function(k){
+  return '<tr><td><b>'+k[0]+'</b></td><td><span class="chip '+lvc[k[1]]+'">'+k[1]+'</span></td>'+
+    '<td>'+k[2]+'</td><td><span class="chip '+catc[k[3]]+'">'+k[3]+'</span></td>'+
+    '<td class="ed">'+k[4]+'</td><td class="ed">'+k[5]+'</td><td>'+k[6]+'</td><td>'+k[7]+'方が良い</td>'+
+    '<td class="ed num">'+k[8]+'</td><td class="ed num">'+k[9]+'</td><td class="ed">'+k[10]+'</td>'+
+    '<td style="text-align:center"><span class="toggle"></span></td><td style="color:var(--blue);cursor:pointer">編集</td></tr>';
+}).join("")+'<tr><td colspan="13" style="text-align:center;color:var(--sub)">… 他53指標(全63指標) …</td></tr>';
+
+// ===== グループ所属マトリクス =====
+var depts=["本社鉄工課","第二鉄工課","北関東鉄工課","本社縫製課","北多久縫製課","北関東縫製課","調達課","生産管理課","検査課"];
+// 列: 鉄工課G, 北関東工場G, 縫製課G, 生産管理部G
+var member={
+  "本社鉄工課":[1,0,0,0],"第二鉄工課":[1,0,0,0],"北関東鉄工課":[1,1,0,0],
+  "本社縫製課":[0,0,1,0],"北多久縫製課":[0,0,1,0],"北関東縫製課":[0,1,1,0],
+  "調達課":[0,0,0,1],"生産管理課":[0,0,0,1],"検査課":[0,0,0,1]
+};
+document.getElementById("mx-body").innerHTML=depts.map(function(d){
+  var dup=member[d].reduce((s,v)=>s+v,0)>1;
+  var cells=member[d].map(v=>'<td><input type="checkbox" '+(v?"checked":"")+'></td>').join("");
+  return '<tr'+(dup?' class="dup"':'')+'><td class="dept">'+d+(dup?' <span class="badge-dup">⮂重複</span>':'')+'</td>'+cells+'</tr>';
+}).join("");
+
+document.querySelectorAll(".tab").forEach(function(t){
+  t.onclick=function(){
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".pane").forEach(x=>x.classList.remove("active"));
+    t.classList.add("active");
+    document.getElementById("p-"+t.dataset.p).classList.add("active");
+  };
+});
+</script>
+</body>
+</html>

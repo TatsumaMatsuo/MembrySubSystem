@@ -42,6 +42,45 @@ export function getLarkTables() {
     OFFICES: process.env.LARK_TABLE_OFFICES || "tbl1S12KMGhVW91p",
     // 社内工程表テーブル
     SCHEDULE: process.env.LARK_TABLE_SCHEDULE || "tblhhTgv5ynrkFjN",
+
+    // ===== 生産本部KPIシステム(docs/kpi-system) =====
+    // --- 経営レイヤー(L0/L1) ※全社年度KPIは既存 COMPANY_KPI を流用 ---
+    // 経営_中期経営計画ヘッダ
+    KEIEI_MIDTERM_PLAN_HEADER:
+      process.env.LARK_TABLE_KEIEI_MIDTERM_PLAN_HEADER || "tbl0mRIrdu5CNXJg",
+    // 経営_中期経営計画明細
+    KEIEI_MIDTERM_PLAN:
+      process.env.LARK_TABLE_KEIEI_MIDTERM_PLAN || "tbls3w16SRX4KQRn",
+    // 経営_会計データ実績
+    KAIKEI_ACTUAL: process.env.LARK_TABLE_KAIKEI_ACTUAL || "tbloZgcbsFls9LWt",
+    // --- 生産本部レイヤー(L2) ---
+    // 生産KPI_KPIマスタ
+    SEISAN_KPI_MASTER:
+      process.env.LARK_TABLE_SEISAN_KPI_MASTER || "tblCiDxUsOEM05Tc",
+    // 生産KPI_期マスタ
+    SEISAN_KPI_PERIOD:
+      process.env.LARK_TABLE_SEISAN_KPI_PERIOD || "tblseheBISHZKGnh",
+    // 生産KPI_グループマスタ
+    SEISAN_KPI_GROUP:
+      process.env.LARK_TABLE_SEISAN_KPI_GROUP || "tbleQOhwn9RkOXcK",
+    // 生産KPI_グループ所属(M:N)
+    SEISAN_KPI_GROUP_MEMBER:
+      process.env.LARK_TABLE_SEISAN_KPI_GROUP_MEMBER || "tblRQcbFM1fxP5Wa",
+    // 生産KPI_月次実績 ※未作成(テーブルID取得後に設定)
+    SEISAN_KPI_ACTUAL: process.env.LARK_TABLE_SEISAN_KPI_ACTUAL || "",
+    // 生産KPI_施策
+    SEISAN_KPI_MEASURE:
+      process.env.LARK_TABLE_SEISAN_KPI_MEASURE || "tblMfqKPv02mwBYd",
+    // 生産KPI_施策月次PDCA
+    SEISAN_KPI_PDCA: process.env.LARK_TABLE_SEISAN_KPI_PDCA || "tblFsaKWU4cum2ki",
+    // 生産KPI_★達成調整
+    SEISAN_KPI_STAR_ADJ:
+      process.env.LARK_TABLE_SEISAN_KPI_STAR_ADJ || "tblxdNl1zAzyid2U",
+    // 生産KPI_過去実績
+    SEISAN_KPI_HISTORY:
+      process.env.LARK_TABLE_SEISAN_KPI_HISTORY || "tblWjZkAUGXaZVH0",
+    // 生産KPI_変更履歴
+    SEISAN_KPI_AUDIT: process.env.LARK_TABLE_SEISAN_KPI_AUDIT || "tblEgJOw2uxKOVUf",
   };
 }
 
@@ -75,6 +114,20 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   OFFICES: "project",
   // 社内工程表（プロジェクトBase）
   SCHEDULE: "project",
+  // ===== 生産本部KPIシステム（全て project base） =====
+  KEIEI_MIDTERM_PLAN_HEADER: "project",
+  KEIEI_MIDTERM_PLAN: "project",
+  KAIKEI_ACTUAL: "project",
+  SEISAN_KPI_MASTER: "project",
+  SEISAN_KPI_PERIOD: "project",
+  SEISAN_KPI_GROUP: "project",
+  SEISAN_KPI_GROUP_MEMBER: "project",
+  SEISAN_KPI_ACTUAL: "project",
+  SEISAN_KPI_MEASURE: "project",
+  SEISAN_KPI_PDCA: "project",
+  SEISAN_KPI_STAR_ADJ: "project",
+  SEISAN_KPI_HISTORY: "project",
+  SEISAN_KPI_AUDIT: "project",
 };
 
 /**
@@ -435,4 +488,195 @@ export const SALES_KPI_FIELDS = {
   claim_limit_yearly: "クレーム上限件数",
   // 備考
   notes: "備考",
+} as const;
+
+/* ===========================================================================
+ * 生産本部KPIマネジメントシステム フィールド定義
+ * 設計: docs/kpi-system/02_data-model.md / 08_lark-base-setup.md
+ * ※ Lark上の表示名は日本語(業務ユーザーが直接見るため)
+ * =========================================================================== */
+
+/** 経営_中期経営計画ヘッダ */
+export const KEIEI_MIDTERM_PLAN_HEADER_FIELDS = {
+  plan_id: "中計コード",
+  name: "中計名",
+  start_period: "開始期",
+  end_period: "終了期",
+  status: "ステータス",
+  kgi_set: "KGI指標セット",
+  interpolation: "補間方法",
+  notes: "備考",
+} as const;
+
+/** 経営_中期経営計画明細 */
+export const KEIEI_MIDTERM_PLAN_FIELDS = {
+  detail_id: "明細コード",
+  plan_id: "中計コード",
+  indicator: "指標",
+  unit: "単位",
+  period: "対象期",
+  annual_target: "年度目標",
+  final_target: "最終目標",
+  method: "算出方法",
+  notes: "備考",
+} as const;
+
+/** 経営_会計データ実績 */
+export const KAIKEI_ACTUAL_FIELDS = {
+  actual_id: "実績コード",
+  period: "期",
+  granularity: "粒度",
+  span: "期間",
+  fiscal_month: "会計月序",
+  account: "勘定科目",
+  value: "実績値",
+  unit: "単位",
+  input_by: "入力者",
+  input_at: "入力日時",
+  locked: "確定フラグ",
+} as const;
+
+/** 生産KPI_KPIマスタ */
+export const SEISAN_KPI_MASTER_FIELDS = {
+  kpi_id: "KPIコード",
+  period: "期",
+  level: "階層",
+  department_div: "部門",
+  department: "部署",
+  department_id: "部署コード",
+  category: "カテゴリ",
+  kpi_name: "KPI名称",
+  unit: "単位",
+  agg_type: "集計タイプ",
+  direction: "良い方向",
+  prev_actual: "49期実績",
+  annual_target: "年間目標",
+  monthly_target: "月次目標換算",
+  owner: "KPIオーナー",
+  data_source: "データソース",
+  input_timing: "入力タイミング",
+  sort_order: "並び順",
+  is_active: "有効フラグ",
+  notes: "備考",
+} as const;
+
+/** 生産KPI_期マスタ */
+export const SEISAN_KPI_PERIOD_FIELDS = {
+  period: "期",
+  start_date: "期間開始日",
+  end_date: "期間終了日",
+  elapsed_months: "経過月数",
+  is_current: "当期フラグ",
+  notes: "備考",
+} as const;
+
+/** 生産KPI_グループマスタ */
+export const SEISAN_KPI_GROUP_FIELDS = {
+  group_id: "グループコード",
+  group_name: "グループ名",
+  group_type: "グループ種別",
+  period: "期",
+  sort_order: "並び順",
+  is_active: "有効フラグ",
+  notes: "備考",
+} as const;
+
+/** 生産KPI_グループ所属(M:N) */
+export const SEISAN_KPI_GROUP_MEMBER_FIELDS = {
+  member_id: "所属コード",
+  group_id: "グループコード",
+  department_id: "部署コード",
+  department: "部署",
+  period: "期",
+  sort_order: "並び順",
+} as const;
+
+/** 生産KPI_月次実績 */
+export const SEISAN_KPI_ACTUAL_FIELDS = {
+  actual_id: "実績コード",
+  period: "期",
+  kpi_id: "KPIコード",
+  target_ym: "対象年月",
+  fiscal_month: "会計月序",
+  value: "実績値",
+  input_by: "入力者",
+  input_at: "入力日時",
+  locked: "確定フラグ",
+  locked_by: "確定者",
+  notes: "備考",
+} as const;
+
+/** 生産KPI_施策 */
+export const SEISAN_KPI_MEASURE_FIELDS = {
+  measure_id: "施策コード",
+  period: "期",
+  group_id: "グループコード",
+  no: "No",
+  measure_name: "施策名",
+  target_kpi_id: "対象KPIコード",
+  status: "状態",
+  start_month: "開始月",
+  end_month: "終了月",
+  base_value: "基準値",
+  goal_value: "狙い値",
+  created_by: "作成者",
+  updated_at: "更新日時",
+} as const;
+
+/** 生産KPI_施策月次PDCA */
+export const SEISAN_KPI_PDCA_FIELDS = {
+  pdca_id: "PDCAコード",
+  measure_id: "施策コード",
+  period: "期",
+  target_ym: "対象年月",
+  fiscal_month: "会計月序",
+  plan: "計画（Plan）",
+  do: "実施（Do）",
+  kpi_actual: "対象KPI実績",
+  effect_auto: "効果（自動判定）",
+  effect: "効果（確定）",
+  effect_memo: "効果メモ",
+  director_comment: "本部長コメント",
+  next_action: "翌月アクション",
+  writer: "記入者",
+  updated_at: "更新日時",
+} as const;
+
+/** 生産KPI_★達成調整 */
+export const SEISAN_KPI_STAR_ADJ_FIELDS = {
+  adj_id: "調整コード",
+  period: "期",
+  department_id: "部署コード",
+  department: "部署",
+  target_ym: "対象年月",
+  type: "種別",
+  delta: "★増減",
+  reason: "理由",
+  registered_by: "登録者",
+} as const;
+
+/** 生産KPI_過去実績 */
+export const SEISAN_KPI_HISTORY_FIELDS = {
+  history_id: "履歴コード",
+  indicator_name: "指標名",
+  kpi_id: "KPIコード",
+  department_id: "部署コード",
+  department: "部署",
+  agg_level: "集計レベル",
+  unit: "単位",
+  period: "期",
+  value: "実績値",
+  target_50: "50期目標",
+} as const;
+
+/** 生産KPI_変更履歴(監査ログ) */
+export const SEISAN_KPI_AUDIT_FIELDS = {
+  history_id: "履歴コード",
+  target_table: "対象テーブル",
+  target_record_id: "対象レコードコード",
+  operation: "操作種別",
+  before: "変更前",
+  after: "変更後",
+  operator: "操作者",
+  operated_at: "操作日時",
 } as const;

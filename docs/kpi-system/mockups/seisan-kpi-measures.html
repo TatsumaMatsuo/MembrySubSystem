@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>施策管理 PDCA(モック) - 施策:PDCA = 1:多</title>
+<style>
+  :root{
+    --panel:#fff; --ink:#1e293b; --sub:#64748b; --line:#e2e8f0;
+    --navy:#1f3864; --green:#16a34a; --amber:#d97706; --red:#dc2626; --blue:#2563eb; --soft:#f1f5f9;
+    --plan:#dbeafe; --do:#cffafe; --check:#fef9c3; --comment:#ffedd5; --action:#dcfce7; --sel:#eff6ff;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;background:#eef2f7;color:var(--ink);}
+  .wrap{max-width:1340px;margin:0 auto;padding:20px;}
+  .mockbar{background:#dbeafe;color:#1e3a8a;font-size:12px;padding:6px 14px;border-radius:8px;margin-bottom:14px;font-weight:600;}
+  header.top{display:flex;align-items:center;justify-content:space-between;background:var(--navy);color:#fff;border-radius:14px;padding:16px 24px;margin-bottom:14px;}
+  header.top h1{font-size:19px;margin:0;font-weight:700;}
+  header.top .meta{display:flex;gap:10px;align-items:center;font-size:13px;}
+  header.top select,header.top .chip{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;}
+  .section-title{font-size:13px;font-weight:700;color:var(--navy);margin:18px 4px 10px;display:flex;align-items:center;gap:8px;}
+  .section-title::before{content:"▼";font-size:10px;color:#94a3b8;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 1px 3px rgba(15,23,42,.05);}
+  .kpi-chips{display:flex;gap:10px;flex-wrap:wrap;}
+  .kchip{border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12px;min-width:150px;}
+  .kchip .kn{color:var(--sub);font-weight:600;}
+  .kchip .kv{font-size:15px;font-weight:800;margin-top:2px;}
+  .badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;color:#fff;}
+  .b-green{background:var(--green);} .b-amber{background:var(--amber);} .b-red{background:var(--red);}
+  /* master-detail layout */
+  .md{display:grid;grid-template-columns:minmax(420px,1fr) 1.3fr;gap:14px;align-items:start;}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;}
+  th,td{padding:8px 10px;border:1px solid var(--line);text-align:left;vertical-align:top;}
+  thead th{background:var(--soft);color:var(--sub);font-weight:600;font-size:11.5px;text-align:center;}
+  .mlist tr{cursor:pointer;}
+  .mlist tr.sel td{background:var(--sel);box-shadow:inset 3px 0 0 var(--blue);}
+  .mlist tr:hover td{background:#f8fafc;}
+  td.c{text-align:center;}
+  td.auto{background:#f8fafc;text-align:center;font-weight:700;}
+  .sel-kpi{font-size:11px;color:var(--blue);font-weight:600;}
+  .add{display:inline-block;margin-top:8px;font-size:12px;color:var(--blue);font-weight:600;cursor:pointer;}
+  .pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:6px;white-space:nowrap;}
+  .pill.kaizen{background:#dcfce7;color:#166534;} .pill.akka{background:#fee2e2;color:#991b1b;} .pill.yoko{background:#f1f5f9;color:#475569;}
+  .pill.keizoku{background:#dbeafe;color:#1e40af;} .pill.kyoka{background:#ede9fe;color:#5b21b6;} .pill.kanryo{background:#dcfce7;color:#166534;} .pill.chushi{background:#fee2e2;color:#991b1b;} .pill.draft{background:#f1f5f9;color:#475569;}
+  /* PDCA detail */
+  .detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+  .detail-head .nm{font-size:15px;font-weight:800;color:var(--navy);}
+  .detail-head .meta2{font-size:11px;color:var(--sub);}
+  .pdca th.c-plan{background:var(--plan);} .pdca td.c-plan{background:#eff6ff;}
+  .pdca th.c-do{background:var(--do);} .pdca td.c-do{background:#ecfeff;}
+  .pdca th.c-kpi{background:#e2e8f0;text-align:center;} .pdca td.c-kpi{background:#f8fafc;text-align:center;font-weight:700;}
+  .pdca th.c-check{background:var(--check);} .pdca td.c-check{background:#fefce8;text-align:center;}
+  .pdca th.c-comment{background:var(--comment);} .pdca td.c-comment{background:#fff7ed;}
+  .pdca th.c-action{background:var(--action);text-align:center;} .pdca td.c-action{background:#f0fdf4;text-align:center;}
+  .pdca td.mon{font-weight:700;text-align:center;background:#fff;color:var(--navy);}
+  .empty{color:#cbd5e1;font-style:italic;}
+  .legend{font-size:11px;color:var(--sub);margin-top:10px;line-height:1.7;}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:-1px;margin:0 3px 0 10px;}
+  .hint{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;font-size:11.5px;border-radius:9px;padding:8px 12px;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="mockbar">ⓘ 設計すり合わせ用モック。<b>重点施策 : PDCA = 1 : 多</b>をマスター・ディテール型で表現。施策は<b>件数無制限・追加変更可</b>。表示単位は<b>グループ</b>(部署をM:Nで束ねる)。1部署が複数グループに重複所属可。</div>
+
+  <header class="top">
+    <h1>施策管理 ― 重点施策の月次PDCA</h1>
+    <div class="meta">
+      <select><option>50期</option><option>49期</option><option>48期</option></select>
+      <select id="groupSel">
+        <option value="g-tekko">鉄工課グループ(本社/第二/北関東 鉄工)</option>
+        <option value="g-houkanto">北関東工場グループ(北関東 鉄工/縫製)</option>
+        <option value="g-houssei">縫製課グループ(本社/北多久/北関東 縫製)</option>
+        <option value="g-seikan">生産管理部グループ(調達/管理/検査)</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- グループ構成 -->
+  <div class="card" style="margin-bottom:6px;background:#f8fafc;">
+    <div style="font-size:12px;"><b id="g-title">鉄工課グループ</b> の所属部署:
+      <span id="g-members"></span>
+      <span style="color:var(--sub);font-size:11px;margin-left:8px;">※ <b>北関東鉄工課</b>は「北関東工場グループ」にも所属(重複表示)</span>
+    </div>
+  </div>
+
+  <!-- 主要KPI -->
+  <div class="section-title">このグループの主要KPI(所属部署を集約・自動表示)</div>
+  <div class="card">
+    <div class="kpi-chips" id="kpiChips"></div>
+  </div>
+
+  <!-- マスター・ディテール -->
+  <div class="section-title">重点施策(件数無制限) ＝ マスター ／ 選択した施策のPDCA履歴 ＝ ディテール</div>
+  <div class="md">
+
+    <!-- マスター: 施策一覧 -->
+    <div class="card">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;">重点施策一覧 <span id="mcount" style="color:var(--sub);font-weight:400"></span></div>
+      <table class="mlist">
+        <thead><tr><th style="width:32px">No</th><th style="text-align:left">施策名 / 対象KPI</th><th style="width:64px">状態</th><th style="width:90px">基準→現在</th><th style="width:74px">PDCA</th></tr></thead>
+        <tbody id="mbody"></tbody>
+      </table>
+      <span class="add" id="addbtn">＋ 施策を追加</span>
+      <div class="legend">状態:<span class="pill kyoka">実施中</span><span class="pill kanryo">完了</span><span class="pill chushi">中止</span><span class="pill draft">下書き</span> ｜ 期途中の追加・状態変更可(全操作AUDIT記録)</div>
+    </div>
+
+    <!-- ディテール: 選択施策のPDCA -->
+    <div class="card">
+      <div class="detail-head">
+        <div>
+          <div class="nm" id="d-name">―</div>
+          <div class="meta2" id="d-meta">―</div>
+        </div>
+        <div style="text-align:right;font-size:11px;color:var(--sub)">対象KPI実績の推移で効果を自動判定</div>
+      </div>
+      <table class="pdca">
+        <thead><tr>
+          <th style="width:40px">月</th>
+          <th class="c-plan">計画 (Plan)</th>
+          <th class="c-do">実施 (Do)</th>
+          <th class="c-kpi" style="width:70px">対象KPI</th>
+          <th class="c-check" style="width:120px">効果<br><span style="font-weight:400;font-size:10px">自動→確定</span></th>
+          <th class="c-comment">本部長ｺﾒﾝﾄ</th>
+          <th class="c-action" style="width:84px">翌月ｱｸｼｮﾝ</th>
+        </tr></thead>
+        <tbody id="dbody"></tbody>
+      </table>
+      <div class="legend" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;color:#78350f;">
+        <b>効果の判定基準(自動):</b> 対象KPI実績が基準値/前月より <b>良い方向に5%以上 or 判定ランク上昇=改善</b> ／ ±5%以内=横ばい ／ 逆方向5%以上 or ランク低下=悪化。自動判定→責任者が確定(手動上書き可)。
+      </div>
+      <div class="hint">この施策(1件)に対し、PDCAは月ごとに <b>N件</b> 紐づきます(1:多)。別の施策を左で選ぶと、その施策のPDCA履歴に切り替わります。</div>
+    </div>
+  </div>
+
+  <!-- 過去施策の参照 -->
+  <div class="section-title">過去施策の参照(期またぎ・KPI別の打ち手の蓄積)</div>
+  <div class="card">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;">
+      <span class="sel-kpi" style="border:1px dashed #94a3b8;border-radius:7px;padding:3px 10px;">期: すべて ▼</span>
+      <span class="sel-kpi" style="border:1px dashed #94a3b8;border-radius:7px;padding:3px 10px;">対象KPI: 本社鉄工課 社内不具合 ▼</span>
+      <span class="sel-kpi" style="border:1px dashed #94a3b8;border-radius:7px;padding:3px 10px;">状態: すべて ▼</span>
+    </div>
+    <table>
+      <thead><tr><th style="width:40px">期</th><th style="text-align:left">施策名</th><th style="text-align:left">対象KPI</th><th>状態</th><th>基準→着地</th><th>PDCA件数</th><th>最終効果</th><th>最終ｱｸｼｮﾝ</th></tr></thead>
+      <tbody>
+        <tr><td class="c">50</td><td>鉄工チェックリスト</td><td>本社鉄工課 社内不具合</td><td class="c"><span class="pill kyoka">実施中</span></td><td class="c">13→9</td><td class="c">3</td><td class="c"><span class="pill kaizen">改善</span></td><td class="c"><span class="pill kyoka">強化</span></td></tr>
+        <tr><td class="c">49</td><td>溶接治具の更新</td><td>本社鉄工課 社内不具合</td><td class="c"><span class="pill kanryo">完了</span></td><td class="c">18→13</td><td class="c">12</td><td class="c"><span class="pill kaizen">改善</span></td><td class="c"><span class="pill kanryo">完了</span></td></tr>
+        <tr><td class="c">48</td><td>作業標準書の見直し</td><td>本社鉄工課 社内不具合</td><td class="c"><span class="pill kanryo">完了</span></td><td class="c">22→18</td><td class="c">12</td><td class="c"><span class="pill yoko">横ばい</span></td><td class="c"><span class="pill yoko">見直し</span></td></tr>
+      </tbody>
+    </table>
+    <div class="legend">行クリックでその施策のPDCA履歴(全月)を参照。同一KPIに対する過去の打ち手と効果を時系列でナレッジ化。</div>
+  </div>
+
+  <div class="legend" style="margin-top:16px;">
+    実装時: マスター=<code>SEISAN_KPI_MEASURE</code>(施策1=1レコード/件数無制限)、ディテール=<code>SEISAN_KPI_PDCA</code>(施策ID×対象月で1:多)。効果は対象KPI実績(<code>SEISAN_KPI_ACTUAL</code>)の変化から自動判定→責任者確定。施策は状態(実施中/完了/中止)で管理し全操作を<code>SEISAN_KPI_AUDIT</code>に記録。
+  </div>
+
+</div>
+
+<script>
+// ===== グループマスタ(M:N)。1部署が複数グループに重複所属 =====
+var groups={
+  "g-tekko":   {name:"鉄工課グループ", members:["本社鉄工課","第二鉄工課","北関東鉄工課"],
+                kpis:[{n:"クレーム件数(年累計)",v:"4/目標6",j:"green"},{n:"社内不具合件数(年累計)",v:"24/目標35",j:"green"},{n:"鉄工トータルLT",v:"4.7/目標6.6",j:"green"},{n:"鉄工生産効率",v:"21.4/目標25",j:"amber"}]},
+  "g-houkanto":{name:"北関東工場グループ", members:["北関東鉄工課","北関東縫製課"],
+                kpis:[{n:"北関東鉄工 不具合",v:"1/目標8",j:"green"},{n:"北関東鉄工 生産効率",v:"19/目標23.1",j:"amber"},{n:"北関東縫製 不具合",v:"3/目標6",j:"green"},{n:"北関東縫製 生産効率",v:"5.8/目標7.8",j:"red"}]},
+  "g-houssei": {name:"縫製課グループ", members:["本社縫製課","北多久縫製課","北関東縫製課"],
+                kpis:[{n:"縫製トータルLT",v:"12.7/目標18.5",j:"green"},{n:"縫製生産効率",v:"6.4/目標6.9",j:"amber"}]},
+  "g-seikan":  {name:"生産管理部グループ", members:["調達課","生産管理課","検査課"],
+                kpis:[{n:"納期変更率",v:"14.5/目標11",j:"red"},{n:"外注内不具合削減",v:"144/目標120",j:"red"},{n:"検査時発見割合",v:"97.9/目標85",j:"green"}]}
+};
+var jlc={red:"赤",amber:"黄",green:"緑"};
+function renderGroup(){
+  var g=groups[document.getElementById("groupSel").value];
+  document.getElementById("g-title").textContent=g.name;
+  document.getElementById("g-members").innerHTML=g.members.map(function(m){
+    var dup=(m==="北関東鉄工課");
+    return '<span style="display:inline-block;border:1px solid '+(dup?'#f59e0b':'#cbd5e1')+';border-radius:7px;padding:2px 9px;margin:2px 3px;font-size:11px;'+(dup?'background:#fffbeb;color:#92400e;font-weight:700':'')+'">'+m+(dup?' ⮂':'')+'</span>';
+  }).join("");
+  document.getElementById("kpiChips").innerHTML=g.kpis.map(function(k){
+    return '<div class="kchip"><div class="kn">'+k.n+'</div><div class="kv" style="font-size:14px">'+k.v+' <span class="badge b-'+k.j+'">'+jlc[k.j]+'</span></div></div>';
+  }).join("");
+}
+document.getElementById("groupSel").onchange=renderGroup;
+renderGroup();
+
+// ===== データ(施策 1 : PDCA 多)。施策は件数無制限。 =====
+var jl={red:"赤",amber:"黄",green:"緑"};
+var measures=[
+  {no:1,name:"鉄工チェックリスト",state:"実施中",kpi:"本社鉄工課 社内不具合件数",base:13,aim:5,cur:9,tgt:9,j:"red",
+   pdca:[
+     {m:"8月",plan:"溶接前ﾁｪｯｸﾘｽﾄを全班配布し運用開始",do:"全5班で運用。記入率80%",kpi:11,delta:"-15%",dcolor:"var(--green)",auto:"改善",eff:"改善",ec:"kaizen",comment:"記入率を上げること",action:"継続",ac:"keizoku"},
+     {m:"9月",plan:"記入率100%目標。班長が日次確認",do:"記入率98%。指摘を朝礼共有",kpi:10,delta:"-9%",dcolor:"var(--green)",auto:"改善",eff:"改善",ec:"kaizen",comment:"良い傾向。再発防止へ",action:"強化",ac:"kyoka"},
+     {m:"10月",plan:"",do:"",kpi:null,auto:"横ばい",eff:"",ec:"",comment:"",action:"",ac:""}
+   ]},
+  {no:2,name:"3週間工程の運用",state:"実施中",kpi:"製造部 鉄工生産効率",base:19.5,aim:25,cur:21.4,tgt:25,j:"amber",
+   pdca:[
+     {m:"8月",plan:"3週間先まで工程を確定し負荷平準化",do:"鉄工2課で試行",kpi:22.4,delta:"+15%",dcolor:"var(--green)",auto:"改善",eff:"改善",ec:"kaizen",comment:"横展開を",action:"強化",ac:"kyoka"},
+     {m:"9月",plan:"全課へ展開",do:"全課展開。一部で遅延",kpi:20.1,delta:"-10%",dcolor:"var(--red)",auto:"悪化",eff:"横ばい",ec:"yoko",comment:"原因を分析せよ",action:"見直し",ac:"yoko"}
+   ]},
+  {no:3,name:"外注検査の二重化",state:"完了",kpi:"検査課 外注内不具合削減",base:166,aim:120,cur:144,tgt:120,j:"red",
+   pdca:[
+     {m:"8月",plan:"受入＋工程内の二重検査",do:"運用開始",kpi:158,delta:"-5%",dcolor:"var(--green)",auto:"改善",eff:"改善",ec:"kaizen",comment:"継続",action:"継続",ac:"keizoku"},
+     {m:"9月",plan:"検査基準を明文化",do:"基準書配布",kpi:150,delta:"-5%",dcolor:"var(--green)",auto:"改善",eff:"改善",ec:"kaizen",comment:"完了とする",action:"完了",ac:"kanryo"}
+   ]}
+];
+var statePill={"実施中":"kyoka","完了":"kanryo","中止":"chushi","下書き":"draft"};
+
+var mbody=document.getElementById("mbody");
+function renderMaster(){
+  mbody.innerHTML="";
+  measures.forEach(function(mz,idx){
+    var tr=document.createElement("tr");
+    tr.className=(idx===selected?"sel":"");
+    tr.innerHTML='<td class="c">'+mz.no+'</td>'+
+      '<td><div style="font-weight:600">'+mz.name+'</div><div class="sel-kpi">'+mz.kpi+'</div></td>'+
+      '<td class="c"><span class="pill '+statePill[mz.state]+'">'+mz.state+'</span></td>'+
+      '<td class="c">'+mz.base+'→<b>'+mz.cur+'</b><div style="font-size:10px;color:var(--blue)">狙い'+mz.aim+'</div></td>'+
+      '<td class="c"><span class="badge b-'+mz.j+'">'+jl[mz.j]+'</span><div style="font-size:10px;color:var(--sub)">'+mz.pdca.length+'件</div></td>';
+    tr.onclick=function(){selected=idx;renderMaster();renderDetail();};
+    mbody.appendChild(tr);
+  });
+  document.getElementById("mcount").textContent="(全"+measures.length+"件)";
+}
+var dbody=document.getElementById("dbody");
+function renderDetail(){
+  var mz=measures[selected];
+  document.getElementById("d-name").textContent="施策"+mz.no+": "+mz.name;
+  document.getElementById("d-meta").textContent="対象KPI: "+mz.kpi+" ／ 基準値 "+mz.base+" → 現在 "+mz.cur+" ／ 狙い値 "+mz.aim+" ／ PDCA "+mz.pdca.length+"件";
+  dbody.innerHTML="";
+  mz.pdca.forEach(function(p){
+    var filled=p.plan!=="";
+    var kpiCell=p.kpi==null?'<span class="empty">自動算出</span>':p.kpi+'<div style="font-size:10px;color:'+p.dcolor+'">'+p.delta+'</div>';
+    var effCell=p.eff===""
+      ? '<span style="font-size:10px;color:#94a3b8">自動:'+p.auto+'</span><br><span class="empty">確定待ち</span>'
+      : '<span style="font-size:10px;color:#94a3b8">自動:'+p.auto+'</span><br><span class="pill '+p.ec+'">'+p.eff+'</span>';
+    var tr=document.createElement("tr");
+    tr.innerHTML='<td class="mon">'+p.m+'</td>'+
+      '<td class="c-plan'+(filled?'':' empty')+'">'+(filled?p.plan:'(会議前に責任者記入)')+'</td>'+
+      '<td class="c-do'+(filled?'':' empty')+'">'+(filled?p.do:'―')+'</td>'+
+      '<td class="c-kpi">'+kpiCell+'</td>'+
+      '<td class="c-check">'+effCell+'</td>'+
+      '<td class="c-comment'+(p.comment?'':' empty')+'">'+(p.comment||'(会議で本部長記入)')+'</td>'+
+      '<td class="c-action">'+(p.action?'<span class="pill '+p.ac+'">'+p.action+'</span>':'<span class="empty">―</span>')+'</td>';
+    dbody.appendChild(tr);
+  });
+}
+document.getElementById("addbtn").onclick=function(){
+  var n=measures.length+1;
+  measures.push({no:n,name:"(新規施策 "+n+")",state:"下書き",kpi:"対象KPI未選択",base:0,aim:0,cur:0,j:"amber",pdca:[]});
+  selected=measures.length-1;renderMaster();renderDetail();
+};
+var selected=0;
+renderMaster();renderDetail();
+</script>
+</body>
+</html>

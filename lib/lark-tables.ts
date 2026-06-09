@@ -66,8 +66,9 @@ export function getLarkTables() {
     // 生産KPI_グループ所属(M:N)
     SEISAN_KPI_GROUP_MEMBER:
       process.env.LARK_TABLE_SEISAN_KPI_GROUP_MEMBER || "tblRQcbFM1fxP5Wa",
-    // 生産KPI_月次実績 ※未作成(テーブルID取得後に設定)
-    SEISAN_KPI_ACTUAL: process.env.LARK_TABLE_SEISAN_KPI_ACTUAL || "",
+    // 生産KPI_月次実績
+    SEISAN_KPI_ACTUAL:
+      process.env.LARK_TABLE_SEISAN_KPI_ACTUAL || "tbl3X8Xe8r1BoXnU",
     // 生産KPI_施策
     SEISAN_KPI_MEASURE:
       process.env.LARK_TABLE_SEISAN_KPI_MEASURE || "tblMfqKPv02mwBYd",

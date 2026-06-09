@@ -286,7 +286,7 @@ LARK_TABLE_SEISAN_KPI_MASTER=tblCiDxUsOEM05Tc           # 生産KPI_KPIマスタ
 LARK_TABLE_SEISAN_KPI_PERIOD=tblseheBISHZKGnh           # 生産KPI_期マスタ
 LARK_TABLE_SEISAN_KPI_GROUP=tbleQOhwn9RkOXcK            # 生産KPI_グループマスタ
 LARK_TABLE_SEISAN_KPI_GROUP_MEMBER=tblRQcbFM1fxP5Wa     # 生産KPI_グループ所属
-LARK_TABLE_SEISAN_KPI_ACTUAL=                           # 生産KPI_月次実績 ← ★未作成。作成後に設定
+LARK_TABLE_SEISAN_KPI_ACTUAL=tbl3X8Xe8r1BoXnU          # 生産KPI_月次実績
 LARK_TABLE_SEISAN_KPI_MEASURE=tblMfqKPv02mwBYd          # 生産KPI_施策
 LARK_TABLE_SEISAN_KPI_PDCA=tblFsaKWU4cum2ki             # 生産KPI_施策月次PDCA
 LARK_TABLE_SEISAN_KPI_STAR_ADJ=tblxdNl1zAzyid2U         # 生産KPI_★達成調整
@@ -296,8 +296,7 @@ LARK_TABLE_SEISAN_KPI_AUDIT=tblEgJOw2uxKOVUf            # 生産KPI_変更履歴
 LARK_TABLE_SEISAN_KPI_HELP=tbl________                 # 生産KPI_ヘルプ内容(任意)
 ```
 
-> ⚠️ **`生産KPI_月次実績`(`SEISAN_KPI_ACTUAL`)が未作成**。KPI実績の中核テーブルなので作成 → テーブルID設定が必要(§B-5 の仕様)。
-> ✅ 上記IDは `lib/lark-tables.ts` の `getLarkTables()` フォールバック値・`TABLE_BASE_CONFIG`・各 `*_FIELDS` に反映済み(#56コード部分)。`.env` にも登録済み。
+> ✅ **全13テーブル作成・配線完了**。上記IDは `lib/lark-tables.ts` の `getLarkTables()` フォールバック値・`TABLE_BASE_CONFIG`・各 `*_FIELDS` に反映済み(#56)。`.env` にも登録済み。
 
 ---
 

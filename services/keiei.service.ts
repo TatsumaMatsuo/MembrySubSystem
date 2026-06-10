@@ -194,6 +194,116 @@ export async function buildCompanyKpi(period: number): Promise<{
 }
 
 /* =========================================================================
+ * #46 会計データ入力
+ * ========================================================================= */
+
+/** 会計勘定科目(KAIKEI_ACTUAL 単一選択と一致) */
+export const KAIKEI_ACCOUNTS: { account: string; unit: string }[] = [
+  { account: "売上高", unit: "百万円" },
+  { account: "製造原価", unit: "百万円" },
+  { account: "販管費", unit: "百万円" },
+  { account: "営業利益", unit: "百万円" },
+  { account: "経常利益", unit: "百万円" },
+  { account: "総資産", unit: "百万円" },
+  { account: "材料金額", unit: "百万円" },
+  { account: "人員数", unit: "人" },
+  { account: "人件費", unit: "百万円" },
+  { account: "賃借料", unit: "百万円" },
+  { account: "租税公課", unit: "百万円" },
+  { account: "純金融費用", unit: "百万円" },
+  { account: "減価償却費", unit: "百万円" },
+];
+
+export interface KaikeiAccountInput {
+  account: string;
+  unit: string;
+  granularity: Granularity;
+  /** 期間ラベル → 値(文字列) */
+  values: Record<string, string>;
+}
+
+/** 会計入力用: 既存の KAIKEI_ACTUAL を科目×期間で整理 */
+export async function getKaikeiInput(period: number): Promise<{
+  period: number;
+  startYear: number;
+  accounts: KaikeiAccountInput[];
+}> {
+  const t = getLarkTables();
+  const periods = await getPeriods();
+  const startYear = Number((periods.find((p) => p.period === period)?.startDate ?? "").slice(0, 4)) || 2025;
+
+  const r = await getBaseRecords(t.KAIKEI_ACTUAL, {
+    baseToken: base(),
+    filter: `CurrentValue.[${KA.period}] = ${period}`,
+    pageSize: 500,
+  });
+  const items = (r.data?.items ?? []) as any[];
+  // account → { granularity, values }
+  const map = new Map<string, { granularity: Granularity; values: Record<string, string> }>();
+  for (const it of items) {
+    const account = asText(it.fields[KA.account]);
+    if (!account) continue;
+    const gran = (asText(it.fields[KA.granularity]) || "月") as Granularity;
+    const span = asText(it.fields[KA.span]);
+    if (!map.has(account)) map.set(account, { granularity: gran, values: {} });
+    const e = map.get(account)!;
+    e.granularity = gran;
+    e.values[span] = String(asNum(it.fields[KA.value]));
+  }
+
+  const accounts: KaikeiAccountInput[] = KAIKEI_ACCOUNTS.map((a) => ({
+    account: a.account,
+    unit: a.unit,
+    granularity: map.get(a.account)?.granularity ?? "月",
+    values: map.get(a.account)?.values ?? {},
+  }));
+  return { period, startYear, accounts };
+}
+
+/** 期間ラベル/粒度 → 会計月序(範囲開始月) */
+function spanToFiscalMonth(granularity: Granularity, span: string): number {
+  if (granularity === "月") {
+    const m = Number(span.split("-")[1]);
+    return ((m - 8 + 12) % 12) + 1;
+  }
+  if (granularity === "四半期") return ({ Q1: 1, Q2: 4, Q3: 7, Q4: 10 } as Record<string, number>)[span] ?? 1;
+  return span === "下期" ? 7 : 1; // 半期
+}
+
+/** 会計データの upsert(科目×期間で一意) */
+export async function upsertKaikeiActual(
+  items: { period: number; account: string; granularity: Granularity; span: string; value: number | null; inputBy?: string }[]
+): Promise<{ saved: number }> {
+  const t = getLarkTables();
+  const bt = base();
+  let saved = 0;
+  for (const it of items) {
+    const actualId = `${it.period}-${it.account}-${it.span.replace(/-/g, "")}`;
+    const fields: Record<string, any> = {
+      [KA.actual_id]: actualId,
+      [KA.period]: it.period,
+      [KA.granularity]: it.granularity,
+      [KA.span]: it.span,
+      [KA.fiscal_month]: spanToFiscalMonth(it.granularity, it.span),
+      [KA.account]: it.account,
+      [KA.value]: it.value,
+      [KA.input_by]: it.inputBy ?? "",
+      [KA.input_at]: Date.now(),
+    };
+    const found = await getBaseRecords(t.KAIKEI_ACTUAL, {
+      baseToken: bt,
+      filter: `CurrentValue.[${KA.actual_id}] = "${actualId}"`,
+      pageSize: 1,
+    });
+    const exist = (found.data?.items ?? [])[0] as any;
+    if (exist) await updateBaseRecord(t.KAIKEI_ACTUAL, exist.record_id, fields, { baseToken: bt });
+    else await createBaseRecord(t.KAIKEI_ACTUAL, fields, { baseToken: bt });
+    saved++;
+  }
+  return { saved };
+}
+
+/* =========================================================================
  * #44 中期経営計画ダッシュボード
  * ========================================================================= */
 

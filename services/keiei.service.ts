@@ -5,7 +5,13 @@
  * #45 全社KPI: 年度目標(既存 COMPANY_KPI) × 会計実績(KAIKEI_ACTUAL) を突合。
  * 会計実績は粒度(月/四半期/半期)を年度累計に正規化(lib/kpi normalizeKaikei)。
  */
-import { getBaseRecords, getLarkBaseToken } from "@/lib/lark-client";
+import {
+  getBaseRecords,
+  getLarkBaseToken,
+  createBaseRecord,
+  updateBaseRecord,
+} from "@/lib/lark-client";
+import { midtermTrajectory } from "@/lib/kpi";
 import {
   getLarkTables,
   COMPANY_KPI_FIELDS as CK,
@@ -328,4 +334,108 @@ export async function buildMidtermDashboard(planId?: string): Promise<{
   }
 
   return { header, currentPeriod, elapsedMonths: elapsed, kgis, registered: true };
+}
+
+/* =========================================================================
+ * #47 中計マスタ管理(編集・保存)
+ * ========================================================================= */
+
+export interface MidtermKgiEdit {
+  indicator: string;
+  unit: string;
+  /** 期→年度目標 */
+  values: { period: number; target: number }[];
+  finalTarget: number;
+}
+export interface MidtermPlanEdit {
+  planId: string;
+  name: string;
+  startPeriod: number;
+  endPeriod: number;
+  status: string;
+  kgis: MidtermKgiEdit[];
+}
+
+/** 編集用: ヘッダ + KGI明細(期×目標) */
+export async function getMidtermForEdit(planId: string): Promise<MidtermPlanEdit | null> {
+  const headers = await getMidtermHeaders();
+  const h = headers.find((x) => x.planId === planId);
+  if (!h) return null;
+  const details = await getMidtermDetails(planId);
+  const byInd = new Map<string, MidtermKgiEdit>();
+  for (const d of details) {
+    if (!byInd.has(d.indicator)) byInd.set(d.indicator, { indicator: d.indicator, unit: d.unit, values: [], finalTarget: d.finalTarget });
+    const e = byInd.get(d.indicator)!;
+    e.values.push({ period: d.period, target: d.target });
+    if (d.finalTarget) e.finalTarget = d.finalTarget;
+  }
+  for (const e of byInd.values()) e.values.sort((a, b) => a.period - b.period);
+  return { planId: h.planId, name: h.name, startPeriod: h.startPeriod, endPeriod: h.endPeriod, status: h.status, kgis: [...byInd.values()] };
+}
+
+/** 線形補間で期×目標を生成(起点→最終)。overrides で個別上書き */
+export function generateTrajectory(
+  startPeriod: number,
+  endPeriod: number,
+  startValue: number,
+  finalTarget: number,
+  overrides?: Record<number, number>
+): { period: number; target: number }[] {
+  const traj = midtermTrajectory(startPeriod, startValue, endPeriod, finalTarget);
+  return Object.entries(traj).map(([p, v]) => {
+    const period = Number(p);
+    const ov = overrides?.[period];
+    return { period, target: ov != null ? ov : Math.round(v * 100) / 100 };
+  });
+}
+
+/** 中計の保存(ヘッダ + 明細を upsert) */
+export async function upsertMidtermPlan(input: MidtermPlanEdit): Promise<{ planId: string }> {
+  const t = getLarkTables();
+  const bt = base();
+
+  // --- ヘッダ ---
+  const headerFields: Record<string, any> = {
+    [MH.plan_id]: input.planId,
+    [MH.name]: input.name,
+    [MH.start_period]: input.startPeriod,
+    [MH.end_period]: input.endPeriod,
+    [MH.status]: input.status,
+    [MH.kgi_set]: input.kgis.map((k) => k.indicator),
+    [MH.interpolation]: "線形補間",
+  };
+  const foundH = await getBaseRecords(t.KEIEI_MIDTERM_PLAN_HEADER, {
+    baseToken: bt,
+    filter: `CurrentValue.[${MH.plan_id}] = "${input.planId}"`,
+    pageSize: 1,
+  });
+  const existH = (foundH.data?.items ?? [])[0] as any;
+  if (existH) await updateBaseRecord(t.KEIEI_MIDTERM_PLAN_HEADER, existH.record_id, headerFields, { baseToken: bt });
+  else await createBaseRecord(t.KEIEI_MIDTERM_PLAN_HEADER, headerFields, { baseToken: bt });
+
+  // --- 明細(指標×期) ---
+  for (const kgi of input.kgis) {
+    for (const v of kgi.values) {
+      const detailId = `${input.planId}-${kgi.indicator}-${v.period}`;
+      const fields: Record<string, any> = {
+        [MD.detail_id]: detailId,
+        [MD.plan_id]: input.planId,
+        [MD.indicator]: kgi.indicator,
+        [MD.unit]: kgi.unit,
+        [MD.period]: v.period,
+        [MD.annual_target]: v.target,
+        [MD.final_target]: kgi.finalTarget,
+        [MD.method]: "線形補間",
+      };
+      const found = await getBaseRecords(t.KEIEI_MIDTERM_PLAN, {
+        baseToken: bt,
+        filter: `CurrentValue.[${MD.detail_id}] = "${detailId}"`,
+        pageSize: 1,
+      });
+      const exist = (found.data?.items ?? [])[0] as any;
+      if (exist) await updateBaseRecord(t.KEIEI_MIDTERM_PLAN, exist.record_id, fields, { baseToken: bt });
+      else await createBaseRecord(t.KEIEI_MIDTERM_PLAN, fields, { baseToken: bt });
+    }
+  }
+  return { planId: input.planId };
 }

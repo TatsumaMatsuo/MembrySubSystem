@@ -10,6 +10,8 @@ import {
   getLarkTables,
   COMPANY_KPI_FIELDS as CK,
   KAIKEI_ACTUAL_FIELDS as KA,
+  KEIEI_MIDTERM_PLAN_HEADER_FIELDS as MH,
+  KEIEI_MIDTERM_PLAN_FIELDS as MD,
 } from "@/lib/lark-tables";
 import {
   normalizeKaikei,
@@ -183,4 +185,147 @@ export async function buildCompanyKpi(period: number): Promise<{
 
   void proratedTarget; // (将来: 月割合算表示で使用)
   return { period, elapsedMonths: elapsed, hasActuals, plRows, otherRows };
+}
+
+/* =========================================================================
+ * #44 中期経営計画ダッシュボード
+ * ========================================================================= */
+
+export interface MidtermKgi {
+  indicator: string;
+  unit: string;
+  /** 期→年度目標(線形補間値) */
+  trajectory: { period: number; target: number }[];
+  finalTarget: number;
+  finalPeriod: number;
+  /** 現在(当期)の年換算実績(会計データから・未入力は null) */
+  currentActual: number | null;
+  /** 到達度 = 現在 ÷ 最終目標 */
+  attainment: number | null;
+}
+
+export interface MidtermHeader {
+  planId: string;
+  name: string;
+  startPeriod: number;
+  endPeriod: number;
+  status: string;
+  kgiSet: string[];
+}
+
+/** 中計ヘッダ(現行優先)を取得 */
+export async function getMidtermHeaders(): Promise<MidtermHeader[]> {
+  const t = getLarkTables();
+  const r = await getBaseRecords(t.KEIEI_MIDTERM_PLAN_HEADER, { baseToken: base(), pageSize: 100 });
+  const items = (r.data?.items ?? []) as any[];
+  return items.map((it) => {
+    const f = it.fields;
+    const kgi = f[MH.kgi_set];
+    return {
+      planId: asText(f[MH.plan_id]),
+      name: asText(f[MH.name]),
+      startPeriod: asNum(f[MH.start_period]),
+      endPeriod: asNum(f[MH.end_period]),
+      status: asText(f[MH.status]),
+      kgiSet: Array.isArray(kgi) ? kgi.map((x: any) => asText(x?.text ?? x)) : asText(kgi) ? [asText(kgi)] : [],
+    };
+  });
+}
+
+/** 中計明細(指標×対象期)を取得 */
+async function getMidtermDetails(planId: string): Promise<{ indicator: string; unit: string; period: number; target: number; finalTarget: number }[]> {
+  const t = getLarkTables();
+  const r = await getBaseRecords(t.KEIEI_MIDTERM_PLAN, {
+    baseToken: base(),
+    filter: `CurrentValue.[${MD.plan_id}] = "${planId}"`,
+    pageSize: 500,
+  });
+  const items = (r.data?.items ?? []) as any[];
+  return items.map((it) => {
+    const f = it.fields;
+    return {
+      indicator: asText(f[MD.indicator]),
+      unit: asText(f[MD.unit]),
+      period: asNum(f[MD.period]),
+      target: asNum(f[MD.annual_target]),
+      finalTarget: asNum(f[MD.final_target]),
+    };
+  });
+}
+
+/** KGIの現在実績(会計データから年換算) */
+async function currentKgiActual(indicator: string, period: number, elapsed: number): Promise<number | null> {
+  if (elapsed <= 0) return null;
+  const kaikei = await getKaikeiCumByAccount(period);
+  const ann = (account: string) => (kaikei.has(account) ? (kaikei.get(account)! / elapsed) * 12 : null); // 百万円・年換算
+  if (indicator === "売上高") {
+    const v = ann("売上高");
+    return v == null ? null : millionToOku(v); // 億
+  }
+  if (indicator === "ROA") {
+    const profit = ann("経常利益"); // 百万円
+    const assets = kaikei.has("総資産") ? kaikei.get("総資産")! : null; // 直近(正規化)百万円
+    if (profit == null || !assets) return null;
+    return (profit / assets) * 100; // %
+  }
+  if (indicator === "労働生産性") {
+    // 控除法付加価値(年換算) ÷ 人員。付加価値 = 経常利益+人件費+賃借料+租税公課+純金融費用+減価償却費
+    const parts = ["経常利益", "人件費", "賃借料", "租税公課", "純金融費用", "減価償却費"];
+    let va = 0; let any = false;
+    for (const p of parts) { const v = ann(p); if (v != null) { va += v; any = true; } }
+    const headcount = kaikei.has("人員数") ? kaikei.get("人員数")! : null;
+    if (!any || !headcount) return null;
+    return va / headcount; // 百万円/人
+  }
+  return null;
+}
+
+/** 中計ダッシュボード構築(現行中計 or 指定planId) */
+export async function buildMidtermDashboard(planId?: string): Promise<{
+  header: MidtermHeader | null;
+  currentPeriod: number;
+  elapsedMonths: number;
+  kgis: MidtermKgi[];
+  registered: boolean;
+}> {
+  const [headers, periods] = await Promise.all([getMidtermHeaders(), getPeriods()]);
+  const cur = periods.find((p) => p.isCurrent) ?? periods[0];
+  const currentPeriod = cur?.period ?? 50;
+  const elapsed = cur?.elapsedMonths ?? 0;
+
+  const header = planId
+    ? headers.find((h) => h.planId === planId) ?? null
+    : headers.find((h) => h.status === "現行") ?? headers[0] ?? null;
+
+  if (!header) {
+    return { header: null, currentPeriod, elapsedMonths: elapsed, kgis: [], registered: false };
+  }
+
+  const details = await getMidtermDetails(header.planId);
+  // 指標ごとに集約
+  const byIndicator = new Map<string, { unit: string; finalTarget: number; finalPeriod: number; points: { period: number; target: number }[] }>();
+  for (const d of details) {
+    if (!byIndicator.has(d.indicator)) byIndicator.set(d.indicator, { unit: d.unit, finalTarget: d.finalTarget, finalPeriod: header.endPeriod, points: [] });
+    const e = byIndicator.get(d.indicator)!;
+    e.points.push({ period: d.period, target: d.target });
+    if (d.finalTarget) e.finalTarget = d.finalTarget;
+  }
+
+  const kgis: MidtermKgi[] = [];
+  for (const [indicator, e] of byIndicator) {
+    e.points.sort((a, b) => a.period - b.period);
+    const currentActual = await currentKgiActual(indicator, currentPeriod, elapsed);
+    const finalTarget = e.finalTarget || (e.points.length ? e.points[e.points.length - 1].target : 0);
+    kgis.push({
+      indicator,
+      unit: e.unit,
+      trajectory: e.points,
+      finalTarget,
+      finalPeriod: e.finalPeriod,
+      currentActual,
+      attainment: currentActual != null && finalTarget ? currentActual / finalTarget : null,
+    });
+  }
+
+  return { header, currentPeriod, elapsedMonths: elapsed, kgis, registered: true };
 }

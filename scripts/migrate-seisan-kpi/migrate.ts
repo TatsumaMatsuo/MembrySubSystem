@@ -30,6 +30,7 @@ const TBL = {
   group: process.env.LARK_TABLE_SEISAN_KPI_GROUP || "tbleQOhwn9RkOXcK",
   member: process.env.LARK_TABLE_SEISAN_KPI_GROUP_MEMBER || "tblRQcbFM1fxP5Wa",
   history: process.env.LARK_TABLE_SEISAN_KPI_HISTORY || "tblWjZkAUGXaZVH0",
+  actuals: process.env.LARK_TABLE_SEISAN_KPI_ACTUAL || "tbl3X8Xe8r1BoXnU",
 };
 
 const client = new lark.Client({
@@ -107,6 +108,11 @@ async function migrate(label: string, tableId: string, records: Record<string, a
 
   // 4) 過去実績
   await migrate("history", TBL.history, readJson("history.json"));
+
+  // 5) 50期 月次実績(縦持ち) ※actuals.json がある場合のみ
+  try {
+    await migrate("actuals", TBL.actuals, readJson("actuals.json"));
+  } catch { /* actuals.json 無ければスキップ */ }
 
   console.log(`\n${APPLY ? "完了(実書込)" : "dry-run完了。問題なければ --apply"}`);
 })().catch((e) => { console.error("ERROR:", e); process.exit(1); });

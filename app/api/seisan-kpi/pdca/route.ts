@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { upsertPdca } from "@/services/seisan-kpi.service";
-import { getServerSession } from "@/lib/auth-server";
+import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +11,9 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession().catch(() => null);
-    const writer = (session as any)?.user?.name || (session as any)?.user?.email || "";
+    const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MEASURES);
+    if (!gate.authorized) return gate.response;
+    const writer = gate.user?.employeeName || gate.user?.email || "";
 
     const body = await req.json();
     const period = Number(body?.period);

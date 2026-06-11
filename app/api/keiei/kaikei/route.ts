@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getKaikeiInput, upsertKaikeiActual } from "@/services/keiei.service";
 import { getCurrentPeriod } from "@/services/seisan-kpi.service";
-import { getServerSession } from "@/lib/auth-server";
+import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +21,9 @@ export async function GET(req: NextRequest) {
 /** POST /api/keiei/kaikei — 会計データの upsert(items) */
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession().catch(() => null);
-    const inputBy = (session as any)?.user?.name || (session as any)?.user?.email || "";
+    const gate = await requireKpiProgram(KPI_PROGRAMS.KEIEI_KAIKEI);
+    if (!gate.authorized) return gate.response;
+    const inputBy = gate.user?.employeeName || gate.user?.email || "";
     const body = await req.json();
     const items = (Array.isArray(body?.items) ? body.items : []).map((it: any) => ({
       period: Number(it.period),

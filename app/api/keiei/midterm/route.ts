@@ -5,6 +5,7 @@ import {
   upsertMidtermPlan,
   type MidtermPlanEdit,
 } from "@/services/keiei.service";
+import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,8 @@ export async function GET(req: NextRequest) {
 /** POST /api/keiei/midterm — 中計の保存(ヘッダ+明細 upsert) */
 export async function POST(req: NextRequest) {
   try {
+    const gate = await requireKpiProgram(KPI_PROGRAMS.KEIEI_MIDTERM);
+    if (!gate.authorized) return gate.response;
     const body = (await req.json()) as MidtermPlanEdit;
     if (!body?.planId || !body?.startPeriod || !body?.endPeriod) {
       return NextResponse.json({ error: "planId / startPeriod / endPeriod は必須です" }, { status: 400 });

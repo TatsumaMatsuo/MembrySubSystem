@@ -29,6 +29,7 @@ import {
   type KaikeiRow,
 } from "@/lib/kpi";
 import { getPeriods } from "@/services/seisan-kpi.service";
+import { writeKpiAudit } from "@/lib/kpi-audit";
 
 const base = () => getLarkBaseToken();
 
@@ -296,8 +297,13 @@ export async function upsertKaikeiActual(
       pageSize: 1,
     });
     const exist = (found.data?.items ?? [])[0] as any;
-    if (exist) await updateBaseRecord(t.KAIKEI_ACTUAL, exist.record_id, fields, { baseToken: bt });
-    else await createBaseRecord(t.KAIKEI_ACTUAL, fields, { baseToken: bt });
+    if (exist) {
+      await updateBaseRecord(t.KAIKEI_ACTUAL, exist.record_id, fields, { baseToken: bt });
+      await writeKpiAudit({ table: "KAIKEI_ACTUAL", recordId: actualId, operation: "更新", before: exist.fields, after: fields, operator: it.inputBy ?? "" });
+    } else {
+      await createBaseRecord(t.KAIKEI_ACTUAL, fields, { baseToken: bt });
+      await writeKpiAudit({ table: "KAIKEI_ACTUAL", recordId: actualId, operation: "作成", after: fields, operator: it.inputBy ?? "" });
+    }
     saved++;
   }
   return { saved };
@@ -500,7 +506,7 @@ export function generateTrajectory(
 }
 
 /** 中計の保存(ヘッダ + 明細を upsert) */
-export async function upsertMidtermPlan(input: MidtermPlanEdit): Promise<{ planId: string }> {
+export async function upsertMidtermPlan(input: MidtermPlanEdit, operator = ""): Promise<{ planId: string }> {
   const t = getLarkTables();
   const bt = base();
 
@@ -520,8 +526,13 @@ export async function upsertMidtermPlan(input: MidtermPlanEdit): Promise<{ planI
     pageSize: 1,
   });
   const existH = (foundH.data?.items ?? [])[0] as any;
-  if (existH) await updateBaseRecord(t.KEIEI_MIDTERM_PLAN_HEADER, existH.record_id, headerFields, { baseToken: bt });
-  else await createBaseRecord(t.KEIEI_MIDTERM_PLAN_HEADER, headerFields, { baseToken: bt });
+  if (existH) {
+    await updateBaseRecord(t.KEIEI_MIDTERM_PLAN_HEADER, existH.record_id, headerFields, { baseToken: bt });
+    await writeKpiAudit({ table: "KEIEI_MIDTERM_PLAN_HEADER", recordId: input.planId, operation: "更新", before: existH.fields, after: headerFields, operator });
+  } else {
+    await createBaseRecord(t.KEIEI_MIDTERM_PLAN_HEADER, headerFields, { baseToken: bt });
+    await writeKpiAudit({ table: "KEIEI_MIDTERM_PLAN_HEADER", recordId: input.planId, operation: "作成", after: headerFields, operator });
+  }
 
   // --- 明細(指標×期) ---
   for (const kgi of input.kgis) {

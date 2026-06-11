@@ -20,8 +20,8 @@ import {
   SEISAN_KPI_PDCA_FIELDS as DF,
   SEISAN_KPI_STAR_ADJ_FIELDS as SF,
   SEISAN_KPI_HISTORY_FIELDS as HF,
-  SEISAN_KPI_AUDIT_FIELDS as UF,
 } from "@/lib/lark-tables";
+import { writeKpiAudit as writeAudit } from "@/lib/kpi-audit";
 import {
   aggregate,
   aggregateGroup,
@@ -356,11 +356,14 @@ export async function upsertActual(input: {
     [AF.input_at]: Date.now(),
   };
 
+  const operator = input.inputBy ?? "";
   if (existing) {
     await updateBaseRecord(t.SEISAN_KPI_ACTUAL, existing.record_id, fields, { baseToken: base() });
+    await writeAudit({ table: "SEISAN_KPI_ACTUAL", recordId: actualId, operation: "更新", before: existing.fields, after: fields, operator });
     return { recordId: existing.record_id, created: false };
   }
   const r: any = await createBaseRecord(t.SEISAN_KPI_ACTUAL, fields, { baseToken: base() });
+  await writeAudit({ table: "SEISAN_KPI_ACTUAL", recordId: actualId, operation: "作成", after: fields, operator });
   return { recordId: r?.data?.record?.record_id ?? "", created: true };
 }
 
@@ -614,36 +617,6 @@ export async function getMeasuresScreen(
     kpis,
     measures,
   };
-}
-
-/** AUDIT(操作履歴)へ記録。失敗しても本処理は止めない */
-async function writeAudit(input: {
-  table: string;
-  recordId: string;
-  operation: "作成" | "更新" | "削除";
-  before?: unknown;
-  after?: unknown;
-  operator: string;
-}): Promise<void> {
-  try {
-    const t = getLarkTables();
-    await createBaseRecord(
-      t.SEISAN_KPI_AUDIT,
-      {
-        [UF.history_id]: `${input.table}-${input.recordId}-${Date.now()}`,
-        [UF.target_table]: input.table,
-        [UF.target_record_id]: input.recordId,
-        [UF.operation]: input.operation,
-        [UF.before]: input.before == null ? "" : JSON.stringify(input.before),
-        [UF.after]: input.after == null ? "" : JSON.stringify(input.after),
-        [UF.operator]: input.operator,
-        [UF.operated_at]: Date.now(),
-      },
-      { baseToken: base() }
-    );
-  } catch (e) {
-    console.error("[seisan-kpi] writeAudit failed:", e);
-  }
 }
 
 /** 施策(ヘッダ)の作成・更新。施策コードで一意 upsert */

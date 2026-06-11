@@ -31,11 +31,12 @@ export async function POST(req: NextRequest) {
   try {
     const gate = await requireKpiProgram(KPI_PROGRAMS.KEIEI_MIDTERM);
     if (!gate.authorized) return gate.response;
+    const operator = gate.user?.employeeName || gate.user?.email || "";
     const body = (await req.json()) as MidtermPlanEdit;
     if (!body?.planId || !body?.startPeriod || !body?.endPeriod) {
       return NextResponse.json({ error: "planId / startPeriod / endPeriod は必須です" }, { status: 400 });
     }
-    const r = await upsertMidtermPlan(body);
+    const r = await upsertMidtermPlan(body, operator);
     return NextResponse.json({ data: r });
   } catch (e: any) {
     console.error("[keiei/midterm POST] error:", e);

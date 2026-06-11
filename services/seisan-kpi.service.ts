@@ -6,6 +6,7 @@ import {
   getBaseRecords,
   createBaseRecord,
   updateBaseRecord,
+  deleteBaseRecord,
   getLarkBaseToken,
 } from "@/lib/lark-client";
 import {
@@ -968,4 +969,326 @@ export async function upsertStarAdj(input: {
   const r: any = await createBaseRecord(t.SEISAN_KPI_STAR_ADJ, fields, { baseToken: base() });
   await writeAudit({ table: "SEISAN_KPI_STAR_ADJ", recordId: adjId, operation: "作成", after: fields, operator });
   return { recordId: r?.data?.record?.record_id ?? "", adjId, created: true };
+}
+
+/* =========================================================================
+ * #52 マスタ管理(KPIマスタ / グループマスタ) — 管理者専用
+ * 設計: docs/kpi-system/03_screens-and-features.md ⑤ / 02_data-model.md §2.1/2.2
+ * ========================================================================= */
+
+export interface KpiMasterFullRow {
+  recordId: string;
+  kpiId: string;
+  period: number;
+  level: string;
+  departmentDiv: string;
+  department: string;
+  departmentId: string;
+  category: string;
+  kpiName: string;
+  unit: string;
+  aggType: AggType;
+  direction: Direction;
+  annualTarget: number;
+  monthlyTarget: number;
+  owner: string;
+  dataSource: string;
+  inputTiming: string;
+  sortOrder: number;
+  isActive: boolean;
+  notes: string;
+}
+
+/** KPIマスタ全項目を取得(管理画面用。recordId 付き) */
+export async function getKpiMasterFull(period: number): Promise<KpiMasterFullRow[]> {
+  const t = getLarkTables();
+  const items = await getAllRecords(t.SEISAN_KPI_MASTER, `CurrentValue.[${MF.period}] = ${period}`);
+  return items
+    .map((it) => {
+      const f = it.fields;
+      return {
+        recordId: it.record_id,
+        kpiId: asText(f[MF.kpi_id]),
+        period: asNum(f[MF.period]) ?? period,
+        level: asText(f[MF.level]),
+        departmentDiv: asText(f[MF.department_div]),
+        department: asText(f[MF.department]),
+        departmentId: asText(f[MF.department_id]),
+        category: asText(f[MF.category]),
+        kpiName: asText(f[MF.kpi_name]),
+        unit: asText(f[MF.unit]),
+        aggType: (asText(f[MF.agg_type]) || "累計") as AggType,
+        direction: (asText(f[MF.direction]) || "少ない方が良い") as Direction,
+        annualTarget: asNum(f[MF.annual_target]) ?? 0,
+        monthlyTarget: asNum(f[MF.monthly_target]) ?? 0,
+        owner: asText(f[MF.owner]),
+        dataSource: asText(f[MF.data_source]),
+        inputTiming: asText(f[MF.input_timing]),
+        sortOrder: asNum(f[MF.sort_order]) ?? 0,
+        isActive: f[MF.is_active] == null ? true : asBool(f[MF.is_active]),
+        notes: asText(f[MF.notes]),
+      };
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+/** KPIマスタの作成・更新(KPIコード×期で一意)。全変更AUDIT記録 */
+export async function upsertKpiMaster(input: Partial<KpiMasterFullRow> & {
+  period: number;
+  kpiId: string;
+  operator?: string;
+}): Promise<{ recordId: string; kpiId: string; created: boolean }> {
+  const t = getLarkTables();
+  const operator = input.operator ?? "";
+
+  // 既存検索(同一期×KPIコード)
+  const found = await getBaseRecords(t.SEISAN_KPI_MASTER, {
+    baseToken: base(),
+    filter: `AND(CurrentValue.[${MF.period}] = ${input.period}, CurrentValue.[${MF.kpi_id}] = "${input.kpiId}")`,
+    pageSize: 1,
+  });
+  const existingRec = (found.data?.items ?? [])[0] as any;
+
+  // 部分更新: 指定された項目のみ反映
+  const set = (field: string, val: unknown) => { if (val !== undefined) fields[field] = val; };
+  const fields: Record<string, any> = {
+    [MF.kpi_id]: input.kpiId,
+    [MF.period]: input.period,
+  };
+  set(MF.level, input.level);
+  set(MF.department_div, input.departmentDiv);
+  set(MF.department, input.department);
+  set(MF.department_id, input.departmentId);
+  set(MF.category, input.category);
+  set(MF.kpi_name, input.kpiName);
+  set(MF.unit, input.unit);
+  set(MF.agg_type, input.aggType);
+  set(MF.direction, input.direction);
+  set(MF.annual_target, input.annualTarget);
+  set(MF.monthly_target, input.monthlyTarget);
+  set(MF.owner, input.owner);
+  set(MF.data_source, input.dataSource);
+  set(MF.input_timing, input.inputTiming);
+  set(MF.sort_order, input.sortOrder);
+  set(MF.is_active, input.isActive);
+  set(MF.notes, input.notes);
+
+  if (existingRec) {
+    await updateBaseRecord(t.SEISAN_KPI_MASTER, existingRec.record_id, fields, { baseToken: base() });
+    await writeAudit({ table: "SEISAN_KPI_MASTER", recordId: input.kpiId, operation: "更新", before: existingRec.fields, after: fields, operator });
+    return { recordId: existingRec.record_id, kpiId: input.kpiId, created: false };
+  }
+  const r: any = await createBaseRecord(t.SEISAN_KPI_MASTER, fields, { baseToken: base() });
+  await writeAudit({ table: "SEISAN_KPI_MASTER", recordId: input.kpiId, operation: "作成", after: fields, operator });
+  return { recordId: r?.data?.record?.record_id ?? "", kpiId: input.kpiId, created: true };
+}
+
+export interface GroupMatrixGroup {
+  recordId: string;
+  groupId: string;
+  groupName: string;
+  groupType: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+export interface GroupMatrix {
+  period: number;
+  departments: string[];
+  groups: GroupMatrixGroup[];
+  /** membership[department][groupId] = 所属レコードID(なければ未所属) */
+  membership: Record<string, Record<string, string>>;
+}
+
+/** グループ管理用: グループ一覧 + 所属マトリクス(行=部署×列=グループ) */
+export async function getGroupMatrix(period: number): Promise<GroupMatrix> {
+  const t = getLarkTables();
+  const [groupItems, memberItems, master] = await Promise.all([
+    getAllRecords(t.SEISAN_KPI_GROUP, `CurrentValue.[${GF.period}] = ${period}`),
+    getAllRecords(t.SEISAN_KPI_GROUP_MEMBER, `CurrentValue.[${GMF.period}] = ${period}`),
+    getKpiMaster(period),
+  ]);
+  // 部署 = Lv4(課)の部署名。並び順は master の sortOrder 準拠
+  const seen = new Set<string>();
+  const departments: string[] = [];
+  for (const m of master) {
+    if (m.level === "Lv4" && m.department && !seen.has(m.department)) {
+      seen.add(m.department);
+      departments.push(m.department);
+    }
+  }
+  const groups: GroupMatrixGroup[] = groupItems
+    .map((it) => ({
+      recordId: it.record_id,
+      groupId: asText(it.fields[GF.group_id]),
+      groupName: asText(it.fields[GF.group_name]),
+      groupType: asText(it.fields[GF.group_type]),
+      sortOrder: asNum(it.fields[GF.sort_order]) ?? 0,
+      isActive: it.fields[GF.is_active] == null ? true : asBool(it.fields[GF.is_active]),
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const membership: Record<string, Record<string, string>> = {};
+  for (const d of departments) membership[d] = {};
+  for (const it of memberItems) {
+    const dept = asText(it.fields[GMF.department]);
+    const gid = asText(it.fields[GMF.group_id]);
+    if (!dept || !gid) continue;
+    if (!membership[dept]) membership[dept] = {};
+    membership[dept][gid] = it.record_id;
+  }
+  return { period, departments, groups, membership };
+}
+
+/** グループの作成・更新(グループコード×期で一意) */
+export async function upsertGroup(input: {
+  period: number;
+  groupId?: string;
+  groupName: string;
+  groupType?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+  operator?: string;
+}): Promise<{ recordId: string; groupId: string; created: boolean }> {
+  const t = getLarkTables();
+  const operator = input.operator ?? "";
+  // 新規時のグループコード採番: G-<連番>(名称から作れないため期内連番)
+  let groupId = input.groupId;
+  if (!groupId) {
+    const existing = await getAllRecords(t.SEISAN_KPI_GROUP, `CurrentValue.[${GF.period}] = ${input.period}`);
+    groupId = `G-${input.period}-${existing.length + 1}`;
+  }
+  const fields: Record<string, any> = {
+    [GF.group_id]: groupId,
+    [GF.group_name]: input.groupName,
+    [GF.period]: input.period,
+  };
+  if (input.groupType !== undefined) fields[GF.group_type] = input.groupType;
+  if (input.sortOrder !== undefined) fields[GF.sort_order] = input.sortOrder;
+  if (input.isActive !== undefined) fields[GF.is_active] = input.isActive;
+
+  const found = await getBaseRecords(t.SEISAN_KPI_GROUP, {
+    baseToken: base(),
+    filter: `AND(CurrentValue.[${GF.period}] = ${input.period}, CurrentValue.[${GF.group_id}] = "${groupId}")`,
+    pageSize: 1,
+  });
+  const existingRec = (found.data?.items ?? [])[0] as any;
+  if (existingRec) {
+    await updateBaseRecord(t.SEISAN_KPI_GROUP, existingRec.record_id, fields, { baseToken: base() });
+    await writeAudit({ table: "SEISAN_KPI_GROUP", recordId: groupId, operation: "更新", before: existingRec.fields, after: fields, operator });
+    return { recordId: existingRec.record_id, groupId, created: false };
+  }
+  const r: any = await createBaseRecord(t.SEISAN_KPI_GROUP, fields, { baseToken: base() });
+  await writeAudit({ table: "SEISAN_KPI_GROUP", recordId: groupId, operation: "作成", after: fields, operator });
+  return { recordId: r?.data?.record?.record_id ?? "", groupId, created: true };
+}
+
+/** 所属マトリクスのトグル: member=true で所属追加、false で解除 */
+export async function setGroupMember(input: {
+  period: number;
+  groupId: string;
+  department: string;
+  departmentId?: string;
+  member: boolean;
+  operator?: string;
+}): Promise<{ member: boolean }> {
+  const t = getLarkTables();
+  const operator = input.operator ?? "";
+  const memberId = `${input.groupId}-${input.department}`;
+  const found = await getBaseRecords(t.SEISAN_KPI_GROUP_MEMBER, {
+    baseToken: base(),
+    filter: `CurrentValue.[${GMF.member_id}] = "${memberId}"`,
+    pageSize: 1,
+  });
+  const existingRec = (found.data?.items ?? [])[0] as any;
+
+  if (input.member) {
+    if (existingRec) return { member: true };
+    const fields: Record<string, any> = {
+      [GMF.member_id]: memberId,
+      [GMF.group_id]: input.groupId,
+      [GMF.department]: input.department,
+      [GMF.department_id]: input.departmentId ?? "",
+      [GMF.period]: input.period,
+    };
+    await createBaseRecord(t.SEISAN_KPI_GROUP_MEMBER, fields, { baseToken: base() });
+    await writeAudit({ table: "SEISAN_KPI_GROUP_MEMBER", recordId: memberId, operation: "作成", after: fields, operator });
+    return { member: true };
+  }
+  // 解除
+  if (existingRec) {
+    await deleteBaseRecord(t.SEISAN_KPI_GROUP_MEMBER, existingRec.record_id, { baseToken: base() });
+    await writeAudit({ table: "SEISAN_KPI_GROUP_MEMBER", recordId: memberId, operation: "削除", before: existingRec.fields, operator });
+  }
+  return { member: false };
+}
+
+/**
+ * 期切替(新期作成): fromPeriod の KPIマスタ・グループ・所属を toPeriod に複製。
+ * 実績/PDCA/★等のトランザクションデータは複製しない(定義のみ)。
+ * 既に toPeriod のマスタが存在する場合は中断(誤上書き防止)。
+ */
+export async function clonePeriod(input: {
+  fromPeriod: number;
+  toPeriod: number;
+  startDate?: string;
+  endDate?: string;
+  operator?: string;
+}): Promise<{ cloned: { master: number; groups: number; members: number }; periodCreated: boolean }> {
+  const t = getLarkTables();
+  const operator = input.operator ?? "";
+
+  const existingMaster = await getBaseRecords(t.SEISAN_KPI_MASTER, {
+    baseToken: base(),
+    filter: `CurrentValue.[${MF.period}] = ${input.toPeriod}`,
+    pageSize: 1,
+  });
+  if ((existingMaster.data?.items ?? []).length > 0) {
+    throw new Error(`${input.toPeriod}期のマスタが既に存在します。複製を中止しました。`);
+  }
+
+  // 期マスタを作成(なければ)
+  let periodCreated = false;
+  const foundPeriod = await getBaseRecords(t.SEISAN_KPI_PERIOD, {
+    baseToken: base(),
+    filter: `CurrentValue.[${PF.period}] = ${input.toPeriod}`,
+    pageSize: 1,
+  });
+  if ((foundPeriod.data?.items ?? []).length === 0) {
+    await createBaseRecord(t.SEISAN_KPI_PERIOD, {
+      [PF.period]: input.toPeriod,
+      [PF.start_date]: input.startDate ?? "",
+      [PF.end_date]: input.endDate ?? "",
+      [PF.elapsed_months]: 0,
+      [PF.is_current]: false,
+    }, { baseToken: base() });
+    periodCreated = true;
+  }
+
+  // KPIマスタ複製
+  const masterItems = await getAllRecords(t.SEISAN_KPI_MASTER, `CurrentValue.[${MF.period}] = ${input.fromPeriod}`);
+  for (const it of masterItems) {
+    const f = { ...it.fields, [MF.period]: input.toPeriod };
+    await createBaseRecord(t.SEISAN_KPI_MASTER, f, { baseToken: base() });
+  }
+  // グループ複製
+  const groupItems = await getAllRecords(t.SEISAN_KPI_GROUP, `CurrentValue.[${GF.period}] = ${input.fromPeriod}`);
+  for (const it of groupItems) {
+    const f = { ...it.fields, [GF.period]: input.toPeriod };
+    await createBaseRecord(t.SEISAN_KPI_GROUP, f, { baseToken: base() });
+  }
+  // 所属複製
+  const memberItems = await getAllRecords(t.SEISAN_KPI_GROUP_MEMBER, `CurrentValue.[${GMF.period}] = ${input.fromPeriod}`);
+  for (const it of memberItems) {
+    const f = { ...it.fields, [GMF.period]: input.toPeriod };
+    await createBaseRecord(t.SEISAN_KPI_GROUP_MEMBER, f, { baseToken: base() });
+  }
+
+  await writeAudit({
+    table: "SEISAN_KPI_PERIOD", recordId: `clone-${input.fromPeriod}->${input.toPeriod}`, operation: "作成",
+    after: { master: masterItems.length, groups: groupItems.length, members: memberItems.length }, operator,
+  });
+  return {
+    cloned: { master: masterItems.length, groups: groupItems.length, members: memberItems.length },
+    periodCreated,
+  };
 }

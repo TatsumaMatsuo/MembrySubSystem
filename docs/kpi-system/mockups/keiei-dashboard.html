@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>経営ダッシュボード(モック) - 中期経営計画進捗</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#ffffff; --ink:#1e293b; --sub:#64748b; --line:#e2e8f0;
+    --navy:#1f3864; --green:#16a34a; --amber:#d97706; --red:#dc2626;
+    --blue:#2563eb; --soft:#f1f5f9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
+    background:#eef2f7;color:var(--ink);}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px;}
+  .mockbar{background:#fde68a;color:#78350f;font-size:12px;padding:6px 14px;border-radius:8px;
+    margin-bottom:14px;font-weight:600;}
+  header.top{display:flex;align-items:center;justify-content:space-between;
+    background:var(--navy);color:#fff;border-radius:14px;padding:18px 24px;margin-bottom:18px;}
+  header.top h1{font-size:20px;margin:0;font-weight:700;letter-spacing:.5px;}
+  header.top .meta{display:flex;gap:10px;align-items:center;font-size:13px;}
+  header.top select,header.top .chip{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+    color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;}
+  .section-title{font-size:14px;font-weight:700;color:var(--navy);margin:22px 4px 12px;
+    display:flex;align-items:center;gap:8px;}
+  .section-title::before{content:"";width:5px;height:16px;background:var(--navy);border-radius:3px;}
+  .grid{display:grid;gap:16px;}
+  .g3{grid-template-columns:repeat(3,1fr);}
+  .g2{grid-template-columns:1.4fr 1fr;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;
+    box-shadow:0 1px 3px rgba(15,23,42,.05);}
+  .kgi-name{font-size:13px;color:var(--sub);font-weight:600;}
+  .kgi-val{font-size:30px;font-weight:800;margin:6px 0 2px;}
+  .kgi-target{font-size:12px;color:var(--sub);}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;color:#fff;}
+  .b-green{background:var(--green);} .b-amber{background:var(--amber);} .b-red{background:var(--red);}
+  .trend{margin-top:10px;}
+  table.pl{width:100%;border-collapse:collapse;font-size:13px;}
+  table.pl th,table.pl td{text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);}
+  table.pl th{color:var(--sub);font-weight:600;background:var(--soft);}
+  table.pl td.name,table.pl th.name{text-align:left;font-weight:600;}
+  .bar{height:8px;border-radius:6px;background:#e2e8f0;overflow:hidden;}
+  .bar>span{display:block;height:100%;border-radius:6px;}
+  .legend{display:flex;gap:16px;font-size:11px;color:var(--sub);margin-top:8px;flex-wrap:wrap;}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;}
+  .input-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;
+    border:1px solid var(--line);border-radius:10px;margin-bottom:8px;font-size:13px;}
+  .gran{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#e0e7ff;color:#3730a3;}
+  .status-ok{color:var(--green);font-weight:700;} .status-wait{color:var(--amber);font-weight:700;}
+  .foot{font-size:11px;color:var(--sub);margin-top:18px;line-height:1.7;}
+  .link{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--blue);margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="mockbar">⚠ これは設計すり合わせ用のモックです（数値はすべてダミー）。実装版は recharts + Lark Base 実データで描画します。</div>
+
+  <header class="top">
+    <h1>経営ダッシュボード ― 中期経営計画 進捗</h1>
+    <div class="meta">
+      <span class="chip">第◯次中計 50→52期</span>
+      <select><option>50期(令和7年度)</option><option>51期</option><option>52期</option></select>
+      <span class="chip">経過 9ヶ月</span>
+    </div>
+  </header>
+
+  <!-- ===== L0 中期経営計画(3カ年KGI) ===== -->
+  <div class="section-title">中期経営計画 KGI（最終 52期目標への到達度・線形補間トラジェクトリ）</div>
+  <div class="grid g3">
+
+    <div class="card">
+      <div class="kgi-name">売上高</div>
+      <div class="kgi-val">52.0<span style="font-size:15px;color:var(--sub)"> 億 / 年換算</span></div>
+      <div class="kgi-target">50期目標 55億 ・ 52期目標 <b>67億</b> ／ 達成率 94.5% <span class="badge b-amber">黄</span></div>
+      <svg class="trend" id="c-sales" width="100%" height="150" viewBox="0 0 320 150"></svg>
+    </div>
+
+    <div class="card">
+      <div class="kgi-name">ROA（経常利益 ÷ 総資産）</div>
+      <div class="kgi-val">7.4<span style="font-size:15px;color:var(--sub)"> %</span></div>
+      <div class="kgi-target">50期目標 8.0% ・ 52期目標 <b>13%</b> ／ 達成率 92.5% <span class="badge b-amber">黄</span></div>
+      <svg class="trend" id="c-roa" width="100%" height="150" viewBox="0 0 320 150"></svg>
+    </div>
+
+    <div class="card">
+      <div class="kgi-name">労働生産性（付加価値 ÷ 人員・控除法）</div>
+      <div class="kgi-val">7.6<span style="font-size:15px;color:var(--sub)"> 百万円/人</span></div>
+      <div class="kgi-target">50期目標 8.0 ・ 52期目標 <b>10.0</b> ／ 達成率 95.0% <span class="badge b-green">緑</span></div>
+      <svg class="trend" id="c-prod" width="100%" height="150" viewBox="0 0 320 150"></svg>
+    </div>
+
+  </div>
+
+  <!-- ===== L1 全社KPI(年度PL計画 vs 実績) + 会計入力 ===== -->
+  <div class="grid g2" style="margin-top:6px;">
+
+    <div>
+      <div class="section-title">全社KPI（50期 年度計画 vs 実績累計）</div>
+      <div class="card">
+        <table class="pl">
+          <thead>
+            <tr><th class="name">勘定科目</th><th>年度目標</th><th>実績累計</th><th>進捗(ペース)</th><th>判定</th></tr>
+          </thead>
+          <tbody id="pl-body"></tbody>
+        </table>
+        <div class="legend">
+          <span><i style="background:var(--green)"></i>緑=ペース内</span>
+          <span><i style="background:var(--amber)"></i>黄=やや遅れ</span>
+          <span><i style="background:var(--red)"></i>赤=未達</span>
+          <span style="margin-left:auto">※ 実績は会計データ入力から自動集計</span>
+        </div>
+        <div class="link">▶ 生産本部KPI(Lv2 粗利率/総資産回転率/材料金額比率)へ ― 同一の会計データを参照</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">会計データ入力状況（本部長が一括入力）</div>
+      <div class="card">
+        <div class="input-row"><span>売上高</span><span><span class="gran">月別</span> <span class="status-ok">〜2月 確定済</span></span></div>
+        <div class="input-row"><span>製造原価</span><span><span class="gran">月別</span> <span class="status-ok">〜2月 確定済</span></span></div>
+        <div class="input-row"><span>販管費</span><span><span class="gran">月別</span> <span class="status-ok">〜2月 確定済</span></span></div>
+        <div class="input-row"><span>営業利益</span><span><span class="gran">四半期</span> <span class="status-ok">Q2まで確定</span></span></div>
+        <div class="input-row"><span>総資産</span><span><span class="gran">半期</span> <span class="status-wait">上期のみ・下期待ち</span></span></div>
+        <div class="input-row"><span>材料金額</span><span><span class="gran">月別</span> <span class="status-ok">〜2月 確定済</span></span></div>
+        <div class="input-row"><span>人員数</span><span><span class="gran">月別</span> <span class="status-ok">〜3月 確定済</span></span></div>
+        <div class="legend"><span>粒度は科目ごとに 月別／四半期／半期 を選択。共通の年度累計に正規化して進捗算出。</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    モック構成: L0 中期経営計画KGI(3カ年・線形補間トラジェクトリ) ／ L1 全社KPI(COMPANY_KPI vs KAIKEI_ACTUAL) ／ 会計データ入力状況。<br>
+    実装時: 折れ線は recharts、データは Lark Base(<code>KEIEI_MIDTERM_PLAN</code> / <code>COMPANY_KPI</code> / <code>KAIKEI_ACTUAL</code>)。判定ロジックは <code>lib/kpi/</code> 共通関数。
+  </div>
+
+</div>
+
+<script>
+// ===== 中計トラジェクトリ用 ミニ折れ線(ダミーデータ) =====
+// targets: 50/51/52期の目標(線形補間), actual: 50期の年換算実績
+function drawTrend(id, targets, actual, opts){
+  const svg = document.getElementById(id);
+  if(!svg) return;
+  const W=320,H=150, padL=38,padR=14,padT=16,padB=26;
+  const xs=[padL,(padL+W-padR)/2,W-padR];
+  const all=targets.concat([actual]);
+  let min=Math.min.apply(null,all), max=Math.max.apply(null,all);
+  const span=(max-min)||1; min-=span*0.25; max+=span*0.2;
+  const y=v=>padT+(H-padT-padB)*(1-(v-min)/(max-min));
+  const ns="http://www.w3.org/2000/svg";
+  function el(t,a){const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+  // grid baseline
+  svg.appendChild(el("line",{x1:padL,y1:H-padB,x2:W-padR,y2:H-padB,stroke:"#e2e8f0"}));
+  // target line (navy dashed)
+  let d="";targets.forEach((v,i)=>{d+=(i?"L":"M")+xs[i]+" "+y(v)+" ";});
+  svg.appendChild(el("path",{d:d,fill:"none",stroke:"#1f3864","stroke-width":2.5,"stroke-dasharray":"5 4"}));
+  // target points
+  targets.forEach((v,i)=>{svg.appendChild(el("circle",{cx:xs[i],cy:y(v),r:3.5,fill:"#1f3864"}));});
+  // actual marker at 50期 (x[0])
+  svg.appendChild(el("circle",{cx:xs[0],cy:y(actual),r:5,fill:"#dc2626"}));
+  svg.appendChild(el("line",{x1:xs[0],y1:y(actual),x2:xs[0],y2:y(targets[0]),stroke:"#dc2626","stroke-width":1.5,"stroke-dasharray":"2 2"}));
+  // labels
+  const xl=["50期","51期","52期"];
+  xl.forEach((t,i)=>{const tx=el("text",{x:xs[i],y:H-9,"text-anchor":"middle","font-size":"11",fill:"#64748b"});tx.textContent=t;svg.appendChild(tx);});
+  const fmt=opts&&opts.fmt?opts.fmt:(v=>v);
+  // legend
+  const lg=el("text",{x:padL,y:11,"font-size":"10",fill:"#94a3b8"});lg.textContent="― 目標(線形補間)  ● 実績(50期 年換算)";svg.appendChild(lg);
+}
+drawTrend("c-sales",[55,61,67],52,{fmt:v=>v+"億"});
+drawTrend("c-roa",[8.0,10.5,13.0],7.4,{fmt:v=>v+"%"});
+drawTrend("c-prod",[8.0,9.0,10.0],7.6,{fmt:v=>v});
+
+// ===== 全社KPI 年度PL(ダミー) =====
+const pl=[
+  {name:"売上高",       target:"55.0億", act:"39.0億", prog:94, j:"amber"},
+  {name:"粗利",         target:"19.3億", act:"13.2億", prog:91, j:"amber"},
+  {name:"営業利益",     target:"3.3億",  act:"2.1億",  prog:85, j:"amber"},
+  {name:"製造原価率",   target:"65.0%",  act:"66.2%",  prog:78, j:"red"},
+  {name:"外注発注率",   target:"18.0%",  act:"17.4%",  prog:103,j:"green"},
+  {name:"販管費",       target:"15.5億", act:"10.9億", prog:96, j:"green"},
+];
+const body=document.getElementById("pl-body");
+const col={green:"var(--green)",amber:"var(--amber)",red:"var(--red)"};
+const jl={green:"緑",amber:"黄",red:"赤"};
+pl.forEach(r=>{
+  const tr=document.createElement("tr");
+  tr.innerHTML=
+    '<td class="name">'+r.name+'</td>'+
+    '<td>'+r.target+'</td>'+
+    '<td>'+r.act+'</td>'+
+    '<td><div class="bar"><span style="width:'+Math.min(r.prog,100)+'%;background:'+col[r.j]+'"></span></div>'+
+      '<div style="font-size:11px;color:var(--sub);margin-top:3px">'+r.prog+'%</div></td>'+
+    '<td><span class="badge b-'+r.j+'">'+jl[r.j]+'</span></td>';
+  body.appendChild(tr);
+});
+</script>
+</body>
+</html>

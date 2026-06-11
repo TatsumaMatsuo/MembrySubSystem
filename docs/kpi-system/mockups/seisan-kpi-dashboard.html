@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生産本部 KPIダッシュボード(モック)</title>
+<style>
+  :root{
+    --panel:#ffffff; --ink:#1e293b; --sub:#64748b; --line:#e2e8f0;
+    --navy:#1f3864; --green:#16a34a; --amber:#d97706; --red:#dc2626;
+    --blue:#2563eb; --soft:#f1f5f9; --gold:#eab308;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
+    background:#eef2f7;color:var(--ink);}
+  .wrap{max-width:1280px;margin:0 auto;padding:20px;}
+  .mockbar{background:#dbeafe;color:#1e3a8a;font-size:12px;padding:6px 14px;border-radius:8px;
+    margin-bottom:14px;font-weight:600;}
+  header.top{display:flex;align-items:center;justify-content:space-between;
+    background:var(--navy);color:#fff;border-radius:14px;padding:18px 24px;margin-bottom:8px;}
+  header.top h1{font-size:20px;margin:0;font-weight:700;letter-spacing:.5px;}
+  header.top .meta{display:flex;gap:10px;align-items:center;font-size:13px;}
+  header.top select,header.top .chip{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+    color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;}
+  .guide{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 16px;
+    font-size:12px;color:#78350f;margin-bottom:18px;}
+  .guide b{color:#92400e;}
+  .section-title{font-size:14px;font-weight:700;color:var(--navy);margin:22px 4px 12px;
+    display:flex;align-items:center;gap:8px;}
+  .section-title::before{content:"";width:5px;height:16px;background:var(--navy);border-radius:3px;}
+  .grid{display:grid;gap:14px;}
+  .signals{grid-template-columns:repeat(4,1fr);}
+  .g2{grid-template-columns:1.1fr 1fr;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;
+    box-shadow:0 1px 3px rgba(15,23,42,.05);}
+  .sig{position:relative;border-left:6px solid var(--line);}
+  .sig.green{border-left-color:var(--green);} .sig.amber{border-left-color:var(--amber);} .sig.red{border-left-color:var(--red);}
+  .sig .cat{font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.5px;}
+  .sig .nm{font-size:12.5px;color:var(--sub);font-weight:600;margin-top:2px;min-height:32px;}
+  .sig .val{font-size:25px;font-weight:800;margin:4px 0 1px;}
+  .sig .tg{font-size:11px;color:var(--sub);}
+  .badge{position:absolute;top:14px;right:14px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;color:#fff;}
+  .b-green{background:var(--green);} .b-amber{background:var(--amber);} .b-red{background:var(--red);}
+  .star-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:13px;}
+  .star-row .lbl{width:84px;font-weight:600;}
+  .star-row .rank{width:20px;color:var(--gold);font-weight:800;font-size:12px;}
+  .star-bar{flex:1;height:14px;background:#f1f5f9;border-radius:8px;overflow:hidden;}
+  .star-bar>span{display:block;height:100%;background:linear-gradient(90deg,#facc15,#eab308);border-radius:8px;}
+  .star-num{width:54px;text-align:right;font-weight:800;color:#a16207;}
+  .star-num small{color:var(--sub);font-weight:600;}
+  .kv{display:flex;justify-content:space-between;padding:8px 10px;border:1px solid var(--line);
+    border-radius:9px;margin-bottom:7px;font-size:13px;}
+  .pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:6px;}
+  .pill.red{background:#fee2e2;color:#991b1b;} .pill.amber{background:#fef3c7;color:#92400e;}
+  .reaction td{font-size:13px;padding:7px 9px;border-bottom:1px solid var(--line);}
+  table{width:100%;border-collapse:collapse;}
+  .mini-stat{display:flex;gap:14px;flex-wrap:wrap;}
+  .mini-stat .b{flex:1;min-width:120px;background:var(--soft);border-radius:10px;padding:10px 12px;text-align:center;}
+  .mini-stat .b .n{font-size:22px;font-weight:800;}
+  .mini-stat .b .t{font-size:11px;color:var(--sub);}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--sub);margin-top:8px;flex-wrap:wrap;}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;}
+  .foot{font-size:11px;color:var(--sub);margin-top:18px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="mockbar">ⓘ 設計すり合わせ用モック。数値は <b>Excel「01_ダッシュボード」(50期・経過9ヶ月)の実値</b>を反映。実装版は recharts + Lark Base 実データで描画します。</div>
+
+  <header class="top">
+    <h1>生産本部 KPIダッシュボード</h1>
+    <div class="meta">
+      <select><option>50期(令和7年8月〜)</option></select>
+      <span class="chip">経過 9ヶ月</span>
+      <span class="chip">月次レビュー用</span>
+    </div>
+  </header>
+
+  <div class="guide">
+    <b>【月次レビューの進め方】</b> ①経営KPI信号盤で全体把握 → ②赤・黄の件数を確認 → ③該当KPIを特定 → ④原因分析と施策決定 → ⑤★達成表で各課の取組状況を確認
+  </div>
+
+  <!-- ===== 経営KPI信号盤(生産本部全体 Lv2) ===== -->
+  <div class="section-title">経営KPI 信号盤（生産本部全体・Lv2）</div>
+  <div class="grid signals" id="signals"></div>
+
+  <!-- ===== ★達成 ===== -->
+  <div class="grid g2">
+    <div>
+      <div class="section-title">製造部 ★達成ランキング（6課）</div>
+      <div class="card" id="star-seizo"></div>
+    </div>
+    <div>
+      <div class="section-title">生産管理部 ★達成（調達・管理・検査）</div>
+      <div class="card" id="star-kanri"></div>
+    </div>
+  </div>
+
+  <!-- ===== 要対応 + 施策進捗 ===== -->
+  <div class="grid g2" style="margin-top:6px;">
+    <div>
+      <div class="section-title">要対応KPI（判定が赤・黄）</div>
+      <div class="card">
+        <div class="mini-stat" style="margin-bottom:12px;">
+          <div class="b"><div class="n" style="color:var(--red)">18</div><div class="t">「赤」判定の件数</div></div>
+          <div class="b"><div class="n" style="color:var(--amber)">14</div><div class="t">「黄」判定の件数</div></div>
+        </div>
+        <table class="reaction"><tbody>
+          <tr><td>北関東縫製課 生産効率</td><td style="text-align:right">5.8 / 目標7.8</td><td style="width:40px;text-align:right"><span class="pill red">赤</span></td></tr>
+          <tr><td>生産管理課 納期変更率</td><td style="text-align:right">14.5% / 目標11%</td><td style="text-align:right"><span class="pill red">赤</span></td></tr>
+          <tr><td>検査課 外注内不具合削減</td><td style="text-align:right">144 / 目標120</td><td style="text-align:right"><span class="pill red">赤</span></td></tr>
+          <tr><td>製造部 鉄工生産効率</td><td style="text-align:right">21.4 / 目標25</td><td style="text-align:right"><span class="pill amber">黄</span></td></tr>
+          <tr><td>本社縫製課 生産効率</td><td style="text-align:right">7.96 / 目標8.9</td><td style="text-align:right"><span class="pill amber">黄</span></td></tr>
+        </tbody></table>
+        <div class="legend"><span style="margin-left:auto">▶ KPI実績入力シートで全件確認</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">施策の進捗（施策管理より）</div>
+      <div class="card">
+        <div class="kv"><span>「継続」施策数</span><b>3</b></div>
+        <div class="kv"><span>「強化」施策数</span><b>1</b></div>
+        <div class="kv"><span>「見直し」施策数</span><b>2</b></div>
+        <div class="kv"><span>「完了」施策数</span><b>0</b></div>
+        <div class="kv"><span>効果「改善」施策数</span><b style="color:var(--green)">4</b></div>
+        <div class="kv"><span>効果「悪化」施策数</span><b style="color:var(--red)">1</b></div>
+        <div class="legend"><span>※ 施策の詳細・月次PDCAは「施策管理」で管理</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== トレンド ===== -->
+  <div class="section-title">経営KPI トレンド（月次）</div>
+  <div class="grid g2">
+    <div class="card">
+      <div class="kgi-name" style="font-size:13px;color:var(--sub);font-weight:600;margin-bottom:6px;">月次粗利率(%) ／ 目標35%</div>
+      <svg id="t-arari" width="100%" height="180" viewBox="0 0 560 180"></svg>
+    </div>
+    <div class="card">
+      <div class="kgi-name" style="font-size:13px;color:var(--sub);font-weight:600;margin-bottom:6px;">在庫+仕掛(百万円) ／ 目標447</div>
+      <svg id="t-zaiko" width="100%" height="180" viewBox="0 0 560 180"></svg>
+    </div>
+  </div>
+
+  <div class="foot">
+    モック構成: 経営KPI信号盤(Lv2 7指標) ／ ★達成(製造部6課+生産管理部3課) ／ 要対応KPI ／ 施策進捗 ／ 経営KPIトレンド。<br>
+    実装時: 折れ線は recharts、データは Lark Base(<code>SEISAN_KPI_ACTUAL</code> / <code>SEISAN_KPI_STAR_ADJ</code> / <code>SEISAN_KPI_PDCA</code>)。判定・★算出は <code>lib/kpi/</code> 共通関数。<br>
+    Lv2経営KPI(粗利率/総資産回転率/材料金額比率)は「経営」エリアの会計データ(<code>KAIKEI_ACTUAL</code>)を参照。
+  </div>
+
+</div>
+
+<script>
+// ===== 経営KPI信号盤(Excel 01シート 実値) =====
+var signals=[
+  {cat:"原価",nm:"粗利率",            val:"23.7", unit:"%",     tg:"目標 35.0%",   j:"red"},
+  {cat:"原価",nm:"総資産回転率",      val:"0.86", unit:"回",    tg:"目標 1.25回",  j:"red"},
+  {cat:"原価",nm:"材料金額比率",      val:"23.9", unit:"%",     tg:"目標 29.0%",   j:"green"},
+  {cat:"品質",nm:"クレーム(年累計)",  val:"5",    unit:"件",    tg:"目標 6件",     j:"amber"},
+  {cat:"品質",nm:"社内不具合(年累計)",val:"31",   unit:"件",    tg:"目標 51件",    j:"green"},
+  {cat:"原価",nm:"在庫+仕掛(直近)",   val:"668.8",unit:"百万円",tg:"目標 447百万円",j:"red"},
+  {cat:"原価",nm:"外注金額(年累計)",  val:"408.2",unit:"百万円",tg:"目標 450百万円",j:"amber"}
+];
+var jl={green:"緑",amber:"黄",red:"赤"};
+var sigBox=document.getElementById("signals");
+signals.forEach(function(s){
+  var d=document.createElement("div");
+  d.className="card sig "+s.j;
+  d.innerHTML='<span class="badge b-'+s.j+'">'+jl[s.j]+'</span>'+
+    '<div class="cat">'+s.cat+'</div>'+
+    '<div class="nm">'+s.nm+'</div>'+
+    '<div class="val">'+s.val+'<span style="font-size:13px;color:var(--sub)"> '+s.unit+'</span></div>'+
+    '<div class="tg">'+s.tg+'</div>';
+  sigBox.appendChild(d);
+});
+
+// ===== ★達成ランキング =====
+function renderStars(elId, rows){
+  var max=Math.max.apply(null,rows.map(function(r){return r.star;}));
+  var box=document.getElementById(elId);
+  rows.sort(function(a,b){return b.star-a.star;});
+  rows.forEach(function(r,i){
+    var row=document.createElement("div");
+    row.className="star-row";
+    row.innerHTML='<span class="rank">'+(i+1)+'</span>'+
+      '<span class="lbl">'+r.name+'</span>'+
+      '<span class="star-bar"><span style="width:'+(r.star/max*100)+'%"></span></span>'+
+      '<span class="star-num">★'+r.star+'</span>';
+    box.appendChild(row);
+  });
+}
+renderStars("star-seizo",[
+  {name:"本社鉄工",star:24},{name:"第二鉄工",star:25},{name:"北関東鉄工",star:23},
+  {name:"本社縫製",star:25},{name:"北多久縫製",star:28},{name:"北関東縫製",star:22}
+]);
+renderStars("star-kanri",[
+  {name:"調達",star:23},{name:"管理",star:13},{name:"検査",star:26}
+]);
+
+// ===== 月次トレンド折れ線 =====
+function drawLine(id, labels, data, color, target){
+  var svg=document.getElementById(id); if(!svg) return;
+  var W=560,H=180,padL=44,padR=16,padT=14,padB=28;
+  var all=data.concat([target]);
+  var min=Math.min.apply(null,all),max=Math.max.apply(null,all);
+  var sp=(max-min)||1; min-=sp*0.15; max+=sp*0.15;
+  var n=labels.length;
+  var x=function(i){return padL+(W-padL-padR)*(n<2?0:i/(n-1));};
+  var y=function(v){return padT+(H-padT-padB)*(1-(v-min)/(max-min));};
+  var ns="http://www.w3.org/2000/svg";
+  function el(t,a){var e=document.createElementNS(ns,t);for(var k in a)e.setAttribute(k,a[k]);return e;}
+  // target line
+  svg.appendChild(el("line",{x1:padL,y1:y(target),x2:W-padR,y2:y(target),stroke:"#94a3b8","stroke-width":1.3,"stroke-dasharray":"5 4"}));
+  var tl=el("text",{x:W-padR,y:y(target)-5,"text-anchor":"end","font-size":"10",fill:"#94a3b8"});tl.textContent="目標 "+target;svg.appendChild(tl);
+  // area-ish line
+  var d="";data.forEach(function(v,i){d+=(i?"L":"M")+x(i)+" "+y(v)+" ";});
+  svg.appendChild(el("path",{d:d,fill:"none",stroke:color,"stroke-width":2.5}));
+  data.forEach(function(v,i){
+    svg.appendChild(el("circle",{cx:x(i),cy:y(v),r:3.5,fill:color}));
+    var vt=el("text",{x:x(i),y:y(v)-8,"text-anchor":"middle","font-size":"9.5",fill:"#475569"});vt.textContent=v;svg.appendChild(vt);
+  });
+  labels.forEach(function(t,i){
+    var xt=el("text",{x:x(i),y:H-9,"text-anchor":"middle","font-size":"10",fill:"#64748b"});xt.textContent=t;svg.appendChild(xt);
+  });
+}
+var months=["8月","9月","10月","11月","12月","1月","2月","3月"];
+drawLine("t-arari",months,[25.9,16.4,24.2,21.0,25.2,34.3,13.8,24.7],"#2563eb",35);
+drawLine("t-zaiko",months,[755,849,850,1060,849,920,988,669],"#dc2626",447);
+</script>
+</body>
+</html>

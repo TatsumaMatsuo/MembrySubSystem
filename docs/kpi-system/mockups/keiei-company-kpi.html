@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全社KPI(モック) - 年度計画 vs 実績 #45</title>
+<style>
+  :root{
+    --panel:#fff; --ink:#1e293b; --sub:#64748b; --line:#e2e8f0;
+    --navy:#1f3864; --green:#16a34a; --amber:#d97706; --red:#dc2626; --blue:#2563eb; --soft:#f1f5f9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;background:#eef2f7;color:var(--ink);}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px;}
+  .mockbar{background:#fde68a;color:#78350f;font-size:12px;padding:6px 14px;border-radius:8px;margin-bottom:14px;font-weight:600;}
+  header.top{display:flex;align-items:center;justify-content:space-between;background:var(--navy);color:#fff;border-radius:14px;padding:18px 24px;margin-bottom:16px;}
+  header.top h1{font-size:20px;margin:0;font-weight:700;}
+  header.top .meta{display:flex;gap:10px;align-items:center;font-size:13px;}
+  header.top select,header.top .chip{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 1px 3px rgba(15,23,42,.05);}
+  .card .nm{font-size:12px;color:var(--sub);font-weight:600;}
+  .card .v{font-size:26px;font-weight:800;margin:4px 0 2px;}
+  .card .sub{font-size:11px;color:var(--sub);}
+  .badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:999px;color:#fff;}
+  .b-green{background:var(--green);} .b-amber{background:var(--amber);} .b-red{background:var(--red);}
+  .section-title{font-size:14px;font-weight:700;color:var(--navy);margin:20px 4px 10px;display:flex;align-items:center;gap:8px;}
+  .section-title::before{content:"";width:5px;height:16px;background:var(--navy);border-radius:3px;}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;}
+  th,td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:right;}
+  thead th{background:var(--soft);color:var(--sub);font-weight:600;font-size:11.5px;}
+  td.name,th.name{text-align:left;font-weight:600;}
+  tr.major td{background:#f8fafc;font-weight:800;}
+  tr.profit td.name{color:var(--navy);}
+  .bar{height:7px;border-radius:6px;background:#e2e8f0;overflow:hidden;min-width:80px;}
+  .bar>span{display:block;height:100%;border-radius:6px;}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--sub);margin:8px 4px;flex-wrap:wrap;}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px;}
+  .foot{font-size:11px;color:var(--sub);margin-top:16px;line-height:1.7;}
+  .link{font-size:12px;color:var(--blue);margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="mockbar">⚠ 設計すり合わせ用モック（#45 全社KPI・数値はダミー）。実装版は recharts + Lark Base（COMPANY_KPI 目標 × KAIKEI_ACTUAL 実績）。</div>
+
+  <header class="top">
+    <h1>全社KPI ― 年度計画 vs 実績</h1>
+    <div class="meta">
+      <select><option>50期(令和7年度)</option></select>
+      <span class="chip">経過 9ヶ月</span>
+      <select><option>表示: 累計</option><option>月次</option><option>四半期</option><option>半期</option></select>
+    </div>
+  </header>
+
+  <!-- サマリーカード -->
+  <div class="cards">
+    <div class="card"><div class="nm">売上高</div><div class="v">39.0<span style="font-size:14px;color:var(--sub)"> 億</span></div><div class="sub">年度目標 55億 ／ 着地見込 52.0億 <span class="badge b-amber">黄</span></div></div>
+    <div class="card"><div class="nm">営業利益</div><div class="v">2.3<span style="font-size:14px;color:var(--sub)"> 億</span></div><div class="sub">年度目標 3.75億 ／ 着地見込 3.1億 <span class="badge b-amber">黄</span></div></div>
+    <div class="card"><div class="nm">経常利益（ROA分子）</div><div class="v">2.1<span style="font-size:14px;color:var(--sub)"> 億</span></div><div class="sub">年度目標 3.3億 ／ 着地見込 2.8億 <span class="badge b-red">赤</span></div></div>
+  </div>
+
+  <!-- PL -->
+  <div class="section-title">損益計算書ベース（年度計画 vs 実績累計）</div>
+  <table>
+    <thead><tr>
+      <th class="name">科目</th><th>年度目標</th><th>月次目標</th><th>実績累計</th><th>進捗(ペース)</th><th>着地見込</th><th>判定</th>
+    </tr></thead>
+    <tbody id="pl-body"></tbody>
+  </table>
+  <div class="legend">
+    <span><i style="background:var(--green)"></i>緑=ペース内(95%以上)</span>
+    <span><i style="background:var(--amber)"></i>黄=やや遅れ(80-95%)</span>
+    <span><i style="background:var(--red)"></i>赤=未達(80%未満)</span>
+    <span style="margin-left:auto">進捗(ペース)=実績累計 ÷ (年度目標×経過月/12)。着地見込=実績累計 ÷ 経過月 ×12</span>
+  </div>
+
+  <!-- 限界利益ベース -->
+  <div class="section-title">限界利益ベース</div>
+  <table>
+    <thead><tr><th class="name">科目</th><th>年度目標</th><th>実績累計</th><th>進捗(ペース)</th><th>判定</th></tr></thead>
+    <tbody id="mp-body"></tbody>
+  </table>
+
+  <!-- 製造・外注 率 / その他計画 -->
+  <div class="section-title">製造・外注（率） / その他計画</div>
+  <table>
+    <thead><tr><th class="name">指標</th><th>目標</th><th>実績</th><th>判定</th></tr></thead>
+    <tbody id="rate-body"></tbody>
+  </table>
+
+  <div class="link">▶ 生産本部KPI（Lv2 粗利率/総資産回転率/材料金額比率）へ ― 同一の会計データ（KAIKEI_ACTUAL）を参照</div>
+
+  <div class="foot">
+    モック構成: サマリー3指標 ／ PL（売上→原価→粗利→販管費→営業利益→経常利益）／ 限界利益ベース ／ 製造外注率・その他計画。<br>
+    実装時: 目標=既存 <code>COMPANY_KPI</code>、実績=<code>KAIKEI_ACTUAL</code>（月/四半期/半期を年度累計に正規化）。判定・進捗は <code>lib/kpi/</code>。ROA分子=経常利益。
+  </div>
+
+</div>
+
+<script>
+var jl={green:"緑",amber:"黄",red:"赤"};
+// PL: [科目, 年度目標(億), 月次目標, 実績累計, 着地見込, 判定, major?, dir(高/少)]
+var pl=[
+  ["売上高",55.0,4.58,39.0,52.0,"amber",true,"高"],
+  ["売上原価",35.75,2.98,25.8,34.4,"amber",false,"少"],
+  ["売上総利益(粗利)",19.25,1.60,13.2,17.6,"amber",true,"高"],
+  ["販管費",15.5,1.29,10.9,14.5,"green",false,"少"],
+  ["営業利益",3.75,0.31,2.3,3.1,"amber",true,"高"],
+  ["営業外損益(純額)",-0.45,null,-0.2,-0.3,"green",false,"少"],
+  ["経常利益",3.3,0.28,2.1,2.8,"red",true,"高"],
+];
+function pace(act,tgt){ return tgt? act/(tgt*9/12) : 0; }
+function bar(p,color){ var w=Math.min(Math.round(p*100),100); return '<div class="bar"><span style="width:'+w+'%;background:var(--'+color+')"></span></div><div style="font-size:11px;color:var(--sub);margin-top:2px">'+Math.round(p*100)+'%</div>'; }
+var body=document.getElementById("pl-body");
+pl.forEach(function(r){
+  var p=pace(r[3],r[1]); var color=r[5];
+  var tr=document.createElement("tr"); if(r[6]) tr.className="major profit";
+  tr.innerHTML='<td class="name">'+r[0]+'</td><td>'+r[1].toFixed(2)+'億</td><td>'+(r[2]!=null?r[2].toFixed(2)+'億':'―')+'</td>'+
+    '<td>'+r[3].toFixed(1)+'億</td><td>'+bar(p,color)+'</td><td>'+r[4].toFixed(1)+'億</td>'+
+    '<td><span class="badge b-'+color+'">'+jl[color]+'</span></td>';
+  body.appendChild(tr);
+});
+
+var mp=[
+  ["変動費",24.5,17.0,"amber"],
+  ["限界利益",30.5,22.0,"amber"],
+  ["固定費",26.75,19.7,"green"],
+];
+var mpb=document.getElementById("mp-body");
+mp.forEach(function(r){ var p=pace(r[2],r[1]); var tr=document.createElement("tr");
+  tr.innerHTML='<td class="name">'+r[0]+'</td><td>'+r[1].toFixed(2)+'億</td><td>'+r[2].toFixed(1)+'億</td><td>'+bar(p,r[3])+'</td><td><span class="badge b-'+r[3]+'">'+jl[r[3]]+'</span></td>'; mpb.appendChild(tr); });
+
+var rate=[
+  ["製造原価率(目標)","65.0%","66.2%","red"],
+  ["実行予算率(目標)","92.0%","93.1%","amber"],
+  ["外注発注率(目標)","18.0%","17.4%","green"],
+  ["人員計画","420 人","412 人","green"],
+  ["設備投資計画","1.2億","0.7億","green"],
+  ["広告販促費","0.55億","0.41億","green"],
+];
+var rb=document.getElementById("rate-body");
+rate.forEach(function(r){ var tr=document.createElement("tr");
+  tr.innerHTML='<td class="name">'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td><span class="badge b-'+r[3]+'">'+jl[r[3]]+'</span></td>'; rb.appendChild(tr); });
+</script>
+</body>
+</html>

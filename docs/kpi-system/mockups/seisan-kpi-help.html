@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ヘルプ ― 運用ガイド(モック)</title>
+<style>
+  :root{
+    --panel:#fff; --ink:#1e293b; --sub:#64748b; --line:#e2e8f0;
+    --navy:#1f3864; --green:#16a34a; --amber:#d97706; --red:#dc2626; --blue:#2563eb; --soft:#f1f5f9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;background:#eef2f7;color:var(--ink);line-height:1.6;}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px;display:grid;grid-template-columns:210px 1fr;gap:18px;align-items:start;}
+  .mockbar{grid-column:1/3;background:#dbeafe;color:#1e3a8a;font-size:12px;padding:6px 14px;border-radius:8px;font-weight:600;}
+  header.top{grid-column:1/3;display:flex;align-items:center;justify-content:space-between;background:var(--navy);color:#fff;border-radius:14px;padding:16px 24px;}
+  header.top h1{font-size:19px;margin:0;font-weight:700;}
+  header.top .meta{font-size:12px;opacity:.85;}
+  /* 目次 */
+  nav{position:sticky;top:16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;font-size:13px;}
+  nav a{display:block;color:#475569;text-decoration:none;padding:6px 8px;border-radius:7px;}
+  nav a:hover{background:var(--soft);color:var(--navy);}
+  nav .nt{font-size:11px;color:var(--sub);font-weight:700;margin:8px 4px 2px;}
+  main{display:flex;flex-direction:column;gap:16px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 1px 3px rgba(15,23,42,.05);}
+  .card h2{font-size:15px;margin:0 0 12px;color:var(--navy);display:flex;align-items:center;gap:8px;}
+  .card h2::before{content:"";width:5px;height:17px;background:var(--navy);border-radius:3px;}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:6px;}
+  th,td{padding:8px 10px;border:1px solid var(--line);text-align:left;vertical-align:top;}
+  thead th{background:var(--soft);color:var(--sub);font-weight:600;font-size:11.5px;}
+  /* flow */
+  .flow{display:flex;flex-direction:column;gap:0;}
+  .step{display:flex;gap:12px;}
+  .step .no{flex:0 0 30px;}
+  .step .no span{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;font-weight:800;font-size:13px;}
+  .step .ln{width:2px;background:var(--line);margin:2px auto;flex:1;}
+  .step .body{padding-bottom:16px;}
+  .step .ttl{font-weight:700;font-size:13px;}
+  .step .when{font-size:11px;color:var(--blue);font-weight:600;}
+  .step .desc{font-size:12.5px;color:#475569;}
+  .badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;color:#fff;}
+  .b-green{background:var(--green);} .b-amber{background:var(--amber);} .b-red{background:var(--red);}
+  .pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#e0e7ff;color:#3730a3;}
+  .term{font-weight:700;color:var(--navy);}
+  .src{font-size:11px;color:var(--sub);margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="mockbar">ⓘ 設計すり合わせ用モック。Excel「00_運用ガイド」を<b>アプリ内ヘルプ</b>として表示。全画面のヘッダ「？ヘルプ」から開ける想定。内容は管理者が編集可。</div>
+
+  <header class="top">
+    <h1>📖 ヘルプ ― 運用ガイド</h1>
+    <div class="meta">山口産業株式会社 生産本部 / 50期(令和7年8月1日〜令和8年7月31日) / 作成: 本部長 山口信之</div>
+  </header>
+
+  <!-- 目次 -->
+  <nav>
+    <div class="nt">目次</div>
+    <a href="#overview">このシステムについて</a>
+    <a href="#flow">月次運用フロー</a>
+    <a href="#timing">入力タイミング</a>
+    <a href="#judge">判定基準(緑/黄/赤)</a>
+    <a href="#star">★達成のルール</a>
+    <a href="#features">機能の使い方</a>
+    <a href="#map">旧Excel → 新機能 対応</a>
+    <a href="#terms">用語集</a>
+  </nav>
+
+  <main>
+    <!-- 概要 -->
+    <div class="card" id="overview">
+      <h2>このシステムについて</h2>
+      <p style="font-size:13px;margin:0 0 8px;">生産本部のKPIを「経営目標〜現場」まで4階層(経営/Lv2生産本部/Lv3製造部・生産管理部/Lv4各課)で管理し、月次レビューと現場PDCAを一気通貫で支える仕組みです。Excel運用を1システムに集約し、全員が同じ最新値を見られます。</p>
+      <p style="font-size:13px;margin:0;">メニューは <span class="pill">経営</span>(中期経営計画・全社KPI・会計データ入力)と <span class="pill">生産本部KPI</span>(ダッシュボード・実績入力・施策・★達成 等)の2系統です。</p>
+    </div>
+
+    <!-- 運用フロー -->
+    <div class="card" id="flow">
+      <h2>月次運用フロー</h2>
+      <div class="flow">
+        <div class="step"><div class="no"><span>1</span><div class="ln"></div></div><div class="body"><div class="ttl">前月実績を入力 <span class="when">毎月初・前月実績は当月10日前後確定</span></div><div class="desc">担当(生産管理課)が「KPI実績入力」で通常KPI(品質・納期・生産性・安全)を入力。入力すると判定(緑黄赤)が即時表示。</div></div></div>
+        <div class="step"><div class="no"><span>2</span><div class="ln"></div></div><div class="body"><div class="ttl">施策の計画・実施・効果を記入 <span class="when">月次</span></div><div class="desc">各部責任者が「施策管理」で重点施策のPlan/Do/Check(効果)を記入。効果は対象KPI実績から自動判定→確定。</div></div></div>
+        <div class="step"><div class="no"><span>3</span><div class="ln"></div></div><div class="body"><div class="ttl">ダッシュボード確認・本部長コメント <span class="when">月次会議前</span></div><div class="desc">本部長が「ダッシュボード」で全KPIをレビューし、施策に本部長コメントを記入。</div></div></div>
+        <div class="step"><div class="no"><span>4</span><div class="ln"></div></div><div class="body"><div class="ttl">会議で翌月アクション決定・記録 <span class="when">月次レビュー会議</span></div><div class="desc">本部長+各責任者が会議で翌月アクション(継続/強化/見直し/完了)を決定し記録。画面を投影して使用。</div></div></div>
+        <div class="step"><div class="no"><span>5</span></div><div class="body"><div class="ttl">経営KPIの確定値を入力 <span class="when">翌々月・経理確定後</span></div><div class="desc">本部長が「経営」エリアで会計データ(売上高・製造原価・総資産・材料金額 等)を入力→粗利率・総資産回転率・材料金額比率を自動算出。</div></div></div>
+      </div>
+    </div>
+
+    <!-- 入力タイミング -->
+    <div class="card" id="timing">
+      <h2>入力タイミングの考え方</h2>
+      <table>
+        <thead><tr><th>区分</th><th>タイミング</th><th>理由</th></tr></thead>
+        <tbody>
+          <tr><td>通常KPI(品質・納期・生産性・安全)</td><td><b>翌月</b></td><td>前月実績が翌月10日前後に確定するため</td></tr>
+          <tr><td>経営KPI(粗利率・総資産回転率・材料金額比率)</td><td><b>翌々月</b></td><td>経理確定を待つため。率は直接入力せず会計データから累計ベースで自動算出</td></tr>
+          <tr><td>在庫(在庫+仕掛)金額</td><td>翌々月</td><td>累計や平均ではなく「直近月の数値」が最新値</td></tr>
+          <tr><td>会計データ(粒度可変)</td><td>月/四半期/半期</td><td>科目ごとに出るタイミングで入力(総資産=半期 等)。年度累計に正規化</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 判定基準 -->
+    <div class="card" id="judge">
+      <h2>判定基準(緑/黄/赤)</h2>
+      <p style="font-size:12.5px;margin:0 0 6px;">目標達成率に基づく3段階。型(集計タイプ×方向)で閾値が異なります。<b>正本は現行Excel</b>に準拠。</p>
+      <table>
+        <thead><tr><th>型</th><th><span class="badge b-green">緑</span></th><th><span class="badge b-amber">黄</span></th><th><span class="badge b-red">赤</span></th></tr></thead>
+        <tbody>
+          <tr><td>少ない方が良い(累計・件数系)</td><td>月次目標以下</td><td>月次目標の100〜150%</td><td>150%超</td></tr>
+          <tr><td>直近月値(在庫+仕掛)</td><td>達成率95%以上</td><td>80〜95%</td><td>80%未満</td></tr>
+          <tr><td>外注金額(累計 vs 月割合算)</td><td>目標達成</td><td>目標の100〜110%</td><td>110%超</td></tr>
+          <tr><td>高い方が良い・平均型(粗利率等)</td><td>目標達成</td><td>目標の95〜100%</td><td>95%未満</td></tr>
+        </tbody>
+      </table>
+      <div class="src">※ 原則(要件§5.2): 緑=達成率95%以上 or 年間ペース内 / 黄=80〜95% / 赤=80%未満。</div>
+    </div>
+
+    <!-- ★ルール -->
+    <div class="card" id="star">
+      <h2>★達成のルール</h2>
+      <ul style="font-size:13px;margin:0;padding-left:18px;">
+        <li><b>月間目標達成で★1個</b>(部署ごと・項目ごと)。</li>
+        <li><b>年間目標を期末累計で達成すると★+3</b>(期末のみ)。</li>
+        <li><b>5S大賞・労災は手入力</b>で★を増減(例: 5S大賞 +1〜+3 / 労災 −2〜−5)。</li>
+        <li>「総合計★数」= 自動★ + 期末ボーナス + 手入力調整。製造部6課でランキング表示。</li>
+        <li>間接部門は「経過月内の空欄も達成扱い」の特例あり。</li>
+      </ul>
+    </div>
+
+    <!-- 機能の使い方 -->
+    <div class="card" id="features">
+      <h2>機能の使い方(クイックガイド)</h2>
+      <table>
+        <thead><tr><th>機能</th><th>使い方</th></tr></thead>
+        <tbody>
+          <tr><td>① ダッシュボード</td><td>①信号盤で全体把握→②赤・黄の件数確認→③該当KPI特定→④原因分析・施策決定→⑤★達成確認。会議で投影。</td></tr>
+          <tr><td>② KPI実績入力</td><td>部署・対象月を選び黄色セルに実績入力。判定が即時表示。確定済み月はロック。</td></tr>
+          <tr><td>③ 施策管理(PDCA)</td><td>グループを選び、左の施策一覧から選択→右にPDCA履歴。対象KPIを選ぶと実績/目標/判定が自動表示。施策は無制限に追加可。</td></tr>
+          <tr><td>④ ★達成評価</td><td>部署ごとの★を確認。5S大賞・労災は手入力。製造部6課でランキング。</td></tr>
+          <tr><td>⑤ マスタ管理</td><td>管理者がKPI定義・目標値・グループ構成を編集。期切替は新期作成(前期複製)。</td></tr>
+          <tr><td>⑥ 過去実績参照</td><td>全社/部署別/グループ別で過去推移と50期目標を照会。目標妥当性を検証。</td></tr>
+          <tr><td>⑦ エクスポート</td><td>KPI実績・施策ログ・★達成表を CSV/PDF 出力(会議資料・他システム連携用)。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 対応表 -->
+    <div class="card" id="map">
+      <h2>旧Excel → 新機能 対応</h2>
+      <table>
+        <thead><tr><th>旧シート</th><th>新機能</th></tr></thead>
+        <tbody>
+          <tr><td>01_ダッシュボード</td><td>生産本部KPI ＞ ダッシュボード</td></tr>
+          <tr><td>02_KPI実績入力</td><td>生産本部KPI ＞ KPI実績入力 ／ 経営 ＞ 会計データ入力(基礎データ)</td></tr>
+          <tr><td>03_施策管理</td><td>生産本部KPI ＞ 施策管理(PDCA)</td></tr>
+          <tr><td>04・05_★達成表</td><td>生産本部KPI ＞ ★達成評価</td></tr>
+          <tr><td>06_過去実績</td><td>生産本部KPI ＞ 過去実績参照</td></tr>
+          <tr><td>07_KPIマスタ</td><td>生産本部KPI ＞ マスタ管理</td></tr>
+          <tr><td>00_運用ガイド</td><td>本ヘルプ(運用ガイド)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 用語集 -->
+    <div class="card" id="terms">
+      <h2>用語集</h2>
+      <table>
+        <tbody>
+          <tr><td><span class="term">KPI_ID</span></td><td>各指標の業務キー(例: M-30)。マスタ・実績・施策を連結する。</td></tr>
+          <tr><td><span class="term">集計タイプ</span></td><td>累計(積み上げ)/平均(経過月平均)/直近月値(最新月)/基礎データ算出(会計から算出)。</td></tr>
+          <tr><td><span class="term">基礎データ算出KPI</span></td><td>粗利率・総資産回転率・材料金額比率。率を直接入力せず会計データから算出。</td></tr>
+          <tr><td><span class="term">経過月数</span></td><td>実績が確定している月数。進捗率・★・月割合算の基準。</td></tr>
+          <tr><td><span class="term">グループ</span></td><td>部署を束ねる集約レンズ(例: 鉄工課グループ)。1部署が複数グループに重複所属可。</td></tr>
+          <tr><td><span class="term">中期経営計画(中計)</span></td><td>複数年(50→52期)のKGI(売上67億・ROA13%・労働生産性10百万円/人)。線形補間で年度目標を生成。</td></tr>
+          <tr><td><span class="term">部署</span></td><td>Lark Contactの部門を使用(改称・組織変更に自動追従)。</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

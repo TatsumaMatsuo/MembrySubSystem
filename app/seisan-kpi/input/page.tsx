@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { MainLayout } from "@/components/layout";
+import { HelpLink } from "@/components/features/seisan-kpi";
 import { Save, RefreshCw, Lock, AlertCircle, Check } from "lucide-react";
 import {
   aggregate,
@@ -170,6 +171,7 @@ export default function SeisanKpiInputPage() {
             >
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
+            <HelpLink section="timing" />
           </div>
         </div>
 

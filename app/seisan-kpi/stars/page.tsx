@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback } from "react";
 import { MainLayout } from "@/components/layout";
+import { HelpLink } from "@/components/features/seisan-kpi";
 import { RefreshCw } from "lucide-react";
 
 const FY_MONTHS = ["8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月", "4月", "5月", "6月", "7月"];
@@ -79,6 +80,7 @@ export default function SeisanKpiStarsPage() {
             <button onClick={load} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
+            <HelpLink section="star" />
           </div>
         </div>
 

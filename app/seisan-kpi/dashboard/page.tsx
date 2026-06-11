@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout";
+import { HelpLink } from "@/components/features/seisan-kpi";
 import { RefreshCw } from "lucide-react";
 
 type Judgment = "緑" | "黄" | "赤";
@@ -50,6 +51,7 @@ export default function SeisanDashboardPage() {
             <button onClick={load} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
+            <HelpLink section="features" />
           </div>
         </div>
 

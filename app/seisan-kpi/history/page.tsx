@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback } from "react";
 import { MainLayout } from "@/components/layout";
+import { HelpLink } from "@/components/features/seisan-kpi";
 import { RefreshCw } from "lucide-react";
 import type { Judgment } from "@/lib/kpi";
 
@@ -65,6 +66,7 @@ export default function SeisanKpiHistoryPage() {
             <button onClick={() => load(scope, dept, group)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
+            <HelpLink section="map" />
           </div>
         </div>
 

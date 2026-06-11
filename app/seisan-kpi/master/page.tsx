@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { MainLayout } from "@/components/layout";
+import { HelpLink } from "@/components/features/seisan-kpi";
 import { RefreshCw, Plus, Save, Copy, X } from "lucide-react";
 
 const AGG_TYPES = ["累計", "平均", "直近月値", "基礎データ算出"];
@@ -29,7 +30,10 @@ export default function SeisanKpiMasterPage() {
       <div style={{ padding: 20, maxWidth: 1340, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>KPIマスタ / グループマスタ管理</h1>
-          <span style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 600 }}>管理者専用</span>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 600 }}>管理者専用</span>
+            <HelpLink section="features" />
+          </div>
         </div>
 
         {message && (

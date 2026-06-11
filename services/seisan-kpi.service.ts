@@ -1509,3 +1509,122 @@ export async function getHistory(
     group: { name: group?.groupName ?? null, members: group?.members ?? [], rows },
   };
 }
+
+/* =========================================================================
+ * #54 データエクスポート(KPI実績 / 施策ログ / ★達成表)
+ * 設計: docs/kpi-system/03_screens-and-features.md ⑦
+ * 既存 app/api/syaryo/export(xlsx + BOM)パターンを踏襲。
+ * 各 builder は「列名→値」のレコード配列を返し、API側で CSV/XLSX/JSON に整形。
+ * ========================================================================= */
+
+/** 会計月序(1..12, 8月=1)→ 月ラベル(8月..7月) */
+const FY_MONTH_LABELS = ["8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月", "4月", "5月", "6月", "7月"];
+
+export type ExportType = "actuals" | "measures" | "stars";
+
+/** KPI実績エクスポート: KPI × 月 + 現在値/判定(全部署) */
+export async function getActualsExport(period: number): Promise<Record<string, any>[]> {
+  const { rows } = await getInputRows(period);
+  return rows.map((r) => {
+    const rec: Record<string, any> = {
+      部署: r.department,
+      KPIコード: r.kpiId,
+      階層: r.level,
+      カテゴリ: r.category,
+      KPI名称: r.kpiName,
+      単位: r.unit,
+      集計タイプ: r.aggType,
+      良い方向: r.direction,
+      年間目標: r.annualTarget,
+      月次目標換算: r.monthlyTarget,
+    };
+    for (const m of r.months) {
+      rec[FY_MONTH_LABELS[m.fiscalMonth - 1]] = m.value ?? "";
+    }
+    rec["年累計/平均"] = Math.round(r.current * 100) / 100;
+    rec["判定"] = r.judgment;
+    return rec;
+  });
+}
+
+/** 施策ログエクスポート: 施策 × PDCA月(1施策に月次が複数=フラット展開) */
+export async function getMeasuresExport(period: number): Promise<Record<string, any>[]> {
+  const groups = await getGroups(period);
+  const screens = await Promise.all(groups.map((g) => getMeasuresScreen(period, g.groupId)));
+  const out: Record<string, any>[] = [];
+  screens.forEach((screen, gi) => {
+    const groupName = groups[gi].groupName;
+    for (const mz of screen.measures) {
+      const baseRec = {
+        グループ: groupName,
+        施策No: mz.no,
+        施策名: mz.measureName,
+        状態: mz.status,
+        対象KPI: mz.targetKpiName,
+        基準値: mz.baseValue ?? "",
+        狙い値: mz.goalValue ?? "",
+        現在値: mz.current,
+        判定: mz.judgment,
+      };
+      if (mz.pdca.length === 0) {
+        out.push({ ...baseRec, 対象年月: "", 計画: "", 実施: "", 対象KPI実績: "", "効果(自動)": "", "効果(確定)": "", 本部長コメント: "", 翌月アクション: "" });
+        continue;
+      }
+      for (const p of mz.pdca) {
+        out.push({
+          ...baseRec,
+          対象年月: p.targetYm,
+          計画: p.plan,
+          実施: p.do,
+          対象KPI実績: p.kpiActual ?? "",
+          "効果(自動)": p.effectAuto ?? "",
+          "効果(確定)": p.effect,
+          本部長コメント: p.directorComment,
+          翌月アクション: p.nextAction,
+        });
+      }
+    }
+  });
+  return out;
+}
+
+/** ★達成表エクスポート: 部署 × 項目 + 月別★ + 合計(製造/間接) */
+export async function getStarsExport(period: number): Promise<Record<string, any>[]> {
+  const stars = await getStars(period);
+  const out: Record<string, any>[] = [];
+  const push = (division: string, depts: typeof stars.manufacturing) => {
+    for (const d of depts) {
+      for (const it of d.items) {
+        const rec: Record<string, any> = {
+          区分: division,
+          部署: d.department,
+          カテゴリ: it.category,
+          項目: it.name,
+          月間目標: it.monthlyTarget,
+        };
+        for (const c of it.cells) {
+          rec[FY_MONTH_LABELS[c.fiscalMonth - 1]] = c.future ? "" : c.star ? "★" : "・";
+        }
+        rec["合計★"] = it.total;
+        out.push(rec);
+      }
+      // 部署サマリ行
+      out.push({
+        区分: division, 部署: d.department, カテゴリ: "—", 項目: "【部署 総合計★】", 月間目標: "",
+        "合計★": d.grandTotal,
+        "自動★": d.autoTotal, 期末ボーナス: d.yearEndBonus,
+        手入力調整: d.manualRows.reduce((s, r) => s + r.total, 0),
+      });
+    }
+  };
+  push("製造部", stars.manufacturing);
+  push("間接部門", stars.indirect);
+  return out;
+}
+
+/** タイプ別エクスポートデータ取得 */
+export async function getExportData(type: ExportType, period: number): Promise<Record<string, any>[]> {
+  if (type === "actuals") return getActualsExport(period);
+  if (type === "measures") return getMeasuresExport(period);
+  return getStarsExport(period);
+}

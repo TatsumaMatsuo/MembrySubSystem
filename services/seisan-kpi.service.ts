@@ -17,6 +17,7 @@ import {
   SEISAN_KPI_GROUP_MEMBER_FIELDS as GMF,
   SEISAN_KPI_MEASURE_FIELDS as XF,
   SEISAN_KPI_PDCA_FIELDS as DF,
+  SEISAN_KPI_STAR_ADJ_FIELDS as SF,
   SEISAN_KPI_AUDIT_FIELDS as UF,
 } from "@/lib/lark-tables";
 import {
@@ -24,11 +25,14 @@ import {
   attainmentRate,
   autoEffect,
   judge,
+  monthlyStar,
+  yearEndBonus,
   type AggType,
   type Direction,
   type Effect,
   type Judgment,
   type MonthlyActual,
+  type StarItem,
 } from "@/lib/kpi";
 
 // ---- Lark フィールド値の抽出ヘルパ(テキスト/数値の揺れを吸収) ----
@@ -756,4 +760,212 @@ export async function upsertPdca(input: {
   const r: any = await createBaseRecord(t.SEISAN_KPI_PDCA, fields, { baseToken: base() });
   await writeAudit({ table: "SEISAN_KPI_PDCA", recordId: pdcaId, operation: "作成", after: fields, operator });
   return { recordId: r?.data?.record?.record_id ?? "", pdcaId, created: true };
+}
+
+/* =========================================================================
+ * #51 ★達成評価(部署ごと) — Excel 04/05 相当
+ * 設計: docs/kpi-system/03_screens-and-features.md ④ / 04_api-design.md §2.6
+ *  - 月間目標達成で★1個(部署×項目×月)。lib/kpi/monthlyStar で判定。
+ *  - 5S大賞・労災は手入力(STAR_ADJ)。総合計★=自動★+期末ボーナス+手入力調整。
+ *  - 製造6課 / 間接3課。間接は経過月内の空欄も達成扱い。
+ * ========================================================================= */
+
+/** 製造部6課(★ランキング・グリッド順) */
+const STAR_MANUFACTURING = [
+  "本社鉄工課", "第2工場鉄工課", "北関東鉄工課", "本社縫製課", "北多久縫製課", "北関東縫製課",
+];
+/** 間接部門3課 */
+const STAR_INDIRECT = ["調達課", "生産管理課", "検査課"];
+/** 手入力(STAR_ADJ)の常設行。種別はこの順で表示 */
+const STAR_MANUAL_TYPES = ["5S大賞", "労災"];
+
+export interface StarCell {
+  fiscalMonth: number;
+  value: number | null;
+  star: boolean;
+  future: boolean; // 経過月数より先(未到来)
+}
+export interface StarItemRow {
+  kpiId: string;
+  category: string;
+  name: string;
+  unit: string;
+  monthlyTarget: number;
+  direction: Direction;
+  cells: StarCell[];
+  total: number;
+}
+export interface ManualStarRow {
+  type: string; // 5S大賞 / 労災 / その他
+  months: (number | null)[]; // 12要素(8月=index0)。値はその月の★増減合計
+  total: number;
+}
+export interface DeptStars {
+  department: string;
+  items: StarItemRow[];
+  monthlySubtotal: number[]; // 12要素: 各月の自動★合計
+  autoTotal: number;
+  manualRows: ManualStarRow[];
+  yearEndBonus: number;
+  grandTotal: number;
+}
+
+/** ★対象項目か(安全=労災は手入力行に、補助KPI・基礎データ算出は除外) */
+function isStarItem(m: KpiMasterRow): boolean {
+  if (m.aggType === "基礎データ算出") return false;
+  if (m.category === "安全") return false; // 労働災害は手入力(STAR_ADJ)
+  if (m.kpiName.includes("補助KPI")) return false;
+  return true;
+}
+
+/** 会計月序(1..12, 8月=1)→ index(0..11) */
+function ymToFiscalMonth(ym: string): number {
+  const mn = Number(ym.slice(5, 7)) || 0;
+  return mn >= 8 ? mn - 7 : mn + 5;
+}
+
+/** 部署別★達成評価を集約 */
+export async function getStars(period: number): Promise<{
+  period: number;
+  elapsedMonths: number;
+  isPeriodClosed: boolean;
+  manufacturing: DeptStars[];
+  indirect: DeptStars[];
+}> {
+  const t = getLarkTables();
+  const [periods, master, actuals, adjItems] = await Promise.all([
+    getPeriods(),
+    getKpiMaster(period),
+    getActualsByKpi(period),
+    getAllRecords(t.SEISAN_KPI_STAR_ADJ, `CurrentValue.[${SF.period}] = ${period}`),
+  ]);
+  const pinfo = periods.find((p) => p.period === period);
+  const elapsed = pinfo?.elapsedMonths ?? 0;
+  const isPeriodClosed = elapsed >= 12;
+
+  // STAR_ADJ を 部署→種別→月配列 に整理
+  const adjByDept = new Map<string, Map<string, (number | null)[]>>();
+  for (const it of adjItems) {
+    const dept = asText(it.fields[SF.department]);
+    const type = asText(it.fields[SF.type]) || "その他";
+    const ym = asText(it.fields[SF.target_ym]);
+    const delta = asNum(it.fields[SF.delta]);
+    if (!dept || !ym) continue;
+    const fm = ymToFiscalMonth(ym);
+    if (fm < 1 || fm > 12) continue;
+    if (!adjByDept.has(dept)) adjByDept.set(dept, new Map());
+    const byType = adjByDept.get(dept)!;
+    if (!byType.has(type)) byType.set(type, Array(12).fill(null));
+    const arr = byType.get(type)!;
+    arr[fm - 1] = (arr[fm - 1] ?? 0) + (delta ?? 0);
+  }
+
+  const monthsOf = (kpiId: string): MonthlyActual[] => {
+    const am = actuals.get(kpiId);
+    return Array.from({ length: 12 }, (_, i) => ({ fiscalMonth: i + 1, value: am?.get(i + 1)?.value ?? null }));
+  };
+
+  const buildDept = (department: string, indirectBlankAsAchieved: boolean): DeptStars => {
+    const items = master.filter((m) => m.department === department && isStarItem(m));
+    const monthlySubtotal = Array(12).fill(0);
+
+    const itemRows: StarItemRow[] = items.map((m) => {
+      const months = monthsOf(m.kpiId);
+      const cells: StarCell[] = months.map((mo) => {
+        const future = mo.fiscalMonth > elapsed;
+        const star = !future && monthlyStar(
+          { monthlyTarget: m.monthlyTarget, direction: m.direction },
+          mo.value,
+          indirectBlankAsAchieved
+        );
+        if (star) monthlySubtotal[mo.fiscalMonth - 1] += 1;
+        return { fiscalMonth: mo.fiscalMonth, value: mo.value, star, future };
+      });
+      return {
+        kpiId: m.kpiId, category: m.category, name: m.kpiName, unit: m.unit,
+        monthlyTarget: m.monthlyTarget, direction: m.direction,
+        cells, total: cells.filter((c) => c.star).length,
+      };
+    });
+    const autoTotal = itemRows.reduce((s, it) => s + it.total, 0);
+
+    // 期末ボーナス(年間目標を期末累計で達成した項目ごと +3)。期末のみ。
+    const bonus = isPeriodClosed
+      ? yearEndBonus(items.map<StarItem>((m) => ({
+          monthlyTarget: m.monthlyTarget,
+          direction: m.direction,
+          months: monthsOf(m.kpiId),
+          annualTarget: m.annualTarget,
+        })))
+      : 0;
+
+    // 手入力行: 常設種別 + 実データにある追加種別
+    const byType = adjByDept.get(department) ?? new Map<string, (number | null)[]>();
+    const types = [...STAR_MANUAL_TYPES, ...[...byType.keys()].filter((k) => !STAR_MANUAL_TYPES.includes(k))];
+    const manualRows: ManualStarRow[] = types.map((type) => {
+      const months = byType.get(type) ?? Array(12).fill(null);
+      const total = months.reduce((s: number, v) => s + (v ?? 0), 0);
+      return { type, months, total };
+    });
+    const manualTotal = manualRows.reduce((s, r) => s + r.total, 0);
+
+    return {
+      department, items: itemRows, monthlySubtotal, autoTotal,
+      manualRows, yearEndBonus: bonus,
+      grandTotal: autoTotal + bonus + manualTotal,
+    };
+  };
+
+  const present = new Set(master.map((m) => m.department));
+  const manufacturing = STAR_MANUFACTURING.filter((d) => present.has(d)).map((d) => buildDept(d, false));
+  const indirect = STAR_INDIRECT.filter((d) => present.has(d)).map((d) => buildDept(d, true));
+
+  return { period, elapsedMonths: elapsed, isPeriodClosed, manufacturing, indirect };
+}
+
+/** 5S大賞・労災 等の手入力★調整 upsert(部署×種別×対象月で一意) */
+export async function upsertStarAdj(input: {
+  period: number;
+  department: string;
+  departmentId?: string;
+  fiscalMonth: number;
+  type: string; // 5S大賞/労災/その他
+  delta: number | null;
+  reason?: string;
+  operator?: string;
+}): Promise<{ recordId: string; adjId: string; created: boolean }> {
+  const t = getLarkTables();
+  const periods = await getPeriods();
+  const pinfo = periods.find((p) => p.period === input.period);
+  const ym = fiscalMonthToYm(pinfo?.startDate ?? "", input.fiscalMonth);
+  const adjId = `${input.period}-${input.department}-${input.type}-${ym.replace("-", "")}`;
+
+  const fields: Record<string, any> = {
+    [SF.adj_id]: adjId,
+    [SF.period]: input.period,
+    [SF.department]: input.department,
+    [SF.department_id]: input.departmentId ?? "",
+    [SF.target_ym]: ym,
+    [SF.type]: input.type,
+    [SF.delta]: input.delta,
+    [SF.reason]: input.reason ?? "",
+    [SF.registered_by]: input.operator ?? "",
+  };
+
+  const found = await getBaseRecords(t.SEISAN_KPI_STAR_ADJ, {
+    baseToken: base(),
+    filter: `CurrentValue.[${SF.adj_id}] = "${adjId}"`,
+    pageSize: 1,
+  });
+  const existingRec = (found.data?.items ?? [])[0] as any;
+  const operator = input.operator ?? "";
+
+  if (existingRec) {
+    await updateBaseRecord(t.SEISAN_KPI_STAR_ADJ, existingRec.record_id, fields, { baseToken: base() });
+    await writeAudit({ table: "SEISAN_KPI_STAR_ADJ", recordId: adjId, operation: "更新", before: existingRec.fields, after: fields, operator });
+    return { recordId: existingRec.record_id, adjId, created: false };
+  }
+  const r: any = await createBaseRecord(t.SEISAN_KPI_STAR_ADJ, fields, { baseToken: base() });
+  await writeAudit({ table: "SEISAN_KPI_STAR_ADJ", recordId: adjId, operation: "作成", after: fields, operator });
+  return { recordId: r?.data?.record?.record_id ?? "", adjId, created: true };
 }

@@ -19,10 +19,12 @@ import {
   SEISAN_KPI_MEASURE_FIELDS as XF,
   SEISAN_KPI_PDCA_FIELDS as DF,
   SEISAN_KPI_STAR_ADJ_FIELDS as SF,
+  SEISAN_KPI_HISTORY_FIELDS as HF,
   SEISAN_KPI_AUDIT_FIELDS as UF,
 } from "@/lib/lark-tables";
 import {
   aggregate,
+  aggregateGroup,
   attainmentRate,
   autoEffect,
   judge,
@@ -1290,5 +1292,220 @@ export async function clonePeriod(input: {
   return {
     cloned: { master: masterItems.length, groups: groupItems.length, members: memberItems.length },
     periodCreated,
+  };
+}
+
+/* =========================================================================
+ * #53 過去実績参照(全社・部門 / 部署別 / グループ別)
+ * 設計: docs/kpi-system/03_screens-and-features.md ⑥ / 04_api-design.md §2.11
+ *  - zensha: HISTORY(43-49期 集約)推移 + 50期目標 + 目標妥当性
+ *  - busho : 部署のKPI 50期現在 + 49期実績 + 50期目標 + 判定
+ *  - group : 所属部署を合算(累計系)/平均(率系)
+ * ========================================================================= */
+
+export type HistoryScope = "zensha" | "busho" | "group";
+
+export interface HistorySeriesRow {
+  indicator: string;
+  unit: string;
+  aggLevel: string; // 全社/部門
+  /** 43-49期の {period, value} 昇順 */
+  series: { period: number; value: number | null }[];
+  target50: number | null;
+  /** 目標妥当性: ストレッチ/妥当/要努力(過去レンジに対する50期目標の位置) */
+  validity: "ストレッチ" | "妥当" | "要努力" | "—";
+}
+export interface DeptHistoryRow {
+  kpiId: string;
+  category: string;
+  kpiName: string;
+  unit: string;
+  direction: Direction;
+  prevActual: number | null; // 49期実績(マスタ)
+  annualTarget: number; // 50期目標
+  current: number; // 50期現在
+  judgment: Judgment;
+}
+export interface GroupHistoryRow {
+  kpiName: string;
+  category: string;
+  unit: string;
+  aggType: AggType;
+  aggregateMethod: "合算" | "平均";
+  memberDepartments: string[];
+  annualTarget: number; // 所属部署を集計した50期目標
+  current: number; // 所属部署を集計した50期現在
+  judgment: Judgment;
+}
+
+/** 指標名から良い方向を推定(HISTORYに方向が無いため) */
+function inferDirection(indicator: string): Direction {
+  const lessIsBetter = ["クレーム", "不具合", "災害", "変更率", "在庫", "リードタイム", "LT", "不良", "削減"];
+  return lessIsBetter.some((k) => indicator.includes(k)) ? "少ない方が良い" : "高い方が良い";
+}
+
+/** 過去レンジに対する50期目標の妥当性を判定 */
+function targetValidity(pastValues: number[], target: number | null, direction: Direction): HistorySeriesRow["validity"] {
+  if (target == null || pastValues.length === 0) return "—";
+  const min = Math.min(...pastValues);
+  const max = Math.max(...pastValues);
+  if (direction === "高い方が良い") {
+    if (target > max) return "ストレッチ"; // 過去最高を上回る目標
+    if (target < min) return "要努力"; // 過去最低すら下回る=緩い
+    return "妥当";
+  } else {
+    if (target < min) return "ストレッチ"; // 過去最少をさらに下回る目標
+    if (target > max) return "要努力"; // 過去最多すら上回る=緩い
+    return "妥当";
+  }
+}
+
+/** 全社・部門スコープ: HISTORY(43-49期)推移 + 50期目標 + 妥当性 */
+async function getHistoryZensha(): Promise<HistorySeriesRow[]> {
+  const t = getLarkTables();
+  const items = await getAllRecords(t.SEISAN_KPI_HISTORY);
+  // 指標名でグループ化
+  const byIndicator = new Map<string, { unit: string; aggLevel: string; target50: number | null; vals: Map<number, number | null> }>();
+  for (const it of items) {
+    const f = it.fields;
+    const indicator = asText(f[HF.indicator_name]);
+    if (!indicator) continue;
+    const period = asNum(f[HF.period]) ?? 0;
+    const value = asNum(f[HF.value]);
+    if (!byIndicator.has(indicator)) {
+      byIndicator.set(indicator, {
+        unit: asText(f[HF.unit]),
+        aggLevel: asText(f[HF.agg_level]),
+        target50: asNum(f[HF.target_50]),
+        vals: new Map(),
+      });
+    }
+    const g = byIndicator.get(indicator)!;
+    g.vals.set(period, value);
+    if (g.target50 == null) g.target50 = asNum(f[HF.target_50]);
+  }
+
+  const rows: HistorySeriesRow[] = [];
+  for (const [indicator, g] of byIndicator) {
+    const periods = [...g.vals.keys()].sort((a, b) => a - b);
+    const series = periods.map((p) => ({ period: p, value: g.vals.get(p) ?? null }));
+    const pastValues = series.map((s) => s.value).filter((v): v is number => v != null);
+    const direction = inferDirection(indicator);
+    rows.push({
+      indicator,
+      unit: g.unit,
+      aggLevel: g.aggLevel,
+      series,
+      target50: g.target50,
+      validity: targetValidity(pastValues, g.target50, direction),
+    });
+  }
+  // 全社→部門 の順、指標名安定ソート
+  return rows.sort((a, b) => (a.aggLevel === b.aggLevel ? a.indicator.localeCompare(b.indicator, "ja") : a.aggLevel === "全社" ? -1 : 1));
+}
+
+/** 部署別スコープ: 50期 KPI現在 + 49期実績 + 目標 + 判定 */
+async function getHistoryBusho(period: number, department: string): Promise<DeptHistoryRow[]> {
+  const t = getLarkTables();
+  const [{ rows }, masterItems] = await Promise.all([
+    getInputRows(period, department),
+    getAllRecords(t.SEISAN_KPI_MASTER, `AND(CurrentValue.[${MF.period}] = ${period}, CurrentValue.[${MF.department}] = "${department}")`),
+  ]);
+  // 49期実績(prev_actual)を kpiId で引く
+  const prevByKpi = new Map<string, number | null>();
+  for (const it of masterItems) {
+    prevByKpi.set(asText(it.fields[MF.kpi_id]), asNum(it.fields[MF.prev_actual]));
+  }
+  return rows.map((r) => ({
+    kpiId: r.kpiId,
+    category: r.category,
+    kpiName: r.kpiName,
+    unit: r.unit,
+    direction: r.direction,
+    prevActual: prevByKpi.get(r.kpiId) ?? null,
+    annualTarget: r.annualTarget,
+    current: Math.round(r.current * 100) / 100,
+    judgment: r.judgment,
+  }));
+}
+
+/** グループ別スコープ: 所属部署を合算(累計系)/平均(率系) */
+async function getHistoryGroup(period: number, groupId: string): Promise<{ group: GroupInfo | null; rows: GroupHistoryRow[] }> {
+  const groups = await getGroups(period);
+  const group = groups.find((g) => g.groupId === groupId) ?? null;
+  if (!group) return { group: null, rows: [] };
+
+  const elapsed = (await getPeriods()).find((p) => p.period === period)?.elapsedMonths ?? 0;
+  // 所属部署それぞれの入力行を取得
+  const perDept = await Promise.all(group.members.map((d) => getInputRows(period, d)));
+
+  // KPI名でまとめる(各部署の同名KPIを集計)
+  interface Acc { category: string; unit: string; aggType: AggType; direction: Direction; currents: number[]; targets: number[]; depts: string[] }
+  const byName = new Map<string, Acc>();
+  perDept.forEach((res, idx) => {
+    const dept = group.members[idx];
+    for (const r of res.rows) {
+      if (!byName.has(r.kpiName)) {
+        byName.set(r.kpiName, { category: r.category, unit: r.unit, aggType: r.aggType, direction: r.direction, currents: [], targets: [], depts: [] });
+      }
+      const a = byName.get(r.kpiName)!;
+      a.currents.push(r.current);
+      a.targets.push(r.annualTarget);
+      a.depts.push(dept);
+    }
+  });
+
+  const rows: GroupHistoryRow[] = [];
+  for (const [kpiName, a] of byName) {
+    const current = aggregateGroup(a.aggType, a.currents);
+    const annualTarget = aggregateGroup(a.aggType, a.targets);
+    const judgment = judge({ aggType: a.aggType, direction: a.direction, annualTarget }, current, elapsed);
+    rows.push({
+      kpiName, category: a.category, unit: a.unit, aggType: a.aggType,
+      aggregateMethod: a.aggType === "累計" ? "合算" : "平均",
+      memberDepartments: a.depts,
+      annualTarget: Math.round(annualTarget * 100) / 100,
+      current: Math.round(current * 100) / 100,
+      judgment,
+    });
+  }
+  return { group, rows };
+}
+
+/** 過去実績参照(スコープ別) */
+export async function getHistory(
+  scope: HistoryScope,
+  params: { period: number; department?: string; groupId?: string }
+): Promise<{
+  scope: HistoryScope;
+  period: number;
+  departments: string[];
+  groups: GroupInfo[];
+  selected: { department: string | null; groupId: string | null };
+  zensha?: HistorySeriesRow[];
+  busho?: DeptHistoryRow[];
+  group?: { name: string | null; members: string[]; rows: GroupHistoryRow[] };
+}> {
+  const [departments, groups] = await Promise.all([
+    getDepartments(params.period).then((ds) => ds.filter((d) => !d.includes("全体"))),
+    getGroups(params.period),
+  ]);
+
+  if (scope === "zensha") {
+    const zensha = await getHistoryZensha();
+    return { scope, period: params.period, departments, groups, selected: { department: null, groupId: null }, zensha };
+  }
+  if (scope === "busho") {
+    const department = params.department || departments[0] || "";
+    const busho = department ? await getHistoryBusho(params.period, department) : [];
+    return { scope, period: params.period, departments, groups, selected: { department, groupId: null }, busho };
+  }
+  // group
+  const groupId = params.groupId || groups[0]?.groupId || "";
+  const { group, rows } = groupId ? await getHistoryGroup(params.period, groupId) : { group: null, rows: [] };
+  return {
+    scope, period: params.period, departments, groups,
+    selected: { department: null, groupId },
+    group: { name: group?.groupName ?? null, members: group?.members ?? [], rows },
   };
 }

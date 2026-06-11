@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { MainLayout } from "@/components/layout";
-import { HelpLink } from "@/components/features/seisan-kpi";
+import { HelpLink, JudgmentBadge, EFFECT_COLORS } from "@/components/features/seisan-kpi";
 import { RefreshCw, Plus, Save, X } from "lucide-react";
 import type { Judgment, Effect } from "@/lib/kpi";
 
@@ -13,8 +13,7 @@ const STATUSES = ["下書き", "実施中", "完了", "中止"];
 const EFFECTS: Effect[] = ["改善", "横ばい", "悪化"];
 const NEXT_ACTIONS = ["継続", "強化", "見直し", "完了"];
 
-const badgeColor: Record<Judgment, string> = { 緑: "#16a34a", 黄: "#d97706", 赤: "#dc2626" };
-const effectColor: Record<string, string> = { 改善: "#16a34a", 横ばい: "#64748b", 悪化: "#dc2626" };
+const effectColor = EFFECT_COLORS as Record<string, string>;
 const statusColor: Record<string, string> = {
   下書き: "#64748b", 実施中: "#5b21b6", 完了: "#166534", 中止: "#991b1b",
 };
@@ -135,7 +134,7 @@ export default function SeisanKpiMeasuresPage() {
                       <div style={{ color: "#64748b", fontWeight: 600 }}>{k.department} {k.kpiName}</div>
                       <div style={{ fontSize: 14, fontWeight: 800, marginTop: 2 }}>
                         {k.current}/目標{k.target}{" "}
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#fff", background: badgeColor[k.judgment] }}>{k.judgment}</span>
+                        <JudgmentBadge judgment={k.judgment} size="sm" />
                       </div>
                     </div>
                   ))}
@@ -182,7 +181,7 @@ export default function SeisanKpiMeasuresPage() {
                             {m.goalValue != null && <div style={{ fontSize: 10, color: "#2563eb" }}>狙い{m.goalValue}</div>}
                           </td>
                           <td style={{ ...td, textAlign: "center" }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#fff", background: badgeColor[m.judgment] }}>{m.judgment}</span>
+                            <JudgmentBadge judgment={m.judgment} size="sm" />
                             <div style={{ fontSize: 10, color: "#64748b" }}>{m.pdca.length}件</div>
                           </td>
                         </tr>

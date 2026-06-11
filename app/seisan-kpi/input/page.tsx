@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { MainLayout } from "@/components/layout";
-import { HelpLink } from "@/components/features/seisan-kpi";
+import { HelpLink, JudgmentBadge } from "@/components/features/seisan-kpi";
 import { Save, RefreshCw, Lock, AlertCircle, Check } from "lucide-react";
 import {
   aggregate,
@@ -32,12 +32,6 @@ interface InputRow {
 }
 
 const FY_MONTHS = ["8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月", "4月", "5月", "6月", "7月"];
-
-const badgeColor: Record<Judgment, string> = {
-  緑: "#16a34a",
-  黄: "#d97706",
-  赤: "#dc2626",
-};
 
 export default function SeisanKpiInputPage() {
   const [period, setPeriod] = useState<number>(50);
@@ -247,9 +241,7 @@ export default function SeisanKpiInputPage() {
                         {Number.isFinite(current) ? Math.round(current * 100) / 100 : "―"}
                       </td>
                       <td style={tdMon}>
-                        <span style={{ display: "inline-block", fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 999, color: "#fff", background: badgeColor[judgment] }}>
-                          {judgment}
-                        </span>
+                        <JudgmentBadge judgment={judgment} />
                       </td>
                     </tr>
                   );

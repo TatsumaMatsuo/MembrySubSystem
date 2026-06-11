@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout";
+import { JudgmentBadge } from "@/components/features/seisan-kpi";
 import { RefreshCw, AlertCircle } from "lucide-react";
 
 type Judgment = "緑" | "黄" | "赤";
@@ -21,7 +22,6 @@ interface PlRow {
 }
 interface OtherRow { name: string; target: string; actual: string; judgment: Judgment | null; }
 
-const badge: Record<Judgment, string> = { 緑: "#16a34a", 黄: "#d97706", 赤: "#dc2626" };
 const oku = (v: number | null) => (v == null ? "―" : `${(Math.round(v * 10) / 10).toFixed(1)}億`);
 const pct = (v: number | null) => (v == null ? "―" : `${Math.round(v * 100)}%`);
 
@@ -87,7 +87,7 @@ export default function CompanyKpiPage() {
               <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>{r.name}{r.name === "経常利益" ? "（ROA分子）" : ""}</div>
               <div style={{ fontSize: 26, fontWeight: 800, margin: "4px 0 2px" }}>{oku(r.actual)}</div>
               <div style={{ fontSize: 11, color: "#64748b" }}>
-                年度目標 {oku(r.target)} ／ 着地見込 {oku(r.landing)} {r.judgment && <span style={{ ...pill, background: badge[r.judgment] }}>{r.judgment}</span>}
+                年度目標 {oku(r.target)} ／ 着地見込 {oku(r.landing)} {r.judgment && <span style={{ marginLeft: 4 }}><JudgmentBadge judgment={r.judgment} size="sm" /></span>}
               </div>
             </div>
           ))}
@@ -115,7 +115,7 @@ export default function CompanyKpiPage() {
                     <td style={td}>{oku(r.actual)}</td>
                     <td style={td}>{pct(r.pace)}</td>
                     <td style={td}>{oku(r.landing)}</td>
-                    <td style={td}>{r.judgment ? <span style={{ ...pill, background: badge[r.judgment] }}>{r.judgment}</span> : "―"}</td>
+                    <td style={td}>{r.judgment ? <JudgmentBadge judgment={r.judgment} size="sm" /> : "―"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -155,4 +155,3 @@ const th: React.CSSProperties = { padding: "9px 12px", borderBottom: "1px solid 
 const thLeft: React.CSSProperties = { ...th, textAlign: "left" };
 const td: React.CSSProperties = { padding: "9px 12px", borderBottom: "1px solid #f1f5f9", textAlign: "right", fontVariantNumeric: "tabular-nums" };
 const tdLeft: React.CSSProperties = { ...td, textAlign: "left", fontWeight: 600 };
-const pill: React.CSSProperties = { display: "inline-block", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999, color: "#fff", marginLeft: 4 };

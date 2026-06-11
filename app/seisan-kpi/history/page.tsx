@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback } from "react";
 import { MainLayout } from "@/components/layout";
-import { HelpLink } from "@/components/features/seisan-kpi";
+import { HelpLink, JudgmentBadge } from "@/components/features/seisan-kpi";
 import { RefreshCw } from "lucide-react";
 import type { Judgment } from "@/lib/kpi";
 
@@ -20,7 +20,6 @@ interface HistoryData {
   group?: { name: string | null; members: string[]; rows: GroupHistoryRow[] };
 }
 
-const badgeColor: Record<Judgment, string> = { 緑: "#16a34a", 黄: "#d97706", 赤: "#dc2626" };
 const validityStyle: Record<string, { bg: string; fg: string }> = {
   ストレッチ: { bg: "#dbeafe", fg: "#1e40af" },
   妥当: { bg: "#dcfce7", fg: "#166534" },
@@ -169,7 +168,7 @@ function BushoView({ dept, rows }: { dept: string; rows: DeptHistoryRow[] }) {
               <td style={tdNum}>{r.prevActual ?? "—"}</td>
               <td style={{ ...tdNum, background: "#eef2ff", fontWeight: 700 }}>{r.annualTarget}</td>
               <td style={{ ...tdNum, fontWeight: 700 }}>{r.current}</td>
-              <td style={td}><span style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 999, color: "#fff", background: badgeColor[r.judgment] }}>{r.judgment}</span></td>
+              <td style={td}><JudgmentBadge judgment={r.judgment} /></td>
             </tr>
           ))}
         </tbody>
@@ -207,7 +206,7 @@ function GroupView({ group }: { group?: { name: string | null; members: string[]
               <td style={{ ...td, fontSize: 11 }}><span style={{ padding: "2px 8px", borderRadius: 6, background: r.aggregateMethod === "合算" ? "#dbeafe" : "#fef3c7", color: r.aggregateMethod === "合算" ? "#1e40af" : "#92400e", fontWeight: 700 }}>{r.aggregateMethod}</span></td>
               <td style={{ ...tdNum, background: "#eef2ff", fontWeight: 700 }}>{r.annualTarget}</td>
               <td style={{ ...tdNum, fontWeight: 700 }}>{r.current}</td>
-              <td style={td}><span style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 999, color: "#fff", background: badgeColor[r.judgment] }}>{r.judgment}</span></td>
+              <td style={td}><JudgmentBadge judgment={r.judgment} /></td>
             </tr>
           ))}
         </tbody>

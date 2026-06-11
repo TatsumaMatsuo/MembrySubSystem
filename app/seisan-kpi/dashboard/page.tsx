@@ -4,14 +4,12 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout";
-import { HelpLink } from "@/components/features/seisan-kpi";
+import { HelpLink, JudgmentBadge, JUDGMENT_COLORS } from "@/components/features/seisan-kpi";
 import { RefreshCw } from "lucide-react";
 
 type Judgment = "緑" | "黄" | "赤";
 interface Signal { kpiId: string; name: string; unit: string; current: number; target: number; judgment: Judgment; }
 interface Rank { department: string; stars: number; }
-
-const badge: Record<Judgment, string> = { 緑: "#16a34a", 黄: "#d97706", 赤: "#dc2626" };
 const fmtNum = (v: number) => (Math.abs(v) >= 100000 ? `${(v / 100000000).toFixed(1)}億` : v.toLocaleString());
 
 export default function SeisanDashboardPage() {
@@ -66,8 +64,8 @@ export default function SeisanDashboardPage() {
         {loading ? <div style={{ padding: 30, color: "#64748b" }}>読み込み中…</div> : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
             {signals.map((s) => (
-              <div key={s.kpiId} style={{ ...card, borderLeft: `6px solid ${badge[s.judgment]}`, position: "relative" }}>
-                <span style={{ position: "absolute", top: 14, right: 14, fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 999, color: "#fff", background: badge[s.judgment] }}>{s.judgment}</span>
+              <div key={s.kpiId} style={{ ...card, borderLeft: `6px solid ${JUDGMENT_COLORS[s.judgment]}`, position: "relative" }}>
+                <span style={{ position: "absolute", top: 14, right: 14 }}><JudgmentBadge judgment={s.judgment} size="sm" /></span>
                 <div style={{ fontSize: 12.5, color: "#64748b", fontWeight: 600, minHeight: 34 }}>{s.name}</div>
                 <div style={{ fontSize: 24, fontWeight: 800, margin: "4px 0 1px" }}>{fmtNum(s.current)}<span style={{ fontSize: 12, color: "#64748b" }}> {s.unit}</span></div>
                 <div style={{ fontSize: 11, color: "#64748b" }}>目標 {fmtNum(s.target)} {s.unit}</div>

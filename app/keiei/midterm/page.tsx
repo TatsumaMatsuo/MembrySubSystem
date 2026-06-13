@@ -116,8 +116,14 @@ export default function MidtermAdminPage() {
         })),
       };
       const res = await fetch("/api/keiei/midterm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error);
+      // 空ボディ(タイムアウト504等)や非JSON応答でも分かりやすいメッセージにする
+      const text = await res.text();
+      let json: any = {};
+      try { json = text ? JSON.parse(text) : {}; } catch { /* 非JSON応答 */ }
+      if (!res.ok || json.error) {
+        const hint = res.status === 504 || res.status === 502 ? "（サーバ処理が時間内に完了しませんでした）" : "";
+        throw new Error(json.error || `保存に失敗しました (HTTP ${res.status})${hint}`);
+      }
       setMessage(`✅ 中計「${planId}」を保存しました`);
       await loadHeaders();
     } catch (e: any) {

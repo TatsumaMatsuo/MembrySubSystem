@@ -151,6 +151,61 @@ export async function updateBaseRecord(
   }
 }
 
+/**
+ * 複数レコードを一括作成(Lark Bitable batch_create)。
+ * 逐次 create を避け、API 呼び出し回数を大幅に削減する。
+ * 1リクエスト最大500件のため500件ごとに分割送信する。
+ */
+export async function batchCreateBaseRecords(
+  tableId: string,
+  records: Record<string, any>[],
+  options?: { baseToken?: string }
+) {
+  const appToken = options?.baseToken || getLarkBaseToken();
+  const client = getLarkClient();
+  if (!client) throw new Error("Lark client not initialized");
+  const CHUNK = 500;
+  for (let i = 0; i < records.length; i += CHUNK) {
+    const chunk = records.slice(i, i + CHUNK);
+    try {
+      await client.bitable.appTableRecord.batchCreate({
+        path: { app_token: appToken, table_id: tableId },
+        data: { records: chunk.map((fields) => ({ fields })) },
+      });
+    } catch (error) {
+      console.error("Error batch-creating Lark Base records:", error);
+      throw error;
+    }
+  }
+}
+
+/**
+ * 複数レコードを一括更新(Lark Bitable batch_update)。
+ * 1リクエスト最大500件のため500件ごとに分割送信する。
+ */
+export async function batchUpdateBaseRecords(
+  tableId: string,
+  records: { record_id: string; fields: Record<string, any> }[],
+  options?: { baseToken?: string }
+) {
+  const appToken = options?.baseToken || getLarkBaseToken();
+  const client = getLarkClient();
+  if (!client) throw new Error("Lark client not initialized");
+  const CHUNK = 500;
+  for (let i = 0; i < records.length; i += CHUNK) {
+    const chunk = records.slice(i, i + CHUNK);
+    try {
+      await client.bitable.appTableRecord.batchUpdate({
+        path: { app_token: appToken, table_id: tableId },
+        data: { records: chunk },
+      });
+    } catch (error) {
+      console.error("Error batch-updating Lark Base records:", error);
+      throw error;
+    }
+  }
+}
+
 export async function deleteBaseRecord(
   tableId: string,
   recordId: string,

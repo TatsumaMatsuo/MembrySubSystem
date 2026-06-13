@@ -10,6 +10,8 @@ import {
   getLarkBaseToken,
   createBaseRecord,
   updateBaseRecord,
+  batchCreateBaseRecords,
+  batchUpdateBaseRecords,
 } from "@/lib/lark-client";
 import { midtermTrajectory } from "@/lib/kpi";
 import {
@@ -535,6 +537,22 @@ export async function upsertMidtermPlan(input: MidtermPlanEdit, operator = ""): 
   }
 
   // --- 明細(指標×期) ---
+  // 既存明細を中計コードで一括取得し、明細コード→record_id の対応表を作る。
+  // (旧実装は明細1件ごとに getBaseRecords+create/update を逐次実行しており、
+  //  件数に比例して時間が伸び 28秒の関数タイムアウトに達していた #midterm-save-timeout)
+  const existingDetails = await getBaseRecords(t.KEIEI_MIDTERM_PLAN, {
+    baseToken: bt,
+    filter: `CurrentValue.[${MD.plan_id}] = "${input.planId}"`,
+    pageSize: 500,
+  });
+  const recordIdByDetailId = new Map<string, string>();
+  for (const it of (existingDetails.data?.items ?? []) as any[]) {
+    const did = asText(it.fields?.[MD.detail_id]);
+    if (did) recordIdByDetailId.set(did, it.record_id);
+  }
+
+  const toCreate: Record<string, any>[] = [];
+  const toUpdate: { record_id: string; fields: Record<string, any> }[] = [];
   for (const kgi of input.kgis) {
     for (const v of kgi.values) {
       const detailId = `${input.planId}-${kgi.indicator}-${v.period}`;
@@ -548,15 +566,14 @@ export async function upsertMidtermPlan(input: MidtermPlanEdit, operator = ""): 
         [MD.final_target]: kgi.finalTarget,
         [MD.method]: "線形補間",
       };
-      const found = await getBaseRecords(t.KEIEI_MIDTERM_PLAN, {
-        baseToken: bt,
-        filter: `CurrentValue.[${MD.detail_id}] = "${detailId}"`,
-        pageSize: 1,
-      });
-      const exist = (found.data?.items ?? [])[0] as any;
-      if (exist) await updateBaseRecord(t.KEIEI_MIDTERM_PLAN, exist.record_id, fields, { baseToken: bt });
-      else await createBaseRecord(t.KEIEI_MIDTERM_PLAN, fields, { baseToken: bt });
+      const rid = recordIdByDetailId.get(detailId);
+      if (rid) toUpdate.push({ record_id: rid, fields });
+      else toCreate.push(fields);
     }
   }
+  // バッチ書込(逐次N回 → 数回のAPI呼び出しに集約)
+  if (toCreate.length) await batchCreateBaseRecords(t.KEIEI_MIDTERM_PLAN, toCreate, { baseToken: bt });
+  if (toUpdate.length) await batchUpdateBaseRecords(t.KEIEI_MIDTERM_PLAN, toUpdate, { baseToken: bt });
+
   return { planId: input.planId };
 }

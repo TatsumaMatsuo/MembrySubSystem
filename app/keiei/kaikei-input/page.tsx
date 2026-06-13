@@ -37,6 +37,7 @@ function spansFor(g: Granularity, startYear: number) {
 
 export default function KaikeiInputPage() {
   const [period, setPeriod] = useState(50);
+  const [periods, setPeriods] = useState<number[]>([]);
   const [startYear, setStartYear] = useState(2025);
   const [accounts, setAccounts] = useState<AccountInput[]>([]);
   const [dirty, setDirty] = useState<Record<string, string>>({}); // `${account}::${span}` -> value
@@ -44,10 +45,10 @@ export default function KaikeiInputPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = async (p: number) => {
     setLoading(true); setMessage(null);
     try {
-      const res = await fetch(`/api/keiei/kaikei?period=${period}`);
+      const res = await fetch(`/api/keiei/kaikei?period=${p}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       setPeriod(json.data.period);
@@ -57,7 +58,32 @@ export default function KaikeiInputPage() {
     } catch (e: any) { setMessage(`読み込みエラー: ${e.message}`); }
     finally { setLoading(false); }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  // 期マスタを取得してドロップダウンに反映し、現在期を初期表示
+  useEffect(() => {
+    (async () => {
+      let initial = 50;
+      try {
+        const r = await fetch("/api/seisan-kpi/periods");
+        const j = await r.json();
+        const list = (j.data ?? []) as { period: number; isCurrent?: boolean }[];
+        const nums = list.map((x) => x.period).filter((n) => Number.isFinite(n));
+        if (nums.length) {
+          setPeriods(nums);
+          initial = list.find((x) => x.isCurrent)?.period ?? nums[0];
+        }
+      } catch { /* 期マスタ取得失敗時は50期で継続 */ }
+      await load(initial);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 期切替(未保存があれば確認)
+  const changePeriod = (p: number) => {
+    if (p === period) return;
+    if (Object.keys(dirty).length > 0 && !window.confirm("未保存の入力があります。破棄して期を切り替えますか？")) return;
+    load(p);
+  };
 
   const setGranularity = (account: string, g: Granularity) =>
     setAccounts((prev) => prev.map((a) => (a.account === account ? { ...a, granularity: g } : a)));
@@ -83,7 +109,7 @@ export default function KaikeiInputPage() {
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       setMessage(`✅ ${json.data.saved}件を保存しました`);
-      await load();
+      await load(period);
     } catch (e: any) { setMessage(`保存エラー: ${e.message}`); }
     finally { setSaving(false); }
   };
@@ -92,10 +118,12 @@ export default function KaikeiInputPage() {
     <MainLayout>
       <div style={{ padding: 20, maxWidth: 1500, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>会計データ入力（本部長）</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>会計データ入力</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
-            <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>{period}期</span>
-            <button onClick={load} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
+            <select value={period} onChange={(e) => changePeriod(Number(e.target.value))} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 600, color: "#1f3864", background: "#fff", cursor: "pointer" }}>
+              {(periods.length ? periods : [period]).map((p) => <option key={p} value={p}>{p}期</option>)}
+            </select>
+            <button onClick={() => load(period)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
           </div>

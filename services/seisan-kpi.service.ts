@@ -127,6 +127,74 @@ export async function getCurrentPeriod(): Promise<PeriodInfo | null> {
   return ps.find((p) => p.isCurrent) ?? ps[0] ?? null;
 }
 
+/**
+ * 期マスタの作成/更新(期番号で upsert)。
+ * 全社共通の期(会計年度)マスタ。経営・生産本部の双方が参照する。
+ * isCurrent=true を指定した場合、他の期の当期フラグは自動で false にする(当期は常に1つ)。
+ */
+export async function upsertPeriod(
+  input: {
+    period: number;
+    startDate?: string;
+    endDate?: string;
+    elapsedMonths?: number;
+    isCurrent?: boolean;
+    notes?: string;
+  },
+  operator = ""
+): Promise<{ period: number }> {
+  const t = getLarkTables();
+  const bt = base();
+  const fields: Record<string, any> = {
+    [PF.period]: input.period,
+    [PF.start_date]: input.startDate ?? "",
+    [PF.end_date]: input.endDate ?? "",
+    [PF.elapsed_months]: input.elapsedMonths ?? 0,
+    [PF.is_current]: !!input.isCurrent,
+    [PF.notes]: input.notes ?? "",
+  };
+  const found = await getBaseRecords(t.SEISAN_KPI_PERIOD, {
+    baseToken: bt,
+    filter: `CurrentValue.[${PF.period}] = ${input.period}`,
+    pageSize: 1,
+  });
+  const exist = (found.data?.items ?? [])[0] as any;
+  if (exist) {
+    await updateBaseRecord(t.SEISAN_KPI_PERIOD, exist.record_id, fields, { baseToken: bt });
+    await writeAudit({ table: "SEISAN_KPI_PERIOD", recordId: String(input.period), operation: "更新", before: exist.fields, after: fields, operator });
+  } else {
+    await createBaseRecord(t.SEISAN_KPI_PERIOD, fields, { baseToken: bt });
+    await writeAudit({ table: "SEISAN_KPI_PERIOD", recordId: String(input.period), operation: "作成", after: fields, operator });
+  }
+
+  // 当期は常に1つ: isCurrent=true なら他の期の当期フラグを落とす
+  if (input.isCurrent) {
+    const all = await getBaseRecords(t.SEISAN_KPI_PERIOD, { baseToken: bt, pageSize: 200 });
+    for (const it of (all.data?.items ?? []) as any[]) {
+      if (asNum(it.fields?.[PF.period]) !== input.period && asBool(it.fields?.[PF.is_current])) {
+        await updateBaseRecord(t.SEISAN_KPI_PERIOD, it.record_id, { [PF.is_current]: false }, { baseToken: bt });
+      }
+    }
+  }
+  return { period: input.period };
+}
+
+/** 期マスタの削除(期番号指定)。実績等の関連データは削除しない。 */
+export async function deletePeriod(period: number, operator = ""): Promise<{ deleted: boolean }> {
+  const t = getLarkTables();
+  const bt = base();
+  const found = await getBaseRecords(t.SEISAN_KPI_PERIOD, {
+    baseToken: bt,
+    filter: `CurrentValue.[${PF.period}] = ${period}`,
+    pageSize: 1,
+  });
+  const exist = (found.data?.items ?? [])[0] as any;
+  if (!exist) return { deleted: false };
+  await deleteBaseRecord(t.SEISAN_KPI_PERIOD, exist.record_id, { baseToken: bt });
+  await writeAudit({ table: "SEISAN_KPI_PERIOD", recordId: String(period), operation: "削除", before: exist.fields, operator });
+  return { deleted: true };
+}
+
 /** KPIマスタ取得(期で絞込) */
 export async function getKpiMaster(period: number): Promise<KpiMasterRow[]> {
   const t = getLarkTables();

@@ -29,6 +29,8 @@ export const KPI_PROGRAMS = {
   SEISAN_MEASURES: "PGM038",
   SEISAN_STARS: "PGM039",
   SEISAN_MASTER: "PGM040",
+  /** 期(会計年度)マスタ管理。経営/生産本部から独立した全社共通マスタ(PGM044) */
+  KEIEI_PERIOD: "PGM044",
 } as const;
 
 export interface KpiUser {

@@ -134,7 +134,7 @@ export default function KaikeiInputPage() {
         </div>
 
         <div style={{ fontSize: 11.5, color: "#475569", marginBottom: 12, padding: "8px 12px", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 8, lineHeight: 1.6 }}>
-          ℹ️ 右上の<b>期</b>の選択肢は<b>期マスタ</b>に登録された期に連動します。新しい期（例: 51期・52期）を入力するには、先に <b>「生産本部KPI ＞ マスタ管理」</b>の <b>「新期作成（前期複製）」</b>でその期を作成してください。作成すると本画面の期セレクタにも表示されます。
+          ℹ️ 右上の<b>期</b>の選択肢は<b>期マスタ</b>に登録された期に連動します。新しい期（例: 51期・52期）を入力するには、先に <b>「経営 ＞ 期マスタ管理」</b>でその期を登録してください。登録すると本画面の期セレクタにも表示されます。
         </div>
 
         {message && <div style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: message.startsWith("✅") ? "#ecfdf5" : "#fef2f2", color: message.startsWith("✅") ? "#065f46" : "#991b1b" }}>{message}</div>}

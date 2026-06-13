@@ -133,6 +133,10 @@ export default function KaikeiInputPage() {
           科目ごとに<b>粒度（月/四半期/半期）</b>を選んで入力。共通の年度累計に正規化され、全社KPI・中計・生産本部Lv2（粗利率等）が同じ実績を参照します。総資産=半期、人員数=月別 など科目に合わせて選択。
         </div>
 
+        <div style={{ fontSize: 11.5, color: "#475569", marginBottom: 12, padding: "8px 12px", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 8, lineHeight: 1.6 }}>
+          ℹ️ 右上の<b>期</b>の選択肢は<b>期マスタ</b>に登録された期に連動します。新しい期（例: 51期・52期）を入力するには、先に <b>「生産本部KPI ＞ マスタ管理」</b>の <b>「新期作成（前期複製）」</b>でその期を作成してください。作成すると本画面の期セレクタにも表示されます。
+        </div>
+
         {message && <div style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: message.startsWith("✅") ? "#ecfdf5" : "#fef2f2", color: message.startsWith("✅") ? "#065f46" : "#991b1b" }}>{message}</div>}
 
         <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 6, overflowX: "auto" }}>

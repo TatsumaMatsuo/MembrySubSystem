@@ -25,6 +25,20 @@ interface OtherRow { name: string; target: string; actual: string; judgment: Jud
 const oku = (v: number | null) => (v == null ? "―" : `${(Math.round(v * 10) / 10).toFixed(1)}億`);
 const pct = (v: number | null) => (v == null ? "―" : `${Math.round(v * 100)}%`);
 
+function PaceBar({ p, judgment }: { p: number | null; judgment: Judgment | null }) {
+  if (p == null) return <>―</>;
+  const w = Math.min(Math.round(p * 100), 100);
+  const color = judgment === "緑" ? "#16a34a" : judgment === "赤" ? "#dc2626" : "#d97706";
+  return (
+    <div>
+      <div style={{ height: 7, borderRadius: 6, background: "#e2e8f0", overflow: "hidden", minWidth: 80, marginLeft: "auto" }}>
+        <div style={{ width: `${w}%`, height: "100%", background: color, borderRadius: 6 }} />
+      </div>
+      <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>{Math.round(p * 100)}%</div>
+    </div>
+  );
+}
+
 export default function CompanyKpiPage() {
   const [period, setPeriod] = useState(50);
   const [selectablePeriods, setSelectablePeriods] = useState<number[]>([]);
@@ -120,7 +134,7 @@ export default function CompanyKpiPage() {
                     <td style={td}>{oku(r.target)}</td>
                     <td style={td}>{r.monthlyTarget ? oku(r.monthlyTarget) : "―"}</td>
                     <td style={td}>{oku(r.actual)}</td>
-                    <td style={td}>{pct(r.pace)}</td>
+                    <td style={td}><PaceBar p={r.pace} judgment={r.judgment} /></td>
                     <td style={td}>{oku(r.landing)}</td>
                     <td style={td}>{r.judgment ? <JudgmentBadge judgment={r.judgment} size="sm" /> : "―"}</td>
                   </tr>
@@ -132,6 +146,7 @@ export default function CompanyKpiPage() {
         <div style={{ fontSize: 11, color: "#64748b", margin: "8px 4px" }}>
           進捗(ペース)=実績累計 ÷ (年度目標×経過月/12)。着地見込=実績累計 ÷ 経過月 ×12。判定 緑≥95%/黄≥80%/赤。
         </div>
+        <a href="/seisan-kpi/dashboard" style={{ display: "inline-block", fontSize: 12, color: "#2563eb", margin: "4px 4px 0", textDecoration: "none" }}>▶ 生産本部KPI（Lv2 粗利率/総資産回転率/材料金額比率）へ ― 同一の会計データを参照</a>
 
         {/* 率・その他 */}
         <div style={sectionTitle}>限界利益・率・その他計画（目標）</div>

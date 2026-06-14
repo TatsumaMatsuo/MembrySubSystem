@@ -180,7 +180,7 @@ export default function KeieiDashboardPage() {
               </div>
 
               <div>
-                <div style={sectionTitle}>会計データ入力状況（本部長が一括入力）</div>
+                <div style={sectionTitle}>会計データ入力状況</div>
                 <div style={{ ...card, padding: 12, maxHeight: 360, overflowY: "auto" }}>
                   {inputStatus.length === 0 ? (
                     <div style={{ fontSize: 12, color: "#94a3b8", padding: 8 }}>科目がありません</div>

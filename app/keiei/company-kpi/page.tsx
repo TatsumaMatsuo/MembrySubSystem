@@ -27,6 +27,7 @@ const pct = (v: number | null) => (v == null ? "―" : `${Math.round(v * 100)}%`
 
 export default function CompanyKpiPage() {
   const [period, setPeriod] = useState(50);
+  const [selectablePeriods, setSelectablePeriods] = useState<number[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [hasActuals, setHasActuals] = useState(true);
   const [plRows, setPlRows] = useState<PlRow[]>([]);
@@ -34,15 +35,16 @@ export default function CompanyKpiPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = async (p?: number) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/keiei/company-kpi?period=${period}`);
+      const res = await fetch(`/api/keiei/company-kpi${p ? `?period=${p}` : ""}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       const d = json.data;
       setPeriod(d.period);
+      setSelectablePeriods(d.selectablePeriods ?? []);
       setElapsed(d.elapsedMonths);
       setHasActuals(d.hasActuals);
       setPlRows(d.plRows ?? []);
@@ -66,8 +68,13 @@ export default function CompanyKpiPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>全社KPI ― 年度計画 vs 実績</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
-            <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>{period}期 / 経過 {elapsed}ヶ月</span>
-            <button onClick={load} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
+            {selectablePeriods.length > 0 && (
+              <select value={period} onChange={(e) => load(Number(e.target.value))} title="表示する期" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#1f3864", background: "#fff", cursor: "pointer" }}>
+                {selectablePeriods.map((p) => <option key={p} value={p}>{p}期</option>)}
+              </select>
+            )}
+            <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>経過 {elapsed}ヶ月</span>
+            <button onClick={() => load(period || undefined)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
           </div>

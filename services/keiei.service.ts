@@ -117,6 +117,8 @@ const millionToOku = (v: number) => v / 100;
 /** #45 全社KPI: PL行を構築 */
 export async function buildCompanyKpi(period: number): Promise<{
   period: number;
+  currentPeriod: number;
+  selectablePeriods: number[];
   elapsedMonths: number;
   hasActuals: boolean;
   plRows: CompanyKpiRow[];
@@ -127,7 +129,13 @@ export async function buildCompanyKpi(period: number): Promise<{
     getCompanyTargets(period),
     getKaikeiCumByAccount(period),
   ]);
-  const elapsed = periods.find((p) => p.period === period)?.elapsedMonths ?? 0;
+  const cur = periods.find((p) => p.isCurrent) ?? periods[0];
+  const currentPeriod = cur?.period ?? period;
+  // 過去期は満了(12ヶ月)で年換算(期マスタに値があれば優先)。当期は走行中の経過月数。
+  const masterElapsed = periods.find((p) => p.period === period)?.elapsedMonths ?? 0;
+  const elapsed = period < currentPeriod ? (masterElapsed || 12) : masterElapsed;
+  // 選択可能な期(開始済み=当期以下)
+  const selectablePeriods = periods.map((p) => p.period).filter((p) => p <= currentPeriod).sort((a, b) => a - b);
   const hasActuals = kaikei.size > 0;
 
   // 会計実績(億)を勘定科目で引く
@@ -193,7 +201,7 @@ export async function buildCompanyKpi(period: number): Promise<{
   ];
 
   void proratedTarget; // (将来: 月割合算表示で使用)
-  return { period, elapsedMonths: elapsed, hasActuals, plRows, otherRows };
+  return { period, currentPeriod, selectablePeriods, elapsedMonths: elapsed, hasActuals, plRows, otherRows };
 }
 
 /* =========================================================================

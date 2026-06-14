@@ -56,12 +56,31 @@ function asBool(v: unknown): boolean {
   return v === true || v === 1 || asText(v) === "true";
 }
 
+/**
+ * Lark日付フィールド(ms timestamp)を UI用 "YYYY-MM-DD"(JST) に変換。
+ * 期マスタの 期間開始日/終了日 は日付型(数値)で保持される。
+ */
+function tsToDateStr(v: unknown): string {
+  if (v == null || v === "") return "";
+  const ms = typeof v === "number" ? v : Number(asText(v));
+  if (!Number.isFinite(ms) || ms === 0) return "";
+  return new Date(ms + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); // JSTの壁時計日付
+}
+/** "YYYY-MM-DD"(JST 00:00) を Lark日付フィールド用 ms timestamp に変換(不正/空は null=未設定)。 */
+function dateStrToTs(s: string | undefined | null): number | null {
+  if (!s) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s).trim());
+  if (!m) return null;
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) - 9 * 60 * 60 * 1000;
+}
+
 export interface PeriodInfo {
   period: number;
   startDate: string;
   endDate: string;
   elapsedMonths: number;
   isCurrent: boolean;
+  notes?: string;
 }
 
 export interface KpiMasterRow {
@@ -114,10 +133,11 @@ export async function getPeriods(): Promise<PeriodInfo[]> {
   return items
     .map((it) => ({
       period: asNum(it.fields[PF.period]) ?? 0,
-      startDate: asText(it.fields[PF.start_date]),
-      endDate: asText(it.fields[PF.end_date]),
+      startDate: tsToDateStr(it.fields[PF.start_date]),
+      endDate: tsToDateStr(it.fields[PF.end_date]),
       elapsedMonths: asNum(it.fields[PF.elapsed_months]) ?? 0,
       isCurrent: asBool(it.fields[PF.is_current]),
+      notes: asText(it.fields[PF.notes]),
     }))
     .sort((a, b) => b.period - a.period);
 }
@@ -145,10 +165,11 @@ export async function upsertPeriod(
 ): Promise<{ period: number }> {
   const t = getLarkTables();
   const bt = base();
+  // 期間開始日/終了日は日付型(ms timestamp)。"YYYY-MM-DD" → 数値に変換して書く(null=未設定)。
   const fields: Record<string, any> = {
     [PF.period]: input.period,
-    [PF.start_date]: input.startDate ?? "",
-    [PF.end_date]: input.endDate ?? "",
+    [PF.start_date]: dateStrToTs(input.startDate),
+    [PF.end_date]: dateStrToTs(input.endDate),
     [PF.elapsed_months]: input.elapsedMonths ?? 0,
     [PF.is_current]: !!input.isCurrent,
     [PF.notes]: input.notes ?? "",
@@ -1299,8 +1320,8 @@ export async function clonePeriod(input: {
   if ((foundPeriod.data?.items ?? []).length === 0) {
     await createBaseRecord(t.SEISAN_KPI_PERIOD, {
       [PF.period]: input.toPeriod,
-      [PF.start_date]: input.startDate ?? "",
-      [PF.end_date]: input.endDate ?? "",
+      [PF.start_date]: dateStrToTs(input.startDate),
+      [PF.end_date]: dateStrToTs(input.endDate),
       [PF.elapsed_months]: 0,
       [PF.is_current]: false,
     }, { baseToken: base() });

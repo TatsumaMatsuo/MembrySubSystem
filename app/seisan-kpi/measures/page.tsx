@@ -39,22 +39,26 @@ interface ScreenData {
 export default function SeisanKpiMeasuresPage() {
   const [data, setData] = useState<ScreenData | null>(null);
   const [group, setGroup] = useState<string>("");
+  const [period, setPeriod] = useState<number>(0);
+  const [periods, setPeriods] = useState<number[]>([]);
   const [selectedMeasure, setSelectedMeasure] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [showNewMeasure, setShowNewMeasure] = useState(false);
 
-  const load = useCallback(async (g?: string) => {
+  const load = useCallback(async (g?: string, p?: number) => {
     setLoading(true);
     setMessage(null);
     try {
       const params = new URLSearchParams();
       if (g) params.set("group", g);
+      if (p) params.set("period", String(p));
       const res = await fetch(`/api/seisan-kpi/measures?${params.toString()}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       const d: ScreenData = json.data;
       setData(d);
+      setPeriod(d.period);
       setGroup(d.selectedGroupId ?? "");
       setSelectedMeasure((prev) =>
         d.measures.find((m) => m.measureId === prev)?.measureId ?? d.measures[0]?.measureId ?? ""
@@ -66,9 +70,22 @@ export default function SeisanKpiMeasuresPage() {
     }
   }, []);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => {
+    (async () => {
+      let initial: number | undefined;
+      try {
+        const r = await fetch("/api/seisan-kpi/periods");
+        const j = await r.json();
+        const list = (j.data ?? []) as { period: number; isCurrent?: boolean }[];
+        const nums = list.map((x) => x.period).filter((n) => Number.isFinite(n));
+        if (nums.length) { setPeriods(nums); initial = list.find((x) => x.isCurrent)?.period ?? nums[0]; }
+      } catch { /* 取得失敗時はサーバ既定(当期) */ }
+      await load(undefined, initial);
+    })();
+    /* eslint-disable-next-line */
+  }, []);
 
-  const onGroupChange = (g: string) => { setGroup(g); setShowNewMeasure(false); load(g); };
+  const onGroupChange = (g: string) => { setGroup(g); setShowNewMeasure(false); load(g, period); };
 
   const measures = data?.measures ?? [];
   const current = useMemo(
@@ -85,8 +102,12 @@ export default function SeisanKpiMeasuresPage() {
             施策管理 ― 重点施策の月次PDCA
           </h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
+            <select value={period} onChange={(e) => load(group, Number(e.target.value))}
+              style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#1f3864", background: "#fff", cursor: "pointer" }}>
+              {(periods.length ? periods : [period]).map((p) => <option key={p} value={p}>{p}期</option>)}
+            </select>
             <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>
-              {data?.period ?? "—"}期 / 経過 {data?.elapsedMonths ?? 0}ヶ月
+              経過 {data?.elapsedMonths ?? 0}ヶ月
             </span>
             <select value={group} onChange={(e) => onGroupChange(e.target.value)}
               style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", minWidth: 220 }}>
@@ -94,7 +115,7 @@ export default function SeisanKpiMeasuresPage() {
                 <option key={g.groupId} value={g.groupId}>{g.groupName}</option>
               ))}
             </select>
-            <button onClick={() => load(group)}
+            <button onClick={() => load(group, period)}
               style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
@@ -206,7 +227,7 @@ export default function SeisanKpiMeasuresPage() {
                     groupId={group}
                     kpis={data.kpis}
                     onCancel={() => setShowNewMeasure(false)}
-                    onSaved={async (mid) => { setShowNewMeasure(false); await load(group); setSelectedMeasure(mid); setMessage("✅ 施策を登録しました"); }}
+                    onSaved={async (mid) => { setShowNewMeasure(false); await load(group, period); setSelectedMeasure(mid); setMessage("✅ 施策を登録しました"); }}
                     onError={(msg) => setMessage(msg)}
                   />
                 ) : current ? (
@@ -215,7 +236,7 @@ export default function SeisanKpiMeasuresPage() {
                     measure={current}
                     period={data.period}
                     elapsed={data.elapsedMonths}
-                    onSaved={async () => { await load(group); setMessage("✅ PDCAを保存しました"); }}
+                    onSaved={async () => { await load(group, period); setMessage("✅ PDCAを保存しました"); }}
                     onError={(msg) => setMessage(msg)}
                   />
                 ) : (

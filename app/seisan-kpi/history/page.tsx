@@ -115,6 +115,7 @@ function ZenshaView({ rows }: { rows: HistorySeriesRow[] }) {
             <th style={th}>単位</th>
             {PAST_PERIODS.map((p) => <th key={p} style={th}>{p}期</th>)}
             <th style={{ ...th, background: "#eef2ff" }}>50期目標</th>
+            <th style={th}>推移</th>
             <th style={th}>妥当性</th>
           </tr>
         </thead>
@@ -129,6 +130,7 @@ function ZenshaView({ rows }: { rows: HistorySeriesRow[] }) {
                 <td style={{ ...td, color: "#64748b" }}>{r.unit}</td>
                 {PAST_PERIODS.map((p) => <td key={p} style={tdNum}>{vmap.get(p) ?? "—"}</td>)}
                 <td style={{ ...tdNum, background: "#eef2ff", fontWeight: 700 }}>{r.target50 ?? "—"}</td>
+                <td style={td}><Sparkline series={r.series} target={r.target50} /></td>
                 <td style={td}><span style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 6, background: vs.bg, color: vs.fg }}>{r.validity}</span></td>
               </tr>
             );
@@ -212,6 +214,27 @@ function GroupView({ group }: { group?: { name: string | null; members: string[]
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** 43〜49期の推移ミニ折れ線(赤破線=50期目標) */
+function Sparkline({ series, target }: { series: { period: number; value: number | null }[]; target: number | null }) {
+  const pts = series.filter((s) => s.value != null) as { period: number; value: number }[];
+  if (pts.length < 2) return <span style={{ color: "#cbd5e1" }}>―</span>;
+  const W = 120, H = 34, pad = 5;
+  const vals = [...pts.map((p) => p.value), ...(target != null ? [target] : [])];
+  let min = Math.min(...vals), max = Math.max(...vals);
+  const span = (max - min) || 1; min -= span * 0.1; max += span * 0.1;
+  const n = pts.length;
+  const x = (i: number) => pad + (W - 2 * pad) * (n < 2 ? 0 : i / (n - 1));
+  const y = (v: number) => pad + (H - 2 * pad) * (1 - (v - min) / (max - min));
+  let d = ""; pts.forEach((p, i) => { d += (i ? "L" : "M") + x(i) + " " + y(p.value) + " "; });
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ verticalAlign: "middle" }}>
+      {target != null && <line x1={pad} y1={y(target)} x2={W - pad} y2={y(target)} stroke="#dc2626" strokeWidth={1} strokeDasharray="3 2" />}
+      <path d={d} fill="none" stroke="#1f3864" strokeWidth={1.5} />
+      {pts.map((p, i) => <circle key={p.period} cx={x(i)} cy={y(p.value)} r={1.8} fill="#1f3864" />)}
+    </svg>
   );
 }
 

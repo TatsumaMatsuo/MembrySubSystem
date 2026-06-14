@@ -23,7 +23,21 @@ interface GroupMatrix { period: number; departments: string[]; groups: MatrixGro
 export default function SeisanKpiMasterPage() {
   const [tab, setTab] = useState<"kpi" | "group">("kpi");
   const [period, setPeriod] = useState<number>(50);
+  const [periods, setPeriods] = useState<number[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+
+  // 期マスタからドロップダウンを生成し、現在期を初期選択
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/seisan-kpi/periods");
+        const j = await r.json();
+        const list = (j.data ?? []) as { period: number; isCurrent?: boolean }[];
+        const nums = list.map((x) => x.period).filter((n) => Number.isFinite(n));
+        if (nums.length) { setPeriods(nums); setPeriod(list.find((x) => x.isCurrent)?.period ?? nums[0]); }
+      } catch { /* 取得失敗時は50期で継続 */ }
+    })();
+  }, []);
 
   return (
     <MainLayout>
@@ -31,6 +45,9 @@ export default function SeisanKpiMasterPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>KPIマスタ / グループマスタ管理</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <select value={period} onChange={(e) => setPeriod(Number(e.target.value))} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#1f3864", background: "#fff", cursor: "pointer" }}>
+              {(periods.length ? periods : [period]).map((p) => <option key={p} value={p}>{p}期</option>)}
+            </select>
             <span style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 8, padding: "5px 12px", fontSize: 12, fontWeight: 600 }}>管理者専用</span>
             <HelpLink section="features" />
           </div>

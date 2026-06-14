@@ -268,6 +268,7 @@ export async function getInputRows(period: number, department?: string): Promise
   period: number;
   elapsedMonths: number;
   rows: KpiInputRow[];
+  basicRows: { kpiId: string; kpiName: string; department: string; level: string; unit: string; annualTarget: number; category: string }[];
 }> {
   const [periods, master, actuals] = await Promise.all([
     getPeriods(),
@@ -301,7 +302,12 @@ export async function getInputRows(period: number, department?: string): Promise
       return { ...m, months, current, attainment, judgment };
     });
 
-  return { period, elapsedMonths: elapsed, rows };
+  // 基礎データ算出KPI(会計データから算出・本画面では参照のみ)
+  const basicRows = filtered
+    .filter((m) => m.aggType === "基礎データ算出")
+    .map((m) => ({ kpiId: m.kpiId, kpiName: m.kpiName, department: m.department, level: m.level, unit: m.unit, annualTarget: m.annualTarget, category: m.category }));
+
+  return { period, elapsedMonths: elapsed, rows, basicRows };
 }
 
 /** 部署一覧(マスタから・集約部署除く) */

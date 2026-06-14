@@ -9,6 +9,7 @@ import { Save, RefreshCw, Lock, AlertCircle, Check } from "lucide-react";
 import {
   aggregate,
   judge,
+  attainmentRate,
   type AggType,
   type Direction,
   type Judgment,
@@ -28,8 +29,10 @@ interface InputRow {
   monthlyTarget: number;
   months: { fiscalMonth: number; value: number | null; recordId?: string }[];
   current: number;
+  attainment: number;
   judgment: Judgment;
 }
+interface BasicRow { kpiId: string; kpiName: string; department: string; level: string; unit: string; annualTarget: number; category: string; }
 
 const FY_MONTHS = ["8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月", "4月", "5月", "6月", "7月"];
 
@@ -39,6 +42,8 @@ export default function SeisanKpiInputPage() {
   const [departments, setDepartments] = useState<string[]>([]);
   const [dept, setDept] = useState<string>("");
   const [rows, setRows] = useState<InputRow[]>([]);
+  const [basicRows, setBasicRows] = useState<BasicRow[]>([]);
+  const [tab, setTab] = useState<"通常" | "基礎">("通常");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -61,6 +66,7 @@ export default function SeisanKpiInputPage() {
       setDepartments(data.departments ?? []);
       if (!d && data.departments?.length) setDept(data.departments[0]);
       setRows(data.rows ?? []);
+      setBasicRows(data.basicRows ?? []);
       setEdits({});
     } catch (e: any) {
       setMessage(`読み込みエラー: ${e.message}`);
@@ -81,7 +87,7 @@ export default function SeisanKpiInputPage() {
   };
 
   // 入力中の行から、即時に現在値/判定を再計算
-  const recompute = (row: InputRow): { current: number; judgment: Judgment } => {
+  const recompute = (row: InputRow): { current: number; attainment: number; judgment: Judgment } => {
     const ma: MonthlyActual[] = row.months.map((m) => {
       const key = `${row.kpiId}:${m.fiscalMonth}`;
       const edited = edits[key];
@@ -89,13 +95,12 @@ export default function SeisanKpiInputPage() {
       return { fiscalMonth: m.fiscalMonth, value };
     });
     const current = aggregate(row.aggType, ma, elapsed);
-    const judgment = judge(
-      { aggType: row.aggType, direction: row.direction, annualTarget: row.annualTarget },
-      current,
-      elapsed
-    );
-    return { current, judgment };
+    const mst = { aggType: row.aggType, direction: row.direction, annualTarget: row.annualTarget };
+    const attainment = attainmentRate(mst, current, elapsed);
+    const judgment = judge(mst, current, elapsed);
+    return { current, attainment, judgment };
   };
+  const fmtPct = (v: number) => (!Number.isFinite(v) ? "―" : `${Math.round(v * 100)}%`);
 
   const setEdit = (kpiId: string, fm: number, val: string) => {
     setEdits((e) => ({ ...e, [`${kpiId}:${fm}`]: val }));
@@ -169,6 +174,14 @@ export default function SeisanKpiInputPage() {
           </div>
         </div>
 
+        {/* タブ: 通常KPI / 基礎データ算出KPI */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 12, borderBottom: "1px solid #e2e8f0" }}>
+          {([["通常", `通常KPI (${rows.length})`], ["基礎", `基礎データ算出KPI (${basicRows.length})`]] as const).map(([key, label]) => (
+            <button key={key} onClick={() => setTab(key)} style={{ border: "none", background: "none", padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", color: tab === key ? "#1f3864" : "#94a3b8", borderBottom: tab === key ? "2px solid #1f3864" : "2px solid transparent", marginBottom: -1 }}>{label}</button>
+          ))}
+        </div>
+
+        {tab === "通常" && (<>
         <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
           <span style={{ display: "inline-block", width: 11, height: 11, background: "#fef9c3", border: "1px solid #facc15", verticalAlign: "-1px", marginRight: 4 }} />
           入力対象月({FY_MONTHS[inputTargetFm - 1] ?? "—"})
@@ -200,12 +213,13 @@ export default function SeisanKpiInputPage() {
                     <th key={m} style={{ ...th, background: i + 1 === inputTargetFm ? "#fef9c3" : undefined, color: i + 1 === inputTargetFm ? "#92400e" : undefined }}>{m}</th>
                   ))}
                   <th style={th}>年累計/平均</th>
+                  <th style={th}>進捗率</th>
                   <th style={th}>判定</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => {
-                  const { current, judgment } = recompute(row);
+                  const { current, attainment, judgment } = recompute(row);
                   return (
                     <tr key={row.kpiId}>
                       <td style={tdLeft}>{row.kpiName}</td>
@@ -240,6 +254,9 @@ export default function SeisanKpiInputPage() {
                       <td style={{ ...tdMon, background: "#f8fafc", fontWeight: 700 }}>
                         {Number.isFinite(current) ? Math.round(current * 100) / 100 : "―"}
                       </td>
+                      <td style={{ ...tdMon, fontWeight: 700, color: !Number.isFinite(attainment) ? "#16a34a" : attainment >= 0.95 ? "#16a34a" : attainment >= 0.8 ? "#d97706" : "#dc2626" }}>
+                        {fmtPct(attainment)}
+                      </td>
                       <td style={tdMon}>
                         <JudgmentBadge judgment={judgment} />
                       </td>
@@ -263,6 +280,38 @@ export default function SeisanKpiInputPage() {
             <Lock size={11} style={{ verticalAlign: "-1px" }} /> 確定済み月は編集不可。基礎データ算出KPI(粗利率等)は「経営」エリアの会計データから算出されます。
           </span>
         </div>
+        </>)}
+
+        {tab === "基礎" && (
+          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 6, overflowX: "auto" }}>
+            <div style={{ fontSize: 12, color: "#64748b", padding: "8px 10px" }}>
+              <AlertCircle size={13} style={{ verticalAlign: "-2px" }} /> これらのKPIは<b>会計データ（経営 ＞ 会計データ入力）から自動算出</b>されます。本画面では参照のみ（直接入力しません）。
+            </div>
+            {loading ? <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>読み込み中…</div> : basicRows.length === 0 ? (
+              <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>基礎データ算出KPIがありません。</div>
+            ) : (
+              <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12.5 }}>
+                <thead>
+                  <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
+                    <th style={thLeft}>KPI名称</th><th style={th}>レベル</th><th style={th}>部署</th><th style={th}>区分</th><th style={th}>単位</th><th style={th}>年間目標</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {basicRows.map((b) => (
+                    <tr key={b.kpiId}>
+                      <td style={tdLeft}>{b.kpiName}</td>
+                      <td style={tdSub}>{b.level}</td>
+                      <td style={tdSub}>{b.department}</td>
+                      <td style={tdSub}>{b.category}</td>
+                      <td style={tdSub}>{b.unit}</td>
+                      <td style={tdMon}>{b.annualTarget}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
       </div>
     </MainLayout>
   );

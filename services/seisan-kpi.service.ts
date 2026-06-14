@@ -340,6 +340,7 @@ export async function getDashboard(period: number): Promise<{
   signals: DashboardSignal[];
   alert: { red: number; amber: number };
   alertList: { kpiId: string; name: string; department: string; level: string; unit: string; current: number; target: number; judgment: Judgment }[];
+  trends: { kpiId: string; name: string; unit: string; target: number; monthly: (number | null)[] }[];
   manufacturingRank: DeptStarRank[];
   managementRank: DeptStarRank[];
 }> {
@@ -404,12 +405,20 @@ export async function getDashboard(period: number): Promise<{
   const rank = (list: string[]): DeptStarRank[] =>
     list.filter((d) => allDepts.has(d)).map((d) => ({ department: d, stars: deptStars(d) })).sort((a, b) => b.stars - a.stars);
 
+  // 経営KPIトレンド: Lv2信号KPIの月次推移(経過月まで)
+  const trends = lv2.slice(0, 4).map((m) => {
+    const months = monthsOf(m.kpiId);
+    const monthly = months.map((x) => (x.fiscalMonth <= elapsed ? x.value : null));
+    return { kpiId: m.kpiId, name: m.kpiName, unit: m.unit, target: m.monthlyTarget || m.annualTarget, monthly };
+  });
+
   return {
     period,
     elapsedMonths: elapsed,
     signals,
     alert: { red, amber },
     alertList,
+    trends,
     manufacturingRank: rank(MANUF),
     managementRank: rank(MANAGE),
   };

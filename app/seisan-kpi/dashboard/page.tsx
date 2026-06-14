@@ -10,7 +10,9 @@ import { RefreshCw } from "lucide-react";
 type Judgment = "緑" | "黄" | "赤";
 interface Signal { kpiId: string; name: string; unit: string; current: number; target: number; judgment: Judgment; }
 interface AlertRow { kpiId: string; name: string; department: string; level: string; unit: string; current: number; target: number; judgment: Judgment; }
+interface Trend { kpiId: string; name: string; unit: string; target: number; monthly: (number | null)[]; }
 interface Rank { department: string; stars: number; }
+const FY_MONTHS = ["8", "9", "10", "11", "12", "1", "2", "3", "4", "5", "6", "7"];
 const fmtNum = (v: number) => (Math.abs(v) >= 100000 ? `${(v / 100000000).toFixed(1)}億` : v.toLocaleString());
 
 export default function SeisanDashboardPage() {
@@ -19,6 +21,8 @@ export default function SeisanDashboardPage() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [alert, setAlert] = useState<{ red: number; amber: number }>({ red: 0, amber: 0 });
   const [alertList, setAlertList] = useState<AlertRow[]>([]);
+  const [trends, setTrends] = useState<Trend[]>([]);
+  const [measureKv, setMeasureKv] = useState<{ 継続: number; 強化: number; 見直し: number; 完了: number; 改善: number; 悪化: number }>({ 継続: 0, 強化: 0, 見直し: 0, 完了: 0, 改善: 0, 悪化: 0 });
   const [manuf, setManuf] = useState<Rank[]>([]);
   const [manage, setManage] = useState<Rank[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +38,19 @@ export default function SeisanDashboardPage() {
       setPeriod(d.period); setElapsed(d.elapsedMonths);
       setSignals(d.signals ?? []); setAlert(d.alert ?? { red: 0, amber: 0 });
       setAlertList(d.alertList ?? []);
+      setTrends(d.trends ?? []);
       setManuf(d.manufacturingRank ?? []); setManage(d.managementRank ?? []);
+      // 施策の進捗(当期): 過去施策参照APIを当期で集計
+      try {
+        const pr = await fetch(`/api/seisan-kpi/measures/past?period=${d.period}`);
+        const pj = await pr.json();
+        const kv = { 継続: 0, 強化: 0, 見直し: 0, 完了: 0, 改善: 0, 悪化: 0 };
+        for (const m of (pj.data?.rows ?? []) as { lastAction: string; lastEffect: string }[]) {
+          if (m.lastAction in kv) (kv as any)[m.lastAction]++;
+          if (m.lastEffect === "改善") kv.改善++; else if (m.lastEffect === "悪化") kv.悪化++;
+        }
+        setMeasureKv(kv);
+      } catch { /* noop */ }
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
   };
@@ -130,11 +146,53 @@ export default function SeisanDashboardPage() {
           </table>
         </div>
 
+        {/* 施策の進捗 */}
+        <div style={sectionTitle}>施策の進捗（当期・翌月アクション / 効果）</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 12 }}>
+          {([["継続", measureKv.継続, "#1f3864"], ["強化", measureKv.強化, "#2563eb"], ["見直し", measureKv.見直し, "#d97706"], ["完了", measureKv.完了, "#16a34a"], ["効果:改善", measureKv.改善, "#16a34a"], ["効果:悪化", measureKv.悪化, "#dc2626"]] as const).map(([label, n, color]) => (
+            <div key={label} style={{ ...card, textAlign: "center", padding: 12 }}>
+              <div style={{ fontSize: 26, fontWeight: 800, color }}>{n}</div>
+              <div style={{ fontSize: 11, color: "#64748b" }}>{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* 経営KPIトレンド */}
+        <div style={sectionTitle}>経営KPI トレンド（Lv2・月次推移）</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 16 }}>
+          {trends.map((t) => <TrendChart key={t.kpiId} trend={t} />)}
+          {trends.length === 0 && !loading && <div style={{ color: "#64748b", padding: 12 }}>トレンド対象KPIがありません。</div>}
+        </div>
+
         <div style={{ fontSize: 11, color: "#64748b", marginTop: 16, lineHeight: 1.7 }}>
           信号盤・判定は <code>lib/kpi</code> 共通ロジック（緑≥95%/黄≥80%/赤）。★は各課KPIの月間目標達成数（経過月内）。基礎データ算出KPI（粗利率等）は会計データ入力後に表示。
         </div>
       </div>
     </MainLayout>
+  );
+}
+
+function TrendChart({ trend }: { trend: Trend }) {
+  const W = 460, H = 150, padL = 36, padR = 12, padT = 24, padB = 24;
+  const pts = trend.monthly.map((v, i) => ({ i, v })).filter((p) => p.v != null) as { i: number; v: number }[];
+  const vals = [...pts.map((p) => p.v), trend.target];
+  let min = Math.min(...vals, 0), max = Math.max(...vals, trend.target);
+  const span = (max - min) || 1; max += span * 0.15;
+  const x = (i: number) => padL + (W - padL - padR) * (i / 11);
+  const y = (v: number) => padT + (H - padT - padB) * (1 - (v - min) / (max - min));
+  let d = ""; pts.forEach((p, k) => { d += (k ? "L" : "M") + x(p.i) + " " + y(p.v) + " "; });
+  return (
+    <div style={card}>
+      <div style={{ fontSize: 12.5, color: "#64748b", fontWeight: 600, marginBottom: 2 }}>{trend.name}<span style={{ color: "#94a3b8", fontWeight: 400 }}> ({trend.unit})</span></div>
+      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+        <text x={padL} y={12} fontSize="10" fill="#94a3b8">― 実績（月次） ‑‑ 月次目標 {trend.target}</text>
+        <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#e2e8f0" />
+        {trend.target ? <line x1={padL} y1={y(trend.target)} x2={W - padR} y2={y(trend.target)} stroke="#16a34a" strokeWidth={1} strokeDasharray="4 3" /> : null}
+        {pts.length > 0 && <path d={d} fill="none" stroke="#1f3864" strokeWidth={2} />}
+        {pts.map((p) => <circle key={p.i} cx={x(p.i)} cy={y(p.v)} r={2.6} fill="#1f3864" />)}
+        {FY_MONTHS.map((m, i) => <text key={i} x={x(i)} y={H - 8} textAnchor="middle" fontSize="9" fill="#94a3b8">{m}</text>)}
+      </svg>
+    </div>
   );
 }
 

@@ -246,10 +246,78 @@ export default function SeisanKpiMeasuresPage() {
             </div>
           </>
         )}
+
+        <PastMeasures />
       </div>
     </MainLayout>
   );
 }
+
+/* ===== 過去施策の参照(期またぎ) ===== */
+interface PastRow { period: number; measureId: string; measureName: string; targetKpiId: string; targetKpiName: string; status: string; baseValue: number | null; goalValue: number | null; landing: number | null; pdcaCount: number; lastEffect: string; lastAction: string; }
+function PastMeasures() {
+  const [rows, setRows] = useState<PastRow[]>([]);
+  const [kpiOptions, setKpiOptions] = useState<{ kpiId: string; kpiName: string }[]>([]);
+  const [periodsOpt, setPeriodsOpt] = useState<number[]>([]);
+  const [fKpi, setFKpi] = useState(""); const [fStatus, setFStatus] = useState(""); const [fPeriod, setFPeriod] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const p = new URLSearchParams();
+      if (fKpi) p.set("targetKpi", fKpi); if (fStatus) p.set("status", fStatus); if (fPeriod) p.set("period", fPeriod);
+      const res = await fetch(`/api/seisan-kpi/measures/past?${p.toString()}`);
+      const json = await res.json();
+      if (!json.error) { setRows(json.data.rows ?? []); setKpiOptions(json.data.kpiOptions ?? []); setPeriodsOpt(json.data.periods ?? []); }
+    } catch { /* noop */ }
+    finally { setLoading(false); }
+  }, [fKpi, fStatus, fPeriod]);
+  useEffect(() => { load(); }, [load]);
+
+  const eff = (e: string) => ({ "改善": "#16a34a", "悪化": "#dc2626", "横ばい": "#64748b" } as Record<string, string>)[e] ?? "#94a3b8";
+
+  return (
+    <>
+      <SectionTitle>過去施策の参照（期またぎ・KPI別の打ち手の蓄積）</SectionTitle>
+      <div style={card}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", fontSize: 13 }}>
+          <select value={fPeriod} onChange={(e) => setFPeriod(e.target.value)} style={pmSel}><option value="">期: すべて</option>{periodsOpt.map((p) => <option key={p} value={p}>{p}期</option>)}</select>
+          <select value={fKpi} onChange={(e) => setFKpi(e.target.value)} style={pmSel}><option value="">対象KPI: すべて</option>{kpiOptions.map((k) => <option key={k.kpiId} value={k.kpiId}>{k.kpiName}</option>)}</select>
+          <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} style={pmSel}><option value="">状態: すべて</option>{STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12.5, whiteSpace: "nowrap" }}>
+            <thead>
+              <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
+                <th style={pmTh}>期</th><th style={{ ...pmTh, textAlign: "left" }}>施策名</th><th style={{ ...pmTh, textAlign: "left" }}>対象KPI</th><th style={pmTh}>状態</th><th style={pmTh}>基準→着地</th><th style={pmTh}>PDCA件数</th><th style={pmTh}>最終効果</th><th style={pmTh}>最終アクション</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? <tr><td colSpan={8} style={{ ...pmTd, textAlign: "center", color: "#64748b", padding: 18 }}>読み込み中…</td></tr>
+                : rows.length === 0 ? <tr><td colSpan={8} style={{ ...pmTd, textAlign: "center", color: "#94a3b8", padding: 18 }}>該当する過去施策がありません。</td></tr>
+                : rows.map((r) => (
+                  <tr key={`${r.period}-${r.measureId}`}>
+                    <td style={pmTd}>{r.period}期</td>
+                    <td style={{ ...pmTd, textAlign: "left", fontWeight: 600 }}>{r.measureName}</td>
+                    <td style={{ ...pmTd, textAlign: "left", color: "#64748b" }}>{r.targetKpiName}</td>
+                    <td style={pmTd}>{r.status}</td>
+                    <td style={pmTd}>{r.baseValue ?? "—"} → <b>{r.landing ?? "—"}</b></td>
+                    <td style={pmTd}>{r.pdcaCount}</td>
+                    <td style={pmTd}><span style={{ fontWeight: 700, color: eff(r.lastEffect) }}>{r.lastEffect}</span></td>
+                    <td style={pmTd}>{r.lastAction}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+const pmSel: React.CSSProperties = { border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, background: "#fff" };
+const pmTh: React.CSSProperties = { padding: "8px 10px", borderBottom: "1px solid #e2e8f0", textAlign: "center", fontWeight: 600, fontSize: 11.5 };
+const pmTd: React.CSSProperties = { padding: "7px 10px", borderBottom: "1px solid #f1f5f9", textAlign: "center", fontVariantNumeric: "tabular-nums" };
 
 /* ===== 施策(ヘッダ)新規フォーム ===== */
 function NewMeasureForm(props: {

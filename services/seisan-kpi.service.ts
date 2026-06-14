@@ -1623,6 +1623,74 @@ export async function getActualsExport(period: number): Promise<Record<string, a
   });
 }
 
+/** 過去施策の参照(期またぎ): KPI別の打ち手の蓄積。基準→着地・PDCA件数・最終効果/アクション */
+export interface PastMeasureRow {
+  period: number; measureId: string; measureName: string; groupId: string;
+  targetKpiId: string; targetKpiName: string; status: string;
+  baseValue: number | null; goalValue: number | null; landing: number | null;
+  pdcaCount: number; lastEffect: string; lastAction: string;
+}
+export async function getPastMeasures(filter?: { targetKpiId?: string; status?: string; period?: number }): Promise<{
+  rows: PastMeasureRow[];
+  kpiOptions: { kpiId: string; kpiName: string }[];
+  periods: number[];
+}> {
+  const t = getLarkTables();
+  const [measures, pdca, masterAll] = await Promise.all([
+    getAllRecords(t.SEISAN_KPI_MEASURE),
+    getAllRecords(t.SEISAN_KPI_PDCA),
+    getAllRecords(t.SEISAN_KPI_MASTER),
+  ]);
+  const nameByKpi = new Map<string, string>();
+  for (const it of masterAll) {
+    const id = asText(it.fields[MF.kpi_id]);
+    if (id && !nameByKpi.has(id)) nameByKpi.set(id, asText(it.fields[MF.kpi_name]));
+  }
+  const pdcaByMeasure = new Map<string, any[]>();
+  for (const it of pdca) {
+    const mid = asText(it.fields[DF.measure_id]);
+    if (!mid) continue;
+    if (!pdcaByMeasure.has(mid)) pdcaByMeasure.set(mid, []);
+    pdcaByMeasure.get(mid)!.push(it);
+  }
+
+  let rows: PastMeasureRow[] = measures.map((it) => {
+    const f = it.fields;
+    const measureId = asText(f[XF.measure_id]);
+    const targetKpiId = asText(f[XF.target_kpi_id]);
+    const list = (pdcaByMeasure.get(measureId) ?? []).sort((a, b) => (asNum(a.fields[DF.fiscal_month]) ?? 0) - (asNum(b.fields[DF.fiscal_month]) ?? 0));
+    const last = list[list.length - 1];
+    const landing = last ? (asNum(last.fields[DF.kpi_actual]) ?? null) : null;
+    return {
+      period: asNum(f[XF.period]) ?? 0,
+      measureId,
+      measureName: asText(f[XF.measure_name]),
+      groupId: asText(f[XF.group_id]),
+      targetKpiId,
+      targetKpiName: nameByKpi.get(targetKpiId) || targetKpiId,
+      status: asText(f[XF.status]) || "下書き",
+      baseValue: asNum(f[XF.base_value]) ?? null,
+      goalValue: asNum(f[XF.goal_value]) ?? null,
+      landing: landing ?? (asNum(f[XF.goal_value]) ?? null),
+      pdcaCount: list.length,
+      lastEffect: last ? (asText(last.fields[DF.effect]) || asText(last.fields[DF.effect_auto]) || "—") : "—",
+      lastAction: last ? (asText(last.fields[DF.next_action]) || "—") : "—",
+    };
+  });
+
+  if (filter?.targetKpiId) rows = rows.filter((r) => r.targetKpiId === filter.targetKpiId);
+  if (filter?.status) rows = rows.filter((r) => r.status === filter.status);
+  if (filter?.period) rows = rows.filter((r) => r.period === filter.period);
+  rows.sort((a, b) => (b.period - a.period) || a.measureId.localeCompare(b.measureId));
+
+  const kpiSeen = new Set<string>();
+  const kpiOptions: { kpiId: string; kpiName: string }[] = [];
+  for (const r of rows) { if (r.targetKpiId && !kpiSeen.has(r.targetKpiId)) { kpiSeen.add(r.targetKpiId); kpiOptions.push({ kpiId: r.targetKpiId, kpiName: r.targetKpiName }); } }
+  const periods = [...new Set(measures.map((it) => asNum(it.fields[XF.period]) ?? 0).filter(Boolean))].sort((a, b) => b - a);
+
+  return { rows, kpiOptions, periods };
+}
+
 /** 施策ログエクスポート: 施策 × PDCA月(1施策に月次が複数=フラット展開) */
 export async function getMeasuresExport(period: number): Promise<Record<string, any>[]> {
   const groups = await getGroups(period);

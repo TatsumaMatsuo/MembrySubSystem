@@ -84,6 +84,7 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
   const [savingId, setSavingId] = useState<string | null>(null);
   const [fLevel, setFLevel] = useState(""); const [fDiv, setFDiv] = useState(""); const [fCat, setFCat] = useState(""); const [q, setQ] = useState("");
   const [showClone, setShowClone] = useState(false);
+  const [showNew, setShowNew] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); props.setMessage(null);
@@ -137,12 +138,14 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
         <select value={fCat} onChange={(e) => setFCat(e.target.value)} style={sel}><option value="">カテゴリ: すべて</option>{cats.map((c) => <option key={c} value={c}>{c}</option>)}</select>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="KPI名称/IDで検索" style={{ ...sel, minWidth: 160 }} />
         <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <button onClick={() => setShowNew(true)} style={{ ...btnGhost, background: "#1f3864", color: "#fff", border: "none" }}><Plus size={13} style={{ verticalAlign: "-2px" }} /> KPI追加</button>
           <button onClick={() => setShowClone(true)} style={btnGhost}><Copy size={13} style={{ verticalAlign: "-2px" }} /> 新期作成(前期複製)</button>
           <button onClick={load} style={btnGhost}><RefreshCw size={13} style={{ verticalAlign: "-2px" }} /> 再読込</button>
         </span>
       </div>
 
       {showClone && <CloneDialog fromPeriod={props.period} onClose={() => setShowClone(false)} setMessage={props.setMessage} />}
+      {showNew && <NewKpiDialog period={props.period} depts={[...new Set(rows.map((r) => r.department).filter(Boolean))]} cats={cats} onClose={() => setShowNew(false)} onSaved={() => { setShowNew(false); load(); }} setMessage={props.setMessage} />}
 
       <div style={{ ...card, overflowX: "auto" }}>
         <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>{props.period}期 / {filtered.length}件(全{rows.length}件)。セルを編集して各行の保存ボタンで確定(AUDIT記録)。</div>
@@ -150,7 +153,7 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
           <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12, whiteSpace: "nowrap" }}>
             <thead>
               <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
-                {["KPI_ID", "階層", "部署", "カテゴリ", "KPI名称", "単位", "集計", "方向", "年間目標", "月次目標", "オーナー", "有効", ""].map((h) => <th key={h} style={th}>{h}</th>)}
+                {["KPI_ID", "階層", "部署", "カテゴリ", "KPI名称", "単位", "集計", "方向", "年間目標", "月次目標", "オーナー", "データソース", "入力タイミング", "備考", "有効", ""].map((h) => <th key={h} style={th}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -169,6 +172,9 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
                     <td style={tdEd}><input type="number" value={getVal(r, "annualTarget")} onChange={(e) => setVal(r.kpiId, { annualTarget: Number(e.target.value) })} style={{ ...cellInput, width: 70, textAlign: "right" }} /></td>
                     <td style={tdEd}><input type="number" value={getVal(r, "monthlyTarget")} onChange={(e) => setVal(r.kpiId, { monthlyTarget: Number(e.target.value) })} style={{ ...cellInput, width: 70, textAlign: "right" }} /></td>
                     <td style={tdEd}><input value={getVal(r, "owner")} onChange={(e) => setVal(r.kpiId, { owner: e.target.value })} style={{ ...cellInput, width: 100 }} /></td>
+                    <td style={tdEd}><input value={getVal(r, "dataSource")} onChange={(e) => setVal(r.kpiId, { dataSource: e.target.value })} style={{ ...cellInput, width: 120 }} /></td>
+                    <td style={tdEd}><input value={getVal(r, "inputTiming")} onChange={(e) => setVal(r.kpiId, { inputTiming: e.target.value })} style={{ ...cellInput, width: 96 }} /></td>
+                    <td style={tdEd}><input value={getVal(r, "notes")} onChange={(e) => setVal(r.kpiId, { notes: e.target.value })} style={{ ...cellInput, width: 130 }} /></td>
                     <td style={{ ...td, textAlign: "center" }}>
                       <input type="checkbox" checked={getVal(r, "isActive")} onChange={(e) => setVal(r.kpiId, { isActive: e.target.checked })} style={{ width: 16, height: 16, accentColor: "#16a34a" }} />
                     </td>
@@ -232,6 +238,59 @@ function CloneDialog(props: { fromPeriod: number; onClose: () => void; setMessag
             <Copy size={14} style={{ verticalAlign: "-2px" }} /> {busy ? "複製中…" : "複製を実行"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== KPI追加ダイアログ ===== */
+function NewKpiDialog(props: { period: number; depts: string[]; cats: string[]; onClose: () => void; onSaved: () => void; setMessage: (m: string | null) => void }) {
+  const [f, setF] = useState({ kpiId: "", level: "Lv4", department: props.depts[0] ?? "", category: props.cats[0] ?? "", kpiName: "", unit: "", aggType: "累計", direction: "高い方が良い", annualTarget: 0, monthlyTarget: 0, owner: "", dataSource: "", inputTiming: "", notes: "" });
+  const [busy, setBusy] = useState(false);
+  const set = (patch: Partial<typeof f>) => setF((s) => ({ ...s, ...patch }));
+
+  const run = async () => {
+    if (!f.kpiId.trim() || !f.kpiName.trim()) { props.setMessage("KPI_IDとKPI名称は必須です"); return; }
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/seisan-kpi/master`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period: props.period, ...f }),
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      props.setMessage(`✅ KPI「${f.kpiId}」を追加しました`);
+      props.onSaved();
+    } catch (e: any) { props.setMessage(`追加エラー: ${e.message}`); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div style={overlay}>
+      <div style={{ ...card, width: 560, maxHeight: "88vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#1f3864" }}>KPI追加（{props.period}期）</div>
+          <button onClick={props.onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}><X size={16} /></button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <label style={lbl}>KPI_ID<input value={f.kpiId} onChange={(e) => set({ kpiId: e.target.value })} placeholder="例: K-NEW-01" style={inp} /></label>
+          <label style={lbl}>階層<select value={f.level} onChange={(e) => set({ level: e.target.value })} style={inp}>{["Lv2", "Lv3", "Lv4"].map((l) => <option key={l}>{l}</option>)}</select></label>
+          <label style={lbl}>KPI名称<input value={f.kpiName} onChange={(e) => set({ kpiName: e.target.value })} style={inp} /></label>
+          <label style={lbl}>単位<input value={f.unit} onChange={(e) => set({ unit: e.target.value })} style={inp} /></label>
+          <label style={lbl}>部署<input list="dlg-depts" value={f.department} onChange={(e) => set({ department: e.target.value })} style={inp} /><datalist id="dlg-depts">{props.depts.map((d) => <option key={d} value={d} />)}</datalist></label>
+          <label style={lbl}>カテゴリ<input list="dlg-cats" value={f.category} onChange={(e) => set({ category: e.target.value })} style={inp} /><datalist id="dlg-cats">{props.cats.map((c) => <option key={c} value={c} />)}</datalist></label>
+          <label style={lbl}>集計タイプ<select value={f.aggType} onChange={(e) => set({ aggType: e.target.value })} style={inp}>{AGG_TYPES.map((a) => <option key={a}>{a}</option>)}</select></label>
+          <label style={lbl}>良い方向<select value={f.direction} onChange={(e) => set({ direction: e.target.value })} style={inp}>{DIRECTIONS.map((d) => <option key={d}>{d}</option>)}</select></label>
+          <label style={lbl}>年間目標<input type="number" value={f.annualTarget} onChange={(e) => set({ annualTarget: Number(e.target.value) })} style={inp} /></label>
+          <label style={lbl}>月次目標<input type="number" value={f.monthlyTarget} onChange={(e) => set({ monthlyTarget: Number(e.target.value) })} style={inp} /></label>
+          <label style={lbl}>オーナー<input value={f.owner} onChange={(e) => set({ owner: e.target.value })} style={inp} /></label>
+          <label style={lbl}>データソース<input value={f.dataSource} onChange={(e) => set({ dataSource: e.target.value })} style={inp} /></label>
+          <label style={lbl}>入力タイミング<input value={f.inputTiming} onChange={(e) => set({ inputTiming: e.target.value })} style={inp} /></label>
+          <label style={lbl}>備考<input value={f.notes} onChange={(e) => set({ notes: e.target.value })} style={inp} /></label>
+        </div>
+        <button onClick={run} disabled={busy} style={{ background: "#1f3864", color: "#fff", border: "none", borderRadius: 9, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14 }}>
+          <Save size={14} style={{ verticalAlign: "-2px" }} /> {busy ? "追加中…" : "追加する"}
+        </button>
       </div>
     </div>
   );

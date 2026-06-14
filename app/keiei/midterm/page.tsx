@@ -49,17 +49,19 @@ export default function MidtermAdminPage() {
   const newKgis = () =>
     DEFAULT_KGIS.map((k) => ({ ...k, values: {} as Record<number, string> }));
 
-  const loadHeaders = async () => {
-    const res = await fetch("/api/keiei/midterm");
+  const loadHeaders = async (): Promise<HeaderLite[]> => {
+    const res = await fetch("/api/keiei/midterm", { cache: "no-store" });
     const json = await res.json();
-    setHeaders(json.data?.headers ?? []);
+    const hs: HeaderLite[] = json.data?.headers ?? [];
+    setHeaders(hs);
+    return hs;
   };
 
   const loadPlan = async (pid: string) => {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await fetch(`/api/keiei/midterm?plan=${encodeURIComponent(pid)}`);
+      const res = await fetch(`/api/keiei/midterm?plan=${encodeURIComponent(pid)}`, { cache: "no-store" });
       const json = await res.json();
       const d = json.data;
       if (!d) {
@@ -83,7 +85,13 @@ export default function MidtermAdminPage() {
   };
 
   useEffect(() => {
-    (async () => { await loadHeaders(); setKgis(newKgis()); setLoading(false); })();
+    (async () => {
+      const hs = await loadHeaders();
+      // 既存があれば現行(なければ先頭)を初期表示。無ければ新規フォーム。
+      const cur = hs.find((h) => h.status === "現行") ?? hs[0];
+      if (cur) { setPlanId(cur.planId); await loadPlan(cur.planId); }
+      else { setKgis(newKgis()); setLoading(false); }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -126,6 +134,7 @@ export default function MidtermAdminPage() {
       }
       setMessage(`✅ 中計「${planId}」を保存しました`);
       await loadHeaders();
+      await loadPlan(planId); // 保存後にサーバの最新を再読込して反映
     } catch (e: any) {
       setMessage(`保存エラー: ${e.message}`);
     } finally {
@@ -140,7 +149,7 @@ export default function MidtermAdminPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#4f46e5", margin: 0 }}>中計マスタ管理</h1>
           <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}>
-            <select onChange={(e) => { if (e.target.value === "__new") { setPlanId("MTP-" + (headers.length + 1)); setKgis(newKgis()); } else { setPlanId(e.target.value); loadPlan(e.target.value); } }} style={sel}>
+            <select value={headers.some((h) => h.planId === planId) ? planId : "__new"} onChange={(e) => { if (e.target.value === "__new") { setPlanId("MTP-" + (headers.length + 1)); setName("第◯次中期経営計画"); setStartPeriod(50); setEndPeriod(52); setStatus("現行"); setKgis(newKgis()); } else { setPlanId(e.target.value); loadPlan(e.target.value); } }} style={sel}>
               <option value="__new">＋ 新規中計</option>
               {headers.map((h) => <option key={h.planId} value={h.planId}>{h.name || h.planId}（{h.startPeriod}→{h.endPeriod}）</option>)}
             </select>

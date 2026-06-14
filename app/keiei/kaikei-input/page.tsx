@@ -31,7 +31,7 @@ const QUARTER_SPANS = [
 ];
 const HALF_SPANS = [{ key: "上期", label: "上期(8-1)" }, { key: "下期", label: "下期(2-7)" }];
 
-const thCell: React.CSSProperties = { border: "1px solid #d7dee8", padding: "7px 6px", textAlign: "center", fontWeight: 600, fontSize: 11, color: "#475569", background: "#eef2f7" };
+const thCell: React.CSSProperties = { border: "1px solid #d7dee8", padding: "7px 6px", textAlign: "center", fontWeight: 600, fontSize: 11, color: "#475569", background: "#eef2f7", position: "sticky", top: 0, zIndex: 2, boxShadow: "inset 0 -1px 0 #d7dee8" };
 const tdCell: React.CSSProperties = { border: "1px solid #e2e8f0", textAlign: "center", verticalAlign: "middle" };
 const cellInput: React.CSSProperties = { width: "100%", border: "none", background: "transparent", padding: "6px 6px", textAlign: "right", fontSize: 12, outline: "none", boxSizing: "border-box" };
 
@@ -126,6 +126,9 @@ export default function KaikeiInputPage() {
             <button onClick={() => load(period)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
+            <button onClick={save} disabled={saving || dirtyItems.length === 0} style={{ background: dirtyItems.length ? "#1f3864" : "#cbd5e1", color: "#fff", border: "none", borderRadius: 8, padding: "7px 16px", fontSize: 13, fontWeight: 700, cursor: dirtyItems.length ? "pointer" : "default" }}>
+              <Save size={14} style={{ verticalAlign: "-2px" }} /> {saving ? "保存中…" : `保存 (${dirtyItems.length})`}
+            </button>
           </div>
         </div>
 
@@ -140,12 +143,12 @@ export default function KaikeiInputPage() {
         {message && <div style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: message.startsWith("✅") ? "#ecfdf5" : "#fef2f2", color: message.startsWith("✅") ? "#065f46" : "#991b1b" }}>{message}</div>}
 
         <style>{`.kaikei-cell:focus{background:#fffbe6;box-shadow:inset 0 0 0 2px #1f3864;}`}</style>
-        <div style={{ background: "#fff", border: "1px solid #d7dee8", borderRadius: 12, overflowX: "auto" }}>
+        <div style={{ background: "#fff", border: "1px solid #d7dee8", borderRadius: 12, overflow: "auto", maxHeight: "calc(100vh - 260px)" }}>
           {loading ? <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>読み込み中…</div> : (
             <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12, whiteSpace: "nowrap" }}>
               <thead>
                 <tr>
-                  <th style={{ ...thCell, position: "sticky", left: 0, zIndex: 3, textAlign: "left", minWidth: 130, boxShadow: "1px 0 0 #d7dee8" }}>科目</th>
+                  <th style={{ ...thCell, position: "sticky", top: 0, left: 0, zIndex: 4, textAlign: "left", minWidth: 130, boxShadow: "inset 0 -1px 0 #d7dee8, 1px 0 0 #d7dee8" }}>科目</th>
                   <th style={{ ...thCell, minWidth: 78 }}>粒度</th>
                   {MONTH_LABELS.map((m) => <th key={m} style={{ ...thCell, minWidth: 58 }}>{m}</th>)}
                 </tr>
@@ -187,12 +190,7 @@ export default function KaikeiInputPage() {
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 14 }}>
-          <button onClick={save} disabled={saving || dirtyItems.length === 0} style={{ background: dirtyItems.length ? "#1f3864" : "#cbd5e1", color: "#fff", border: "none", borderRadius: 9, padding: "9px 20px", fontSize: 13, fontWeight: 600, cursor: dirtyItems.length ? "pointer" : "default" }}>
-            <Save size={14} style={{ verticalAlign: "-2px" }} /> {saving ? "保存中…" : `保存 (${dirtyItems.length}件)`}
-          </button>
-          <span style={{ fontSize: 11, color: "#64748b" }}>粒度を変えると入力欄が切り替わります。月別を基本に、月次で出ない科目（総資産等）は四半期/半期で。</span>
-        </div>
+        <div style={{ fontSize: 11, color: "#64748b", marginTop: 10 }}>粒度を変えると入力欄が切り替わります。月別を基本に、月次で出ない科目（総資産等）は四半期/半期で。保存ボタンは右上にあります。</div>
       </div>
     </MainLayout>
   );

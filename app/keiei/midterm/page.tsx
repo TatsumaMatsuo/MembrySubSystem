@@ -135,8 +135,9 @@ export default function MidtermAdminPage() {
 
   return (
     <MainLayout>
+      <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: 20, maxWidth: 1100, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#4f46e5", margin: 0 }}>中計マスタ管理</h1>
           <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}>
             <select onChange={(e) => { if (e.target.value === "__new") { setPlanId("MTP-" + (headers.length + 1)); setKgis(newKgis()); } else { setPlanId(e.target.value); loadPlan(e.target.value); } }} style={sel}>
@@ -202,6 +203,7 @@ export default function MidtermAdminPage() {
           </button>
           <span style={{ fontSize: 11, color: "#64748b" }}>起点(開始期)と最終目標を入れて「線形補間」→ 中間年度が自動生成。各期は個別修正可。保存で中計ダッシュボードに反映。</span>
         </div>
+      </div>
       </div>
     </MainLayout>
   );

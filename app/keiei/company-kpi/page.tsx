@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout";
 import { JudgmentBadge } from "@/components/features/seisan-kpi";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { RefreshCw, AlertCircle } from "lucide-react";
 
 type Judgment = "緑" | "黄" | "赤";
@@ -48,6 +49,7 @@ export default function CompanyKpiPage() {
   const [otherRows, setOtherRows] = useState<OtherRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const load = async (p?: number) => {
     setLoading(true);
@@ -78,9 +80,10 @@ export default function CompanyKpiPage() {
 
   return (
     <MainLayout>
-      <div style={{ padding: 20, maxWidth: 1180, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#4f46e5", margin: 0 }}>全社KPI ― 年度計画 vs 実績</h1>
+      <div style={{ height: "100%", overflowY: "auto" }}>
+      <div style={{ padding: isMobile ? 12 : 20, maxWidth: 1180, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+          <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: "#4f46e5", margin: 0 }}>全社KPI ― 年度計画 vs 実績</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
             {selectablePeriods.length > 0 && (
               <select value={period} onChange={(e) => load(Number(e.target.value))} title="表示する期" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#4f46e5", background: "#fff", cursor: "pointer" }}>
@@ -102,7 +105,7 @@ export default function CompanyKpiPage() {
         {error && <div style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: "#fef2f2", color: "#991b1b" }}>{error}</div>}
 
         {/* サマリーカード */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 14, marginBottom: 18 }}>
           {summary.map((r) => (
             <div key={r.name} style={card}>
               <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>{r.name}{r.name === "経常利益" ? "（ROA分子）" : ""}</div>
@@ -116,7 +119,7 @@ export default function CompanyKpiPage() {
 
         {/* PL */}
         <div style={sectionTitle}>損益計算書ベース（年度計画 vs 実績累計）</div>
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflowX: "auto" }}>
           {loading ? (
             <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>読み込み中…</div>
           ) : (
@@ -150,7 +153,7 @@ export default function CompanyKpiPage() {
 
         {/* 率・その他 */}
         <div style={sectionTitle}>限界利益・率・その他計画（目標）</div>
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflowX: "auto" }}>
           <table style={table}>
             <thead><tr style={{ background: "#f1f5f9", color: "#64748b" }}><th style={thLeft}>指標</th><th style={th}>目標</th><th style={th}>実績</th></tr></thead>
             <tbody>
@@ -165,6 +168,7 @@ export default function CompanyKpiPage() {
           年度目標＝既存「全社KPI（COMPANY_KPI）」。実績＝会計データ（KAIKEI_ACTUAL／月・四半期・半期を年度累計に正規化）。ROA分子＝経常利益。
           粗利・売上原価は会計実績の製造原価から算出。
         </div>
+      </div>
       </div>
     </MainLayout>
   );

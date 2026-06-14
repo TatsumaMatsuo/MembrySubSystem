@@ -93,8 +93,9 @@ export default function PeriodMasterPage() {
 
   return (
     <MainLayout>
+      <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: 20, maxWidth: 1000, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#4f46e5", margin: 0 }}>期マスタ管理</h1>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button onClick={addRow} style={ghostBtn}><Plus size={13} style={{ verticalAlign: "-2px" }} /> 期を追加</button>
@@ -139,6 +140,7 @@ export default function PeriodMasterPage() {
             </table>
           )}
         </div>
+      </div>
       </div>
     </MainLayout>
   );

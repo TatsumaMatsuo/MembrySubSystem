@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout";
 import { JudgmentBadge } from "@/components/features/seisan-kpi";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { RefreshCw, AlertCircle, TrendingUp } from "lucide-react";
 
 interface Kgi {
@@ -76,6 +77,7 @@ export default function KeieiDashboardPage() {
   const [registered, setRegistered] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const load = async (p?: number) => {
     setLoading(true); setError(null);
@@ -100,9 +102,9 @@ export default function KeieiDashboardPage() {
   return (
     <MainLayout>
       <div style={{ height: "100%", overflowY: "auto" }}>
-      <div style={{ padding: 20, maxWidth: 1180, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#4f46e5", margin: 0 }}>経営ダッシュボード ― 中期経営計画 進捗</h1>
+      <div style={{ padding: isMobile ? 12 : 20, maxWidth: 1180, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+          <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: "#4f46e5", margin: 0 }}>経営ダッシュボード ― 中期経営計画 進捗</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
             {header && <span style={{ background: "#4f46e5", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>{header.name || header.planId}（{header.startPeriod}→{header.endPeriod}期）</span>}
             {selectablePeriods.length > 0 && (
@@ -129,7 +131,7 @@ export default function KeieiDashboardPage() {
             <div style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
               <TrendingUp size={14} style={{ verticalAlign: "-2px" }} /> 最終年度（{header?.endPeriod}期）のKGIへの到達度。破線＝目標トラジェクトリ（線形補間）、赤線＝実績（年換算）の推移。右上の「基準期」で過去時点の進捗を振り返れます（数値・到達度は基準{basePeriod}期時点）。
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 16 }}>
               {kgis.map((k) => (
                 <div key={k.indicator} style={card}>
                   <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>{k.indicator}</div>
@@ -150,7 +152,7 @@ export default function KeieiDashboardPage() {
             )}
 
             {/* 全社KPI(年度計画 vs 実績累計) + 会計データ入力状況 */}
-            <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 16, marginTop: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.5fr 1fr", gap: 16, marginTop: 20 }}>
               <div>
                 <div style={sectionTitle}>全社KPI（{basePeriod}期 年度計画 vs 実績累計）</div>
                 <div style={{ ...card, padding: 0, overflow: "hidden" }}>

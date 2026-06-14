@@ -322,9 +322,11 @@ export interface MidtermKgi {
   trajectory: { period: number; target: number }[];
   finalTarget: number;
   finalPeriod: number;
-  /** 現在(当期)の年換算実績(会計データから・未入力は null) */
+  /** 各期の年換算実績(開始期〜基準期。会計データから・未入力は null) */
+  actuals: { period: number; actual: number | null }[];
+  /** 基準期の年換算実績(会計データから・未入力は null) */
   currentActual: number | null;
-  /** 到達度 = 現在 ÷ 最終目標 */
+  /** 到達度 = 基準期実績 ÷ 最終目標 */
   attainment: number | null;
 }
 
@@ -377,10 +379,9 @@ async function getMidtermDetails(planId: string): Promise<{ indicator: string; u
   });
 }
 
-/** KGIの現在実績(会計データから年換算) */
-async function currentKgiActual(indicator: string, period: number, elapsed: number): Promise<number | null> {
+/** 会計累計マップ(百万円)+経過月 から KGI の年換算実績を算出(純粋関数) */
+function kgiActualFromKaikei(indicator: string, kaikei: Map<string, number>, elapsed: number): number | null {
   if (elapsed <= 0) return null;
-  const kaikei = await getKaikeiCumByAccount(period);
   const ann = (account: string) => (kaikei.has(account) ? (kaikei.get(account)! / elapsed) * 12 : null); // 百万円・年換算
   if (indicator === "売上高") {
     const v = ann("売上高");
@@ -404,26 +405,47 @@ async function currentKgiActual(indicator: string, period: number, elapsed: numb
   return null;
 }
 
-/** 中計ダッシュボード構築(現行中計 or 指定planId) */
-export async function buildMidtermDashboard(planId?: string): Promise<{
+/** KGIの現在実績(会計データから年換算) */
+async function currentKgiActual(indicator: string, period: number, elapsed: number): Promise<number | null> {
+  if (elapsed <= 0) return null;
+  return kgiActualFromKaikei(indicator, await getKaikeiCumByAccount(period), elapsed);
+}
+
+/** 中計ダッシュボード構築(現行中計 or 指定planId / 基準期を指定可) */
+export async function buildMidtermDashboard(planId?: string, basePeriodArg?: number): Promise<{
   header: MidtermHeader | null;
   currentPeriod: number;
+  basePeriod: number;
   elapsedMonths: number;
+  selectablePeriods: number[];
   kgis: MidtermKgi[];
   registered: boolean;
 }> {
   const [headers, periods] = await Promise.all([getMidtermHeaders(), getPeriods()]);
   const cur = periods.find((p) => p.isCurrent) ?? periods[0];
   const currentPeriod = cur?.period ?? 50;
-  const elapsed = cur?.elapsedMonths ?? 0;
+  const periodMap = new Map(periods.map((p) => [p.period, p]));
 
   const header = planId
     ? headers.find((h) => h.planId === planId) ?? null
     : headers.find((h) => h.status === "現行") ?? headers[0] ?? null;
 
   if (!header) {
-    return { header: null, currentPeriod, elapsedMonths: elapsed, kgis: [], registered: false };
+    return { header: null, currentPeriod, basePeriod: currentPeriod, elapsedMonths: cur?.elapsedMonths ?? 0, selectablePeriods: [], kgis: [], registered: false };
   }
+
+  // 基準期: 指定があれば採用、なければ当期。計画範囲かつ開始済み(<=当期)にクランプ。
+  const maxSel = Math.min(header.endPeriod, currentPeriod);
+  let basePeriod = basePeriodArg ?? currentPeriod;
+  if (basePeriod > maxSel) basePeriod = maxSel;
+  if (basePeriod < header.startPeriod) basePeriod = header.startPeriod;
+  // 経過月数: 当期は走行中の月数、過去期は満了(12)を既定とする(期マスタに値があれば優先)
+  const elapsedFor = (p: number) => (p === currentPeriod ? (cur?.elapsedMonths ?? 0) : (periodMap.get(p)?.elapsedMonths || 12));
+  const baseElapsed = elapsedFor(basePeriod);
+
+  // 選択可能な期(開始〜min(終了,当期))
+  const selectablePeriods: number[] = [];
+  for (let p = header.startPeriod; p <= maxSel; p++) selectablePeriods.push(p);
 
   const details = await getMidtermDetails(header.planId);
   // 指標ごとに集約
@@ -435,15 +457,26 @@ export async function buildMidtermDashboard(planId?: string): Promise<{
     if (d.finalTarget) e.finalTarget = d.finalTarget;
   }
 
+  // 実績: 開始期〜基準期 の各期の会計データを1回ずつ(並列)取得し、全KGIを算出
+  const actualPeriods: number[] = [];
+  for (let p = header.startPeriod; p <= basePeriod; p++) actualPeriods.push(p);
+  const kaikeiByPeriod = new Map<number, Map<string, number>>();
+  await Promise.all(actualPeriods.map(async (p) => { kaikeiByPeriod.set(p, await getKaikeiCumByAccount(p)); }));
+
   const kgis: MidtermKgi[] = [];
   for (const [indicator, e] of byIndicator) {
     e.points.sort((a, b) => a.period - b.period);
-    const currentActual = await currentKgiActual(indicator, currentPeriod, elapsed);
+    const actuals = actualPeriods.map((p) => ({
+      period: p,
+      actual: kgiActualFromKaikei(indicator, kaikeiByPeriod.get(p) ?? new Map(), elapsedFor(p)),
+    }));
+    const currentActual = actuals.find((a) => a.period === basePeriod)?.actual ?? null;
     const finalTarget = e.finalTarget || (e.points.length ? e.points[e.points.length - 1].target : 0);
     kgis.push({
       indicator,
       unit: e.unit,
       trajectory: e.points,
+      actuals,
       finalTarget,
       finalPeriod: e.finalPeriod,
       currentActual,
@@ -451,7 +484,7 @@ export async function buildMidtermDashboard(planId?: string): Promise<{
     });
   }
 
-  return { header, currentPeriod, elapsedMonths: elapsed, kgis, registered: true };
+  return { header, currentPeriod, basePeriod, elapsedMonths: baseElapsed, selectablePeriods, kgis, registered: true };
 }
 
 /* =========================================================================

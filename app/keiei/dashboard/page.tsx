@@ -10,6 +10,7 @@ interface Kgi {
   indicator: string;
   unit: string;
   trajectory: { period: number; target: number }[];
+  actuals: { period: number; actual: number | null }[];
   finalTarget: number;
   finalPeriod: number;
   currentActual: number | null;
@@ -20,36 +21,38 @@ interface Header { planId: string; name: string; startPeriod: number; endPeriod:
 const fmt = (v: number | null, unit: string) =>
   v == null ? "―" : `${Math.round(v * 10) / 10}${unit}`;
 
-function Trajectory({ kgi }: { kgi: Kgi }) {
+function Trajectory({ kgi, basePeriod }: { kgi: Kgi; basePeriod: number }) {
   const W = 320, H = 150, padL = 38, padR = 14, padT = 16, padB = 26;
   const pts = kgi.trajectory;
   if (pts.length === 0) return null;
+  const n = pts.length;
+  const idxOf = new Map(pts.map((p, i) => [p.period, i]));
+  const acts = (kgi.actuals ?? []).filter((a) => a.actual != null && idxOf.has(a.period)) as { period: number; actual: number }[];
   const targets = pts.map((p) => p.target);
-  const all = [...targets, ...(kgi.currentActual != null ? [kgi.currentActual] : [])];
+  const all = [...targets, ...acts.map((a) => a.actual)];
   let min = Math.min(...all), max = Math.max(...all);
   const span = max - min || 1;
   min -= span * 0.25; max += span * 0.2;
-  const n = pts.length;
   const x = (i: number) => padL + (W - padL - padR) * (n < 2 ? 0 : i / (n - 1));
   const y = (v: number) => padT + (H - padT - padB) * (1 - (v - min) / (max - min));
-  let d = "";
-  pts.forEach((p, i) => { d += (i ? "L" : "M") + x(i) + " " + y(p.target) + " "; });
+  let dT = "";
+  pts.forEach((p, i) => { dT += (i ? "L" : "M") + x(i) + " " + y(p.target) + " "; });
+  let dA = "";
+  acts.forEach((a, i) => { dA += (i ? "L" : "M") + x(idxOf.get(a.period)!) + " " + y(a.actual) + " "; });
   return (
     <svg width="100%" height="150" viewBox={`0 0 ${W} ${H}`} style={{ marginTop: 10 }}>
-      <text x={padL} y={11} fontSize="10" fill="#94a3b8">― 目標(線形補間) ● 実績(年換算)</text>
+      <text x={padL} y={11} fontSize="10" fill="#94a3b8">― 目標(線形補間) ―●― 実績(年換算)</text>
       <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#e2e8f0" />
-      <path d={d} fill="none" stroke="#1f3864" strokeWidth={2.5} strokeDasharray="5 4" />
+      <path d={dT} fill="none" stroke="#1f3864" strokeWidth={2.5} strokeDasharray="5 4" />
       {pts.map((p, i) => (
         <circle key={p.period} cx={x(i)} cy={y(p.target)} r={3.5} fill="#1f3864" />
       ))}
-      {kgi.currentActual != null && (
-        <>
-          <circle cx={x(0)} cy={y(kgi.currentActual)} r={5} fill="#dc2626" />
-          <line x1={x(0)} y1={y(kgi.currentActual)} x2={x(0)} y2={y(pts[0].target)} stroke="#dc2626" strokeWidth={1.5} strokeDasharray="2 2" />
-        </>
-      )}
+      {acts.length > 0 && <path d={dA} fill="none" stroke="#dc2626" strokeWidth={2} />}
+      {acts.map((a) => (
+        <circle key={a.period} cx={x(idxOf.get(a.period)!)} cy={y(a.actual)} r={a.period === basePeriod ? 5 : 3.5} fill="#dc2626" />
+      ))}
       {pts.map((p, i) => (
-        <text key={p.period} x={x(i)} y={H - 9} textAnchor="middle" fontSize="11" fill="#64748b">{p.period}期</text>
+        <text key={p.period} x={x(i)} y={H - 9} textAnchor="middle" fontSize="11" fill={p.period === basePeriod ? "#dc2626" : "#64748b"} fontWeight={p.period === basePeriod ? 700 : 400}>{p.period}期</text>
       ))}
     </svg>
   );
@@ -59,20 +62,24 @@ export default function KeieiDashboardPage() {
   const [header, setHeader] = useState<Header | null>(null);
   const [kgis, setKgis] = useState<Kgi[]>([]);
   const [elapsed, setElapsed] = useState(0);
+  const [basePeriod, setBasePeriod] = useState<number>(0);
+  const [selectablePeriods, setSelectablePeriods] = useState<number[]>([]);
   const [registered, setRegistered] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = async (p?: number) => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/api/keiei/dashboard`);
+      const res = await fetch(`/api/keiei/dashboard${p ? `?period=${p}` : ""}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       const d = json.data;
       setHeader(d.header);
       setKgis(d.kgis ?? []);
       setElapsed(d.elapsedMonths);
+      setBasePeriod(d.basePeriod);
+      setSelectablePeriods(d.selectablePeriods ?? []);
       setRegistered(d.registered);
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
@@ -86,8 +93,13 @@ export default function KeieiDashboardPage() {
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>経営ダッシュボード ― 中期経営計画 進捗</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
             {header && <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>{header.name || header.planId}（{header.startPeriod}→{header.endPeriod}期）</span>}
+            {selectablePeriods.length > 0 && (
+              <select value={basePeriod} onChange={(e) => load(Number(e.target.value))} title="基準期(この期時点の進捗で表示)" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#1f3864", background: "#fff", cursor: "pointer" }}>
+                {selectablePeriods.map((p) => <option key={p} value={p}>基準: {p}期</option>)}
+              </select>
+            )}
             <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>経過 {elapsed}ヶ月</span>
-            <button onClick={load} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
+            <button onClick={() => load(basePeriod || undefined)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
           </div>
@@ -103,7 +115,7 @@ export default function KeieiDashboardPage() {
           <>
             {error && <div style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: "#fef2f2", color: "#991b1b" }}>{error}</div>}
             <div style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
-              <TrendingUp size={14} style={{ verticalAlign: "-2px" }} /> 最終年度（{header?.endPeriod}期）のKGIへの到達度。破線＝線形補間トラジェクトリ、赤点＝当期の年換算実績。
+              <TrendingUp size={14} style={{ verticalAlign: "-2px" }} /> 最終年度（{header?.endPeriod}期）のKGIへの到達度。破線＝目標トラジェクトリ（線形補間）、赤線＝実績（年換算）の推移。右上の「基準期」で過去時点の進捗を振り返れます（数値・到達度は基準{basePeriod}期時点）。
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
               {kgis.map((k) => (
@@ -117,7 +129,7 @@ export default function KeieiDashboardPage() {
                     最終{k.finalPeriod}期目標 <b>{k.finalTarget}{k.unit}</b>
                     {k.attainment != null && <> ／ 到達度 {Math.round(k.attainment * 100)}%</>}
                   </div>
-                  <Trajectory kgi={k} />
+                  <Trajectory kgi={k} basePeriod={basePeriod} />
                 </div>
               ))}
             </div>

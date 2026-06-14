@@ -31,9 +31,9 @@ const QUARTER_SPANS = [
 ];
 const HALF_SPANS = [{ key: "上期", label: "上期(8-1)" }, { key: "下期", label: "下期(2-7)" }];
 
-function spansFor(g: Granularity, startYear: number) {
-  return g === "月" ? monthSpans(startYear) : g === "四半期" ? QUARTER_SPANS : HALF_SPANS;
-}
+const thCell: React.CSSProperties = { border: "1px solid #d7dee8", padding: "7px 6px", textAlign: "center", fontWeight: 600, fontSize: 11, color: "#475569", background: "#eef2f7" };
+const tdCell: React.CSSProperties = { border: "1px solid #e2e8f0", textAlign: "center", verticalAlign: "middle" };
+const cellInput: React.CSSProperties = { width: "100%", border: "none", background: "transparent", padding: "6px 6px", textAlign: "right", fontSize: 12, outline: "none", boxSizing: "border-box" };
 
 export default function KaikeiInputPage() {
   const [period, setPeriod] = useState(50);
@@ -139,31 +139,46 @@ export default function KaikeiInputPage() {
 
         {message && <div style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: message.startsWith("✅") ? "#ecfdf5" : "#fef2f2", color: message.startsWith("✅") ? "#065f46" : "#991b1b" }}>{message}</div>}
 
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 6, overflowX: "auto" }}>
+        <style>{`.kaikei-cell:focus{background:#fffbe6;box-shadow:inset 0 0 0 2px #1f3864;}`}</style>
+        <div style={{ background: "#fff", border: "1px solid #d7dee8", borderRadius: 12, overflowX: "auto" }}>
           {loading ? <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>読み込み中…</div> : (
             <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12, whiteSpace: "nowrap" }}>
+              <thead>
+                <tr>
+                  <th style={{ ...thCell, position: "sticky", left: 0, zIndex: 3, textAlign: "left", minWidth: 130, boxShadow: "1px 0 0 #d7dee8" }}>科目</th>
+                  <th style={{ ...thCell, minWidth: 78 }}>粒度</th>
+                  {MONTH_LABELS.map((m) => <th key={m} style={{ ...thCell, minWidth: 58 }}>{m}</th>)}
+                </tr>
+              </thead>
               <tbody>
-                {accounts.map((a) => {
-                  const spans = spansFor(a.granularity, startYear);
+                {accounts.map((a, idx) => {
+                  const rowBg = idx % 2 === 1 ? "#f5f8fc" : "#fff"; // 1始まりの偶数行に背景
+                  const monthCells = monthSpans(startYear);
+                  const spanCells = a.granularity === "四半期"
+                    ? QUARTER_SPANS.map((s) => ({ s, span: 3 }))
+                    : HALF_SPANS.map((s) => ({ s, span: 6 }));
                   return (
-                    <tr key={a.account} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "7px 10px", fontWeight: 700, position: "sticky", left: 0, background: "#fff", minWidth: 110 }}>{a.account}<div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 400 }}>{a.unit}</div></td>
-                      <td style={{ padding: "7px 8px" }}>
-                        <select value={a.granularity} onChange={(e) => setGranularity(a.account, e.target.value as Granularity)} style={{ border: "1px solid #e2e8f0", borderRadius: 7, padding: "4px 6px", fontSize: 11.5 }}>
+                    <tr key={a.account}>
+                      <td style={{ ...tdCell, position: "sticky", left: 0, zIndex: 1, background: rowBg, textAlign: "left", fontWeight: 700, padding: "6px 10px", minWidth: 130, boxShadow: "1px 0 0 #e2e8f0" }}>
+                        {a.account}<div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 400 }}>{a.unit}</div>
+                      </td>
+                      <td style={{ ...tdCell, background: rowBg, padding: "4px 6px" }}>
+                        <select value={a.granularity} onChange={(e) => setGranularity(a.account, e.target.value as Granularity)} style={{ border: "1px solid #cbd5e1", borderRadius: 5, padding: "3px 5px", fontSize: 11.5, background: "#fff" }}>
                           <option>月</option><option>四半期</option><option>半期</option>
                         </select>
                       </td>
-                      {spans.map((s) => (
-                        <td key={s.key} style={{ padding: "5px 4px", textAlign: "center" }}>
-                          <div style={{ fontSize: 9.5, color: "#94a3b8", marginBottom: 2 }}>{s.label}</div>
-                          <input
-                            type="number"
-                            value={a.values[s.key] ?? ""}
-                            onChange={(e) => setCell(a.account, s.key, e.target.value)}
-                            style={{ width: a.granularity === "月" ? 56 : 84, border: "1px solid #e2e8f0", borderRadius: 5, padding: "4px 5px", textAlign: "right", fontSize: 12 }}
-                          />
-                        </td>
-                      ))}
+                      {a.granularity === "月"
+                        ? monthCells.map((s) => (
+                            <td key={s.key} style={{ ...tdCell, background: rowBg, padding: 0 }}>
+                              <input type="number" className="kaikei-cell" value={a.values[s.key] ?? ""} onChange={(e) => setCell(a.account, s.key, e.target.value)} style={cellInput} />
+                            </td>
+                          ))
+                        : spanCells.map(({ s, span }) => (
+                            <td key={s.key} colSpan={span} style={{ ...tdCell, background: rowBg, padding: 0 }}>
+                              <div style={{ fontSize: 9, color: "#94a3b8", textAlign: "left", padding: "1px 5px 0" }}>{s.label}</div>
+                              <input type="number" className="kaikei-cell" value={a.values[s.key] ?? ""} onChange={(e) => setCell(a.account, s.key, e.target.value)} style={cellInput} />
+                            </td>
+                          ))}
                     </tr>
                   );
                 })}

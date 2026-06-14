@@ -118,15 +118,15 @@ export default function KaikeiInputPage() {
     <MainLayout>
       <div style={{ padding: 20, maxWidth: 1500, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>会計データ入力</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#4f46e5", margin: 0 }}>会計データ入力</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
-            <select value={period} onChange={(e) => changePeriod(Number(e.target.value))} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 600, color: "#1f3864", background: "#fff", cursor: "pointer" }}>
+            <select value={period} onChange={(e) => changePeriod(Number(e.target.value))} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 600, color: "#4f46e5", background: "#fff", cursor: "pointer" }}>
               {(periods.length ? periods : [period]).map((p) => <option key={p} value={p}>{p}期</option>)}
             </select>
             <button onClick={() => load(period)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
-            <button onClick={save} disabled={saving || dirtyItems.length === 0} style={{ background: dirtyItems.length ? "#1f3864" : "#cbd5e1", color: "#fff", border: "none", borderRadius: 8, padding: "7px 16px", fontSize: 13, fontWeight: 700, cursor: dirtyItems.length ? "pointer" : "default" }}>
+            <button onClick={save} disabled={saving || dirtyItems.length === 0} style={{ background: dirtyItems.length ? "#4f46e5" : "#cbd5e1", color: "#fff", border: "none", borderRadius: 8, padding: "7px 16px", fontSize: 13, fontWeight: 700, cursor: dirtyItems.length ? "pointer" : "default" }}>
               <Save size={14} style={{ verticalAlign: "-2px" }} /> {saving ? "保存中…" : `保存 (${dirtyItems.length})`}
             </button>
           </div>
@@ -142,7 +142,7 @@ export default function KaikeiInputPage() {
 
         {message && <div style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: message.startsWith("✅") ? "#ecfdf5" : "#fef2f2", color: message.startsWith("✅") ? "#065f46" : "#991b1b" }}>{message}</div>}
 
-        <style>{`.kaikei-cell:focus{background:#fffbe6;box-shadow:inset 0 0 0 2px #1f3864;}`}</style>
+        <style>{`.kaikei-cell:focus{background:#fffbe6;box-shadow:inset 0 0 0 2px #4f46e5;}`}</style>
         <div style={{ background: "#fff", border: "1px solid #d7dee8", borderRadius: 12, overflow: "auto", maxHeight: "calc(100vh - 260px)" }}>
           {loading ? <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>読み込み中…</div> : (
             <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12, whiteSpace: "nowrap" }}>

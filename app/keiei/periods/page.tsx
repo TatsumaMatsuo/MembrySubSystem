@@ -95,7 +95,7 @@ export default function PeriodMasterPage() {
     <MainLayout>
       <div style={{ padding: 20, maxWidth: 1000, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>期マスタ管理</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#4f46e5", margin: 0 }}>期マスタ管理</h1>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button onClick={addRow} style={ghostBtn}><Plus size={13} style={{ verticalAlign: "-2px" }} /> 期を追加</button>
             <button onClick={load} style={ghostBtn}><RefreshCw size={13} style={{ verticalAlign: "-2px" }} /> 再読込</button>
@@ -148,5 +148,5 @@ const card: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8
 const inpS: React.CSSProperties = { border: "1px solid #e2e8f0", borderRadius: 6, padding: "5px 7px", fontSize: 12.5, textAlign: "right" };
 const th: React.CSSProperties = { padding: "8px 8px", borderBottom: "1px solid #e2e8f0", textAlign: "center", fontWeight: 600, fontSize: 11.5 };
 const td: React.CSSProperties = { padding: "6px 8px", borderBottom: "1px solid #f1f5f9", textAlign: "center" };
-const ghostBtn: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 7, padding: "5px 11px", fontSize: 12, color: "#1f3864", cursor: "pointer", fontWeight: 600 };
-const primaryBtn: React.CSSProperties = { background: "#1f3864", color: "#fff", border: "none", borderRadius: 7, padding: "5px 11px", fontSize: 12, cursor: "pointer", fontWeight: 600 };
+const ghostBtn: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 7, padding: "5px 11px", fontSize: 12, color: "#4f46e5", cursor: "pointer", fontWeight: 600 };
+const primaryBtn: React.CSSProperties = { background: "#4f46e5", color: "#fff", border: "none", borderRadius: 7, padding: "5px 11px", fontSize: 12, cursor: "pointer", fontWeight: 600 };

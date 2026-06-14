@@ -80,14 +80,14 @@ export default function CompanyKpiPage() {
     <MainLayout>
       <div style={{ padding: 20, maxWidth: 1180, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>全社KPI ― 年度計画 vs 実績</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#4f46e5", margin: 0 }}>全社KPI ― 年度計画 vs 実績</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
             {selectablePeriods.length > 0 && (
-              <select value={period} onChange={(e) => load(Number(e.target.value))} title="表示する期" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#1f3864", background: "#fff", cursor: "pointer" }}>
+              <select value={period} onChange={(e) => load(Number(e.target.value))} title="表示する期" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#4f46e5", background: "#fff", cursor: "pointer" }}>
                 {selectablePeriods.map((p) => <option key={p} value={p}>{p}期</option>)}
               </select>
             )}
-            <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>経過 {elapsed}ヶ月</span>
+            <span style={{ background: "#4f46e5", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>経過 {elapsed}ヶ月</span>
             <button onClick={() => load(period || undefined)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
@@ -130,7 +130,7 @@ export default function CompanyKpiPage() {
               <tbody>
                 {plRows.map((r) => (
                   <tr key={r.name} style={r.major ? { background: "#f8fafc" } : undefined}>
-                    <td style={{ ...tdLeft, fontWeight: r.major ? 800 : 600, color: r.major ? "#1f3864" : undefined }}>{r.name}</td>
+                    <td style={{ ...tdLeft, fontWeight: r.major ? 800 : 600, color: r.major ? "#4f46e5" : undefined }}>{r.name}</td>
                     <td style={td}>{oku(r.target)}</td>
                     <td style={td}>{r.monthlyTarget ? oku(r.monthlyTarget) : "―"}</td>
                     <td style={td}>{oku(r.actual)}</td>
@@ -171,7 +171,7 @@ export default function CompanyKpiPage() {
 }
 
 const card: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 16, boxShadow: "0 1px 3px rgba(15,23,42,.05)" };
-const sectionTitle: React.CSSProperties = { fontSize: 14, fontWeight: 700, color: "#1f3864", margin: "20px 4px 10px" };
+const sectionTitle: React.CSSProperties = { fontSize: 14, fontWeight: 700, color: "#4f46e5", margin: "20px 4px 10px" };
 const table: React.CSSProperties = { borderCollapse: "collapse", width: "100%", fontSize: 12.5 };
 const th: React.CSSProperties = { padding: "9px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "right", fontWeight: 600, fontSize: 11.5 };
 const thLeft: React.CSSProperties = { ...th, textAlign: "left" };

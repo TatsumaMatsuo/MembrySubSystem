@@ -137,7 +137,7 @@ export default function MidtermAdminPage() {
     <MainLayout>
       <div style={{ padding: 20, maxWidth: 1100, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>中計マスタ管理</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#4f46e5", margin: 0 }}>中計マスタ管理</h1>
           <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}>
             <select onChange={(e) => { if (e.target.value === "__new") { setPlanId("MTP-" + (headers.length + 1)); setKgis(newKgis()); } else { setPlanId(e.target.value); loadPlan(e.target.value); } }} style={sel}>
               <option value="__new">＋ 新規中計</option>
@@ -161,7 +161,7 @@ export default function MidtermAdminPage() {
 
         {/* KGI明細 */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "18px 4px 8px" }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#1f3864" }}>KGI と 年度目標（起点・最終を入れて「線形補間」）</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#4f46e5" }}>KGI と 年度目標（起点・最終を入れて「線形補間」）</div>
           <button onClick={recalcAll} style={ghostBtn}><Calculator size={13} style={{ verticalAlign: "-2px" }} /> 全行を線形補間</button>
         </div>
         <div style={{ ...card, overflowX: "auto", padding: 6 }}>
@@ -197,7 +197,7 @@ export default function MidtermAdminPage() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 14 }}>
-          <button onClick={save} disabled={saving} style={{ background: "#1f3864", color: "#fff", border: "none", borderRadius: 9, padding: "9px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          <button onClick={save} disabled={saving} style={{ background: "#4f46e5", color: "#fff", border: "none", borderRadius: 9, padding: "9px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
             <Save size={14} style={{ verticalAlign: "-2px" }} /> {saving ? "保存中…" : "保存"}
           </button>
           <span style={{ fontSize: 11, color: "#64748b" }}>起点(開始期)と最終目標を入れて「線形補間」→ 中間年度が自動生成。各期は個別修正可。保存で中計ダッシュボードに反映。</span>
@@ -216,4 +216,4 @@ const inpS: React.CSSProperties = { border: "1px solid #e2e8f0", borderRadius: 6
 const sel: React.CSSProperties = { border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, background: "#fff" };
 const th: React.CSSProperties = { padding: "7px 8px", borderBottom: "1px solid #e2e8f0", textAlign: "center", fontWeight: 600, fontSize: 11 };
 const td: React.CSSProperties = { padding: "5px 6px", borderBottom: "1px solid #f1f5f9", textAlign: "center" };
-const ghostBtn: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 7, padding: "4px 10px", fontSize: 12, color: "#1f3864", cursor: "pointer", fontWeight: 600 };
+const ghostBtn: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 7, padding: "4px 10px", fontSize: 12, color: "#4f46e5", cursor: "pointer", fontWeight: 600 };

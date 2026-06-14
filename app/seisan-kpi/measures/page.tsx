@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { MainLayout } from "@/components/layout";
 import { HelpLink, JudgmentBadge, EFFECT_COLORS } from "@/components/features/seisan-kpi";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { RefreshCw, Plus, Save, X } from "lucide-react";
 import type { Judgment, Effect } from "@/lib/kpi";
 
@@ -45,6 +46,7 @@ export default function SeisanKpiMeasuresPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [showNewMeasure, setShowNewMeasure] = useState(false);
+  const isMobile = useIsMobile();
 
   const load = useCallback(async (g?: string, p?: number) => {
     setLoading(true);
@@ -165,7 +167,7 @@ export default function SeisanKpiMeasuresPage() {
 
             {/* マスター・ディテール */}
             <SectionTitle>重点施策(件数無制限)＝マスター ／ 選択施策のPDCA履歴＝ディテール</SectionTitle>
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(380px, 1fr) 1.4fr", gap: 14, alignItems: "start" }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(380px, 1fr) 1.4fr", gap: 14, alignItems: "start" }}>
               {/* マスター */}
               <div style={card}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#1f3864", marginBottom: 8 }}>

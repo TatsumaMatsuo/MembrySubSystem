@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { MainLayout } from "@/components/layout";
 import { HelpLink } from "@/components/features/seisan-kpi";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { RefreshCw, Plus, Save, Copy, X } from "lucide-react";
 
 const AGG_TYPES = ["累計", "平均", "直近月値", "基礎データ算出"];
@@ -221,7 +222,7 @@ function CloneDialog(props: { fromPeriod: number; onClose: () => void; setMessag
 
   return (
     <div style={overlay}>
-      <div style={{ ...card, width: 420 }}>
+      <div style={{ ...card, width: "min(420px, 92vw)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: "#1f3864" }}>新期作成(前期を複製)</div>
           <button onClick={props.onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}><X size={16} /></button>
@@ -267,7 +268,7 @@ function NewKpiDialog(props: { period: number; depts: string[]; cats: string[]; 
 
   return (
     <div style={overlay}>
-      <div style={{ ...card, width: 560, maxHeight: "88vh", overflowY: "auto" }}>
+      <div style={{ ...card, width: "min(560px, 92vw)", maxHeight: "88vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: "#1f3864" }}>KPI追加（{props.period}期）</div>
           <button onClick={props.onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}><X size={16} /></button>
@@ -302,6 +303,7 @@ function GroupMasterTab(props: { period: number; setMessage: (m: string | null) 
   const [loading, setLoading] = useState(true);
   const [busyCell, setBusyCell] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const isMobile = useIsMobile();
 
   const load = useCallback(async () => {
     setLoading(true); props.setMessage(null);
@@ -336,7 +338,7 @@ function GroupMasterTab(props: { period: number; setMessage: (m: string | null) 
   const activeGroups = data.groups;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 14, alignItems: "start" }}>
+    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "300px 1fr", gap: 14, alignItems: "start" }}>
       {/* グループ一覧 */}
       <div style={card}>
         <div style={{ fontSize: 12, fontWeight: 700, color: "#1f3864", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>

@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout";
 import { HelpLink, JudgmentBadge, JUDGMENT_COLORS } from "@/components/features/seisan-kpi";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { RefreshCw } from "lucide-react";
 
 type Judgment = "緑" | "黄" | "赤";
@@ -27,6 +28,7 @@ export default function SeisanDashboardPage() {
   const [manage, setManage] = useState<Rank[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const load = async () => {
     setLoading(true); setError(null);
@@ -60,9 +62,10 @@ export default function SeisanDashboardPage() {
 
   return (
     <MainLayout>
-      <div style={{ padding: 20, maxWidth: 1280, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>生産本部 KPIダッシュボード</h1>
+      <div style={{ height: "100%", overflowY: "auto" }}>
+      <div style={{ padding: isMobile ? 12 : 20, maxWidth: 1280, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 10 }}>
+          <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>生産本部 KPIダッシュボード</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
             <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>{period}期 / 経過 {elapsed}ヶ月</span>
             <button onClick={load} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
@@ -81,7 +84,7 @@ export default function SeisanDashboardPage() {
         {/* 信号盤 */}
         <div style={sectionTitle}>経営KPI 信号盤（生産本部全体・Lv2）</div>
         {loading ? <div style={{ padding: 30, color: "#64748b" }}>読み込み中…</div> : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 14 }}>
             {signals.map((s) => (
               <div key={s.kpiId} style={{ ...card, borderLeft: `6px solid ${JUDGMENT_COLORS[s.judgment]}`, position: "relative" }}>
                 <span style={{ position: "absolute", top: 14, right: 14 }}><JudgmentBadge judgment={s.judgment} size="sm" /></span>
@@ -95,7 +98,7 @@ export default function SeisanDashboardPage() {
         )}
 
         {/* 要対応 + ★ランキング */}
-        <div style={{ display: "grid", gridTemplateColumns: "0.8fr 1.1fr 1.1fr", gap: 16, marginTop: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "0.8fr 1.1fr 1.1fr", gap: 16, marginTop: 8 }}>
           <div>
             <div style={sectionTitle}>要対応KPI</div>
             <div style={card}>
@@ -123,8 +126,8 @@ export default function SeisanDashboardPage() {
 
         {/* 要対応KPI 明細 */}
         <div style={sectionTitle}>要対応KPI 一覧（赤・黄判定）</div>
-        <div style={{ ...card, padding: 0, overflow: "hidden" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12.5 }}>
+        <div style={{ ...card, padding: 0, overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12.5, minWidth: 560 }}>
             <thead>
               <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
                 <th style={thL}>KPI</th><th style={thL}>部署</th><th style={th}>レベル</th><th style={th}>実績</th><th style={th}>目標</th><th style={th}>判定</th>
@@ -148,7 +151,7 @@ export default function SeisanDashboardPage() {
 
         {/* 施策の進捗 */}
         <div style={sectionTitle}>施策の進捗（当期・翌月アクション / 効果）</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,1fr)" : "repeat(6,1fr)", gap: 12 }}>
           {([["継続", measureKv.継続, "#1f3864"], ["強化", measureKv.強化, "#2563eb"], ["見直し", measureKv.見直し, "#d97706"], ["完了", measureKv.完了, "#16a34a"], ["効果:改善", measureKv.改善, "#16a34a"], ["効果:悪化", measureKv.悪化, "#dc2626"]] as const).map(([label, n, color]) => (
             <div key={label} style={{ ...card, textAlign: "center", padding: 12 }}>
               <div style={{ fontSize: 26, fontWeight: 800, color }}>{n}</div>
@@ -159,7 +162,7 @@ export default function SeisanDashboardPage() {
 
         {/* 経営KPIトレンド */}
         <div style={sectionTitle}>経営KPI トレンド（Lv2・月次推移）</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2,1fr)", gap: 16 }}>
           {trends.map((t) => <TrendChart key={t.kpiId} trend={t} />)}
           {trends.length === 0 && !loading && <div style={{ color: "#64748b", padding: 12 }}>トレンド対象KPIがありません。</div>}
         </div>
@@ -167,6 +170,7 @@ export default function SeisanDashboardPage() {
         <div style={{ fontSize: 11, color: "#64748b", marginTop: 16, lineHeight: 1.7 }}>
           信号盤・判定は <code>lib/kpi</code> 共通ロジック（緑≥95%/黄≥80%/赤）。★は各課KPIの月間目標達成数（経過月内）。基礎データ算出KPI（粗利率等）は会計データ入力後に表示。
         </div>
+      </div>
       </div>
     </MainLayout>
   );

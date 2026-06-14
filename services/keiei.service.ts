@@ -281,6 +281,38 @@ function spanToFiscalMonth(granularity: Granularity, span: string): number {
   return span === "下期" ? 7 : 1; // 半期
 }
 
+/** 会計データ入力状況(科目ごとに、どの粒度でどこまで確定済みか) */
+export interface KaikeiInputStatus { account: string; unit: string; granularity: Granularity; label: string; ok: boolean }
+const FISCAL_MONTH_LABELS = ["8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月", "4月", "5月", "6月", "7月"];
+export async function getKaikeiInputStatus(period: number): Promise<KaikeiInputStatus[]> {
+  const [{ accounts }, periods] = await Promise.all([getKaikeiInput(period), getPeriods()]);
+  const cur = periods.find((p) => p.isCurrent) ?? periods[0];
+  const currentPeriod = cur?.period ?? period;
+  const masterElapsed = periods.find((p) => p.period === period)?.elapsedMonths ?? 0;
+  const elapsed = period < currentPeriod ? (masterElapsed || 12) : masterElapsed;
+
+  return accounts.map((a) => {
+    const filled = Object.entries(a.values)
+      .filter(([, v]) => v != null && String(v).trim() !== "" && !Number.isNaN(Number(v)))
+      .map(([k]) => k);
+    if (filled.length === 0) return { account: a.account, unit: a.unit, granularity: a.granularity, label: "未入力", ok: false };
+    const len = a.granularity === "月" ? 1 : a.granularity === "四半期" ? 3 : 6;
+    const endOf = (span: string) => spanToFiscalMonth(a.granularity, span) + len - 1; // 会計月(1=8月..12=7月)での終了
+    const maxEnd = Math.min(12, Math.max(...filled.map(endOf)));
+    let label: string;
+    if (a.granularity === "月") {
+      label = `〜${FISCAL_MONTH_LABELS[maxEnd - 1]} 確定`;
+    } else if (a.granularity === "四半期") {
+      const lastQ = ["Q1", "Q2", "Q3", "Q4"].filter((q) => filled.includes(q)).pop();
+      label = lastQ ? `${lastQ}まで確定` : `〜${FISCAL_MONTH_LABELS[maxEnd - 1]} 確定`;
+    } else {
+      const up = filled.includes("上期"), down = filled.includes("下期");
+      label = up && down ? "上期・下期 確定" : up ? "上期のみ・下期待ち" : "下期のみ";
+    }
+    return { account: a.account, unit: a.unit, granularity: a.granularity, label, ok: maxEnd >= elapsed };
+  });
+}
+
 /** 会計データの upsert(科目×期間で一意) */
 export async function upsertKaikeiActual(
   items: { period: number; account: string; granularity: Granularity; span: string; value: number | null; inputBy?: string }[]
@@ -427,6 +459,8 @@ export async function buildMidtermDashboard(planId?: string, basePeriodArg?: num
   elapsedMonths: number;
   selectablePeriods: number[];
   kgis: MidtermKgi[];
+  companyKpi: CompanyKpiRow[];
+  inputStatus: KaikeiInputStatus[];
   registered: boolean;
 }> {
   const [headers, periods] = await Promise.all([getMidtermHeaders(), getPeriods()]);
@@ -439,7 +473,7 @@ export async function buildMidtermDashboard(planId?: string, basePeriodArg?: num
     : headers.find((h) => h.status === "現行") ?? headers[0] ?? null;
 
   if (!header) {
-    return { header: null, currentPeriod, basePeriod: currentPeriod, elapsedMonths: cur?.elapsedMonths ?? 0, selectablePeriods: [], kgis: [], registered: false };
+    return { header: null, currentPeriod, basePeriod: currentPeriod, elapsedMonths: cur?.elapsedMonths ?? 0, selectablePeriods: [], kgis: [], companyKpi: [], inputStatus: [], registered: false };
   }
 
   // 基準期: 指定があれば採用、なければ当期。計画範囲かつ開始済み(<=当期)にクランプ。
@@ -492,7 +526,13 @@ export async function buildMidtermDashboard(planId?: string, basePeriodArg?: num
     });
   }
 
-  return { header, currentPeriod, basePeriod, elapsedMonths: baseElapsed, selectablePeriods, kgis, registered: true };
+  // 全社KPI(年度計画vs実績累計)と会計入力状況も基準期で並列取得
+  const [companyKpi, inputStatus] = await Promise.all([
+    buildCompanyKpi(basePeriod).then((r) => r.plRows).catch(() => [] as CompanyKpiRow[]),
+    getKaikeiInputStatus(basePeriod).catch(() => [] as KaikeiInputStatus[]),
+  ]);
+
+  return { header, currentPeriod, basePeriod, elapsedMonths: baseElapsed, selectablePeriods, kgis, companyKpi, inputStatus, registered: true };
 }
 
 /* =========================================================================

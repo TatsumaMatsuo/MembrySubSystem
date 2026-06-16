@@ -152,16 +152,19 @@ export default function CompanyKpiPage() {
         <a href="/seisan-kpi/dashboard" style={{ display: "inline-block", fontSize: 12, color: "#2563eb", margin: "4px 4px 0", textDecoration: "none" }}>▶ 生産本部KPI（Lv2 粗利率/総資産回転率/材料金額比率）へ ― 同一の会計データを参照</a>
 
         {/* 率・その他 */}
-        <div style={sectionTitle}>限界利益・率・その他計画（目標）</div>
+        <div style={sectionTitle}>限界利益・率・その他計画（年度計画 vs 実績）</div>
         <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflowX: "auto" }}>
           <table style={table}>
-            <thead><tr style={{ background: "#f1f5f9", color: "#64748b" }}><th style={thLeft}>指標</th><th style={th}>目標</th><th style={th}>実績</th></tr></thead>
+            <thead><tr style={{ background: "#f1f5f9", color: "#64748b" }}><th style={thLeft}>指標</th><th style={th}>目標</th><th style={th}>実績</th><th style={th}>判定</th></tr></thead>
             <tbody>
               {otherRows.map((r) => (
-                <tr key={r.name}><td style={tdLeft}>{r.name}</td><td style={td}>{r.target}</td><td style={td}>{r.actual}</td></tr>
+                <tr key={r.name}><td style={tdLeft}>{r.name}</td><td style={td}>{r.target}</td><td style={td}>{r.actual}</td><td style={td}>{r.judgment ? <JudgmentBadge judgment={r.judgment} size="sm" /> : "―"}</td></tr>
               ))}
             </tbody>
           </table>
+        </div>
+        <div style={{ fontSize: 11, color: "#64748b", margin: "8px 4px" }}>
+          実績算出: 限界利益=売上高−変動費 / 固定費=限界利益−営業利益 / 製造原価率=製造原価÷売上高 / 外注発注率=外注費÷製造原価 / 人員=人員数。「会計データ入力」で変動費・外注費を入れると実績・判定が出ます。
         </div>
 
         <div style={{ fontSize: 11, color: "#64748b", marginTop: 14, lineHeight: 1.7 }}>

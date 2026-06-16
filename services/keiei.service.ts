@@ -191,13 +191,41 @@ export async function buildCompanyKpi(period: number): Promise<{
     };
   });
 
-  // 率・その他(目標表示中心)
+  // 率・その他(目標 × 実績を突合)。実績は会計データから算出:
+  //   限界利益 = 売上高 − 変動費 / 固定費 = 限界利益 − 営業利益
+  //   製造原価率 = 製造原価 ÷ 売上高 / 外注発注率 = 外注費 ÷ 製造原価 / 人員 = 人員数
+  const opIncomeA = actOku("営業利益");
+  const variableA = actOku("変動費");
+  const outsourcingA = actOku("外注費");
+  const marginalA = salesA != null && variableA != null ? salesA - variableA : null;
+  const fixedA = marginalA != null && opIncomeA != null ? marginalA - opIncomeA : null;
+  const mfgRateA = salesA != null && salesA !== 0 && costA != null ? (costA / salesA) * 100 : null;
+  const outsourceRateA = costA != null && costA !== 0 && outsourcingA != null ? (outsourcingA / costA) * 100 : null;
+  const headcountA = kaikei.has("人員数") ? kaikei.get("人員数")! : null;
+
+  // 判定: 金額(累計)は PL と同じ達成率、率(目標との直接比)は直近月値型で評価
+  const judgeAmt = (actualOku: number | null, targetOku: number, dir: Dir): Judgment | null =>
+    actualOku == null || elapsed <= 0 || !targetOku
+      ? null
+      : judgeByRate(attainmentRate({ aggType: "累計", direction: dir === "高" ? "高い方が良い" : "少ない方が良い", annualTarget: targetOku }, actualOku, elapsed));
+  const judgeRate = (actualPct: number | null, targetPct: number, dir: Dir): Judgment | null =>
+    actualPct == null || !targetPct
+      ? null
+      : judgeByRate(attainmentRate({ aggType: "直近月値", direction: dir === "高" ? "高い方が良い" : "少ない方が良い", annualTarget: targetPct }, actualPct, elapsed));
+
+  const marginalT = senToOku(targets.marginal_profit ?? 0);
+  const fixedT = senToOku(targets.fixed_cost ?? 0);
+  const mfgRateT = targets.manufacturing_cost_rate ?? 0;
+  const outsourceRateT = targets.outsourcing_rate ?? 0;
+  const headcountT = targets.headcount_plan ?? 0;
+  const oku1 = (v: number | null) => (v == null ? "―" : `${v.toFixed(1)}億`);
+  const pct1 = (v: number | null) => (v == null ? "―" : `${v.toFixed(1)}%`);
   const otherRows = [
-    { name: "限界利益", target: `${senToOku(targets.marginal_profit ?? 0).toFixed(1)}億`, actual: "―", judgment: null },
-    { name: "固定費", target: `${senToOku(targets.fixed_cost ?? 0).toFixed(1)}億`, actual: "―", judgment: null },
-    { name: "製造原価率(目標)", target: `${targets.manufacturing_cost_rate ?? 0}%`, actual: "―", judgment: null },
-    { name: "外注発注率(目標)", target: `${targets.outsourcing_rate ?? 0}%`, actual: "―", judgment: null },
-    { name: "人員計画", target: `${targets.headcount_plan ?? 0} 人`, actual: "―", judgment: null },
+    { name: "限界利益", target: oku1(marginalT), actual: oku1(marginalA), judgment: judgeAmt(marginalA, marginalT, "高") },
+    { name: "固定費", target: oku1(fixedT), actual: oku1(fixedA), judgment: judgeAmt(fixedA, fixedT, "少") },
+    { name: "製造原価率", target: pct1(mfgRateT), actual: pct1(mfgRateA), judgment: judgeRate(mfgRateA, mfgRateT, "少") },
+    { name: "外注発注率", target: pct1(outsourceRateT), actual: pct1(outsourceRateA), judgment: judgeRate(outsourceRateA, outsourceRateT, "少") },
+    { name: "人員計画", target: headcountT ? `${headcountT} 人` : "―", actual: headcountA != null ? `${Math.round(headcountA)} 人` : "―", judgment: null },
   ];
 
   void proratedTarget; // (将来: 月割合算表示で使用)
@@ -217,6 +245,8 @@ export const KAIKEI_ACCOUNTS: { account: string; unit: string }[] = [
   { account: "経常利益", unit: "百万円" },
   { account: "総資産", unit: "百万円" },
   { account: "材料金額", unit: "百万円" },
+  { account: "外注費", unit: "百万円" },
+  { account: "変動費", unit: "百万円" },
   { account: "人員数", unit: "人" },
   { account: "人件費", unit: "百万円" },
   { account: "賃借料", unit: "百万円" },

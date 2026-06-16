@@ -66,15 +66,22 @@ async function getCompanyTargets(period: number): Promise<Record<string, number>
   return out;
 }
 
-/** ストック科目(時点の数)。合算せず直近期の値を採用する。フロー科目(売上等)は累計合算。 */
-const STOCK_ACCOUNTS = new Set(["人員数", "総資産"]);
+// ストック科目(時点の数)。合算しない。フロー科目(売上等)は累計合算。
+//   人員数 = 期中平均(月数加重) … 労働生産性の分母は期中平均人員
+//   総資産 = 直近(期末相当)     … ROA/総資産回転率の分母
+const AVERAGE_ACCOUNTS = new Set(["人員数"]);
+const LATEST_ACCOUNTS = new Set(["総資産"]);
+/** 粒度 → その期間が占める会計月数(月=1/四半期=3/半期=6) */
+function spanMonths(granularity: Granularity): number {
+  return granularity === "月" ? 1 : granularity === "四半期" ? 3 : 6;
+}
 /** 期間ラベル → その期間の終了会計月(8月=1..翌7月=12) */
 function endFiscalMonth(granularity: Granularity, span: string): number {
   if (granularity === "四半期") return ({ Q1: 3, Q2: 6, Q3: 9, Q4: 12 } as Record<string, number>)[span] ?? 12;
   if (granularity === "半期") return span === "下期" ? 12 : 6;
   return fiscalMonthOf(span); // 月(YYYY-MM)
 }
-/** ストック科目: 直近期(終了会計月が最も後)の値を返す(合算しない) */
+/** ストック科目(直近): 終了会計月が最も後の期の値を返す(合算しない) */
 function latestKaikeiValue(rows: KaikeiRow[]): number {
   let bestMonth = -1;
   let val = 0;
@@ -84,8 +91,19 @@ function latestKaikeiValue(rows: KaikeiRow[]): number {
   }
   return val;
 }
+/** ストック科目(期中平均): 各期を月数で加重平均(合算しない) */
+function averageKaikeiValue(rows: KaikeiRow[]): number {
+  let weighted = 0;
+  let months = 0;
+  for (const r of rows) {
+    const m = spanMonths(r.granularity);
+    weighted += r.value * m;
+    months += m;
+  }
+  return months > 0 ? weighted / months : 0;
+}
 
-/** KAIKEI_ACTUAL を勘定科目ごとに年度累計へ正規化(百万円)。ストック科目は直近値。 */
+/** KAIKEI_ACTUAL を勘定科目ごとに年度累計へ正規化(百万円)。人員数=期中平均/総資産=直近。 */
 async function getKaikeiCumByAccount(period: number): Promise<Map<string, number>> {
   const t = getLarkTables();
   const r = await getBaseRecords(t.KAIKEI_ACTUAL, {
@@ -107,8 +125,14 @@ async function getKaikeiCumByAccount(period: number): Promise<Map<string, number
     byAccount.get(account)!.push(row);
   }
   const cum = new Map<string, number>();
-  for (const [account, rows] of byAccount)
-    cum.set(account, STOCK_ACCOUNTS.has(account) ? latestKaikeiValue(rows) : normalizeKaikei(rows));
+  for (const [account, rows] of byAccount) {
+    const v = AVERAGE_ACCOUNTS.has(account)
+      ? averageKaikeiValue(rows)
+      : LATEST_ACCOUNTS.has(account)
+        ? latestKaikeiValue(rows)
+        : normalizeKaikei(rows);
+    cum.set(account, v);
+  }
   return cum;
 }
 

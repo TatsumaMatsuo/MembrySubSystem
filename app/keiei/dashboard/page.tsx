@@ -11,7 +11,7 @@ import { RefreshCw, AlertCircle, TrendingUp } from "lucide-react";
 interface Kgi {
   indicator: string;
   unit: string;
-  trajectory: { period: number; target: number }[];
+  trajectory: { period: number; target: number | null }[];
   actuals: { period: number; actual: number | null }[];
   finalTarget: number;
   finalPeriod: number;
@@ -36,15 +36,16 @@ function Trajectory({ kgi, basePeriod }: { kgi: Kgi; basePeriod: number }) {
   const n = pts.length;
   const idxOf = new Map(pts.map((p, i) => [p.period, i]));
   const acts = (kgi.actuals ?? []).filter((a) => a.actual != null && idxOf.has(a.period)) as { period: number; actual: number }[];
-  const targets = pts.map((p) => p.target);
+  const targets = pts.filter((p) => p.target != null).map((p) => p.target as number);
   const all = [...targets, ...acts.map((a) => a.actual)];
   let min = Math.min(...all), max = Math.max(...all);
   const span = max - min || 1;
   min -= span * 0.25; max += span * 0.2;
   const x = (i: number) => padL + (W - padL - padR) * (n < 2 ? 0 : i / (n - 1));
   const y = (v: number) => padT + (H - padT - padB) * (1 - (v - min) / (max - min));
-  let dT = "";
-  pts.forEach((p, i) => { dT += (i ? "L" : "M") + x(i) + " " + y(p.target) + " "; });
+  // 目標(破線)はプラン期間のみ。プラン開始前(target=null)はX軸位置だけ確保し線は引かない
+  let dT = ""; let tStarted = false;
+  pts.forEach((p, i) => { if (p.target == null) return; dT += (tStarted ? "L" : "M") + x(i) + " " + y(p.target) + " "; tStarted = true; });
   let dA = "";
   acts.forEach((a, i) => { dA += (i ? "L" : "M") + x(idxOf.get(a.period)!) + " " + y(a.actual) + " "; });
   return (
@@ -53,7 +54,7 @@ function Trajectory({ kgi, basePeriod }: { kgi: Kgi; basePeriod: number }) {
       <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#e2e8f0" />
       <path d={dT} fill="none" stroke="#4f46e5" strokeWidth={2.5} strokeDasharray="5 4" />
       {pts.map((p, i) => (
-        <circle key={p.period} cx={x(i)} cy={y(p.target)} r={3.5} fill="#4f46e5" />
+        p.target == null ? null : <circle key={p.period} cx={x(i)} cy={y(p.target)} r={3.5} fill="#4f46e5" />
       ))}
       {acts.length > 0 && <path d={dA} fill="none" stroke="#dc2626" strokeWidth={2} />}
       {acts.map((a) => (
@@ -129,7 +130,7 @@ export default function KeieiDashboardPage() {
           <>
             {error && <div style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: "#fef2f2", color: "#991b1b" }}>{error}</div>}
             <div style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
-              <TrendingUp size={14} style={{ verticalAlign: "-2px" }} /> 最終年度（{header?.endPeriod}期）のKGIへの到達度。破線＝目標トラジェクトリ（線形補間）、赤線＝実績（年換算）の推移。右上の「基準期」で過去時点の進捗を振り返れます（数値・到達度は基準{basePeriod}期時点）。
+              <TrendingUp size={14} style={{ verticalAlign: "-2px" }} /> 最終年度（{header?.endPeriod}期）のKGIへの到達度。破線＝目標トラジェクトリ（線形補間）、赤線＝実績（年換算）の推移。プラン開始前で会計データのある期は履歴として赤線に表示されます（目標線はプラン期間のみ）。右上の「基準期」で過去時点の進捗を振り返れます（数値・到達度は基準{basePeriod}期時点）。
             </div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 16 }}>
               {kgis.map((k) => (

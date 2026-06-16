@@ -23,6 +23,7 @@ import {
 } from "@/lib/lark-tables";
 import {
   normalizeKaikei,
+  fiscalMonthOf,
   attainmentRate,
   judgeByRate,
   proratedTarget,
@@ -65,7 +66,26 @@ async function getCompanyTargets(period: number): Promise<Record<string, number>
   return out;
 }
 
-/** KAIKEI_ACTUAL を勘定科目ごとに年度累計へ正規化(百万円) */
+/** ストック科目(時点の数)。合算せず直近期の値を採用する。フロー科目(売上等)は累計合算。 */
+const STOCK_ACCOUNTS = new Set(["人員数", "総資産"]);
+/** 期間ラベル → その期間の終了会計月(8月=1..翌7月=12) */
+function endFiscalMonth(granularity: Granularity, span: string): number {
+  if (granularity === "四半期") return ({ Q1: 3, Q2: 6, Q3: 9, Q4: 12 } as Record<string, number>)[span] ?? 12;
+  if (granularity === "半期") return span === "下期" ? 12 : 6;
+  return fiscalMonthOf(span); // 月(YYYY-MM)
+}
+/** ストック科目: 直近期(終了会計月が最も後)の値を返す(合算しない) */
+function latestKaikeiValue(rows: KaikeiRow[]): number {
+  let bestMonth = -1;
+  let val = 0;
+  for (const r of rows) {
+    const m = endFiscalMonth(r.granularity, r.period);
+    if (m >= bestMonth) { bestMonth = m; val = r.value; }
+  }
+  return val;
+}
+
+/** KAIKEI_ACTUAL を勘定科目ごとに年度累計へ正規化(百万円)。ストック科目は直近値。 */
 async function getKaikeiCumByAccount(period: number): Promise<Map<string, number>> {
   const t = getLarkTables();
   const r = await getBaseRecords(t.KAIKEI_ACTUAL, {
@@ -87,7 +107,8 @@ async function getKaikeiCumByAccount(period: number): Promise<Map<string, number
     byAccount.get(account)!.push(row);
   }
   const cum = new Map<string, number>();
-  for (const [account, rows] of byAccount) cum.set(account, normalizeKaikei(rows));
+  for (const [account, rows] of byAccount)
+    cum.set(account, STOCK_ACCOUNTS.has(account) ? latestKaikeiValue(rows) : normalizeKaikei(rows));
   return cum;
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { batchCreateBaseRecords, batchUpdateBaseRecords, getBaseRecords, deleteBaseRecord } from "@/lib/lark-client";
 
 // AWS Amplify SSR で POST ハンドラーが環境変数にアクセスできるようにする
 export const dynamic = "force-dynamic";
@@ -64,6 +65,33 @@ export async function GET() {
         result.writeTest.cleaned = true;
       }
     }
+
+    // SDK経路テスト(アプリと同じ lark-client の関数を使用) — 生RESTと比較する
+    const sdk: any = {};
+    try {
+      const rd = await getBaseRecords(tableId, { baseToken, filter: "CurrentValue.[期] = 47", pageSize: 1 });
+      sdk.readOk = true;
+      sdk.readItems = rd.data?.items?.length ?? 0;
+      const existing = rd.data?.items?.[0] as any;
+      if (existing) {
+        // 既存47期レコードを SDK batchUpdate(同値・非破壊)
+        sdk.targetRecordId = existing.record_id;
+        await batchUpdateBaseRecords(tableId, [{ record_id: existing.record_id, fields: { 実績値: Number(existing.fields["実績値"]) } }], { baseToken });
+        sdk.batchUpdateOk = true;
+      }
+      // SDK batchCreate(throwaway) → 削除
+      await batchCreateBaseRecords(tableId, [{ 実績コード: "SDK-PROBE-DELETE-ME", 期: 1, 勘定科目: "売上高", 実績値: 0 }], { baseToken });
+      sdk.batchCreateOk = true;
+      const find = await getBaseRecords(tableId, { baseToken, filter: 'CurrentValue.[実績コード] = "SDK-PROBE-DELETE-ME"', pageSize: 1 });
+      const pid = (find.data?.items?.[0] as any)?.record_id;
+      if (pid) { await deleteBaseRecord(tableId, pid, { baseToken }); sdk.cleaned = true; }
+    } catch (e: any) {
+      sdk.threw = true;
+      sdk.message = e?.message;
+      sdk.httpStatus = e?.response?.status;
+      sdk.larkData = e?.response?.data ?? e?.data ?? null;
+    }
+    result.sdkTest = sdk;
 
     return NextResponse.json(result);
   } catch (error: any) {

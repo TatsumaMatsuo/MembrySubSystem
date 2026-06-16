@@ -9,55 +9,65 @@ export const runtime = "nodejs";
 // フォールバック値（AWS Amplify SSR で環境変数が取得できない問題の回避）
 const FALLBACK_APP_ID = "cli_a9d79d0bbf389e1c";
 const FALLBACK_APP_SECRET = "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE";
+const FALLBACK_BASE_TOKEN = "NvWsbaVP2aVT99sJUFxjhOLGpPs";
 const FALLBACK_JWT_SECRET = "baiyaku_info_secret_key_12345";
 
-// GET: 環境変数テスト（Lark国際版 API）
+// GET: 環境変数テスト + KAIKEI 書込権限テスト（Amplify実環境の値で実行）
 export async function GET() {
   const appId = process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID || FALLBACK_APP_ID;
   const appSecret = process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET || FALLBACK_APP_SECRET;
+  const baseToken = process.env.LARK_BASE_TOKEN || FALLBACK_BASE_TOKEN;
+  const tableId = process.env.LARK_TABLE_KAIKEI_ACTUAL || "tbloZgcbsFls9LWt";
+  const domain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
 
-  const requestBody = {
-    app_id: appId,
-    app_secret: appSecret,
+  const envCheck = {
+    appIdLen: appId?.length,
+    appIdPrefix: appId?.substring(0, 8),
+    appIdFromEnv: !!process.env.LARK_APP_ID,
+    appSecretLen: appSecret?.length,
+    baseTokenPrefix: baseToken?.substring(0, 6),
+    baseTokenLen: baseToken?.length,
+    baseTokenFromEnv: !!process.env.LARK_BASE_TOKEN,
+    domain,
   };
 
   try {
-    const response = await fetch(
-      "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json; charset=utf-8" },
-        body: JSON.stringify(requestBody),
+    const tokenRes = await fetch(`${domain}/open-apis/auth/v3/tenant_access_token/internal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+    });
+    const tokenData = await tokenRes.json();
+    const token = tokenData.tenant_access_token as string | undefined;
+
+    const result: any = {
+      envCheck,
+      tokenStep: { code: tokenData.code, msg: tokenData.msg, hasToken: !!token },
+    };
+
+    if (token) {
+      const auth = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+      // 読取
+      const rd = await fetch(`${domain}/open-apis/bitable/v1/apps/${baseToken}/tables/${tableId}/records?page_size=1`, { headers: auth });
+      const rdj = await rd.json();
+      result.readTest = { httpStatus: rd.status, code: rdj.code, msg: rdj.msg };
+      // 書込(作成→削除)
+      const cr = await fetch(`${domain}/open-apis/bitable/v1/apps/${baseToken}/tables/${tableId}/records`, {
+        method: "POST", headers: auth,
+        body: JSON.stringify({ fields: { 実績コード: "DEBUG-WRITE-PROBE-DELETE-ME", 期: 1, 勘定科目: "売上高", 実績値: 0 } }),
+      });
+      const crj = await cr.json();
+      result.writeTest = { httpStatus: cr.status, code: crj.code, msg: crj.msg };
+      const newId = crj.data?.record?.record_id;
+      if (newId) {
+        await fetch(`${domain}/open-apis/bitable/v1/apps/${baseToken}/tables/${tableId}/records/${newId}`, { method: "DELETE", headers: auth }).catch(() => {});
+        result.writeTest.cleaned = true;
       }
-    );
+    }
 
-    const data = await response.json();
-
-    return NextResponse.json({
-      envCheck: {
-        hasAppId: !!appId,
-        appIdLen: appId?.length,
-        appIdPrefix: appId?.substring(0, 4),
-        hasAppSecret: !!appSecret,
-        appSecretLen: appSecret?.length,
-      },
-      requestBodyKeys: Object.keys(requestBody),
-      larkResponse: {
-        code: data.code,
-        msg: data.msg,
-        hasToken: !!data.tenant_access_token,
-      },
-    });
+    return NextResponse.json(result);
   } catch (error: any) {
-    return NextResponse.json({
-      envCheck: {
-        hasAppId: !!appId,
-        appIdLen: appId?.length,
-        hasAppSecret: !!appSecret,
-        appSecretLen: appSecret?.length,
-      },
-      error: error.message,
-    });
+    return NextResponse.json({ envCheck, error: error.message });
   }
 }
 

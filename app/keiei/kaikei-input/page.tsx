@@ -114,7 +114,10 @@ export default function KaikeiInputPage() {
         return;
       }
       const json = await res.json();
-      if (json.error) throw new Error(json.step ? `[${json.step}] ${json.error}` : json.error);
+      if (json.error) {
+        const detail = json.larkDetail ? ` / Lark: ${JSON.stringify(json.larkDetail)}` : "";
+        throw new Error(`${json.step ? `[${json.step}] ` : ""}${json.error}${detail}`);
+      }
       setMessage(`✅ ${json.data.saved}件を保存しました`);
       await load(period);
     } catch (e: any) { setMessage(`保存エラー: ${e.message}`); }

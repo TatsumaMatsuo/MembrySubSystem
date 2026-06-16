@@ -40,7 +40,12 @@ export async function POST(req: NextRequest) {
     const r = await upsertKaikeiActual(items);
     return NextResponse.json({ data: r });
   } catch (e: any) {
-    console.error(`[keiei/kaikei POST] step=${step} error:`, e);
-    return NextResponse.json({ error: e?.message ?? "failed", step, name: e?.name }, { status: 500 });
+    // Lark(axios)の403等は e.response.data に本当の理由(code/msg)が入る。切り分けのため表に出す。
+    const larkDetail = e?.response?.data ?? e?.data ?? null;
+    console.error(`[keiei/kaikei POST] step=${step} error:`, e?.message, "lark:", JSON.stringify(larkDetail));
+    return NextResponse.json(
+      { error: e?.message ?? "failed", step, name: e?.name, httpStatus: e?.response?.status ?? null, larkDetail },
+      { status: 500 }
+    );
   }
 }

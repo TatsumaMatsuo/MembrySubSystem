@@ -106,8 +106,15 @@ export default function KaikeiInputPage() {
     setSaving(true); setMessage(null);
     try {
       const res = await fetch("/api/keiei/kaikei", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: dirtyItems }) });
+      // セッション切れ等で認証が外れた場合は再ログインへ誘導
+      if (res.status === 401) {
+        setMessage("⚠️ セッションが切れました。再ログイン画面へ移動します…");
+        const cb = encodeURIComponent(window.location.pathname);
+        setTimeout(() => { window.location.href = `/auth/signin?callbackUrl=${cb}`; }, 1200);
+        return;
+      }
       const json = await res.json();
-      if (json.error) throw new Error(json.error);
+      if (json.error) throw new Error(json.step ? `[${json.step}] ${json.error}` : json.error);
       setMessage(`✅ ${json.data.saved}件を保存しました`);
       await load(period);
     } catch (e: any) { setMessage(`保存エラー: ${e.message}`); }

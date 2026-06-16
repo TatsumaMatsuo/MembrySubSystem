@@ -20,10 +20,12 @@ export async function GET(req: NextRequest) {
 
 /** POST /api/keiei/kaikei — 会計データの upsert(items) */
 export async function POST(req: NextRequest) {
+  let step = "auth";
   try {
     const gate = await requireKpiProgram(KPI_PROGRAMS.KEIEI_KAIKEI);
     if (!gate.authorized) return gate.response;
     const inputBy = gate.user?.employeeName || gate.user?.email || "";
+    step = "parse";
     const body = await req.json();
     const items = (Array.isArray(body?.items) ? body.items : []).map((it: any) => ({
       period: Number(it.period),
@@ -34,10 +36,11 @@ export async function POST(req: NextRequest) {
       inputBy,
     }));
     if (items.length === 0) return NextResponse.json({ error: "items が空です" }, { status: 400 });
+    step = "upsert";
     const r = await upsertKaikeiActual(items);
     return NextResponse.json({ data: r });
   } catch (e: any) {
-    console.error("[keiei/kaikei POST] error:", e);
-    return NextResponse.json({ error: e?.message ?? "failed" }, { status: 500 });
+    console.error(`[keiei/kaikei POST] step=${step} error:`, e);
+    return NextResponse.json({ error: e?.message ?? "failed", step, name: e?.name }, { status: 500 });
   }
 }

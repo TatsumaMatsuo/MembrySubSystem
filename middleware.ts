@@ -8,26 +8,35 @@ const SECRET = new TextEncoder().encode(
 
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get("auth-token")?.value;
+  const isApi = request.nextUrl.pathname.startsWith("/api/");
 
-  // トークンがない場合はサインインページにリダイレクト
-  if (!token) {
+  // 未認証時のレスポンス。
+  // API は HTML のサインインページへリダイレクトすると fetch().json() が
+  // "<!DOCTYPE ..." をパースして失敗するため、401 JSON を返す。
+  // 画面遷移はサインインページへリダイレクトする。
+  const unauthorized = () => {
+    if (isApi) {
+      const res = NextResponse.json({ error: "認証が必要です。再度ログインしてください。" }, { status: 401 });
+      res.cookies.delete("auth-token");
+      return res;
+    }
     const signInUrl = new URL("/auth/signin", request.url);
     signInUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
-    return NextResponse.redirect(signInUrl);
-  }
+    const res = NextResponse.redirect(signInUrl);
+    res.cookies.delete("auth-token");
+    return res;
+  };
+
+  // トークンがない場合
+  if (!token) return unauthorized();
 
   try {
     // JWT検証
     await jwtVerify(token, SECRET);
     return NextResponse.next();
   } catch {
-    // トークンが無効な場合はサインインページにリダイレクト
-    const signInUrl = new URL("/auth/signin", request.url);
-    signInUrl.searchParams.set("callbackUrl", request.nextUrl.pathname);
-    const response = NextResponse.redirect(signInUrl);
-    // 無効なトークンを削除
-    response.cookies.delete("auth-token");
-    return response;
+    // トークンが無効な場合
+    return unauthorized();
   }
 }
 

@@ -81,7 +81,23 @@ export interface GateResult {
  * 許可時は user を返す(operator 名等に利用)。
  */
 export async function requireKpiProgram(programId: string): Promise<GateResult> {
-  const user = await resolveKpiUser();
+  let user: KpiUser | null = null;
+  try {
+    user = await resolveKpiUser();
+  } catch (e: any) {
+    // 権限解決(社員/部署/権限マスタ参照)で例外が出た場合は握りつぶさず、
+    // 原因が分かるメッセージで500を返す(Lark 403 等が "Request failed..." として
+    // 表面化していた問題の切り分け用)。
+    console.error("[kpi-permission] resolveKpiUser failed:", e);
+    return {
+      authorized: false,
+      user: null,
+      response: NextResponse.json(
+        { error: `権限の確認に失敗しました: ${e?.message ?? e}`, step: "resolveKpiUser" },
+        { status: 500 }
+      ),
+    };
+  }
   if (!user) {
     return {
       authorized: false,

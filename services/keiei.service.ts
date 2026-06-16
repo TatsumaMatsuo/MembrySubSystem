@@ -31,7 +31,7 @@ import {
   type KaikeiRow,
 } from "@/lib/kpi";
 import { getPeriods } from "@/services/seisan-kpi.service";
-import { writeKpiAudit } from "@/lib/kpi-audit";
+import { writeKpiAudit, writeKpiAuditBatch, type KpiAuditEntry } from "@/lib/kpi-audit";
 
 const base = () => getLarkBaseToken();
 
@@ -317,11 +317,31 @@ export async function getKaikeiInputStatus(period: number): Promise<KaikeiInputS
 export async function upsertKaikeiActual(
   items: { period: number; account: string; granularity: Granularity; span: string; value: number | null; inputBy?: string }[]
 ): Promise<{ saved: number }> {
+  if (items.length === 0) return { saved: 0 };
   const t = getLarkTables();
   const bt = base();
-  let saved = 0;
-  for (const it of items) {
-    const actualId = `${it.period}-${it.account}-${it.span.replace(/-/g, "")}`;
+
+  // 同一 actual_id の重複は最後の入力を採用(同一ペイロード内での二重作成を防ぐ)
+  const byId = new Map<string, (typeof items)[number]>();
+  for (const it of items) byId.set(`${it.period}-${it.account}-${it.span.replace(/-/g, "")}`, it);
+
+  // 対象期の既存レコードを一括取得し actual_id → record_id/fields を引けるようにする
+  const periods = [...new Set([...byId.values()].map((it) => it.period))];
+  const filter =
+    periods.length === 1
+      ? `CurrentValue.[${KA.period}] = ${periods[0]}`
+      : `OR(${periods.map((p) => `CurrentValue.[${KA.period}] = ${p}`).join(", ")})`;
+  const found = await getBaseRecords(t.KAIKEI_ACTUAL, { baseToken: bt, filter, pageSize: 500 });
+  const existing = new Map<string, { recordId: string; fields: Record<string, any> }>();
+  for (const rec of (found.data?.items ?? []) as any[]) {
+    const id = asText(rec.fields[KA.actual_id]);
+    if (id) existing.set(id, { recordId: rec.record_id, fields: rec.fields });
+  }
+
+  const toCreate: Record<string, any>[] = [];
+  const toUpdate: { record_id: string; fields: Record<string, any> }[] = [];
+  const audits: KpiAuditEntry[] = [];
+  for (const [actualId, it] of byId) {
     const fields: Record<string, any> = {
       [KA.actual_id]: actualId,
       [KA.period]: it.period,
@@ -333,22 +353,22 @@ export async function upsertKaikeiActual(
       [KA.input_by]: it.inputBy ?? "",
       [KA.input_at]: Date.now(),
     };
-    const found = await getBaseRecords(t.KAIKEI_ACTUAL, {
-      baseToken: bt,
-      filter: `CurrentValue.[${KA.actual_id}] = "${actualId}"`,
-      pageSize: 1,
-    });
-    const exist = (found.data?.items ?? [])[0] as any;
+    const exist = existing.get(actualId);
     if (exist) {
-      await updateBaseRecord(t.KAIKEI_ACTUAL, exist.record_id, fields, { baseToken: bt });
-      await writeKpiAudit({ table: "KAIKEI_ACTUAL", recordId: actualId, operation: "更新", before: exist.fields, after: fields, operator: it.inputBy ?? "" });
+      toUpdate.push({ record_id: exist.recordId, fields });
+      audits.push({ table: "KAIKEI_ACTUAL", recordId: actualId, operation: "更新", before: exist.fields, after: fields, operator: it.inputBy ?? "" });
     } else {
-      await createBaseRecord(t.KAIKEI_ACTUAL, fields, { baseToken: bt });
-      await writeKpiAudit({ table: "KAIKEI_ACTUAL", recordId: actualId, operation: "作成", after: fields, operator: it.inputBy ?? "" });
+      toCreate.push(fields);
+      audits.push({ table: "KAIKEI_ACTUAL", recordId: actualId, operation: "作成", after: fields, operator: it.inputBy ?? "" });
     }
-    saved++;
   }
-  return { saved };
+
+  // 逐次ループを避け batch_create/batch_update に集約(Amplify 28秒タイムアウト対策)
+  if (toCreate.length) await batchCreateBaseRecords(t.KAIKEI_ACTUAL, toCreate, { baseToken: bt });
+  if (toUpdate.length) await batchUpdateBaseRecords(t.KAIKEI_ACTUAL, toUpdate, { baseToken: bt });
+  await writeKpiAuditBatch(audits);
+
+  return { saved: byId.size };
 }
 
 /* =========================================================================

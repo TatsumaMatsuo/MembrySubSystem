@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { batchCreateBaseRecords, batchUpdateBaseRecords, getBaseRecords, deleteBaseRecord } from "@/lib/lark-client";
+import { upsertKaikeiActual } from "@/services/keiei.service";
 
 // AWS Amplify SSR で POST ハンドラーが環境変数にアクセスできるようにする
 export const dynamic = "force-dynamic";
@@ -92,6 +93,24 @@ export async function GET() {
       sdk.larkData = e?.response?.data ?? e?.data ?? null;
     }
     result.sdkTest = sdk;
+
+    // アプリの実関数 upsertKaikeiActual を直接実行(実在47期レコードを非破壊・同値更新)
+    const up: any = {};
+    try {
+      const r = await upsertKaikeiActual([
+        { period: 47, account: "売上高", granularity: "半期" as any, span: "上期", value: 2019.3, inputBy: "松尾達磨" },
+      ]);
+      up.ok = true;
+      up.saved = r.saved;
+    } catch (e: any) {
+      up.threw = true;
+      up.message = e?.message;
+      up.name = e?.name;
+      up.httpStatus = e?.response?.status;
+      up.larkData = e?.response?.data ?? e?.data ?? null;
+      up.stack = typeof e?.stack === "string" ? e.stack.split("\n").slice(0, 6) : null;
+    }
+    result.upsertTest = up;
 
     return NextResponse.json(result);
   } catch (error: any) {

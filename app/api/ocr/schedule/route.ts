@@ -53,8 +53,9 @@ async function ocrScheduleImage(imageBase64: string): Promise<Record<string, { s
   const currentYear = new Date().getFullYear();
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     max_tokens: 16000,
+    // budget_tokens は Sonnet 4.6 では非推奨だが有効。SDK更新後に adaptive へ移行可
     thinking: { type: "enabled", budget_tokens: 8000 },
     messages: [
       {

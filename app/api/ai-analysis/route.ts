@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { AI_MODELS } from "@/lib/ai-models";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -640,7 +641,7 @@ export async function POST(request: NextRequest) {
     const anthropic = new Anthropic({ apiKey });
 
     const message = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
+      model: AI_MODELS.TEXT_ANALYSIS,
       max_tokens: 1024,
       messages: [
         {

@@ -12,6 +12,7 @@ interface Kgi {
   indicator: string;
   unit: string;
   trajectory: { period: number; target: number | null }[];
+  prevTrajectory: { period: number; target: number | null }[];
   actuals: { period: number; actual: number | null }[];
   finalTarget: number;
   finalPeriod: number;
@@ -19,6 +20,7 @@ interface Kgi {
   attainment: number | null;
 }
 interface Header { planId: string; name: string; startPeriod: number; endPeriod: number; status: string; kgiSet: string[]; }
+interface PlanOption { planId: string; name: string; startPeriod: number; endPeriod: number; status: string; }
 type Judgment = "緑" | "黄" | "赤";
 interface CompanyRow { name: string; target: number; actual: number | null; pace: number | null; judgment: Judgment | null; major: boolean; }
 interface InputStatus { account: string; unit: string; granularity: string; label: string; ok: boolean; }
@@ -29,29 +31,39 @@ const pctv = (v: number | null) => (v == null ? "―" : `${Math.round(v * 100)}%
 const fmt = (v: number | null, unit: string) =>
   v == null ? "―" : `${Math.round(v * 10) / 10}${unit}`;
 
-function Trajectory({ kgi, basePeriod }: { kgi: Kgi; basePeriod: number }) {
+function Trajectory({ kgi, basePeriod, prevPlanName }: { kgi: Kgi; basePeriod: number; prevPlanName: string | null }) {
   const W = 320, H = 150, padL = 38, padR = 14, padT = 16, padB = 26;
   const pts = kgi.trajectory;
   if (pts.length === 0) return null;
   const n = pts.length;
   const idxOf = new Map(pts.map((p, i) => [p.period, i]));
   const acts = (kgi.actuals ?? []).filter((a) => a.actual != null && idxOf.has(a.period)) as { period: number; actual: number }[];
+  // 前中計の目標(同じ横軸=プラン各期で重なる範囲のみ)
+  const prev = (kgi.prevTrajectory ?? []).filter((p) => p.target != null && idxOf.has(p.period)) as { period: number; target: number }[];
+  const hasPrev = prev.length > 0;
   const targets = pts.filter((p) => p.target != null).map((p) => p.target as number);
-  const all = [...targets, ...acts.map((a) => a.actual)];
+  const all = [...targets, ...acts.map((a) => a.actual), ...prev.map((p) => p.target)];
   let min = Math.min(...all), max = Math.max(...all);
   const span = max - min || 1;
   min -= span * 0.25; max += span * 0.2;
   const x = (i: number) => padL + (W - padL - padR) * (n < 2 ? 0 : i / (n - 1));
   const y = (v: number) => padT + (H - padT - padB) * (1 - (v - min) / (max - min));
-  // 目標(破線)はプラン期間のみ。プラン開始前(target=null)はX軸位置だけ確保し線は引かない
+  // 目標(破線)はプラン期間のみ。target=null はX軸位置だけ確保し線は引かない
   let dT = ""; let tStarted = false;
   pts.forEach((p, i) => { if (p.target == null) return; dT += (tStarted ? "L" : "M") + x(i) + " " + y(p.target) + " "; tStarted = true; });
+  // 前中計の目標(灰色の点線)
+  let dP = ""; let pStarted = false;
+  prev.forEach((p) => { dP += (pStarted ? "L" : "M") + x(idxOf.get(p.period)!) + " " + y(p.target) + " "; pStarted = true; });
   let dA = "";
   acts.forEach((a, i) => { dA += (i ? "L" : "M") + x(idxOf.get(a.period)!) + " " + y(a.actual) + " "; });
   return (
     <svg width="100%" height="150" viewBox={`0 0 ${W} ${H}`} style={{ marginTop: 10 }}>
-      <text x={padL} y={11} fontSize="10" fill="#94a3b8">― 目標(線形補間) ―●― 実績(年換算)</text>
+      <text x={padL} y={11} fontSize="10" fill="#94a3b8">― 目標 ―●― 実績{hasPrev ? "  ┄ 前中計目標" : ""}</text>
       <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#e2e8f0" />
+      {hasPrev && <path d={dP} fill="none" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="2 3" />}
+      {prev.map((p) => (
+        <circle key={`prev-${p.period}`} cx={x(idxOf.get(p.period)!)} cy={y(p.target)} r={2.5} fill="#94a3b8" />
+      ))}
       <path d={dT} fill="none" stroke="#4f46e5" strokeWidth={2.5} strokeDasharray="5 4" />
       {pts.map((p, i) => (
         p.target == null ? null : <circle key={p.period} cx={x(i)} cy={y(p.target)} r={3.5} fill="#4f46e5" />
@@ -75,15 +87,21 @@ export default function KeieiDashboardPage() {
   const [elapsed, setElapsed] = useState(0);
   const [basePeriod, setBasePeriod] = useState<number>(0);
   const [selectablePeriods, setSelectablePeriods] = useState<number[]>([]);
+  const [plans, setPlans] = useState<PlanOption[]>([]);
+  const [planId, setPlanId] = useState<string>("");
+  const [prevPlanName, setPrevPlanName] = useState<string | null>(null);
   const [registered, setRegistered] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
-  const load = async (p?: number) => {
+  const load = async (plan?: string, p?: number) => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/api/keiei/dashboard${p ? `?period=${p}` : ""}`);
+      const qs = new URLSearchParams();
+      if (plan) qs.set("plan", plan);
+      if (p) qs.set("period", String(p));
+      const res = await fetch(`/api/keiei/dashboard${qs.toString() ? `?${qs}` : ""}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       const d = json.data;
@@ -94,6 +112,9 @@ export default function KeieiDashboardPage() {
       setElapsed(d.elapsedMonths);
       setBasePeriod(d.basePeriod);
       setSelectablePeriods(d.selectablePeriods ?? []);
+      setPlans(d.selectablePlans ?? []);
+      setPlanId(d.header?.planId ?? "");
+      setPrevPlanName(d.prevPlanName ?? null);
       setRegistered(d.registered);
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
@@ -106,15 +127,19 @@ export default function KeieiDashboardPage() {
       <div style={{ padding: isMobile ? 12 : 20, maxWidth: 1180, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: "#4f46e5", margin: 0 }}>経営ダッシュボード ― 中期経営計画 進捗</h1>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
-            {header && <span style={{ background: "#4f46e5", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>{header.name || header.planId}（{header.startPeriod}→{header.endPeriod}期）</span>}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13, flexWrap: "wrap" }}>
+            {plans.length > 0 && (
+              <select value={planId} onChange={(e) => load(e.target.value)} title="中期経営計画を選択" style={{ border: "1px solid #4f46e5", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 700, color: "#fff", background: "#4f46e5", cursor: "pointer" }}>
+                {plans.map((pl) => <option key={pl.planId} value={pl.planId} style={{ color: "#1e293b", background: "#fff" }}>{pl.name || pl.planId}（{pl.startPeriod}〜{pl.endPeriod}期）</option>)}
+              </select>
+            )}
             {selectablePeriods.length > 0 && (
-              <select value={basePeriod} onChange={(e) => load(Number(e.target.value))} title="基準期(この期時点の進捗で表示)" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#4f46e5", background: "#fff", cursor: "pointer" }}>
-                {selectablePeriods.map((p) => <option key={p} value={p}>基準: {p}期</option>)}
+              <select value={basePeriod} onChange={(e) => load(planId, Number(e.target.value))} title="対象期(この期時点の進捗・下部詳細を表示)" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#4f46e5", background: "#fff", cursor: "pointer" }}>
+                {selectablePeriods.map((p) => <option key={p} value={p}>{p}期</option>)}
               </select>
             )}
             <span style={{ background: "#4f46e5", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>経過 {elapsed}ヶ月</span>
-            <button onClick={() => load(basePeriod || undefined)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
+            <button onClick={() => load(planId, basePeriod || undefined)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
           </div>
@@ -130,7 +155,7 @@ export default function KeieiDashboardPage() {
           <>
             {error && <div style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: "#fef2f2", color: "#991b1b" }}>{error}</div>}
             <div style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
-              <TrendingUp size={14} style={{ verticalAlign: "-2px" }} /> 最終年度（{header?.endPeriod}期）のKGIへの到達度。破線＝目標トラジェクトリ（線形補間）、赤線＝実績（年換算）の推移。プラン開始前で会計データのある期は履歴として赤線に表示されます（目標線はプラン期間のみ）。右上の「基準期」で過去時点の進捗を振り返れます（数値・到達度は基準{basePeriod}期時点）。
+              <TrendingUp size={14} style={{ verticalAlign: "-2px" }} /> 右上で中期経営計画を選ぶと、その対象3期（例: {header ? `${header.startPeriod}〜${header.endPeriod}期` : "50〜52期"}）が表示されます。青破線＝目標トラジェクトリ（線形補間）、赤線＝実績（年換算）の推移。{prevPlanName ? `灰色点線＝前中計（${prevPlanName}）の目標。` : ""}「対象期」を切り替えると、その期時点の進捗・下部の全社KPI/会計入力状況が連動します（基準{basePeriod}期時点）。
             </div>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 16 }}>
               {kgis.map((k) => (
@@ -144,7 +169,7 @@ export default function KeieiDashboardPage() {
                     最終{k.finalPeriod}期目標 <b>{k.finalTarget}{k.unit}</b>
                     {k.attainment != null && <> ／ 到達度 {Math.round(k.attainment * 100)}%</>}
                   </div>
-                  <Trajectory kgi={k} basePeriod={basePeriod} />
+                  <Trajectory kgi={k} basePeriod={basePeriod} prevPlanName={prevPlanName} />
                 </div>
               ))}
             </div>

@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react";
 import { MainLayout } from "@/components/layout";
 import { Save, RefreshCw } from "lucide-react";
 
-type Granularity = "月" | "四半期" | "半期";
+type Granularity = "月" | "四半期" | "半期" | "年";
 interface AccountInput {
   account: string;
   unit: string;
@@ -30,6 +30,7 @@ const QUARTER_SPANS = [
   { key: "Q3", label: "Q3(2-4)" }, { key: "Q4", label: "Q4(5-7)" },
 ];
 const HALF_SPANS = [{ key: "上期", label: "上期(8-1)" }, { key: "下期", label: "下期(2-7)" }];
+const YEAR_SPANS = [{ key: "通期", label: "通期(8-7)" }];
 
 const thCell: React.CSSProperties = { border: "1px solid #d7dee8", padding: "7px 6px", textAlign: "center", fontWeight: 600, fontSize: 11, color: "#475569", background: "#eef2f7", position: "sticky", top: 0, zIndex: 2, boxShadow: "inset 0 -1px 0 #d7dee8" };
 const tdCell: React.CSSProperties = { border: "1px solid #e2e8f0", textAlign: "center", verticalAlign: "middle" };
@@ -143,7 +144,7 @@ export default function KaikeiInputPage() {
         </div>
 
         <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
-          科目ごとに<b>粒度（月/四半期/半期）</b>を選んで入力。共通の年度累計に正規化され、全社KPI・中計・生産本部Lv2（粗利率等）が同じ実績を参照します。総資産=半期、人員数=月別 など科目に合わせて選択。
+          科目ごとに<b>粒度（月/四半期/半期/年）</b>を選んで入力。共通の年度累計に正規化され、全社KPI・中計・生産本部Lv2（粗利率等）が同じ実績を参照します。総資産=年（通期）、人員数=月別 など科目に合わせて選択。決算後に年間値だけ入れたい場合は<b>年（通期）</b>が便利です。
         </div>
 
         <div style={{ fontSize: 11.5, color: "#475569", marginBottom: 12, padding: "8px 12px", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 8, lineHeight: 1.6 }}>
@@ -169,7 +170,9 @@ export default function KaikeiInputPage() {
                   const monthCells = monthSpans(startYear);
                   const spanCells = a.granularity === "四半期"
                     ? QUARTER_SPANS.map((s) => ({ s, span: 3 }))
-                    : HALF_SPANS.map((s) => ({ s, span: 6 }));
+                    : a.granularity === "半期"
+                      ? HALF_SPANS.map((s) => ({ s, span: 6 }))
+                      : YEAR_SPANS.map((s) => ({ s, span: 12 })); // 年(通期)
                   return (
                     <tr key={a.account}>
                       <td style={{ ...tdCell, position: "sticky", left: 0, zIndex: 1, background: rowBg, textAlign: "left", fontWeight: 700, padding: "6px 10px", minWidth: 130, boxShadow: "1px 0 0 #e2e8f0" }}>
@@ -177,7 +180,7 @@ export default function KaikeiInputPage() {
                       </td>
                       <td style={{ ...tdCell, background: rowBg, padding: "4px 6px" }}>
                         <select value={a.granularity} onChange={(e) => setGranularity(a.account, e.target.value as Granularity)} style={{ border: "1px solid #cbd5e1", borderRadius: 5, padding: "3px 5px", fontSize: 11.5, background: "#fff" }}>
-                          <option>月</option><option>四半期</option><option>半期</option>
+                          <option>月</option><option>四半期</option><option>半期</option><option>年</option>
                         </select>
                       </td>
                       {a.granularity === "月"
@@ -200,7 +203,7 @@ export default function KaikeiInputPage() {
           )}
         </div>
 
-        <div style={{ fontSize: 11, color: "#64748b", marginTop: 10 }}>粒度を変えると入力欄が切り替わります。月別を基本に、月次で出ない科目（総資産等）は四半期/半期で。保存ボタンは右上にあります。</div>
+        <div style={{ fontSize: 11, color: "#64748b", marginTop: 10 }}>粒度を変えると入力欄が切り替わります。月別を基本に、月次で出ない科目（総資産等）は四半期/半期/年で。年（通期）は1セルにその期の年間値を入力します。保存ボタンは右上にあります。</div>
       </div>
     </MainLayout>
   );

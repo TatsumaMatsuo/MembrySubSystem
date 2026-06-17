@@ -20,7 +20,7 @@ export type Judgment = "緑" | "黄" | "赤";
 export type Effect = "改善" | "横ばい" | "悪化";
 
 /** 会計データの入力粒度 */
-export type Granularity = "月" | "四半期" | "半期";
+export type Granularity = "月" | "四半期" | "半期" | "年";
 
 /**
  * KPIマスタ(算出に必要な最小項目)

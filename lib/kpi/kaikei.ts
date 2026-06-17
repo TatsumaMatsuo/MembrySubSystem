@@ -5,8 +5,9 @@
  * 会計年度は8月開始(8月=会計月1 … 翌7月=会計月12)。
  *  - 四半期: Q1=8-10月(1..3) / Q2=11-1月(4..6) / Q3=2-4月(7..9) / Q4=5-7月(10..12)
  *  - 半期:   上期=8-1月(1..6) / 下期=2-7月(7..12)
+ *  - 年:     通期=8-7月(1..12) … その期の年間値を1件で入力
  *
- * 月別があれば四半期/半期は自動集計(累計)。粗粒度しか無い科目はその粒度で年度累計に算入。
+ * 月別があれば四半期/半期/年は自動集計(累計)。粗粒度しか無い科目はその粒度で年度累計に算入。
  */
 import { Granularity } from "./types";
 
@@ -63,6 +64,12 @@ export function normalizeKaikei(rows: KaikeiRow[]): number {
     const covered = anyInRange(quarterCoveredFm, range);
     if (!covered) total += r.value;
   }
+  // 年(通期): 月別・四半期・半期のいずれもカバーが無ければ年間値をそのまま算入
+  const finerCoveredFm = coveredFiscalMonths(rows, true);
+  for (const r of rows.filter((r) => r.granularity === "年")) {
+    const covered = anyInRange(finerCoveredFm, [1, 12]);
+    if (!covered) total += r.value;
+  }
   return total;
 }
 
@@ -71,13 +78,17 @@ function anyInRange(fmSet: Set<number>, [lo, hi]: [number, number]): boolean {
   return false;
 }
 
-/** 月別+四半期がカバーする会計月の集合 */
-function coveredFiscalMonths(rows: KaikeiRow[]): Set<number> {
+/** 月別+四半期がカバーする会計月の集合(includeHalf=true で半期も含める) */
+function coveredFiscalMonths(rows: KaikeiRow[], includeHalf = false): Set<number> {
   const set = new Set<number>();
   for (const r of rows) {
     if (r.granularity === "月") set.add(fiscalMonthOf(r.period));
     if (r.granularity === "四半期") {
       const range = QUARTER_RANGE[r.period];
+      if (range) for (let fm = range[0]; fm <= range[1]; fm++) set.add(fm);
+    }
+    if (includeHalf && r.granularity === "半期") {
+      const range = HALF_RANGE[r.period];
       if (range) for (let fm = range[0]; fm <= range[1]; fm++) set.add(fm);
     }
   }

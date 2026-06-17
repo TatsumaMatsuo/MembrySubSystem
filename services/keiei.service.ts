@@ -71,14 +71,15 @@ async function getCompanyTargets(period: number): Promise<Record<string, number>
 //   総資産 = 直近(期末相当)     … ROA/総資産回転率の分母
 const AVERAGE_ACCOUNTS = new Set(["人員数"]);
 const LATEST_ACCOUNTS = new Set(["総資産"]);
-/** 粒度 → その期間が占める会計月数(月=1/四半期=3/半期=6) */
+/** 粒度 → その期間が占める会計月数(月=1/四半期=3/半期=6/年=12) */
 function spanMonths(granularity: Granularity): number {
-  return granularity === "月" ? 1 : granularity === "四半期" ? 3 : 6;
+  return granularity === "月" ? 1 : granularity === "四半期" ? 3 : granularity === "半期" ? 6 : 12;
 }
 /** 期間ラベル → その期間の終了会計月(8月=1..翌7月=12) */
 function endFiscalMonth(granularity: Granularity, span: string): number {
   if (granularity === "四半期") return ({ Q1: 3, Q2: 6, Q3: 9, Q4: 12 } as Record<string, number>)[span] ?? 12;
   if (granularity === "半期") return span === "下期" ? 12 : 6;
+  if (granularity === "年") return 12; // 通期
   return fiscalMonthOf(span); // 月(YYYY-MM)
 }
 /** ストック科目(直近): 終了会計月が最も後の期の値を返す(合算しない) */
@@ -353,6 +354,7 @@ function spanToFiscalMonth(granularity: Granularity, span: string): number {
     return ((m - 8 + 12) % 12) + 1;
   }
   if (granularity === "四半期") return ({ Q1: 1, Q2: 4, Q3: 7, Q4: 10 } as Record<string, number>)[span] ?? 1;
+  if (granularity === "年") return 1; // 通期(8月)
   return span === "下期" ? 7 : 1; // 半期
 }
 
@@ -371,7 +373,7 @@ export async function getKaikeiInputStatus(period: number): Promise<KaikeiInputS
       .filter(([, v]) => v != null && String(v).trim() !== "" && !Number.isNaN(Number(v)))
       .map(([k]) => k);
     if (filled.length === 0) return { account: a.account, unit: a.unit, granularity: a.granularity, label: "未入力", ok: false };
-    const len = a.granularity === "月" ? 1 : a.granularity === "四半期" ? 3 : 6;
+    const len = a.granularity === "月" ? 1 : a.granularity === "四半期" ? 3 : a.granularity === "半期" ? 6 : 12;
     const endOf = (span: string) => spanToFiscalMonth(a.granularity, span) + len - 1; // 会計月(1=8月..12=7月)での終了
     const maxEnd = Math.min(12, Math.max(...filled.map(endOf)));
     let label: string;
@@ -380,6 +382,8 @@ export async function getKaikeiInputStatus(period: number): Promise<KaikeiInputS
     } else if (a.granularity === "四半期") {
       const lastQ = ["Q1", "Q2", "Q3", "Q4"].filter((q) => filled.includes(q)).pop();
       label = lastQ ? `${lastQ}まで確定` : `〜${FISCAL_MONTH_LABELS[maxEnd - 1]} 確定`;
+    } else if (a.granularity === "年") {
+      label = "通期 確定";
     } else {
       const up = filled.includes("上期"), down = filled.includes("下期");
       label = up && down ? "上期・下期 確定" : up ? "上期のみ・下期待ち" : "下期のみ";
@@ -453,8 +457,10 @@ export async function upsertKaikeiActual(
 export interface MidtermKgi {
   indicator: string;
   unit: string;
-  /** 期→年度目標(線形補間値)。プラン開始前(履歴期)は target=null */
+  /** 期→年度目標(線形補間値)。選択中計の対象期のみ */
   trajectory: { period: number; target: number | null }[];
+  /** 前中計の年度目標(同一期で重なる範囲のみ。点線で重ねて表示。無ければ空) */
+  prevTrajectory: { period: number; target: number | null }[];
   finalTarget: number;
   finalPeriod: number;
   /** 各期の年換算実績(開始期〜基準期。会計データから・未入力は null) */
@@ -546,6 +552,15 @@ async function currentKgiActual(indicator: string, period: number, elapsed: numb
   return kgiActualFromKaikei(indicator, await getKaikeiCumByAccount(period), elapsed);
 }
 
+/** 中計セレクタ用の中計サマリ */
+export interface MidtermPlanOption {
+  planId: string;
+  name: string;
+  startPeriod: number;
+  endPeriod: number;
+  status: string;
+}
+
 /** 中計ダッシュボード構築(現行中計 or 指定planId / 基準期を指定可) */
 export async function buildMidtermDashboard(planId?: string, basePeriodArg?: number): Promise<{
   header: MidtermHeader | null;
@@ -553,6 +568,8 @@ export async function buildMidtermDashboard(planId?: string, basePeriodArg?: num
   basePeriod: number;
   elapsedMonths: number;
   selectablePeriods: number[];
+  selectablePlans: MidtermPlanOption[];
+  prevPlanName: string | null;
   kgis: MidtermKgi[];
   companyKpi: CompanyKpiRow[];
   inputStatus: KaikeiInputStatus[];
@@ -563,36 +580,48 @@ export async function buildMidtermDashboard(planId?: string, basePeriodArg?: num
   const currentPeriod = cur?.period ?? 50;
   const periodMap = new Map(periods.map((p) => [p.period, p]));
 
+  // 中計セレクタ一覧(開始期の新しい順=最新の中計が先頭)
+  const selectablePlans: MidtermPlanOption[] = [...headers]
+    .sort((a, b) => b.startPeriod - a.startPeriod)
+    .map((h) => ({ planId: h.planId, name: h.name, startPeriod: h.startPeriod, endPeriod: h.endPeriod, status: h.status }));
+
   const header = planId
     ? headers.find((h) => h.planId === planId) ?? null
     : headers.find((h) => h.status === "現行") ?? headers[0] ?? null;
 
   if (!header) {
-    return { header: null, currentPeriod, basePeriod: currentPeriod, elapsedMonths: cur?.elapsedMonths ?? 0, selectablePeriods: [], kgis: [], companyKpi: [], inputStatus: [], registered: false };
+    return { header: null, currentPeriod, basePeriod: currentPeriod, elapsedMonths: cur?.elapsedMonths ?? 0, selectablePeriods: [], selectablePlans, prevPlanName: null, kgis: [], companyKpi: [], inputStatus: [], registered: false };
   }
 
   const seq = (a: number, b: number) => { const r: number[] = []; for (let p = a; p <= b; p++) r.push(p); return r; };
-  // 基準期: 指定があれば採用、なければ当期。終了/当期でクランプ。
-  const maxSel = Math.min(header.endPeriod, currentPeriod);
+  // 横軸は選択中計の対象期(3期固定)。例: 第1期中計なら 50・51・52期。
+  const planPeriods = seq(header.startPeriod, header.endPeriod);
+  const selectablePeriods: number[] = planPeriods;
+
+  // 基準期: 指定があれば採用、なければ当期。プラン範囲内にクランプ。
   let basePeriod = basePeriodArg ?? currentPeriod;
-  if (basePeriod > maxSel) basePeriod = maxSel;
+  if (basePeriod < header.startPeriod) basePeriod = header.startPeriod;
+  if (basePeriod > header.endPeriod) basePeriod = header.endPeriod;
   // 経過月数: 当期は走行中の月数、過去期は満了(12)を既定とする(期マスタに値があれば優先)
   const elapsedFor = (p: number) => (p === currentPeriod ? (cur?.elapsedMonths ?? 0) : (periodMap.get(p)?.elapsedMonths || 12));
-
-  // プラン開始前でも会計データのある期は履歴として表示対象にする(進捗グラフを過去まで伸ばす)
-  const prePlan = periods.map((p) => p.period).filter((p) => p < header.startPeriod && p <= currentPeriod).sort((a, b) => a - b);
-  // 表示候補(履歴+プラン期間)の会計データを一括取得し、データのある履歴期を判定
-  const kaikeiByPeriod = new Map<number, Map<string, number>>();
-  await Promise.all([...new Set([...prePlan, ...seq(header.startPeriod, maxSel)])].map(async (p) => { kaikeiByPeriod.set(p, await getKaikeiCumByAccount(p)); }));
-  const prePlanWithData = prePlan.filter((p) => (kaikeiByPeriod.get(p)?.size ?? 0) > 0);
-  const historyStart = prePlanWithData.length ? prePlanWithData[0] : header.startPeriod;
-
-  // 基準期は履歴開始以上にクランプ(プラン開始前の履歴期も選択可能にする)
-  if (basePeriod < historyStart) basePeriod = historyStart;
   const baseElapsed = elapsedFor(basePeriod);
 
-  // 選択可能な期(履歴開始〜min(終了,当期))
-  const selectablePeriods: number[] = seq(historyStart, maxSel);
+  // 会計データ: 実績を出す対象(プラン各期のうち基準期以前 かつ 当期以前)を一括取得
+  const actualTargetPeriods = planPeriods.filter((p) => p <= basePeriod && p <= currentPeriod);
+  const kaikeiByPeriod = new Map<number, Map<string, number>>();
+  await Promise.all(actualTargetPeriods.map(async (p) => { kaikeiByPeriod.set(p, await getKaikeiCumByAccount(p)); }));
+
+  // 前中計(開始期が一つ手前の中計)の目標を点線で重ねる
+  const prevHeader = headers
+    .filter((h) => h.startPeriod < header.startPeriod)
+    .sort((a, b) => b.startPeriod - a.startPeriod)[0] ?? null;
+  const prevDetails = prevHeader ? await getMidtermDetails(prevHeader.planId) : [];
+  // 指標→(期→前中計目標)
+  const prevByIndicator = new Map<string, Map<number, number>>();
+  for (const d of prevDetails) {
+    if (!prevByIndicator.has(d.indicator)) prevByIndicator.set(d.indicator, new Map());
+    prevByIndicator.get(d.indicator)!.set(d.period, d.target);
+  }
 
   const details = await getMidtermDetails(header.planId);
   // 指標ごとに集約
@@ -604,24 +633,31 @@ export async function buildMidtermDashboard(planId?: string, basePeriodArg?: num
     if (d.finalTarget) e.finalTarget = d.finalTarget;
   }
 
-  // 実績: 履歴開始〜基準期(プラン開始前の履歴を含む)。会計データは上で一括取得済み。
-  const actualPeriods: number[] = seq(historyStart, basePeriod);
-  // プラン開始前の期は target=null で前置してX軸(グラフ横軸)を履歴まで延長する
-  const historyPrefix = seq(historyStart, header.startPeriod - 1).map((p) => ({ period: p, target: null as number | null }));
-
   const kgis: MidtermKgi[] = [];
   for (const [indicator, e] of byIndicator) {
     e.points.sort((a, b) => a.period - b.period);
-    const actuals = actualPeriods.map((p) => ({
+    const targetOf = new Map(e.points.map((pt) => [pt.period, pt.target]));
+    // 目標トラジェクトリ: プラン3期分(欠損は null)
+    const trajectory = planPeriods.map((p) => ({ period: p, target: targetOf.has(p) ? targetOf.get(p)! : null }));
+    // 前中計の目標: 同じ横軸(プラン各期)で重なる期のみ(無ければ null)
+    const prevMap = prevByIndicator.get(indicator);
+    const prevTrajectory = prevMap
+      ? planPeriods.map((p) => ({ period: p, target: prevMap.has(p) ? prevMap.get(p)! : null }))
+      : [];
+    // 実績: プラン各期で基準期以前(かつ当期以前)のみ算出、それ以外は null
+    const actuals = planPeriods.map((p) => ({
       period: p,
-      actual: kgiActualFromKaikei(indicator, kaikeiByPeriod.get(p) ?? new Map(), elapsedFor(p)),
+      actual: (p <= basePeriod && p <= currentPeriod)
+        ? kgiActualFromKaikei(indicator, kaikeiByPeriod.get(p) ?? new Map(), elapsedFor(p))
+        : null,
     }));
     const currentActual = actuals.find((a) => a.period === basePeriod)?.actual ?? null;
     const finalTarget = e.finalTarget || (e.points.length ? e.points[e.points.length - 1].target ?? 0 : 0);
     kgis.push({
       indicator,
       unit: e.unit,
-      trajectory: [...historyPrefix, ...e.points],
+      trajectory,
+      prevTrajectory,
       actuals,
       finalTarget,
       finalPeriod: e.finalPeriod,
@@ -636,7 +672,7 @@ export async function buildMidtermDashboard(planId?: string, basePeriodArg?: num
     getKaikeiInputStatus(basePeriod).catch(() => [] as KaikeiInputStatus[]),
   ]);
 
-  return { header, currentPeriod, basePeriod, elapsedMonths: baseElapsed, selectablePeriods, kgis, companyKpi, inputStatus, registered: true };
+  return { header, currentPeriod, basePeriod, elapsedMonths: baseElapsed, selectablePeriods, selectablePlans, prevPlanName: prevHeader?.name ?? null, kgis, companyKpi, inputStatus, registered: true };
 }
 
 /* =========================================================================

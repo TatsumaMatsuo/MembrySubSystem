@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { MainLayout } from "@/components/layout";
-import { HelpLink, JudgmentBadge, EFFECT_COLORS } from "@/components/features/seisan-kpi";
+import { HelpLink, JudgmentBadge, EFFECT_COLORS, JUDGMENT_COLORS } from "@/components/features/seisan-kpi";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { RefreshCw, Plus, Save, X } from "lucide-react";
 import type { Judgment, Effect } from "@/lib/kpi";
@@ -15,6 +15,9 @@ const EFFECTS: Effect[] = ["改善", "横ばい", "悪化"];
 const NEXT_ACTIONS = ["継続", "強化", "見直し", "完了"];
 
 const effectColor = EFFECT_COLORS as Record<string, string>;
+// 判定の並び順(赤→黄→緑)と枠内の淡色背景
+const JUDGMENT_RANK: Record<Judgment, number> = { 赤: 0, 黄: 1, 緑: 2 };
+const JUDGMENT_TINT: Record<Judgment, string> = { 赤: "#fef2f2", 黄: "#fffbeb", 緑: "#f0fdf4" };
 const statusColor: Record<string, string> = {
   下書き: "#64748b", 実施中: "#5b21b6", 完了: "#166534", 中止: "#991b1b",
 };
@@ -153,8 +156,8 @@ export default function SeisanKpiMeasuresPage() {
                 <span style={{ color: "#94a3b8", fontSize: 12 }}>対象KPIがありません。</span>
               ) : (
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  {data.kpis.map((k) => (
-                    <div key={k.kpiId} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 12px", fontSize: 12, minWidth: 150 }}>
+                  {[...data.kpis].sort((a, b) => JUDGMENT_RANK[a.judgment] - JUDGMENT_RANK[b.judgment]).map((k) => (
+                    <div key={k.kpiId} style={{ border: `2px solid ${JUDGMENT_COLORS[k.judgment]}`, background: JUDGMENT_TINT[k.judgment], borderRadius: 10, padding: "8px 12px", fontSize: 12, minWidth: 150 }}>
                       <div style={{ color: "#64748b", fontWeight: 600 }}>{k.department} {k.kpiName}</div>
                       <div style={{ fontSize: 14, fontWeight: 800, marginTop: 2 }}>
                         {k.current}/目標{k.target}{" "}

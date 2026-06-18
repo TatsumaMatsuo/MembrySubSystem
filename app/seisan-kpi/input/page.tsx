@@ -220,13 +220,13 @@ export default function SeisanKpiInputPage() {
                   <th style={{ ...thLeft, ...freezeHead, ...colName }}>KPI名称</th>
                   <th style={{ ...th, ...freezeHead, ...colUnit }}>単位</th>
                   <th style={{ ...th, ...freezeHead, ...colAnnual }}>年間目標</th>
-                  <th style={{ ...th, ...freezeHead, ...colMonthly, ...freezeEdge }}>月割</th>
+                  <th style={{ ...th, ...freezeHead, ...colMonthly }}>月割</th>
+                  <th style={{ ...th, ...freezeHead, ...colCum }}>年累計/平均</th>
+                  <th style={{ ...th, ...freezeHead, ...colPct }}>進捗率</th>
+                  <th style={{ ...th, ...freezeHead, ...colJudge, ...freezeEdge }}>判定</th>
                   {FY_MONTHS.map((m, i) => (
                     <th key={m} style={{ ...th, ...headSticky, background: i + 1 === inputTargetFm ? "#fef9c3" : "#f1f5f9", color: i + 1 === inputTargetFm ? "#92400e" : undefined }}>{m}</th>
                   ))}
-                  <th style={{ ...th, ...headSticky }}>年累計/平均</th>
-                  <th style={{ ...th, ...headSticky }}>進捗率</th>
-                  <th style={{ ...th, ...headSticky }}>判定</th>
                 </tr>
               </thead>
               <tbody>
@@ -237,7 +237,16 @@ export default function SeisanKpiInputPage() {
                       <td style={{ ...tdLeft, ...freezeCell, ...colName }} title={row.kpiName}>{row.kpiName}</td>
                       <td style={{ ...tdSub, ...freezeCell, ...colUnit }}>{row.unit}</td>
                       <td style={{ ...tdSub, ...freezeCell, ...colAnnual }}>{fmt1(row.annualTarget)}</td>
-                      <td style={{ ...tdSub, ...freezeCell, ...colMonthly, ...freezeEdge }}>{fmt1(row.monthlyTarget)}</td>
+                      <td style={{ ...tdSub, ...freezeCell, ...colMonthly }}>{fmt1(row.monthlyTarget)}</td>
+                      <td style={{ ...tdMon, ...freezeCell, ...colCum, background: "#f8fafc", fontWeight: 700 }}>
+                        {fmt1(current)}
+                      </td>
+                      <td style={{ ...tdMon, ...freezeCell, ...colPct, fontWeight: 700, color: !Number.isFinite(attainment) ? "#16a34a" : attainment >= 0.95 ? "#16a34a" : attainment >= 0.8 ? "#d97706" : "#dc2626" }}>
+                        {fmtPct(attainment)}
+                      </td>
+                      <td style={{ ...tdMon, ...freezeCell, ...colJudge, ...freezeEdge }}>
+                        <JudgmentBadge judgment={judgment} />
+                      </td>
                       {row.months.map((m) => {
                         const locked = m.fiscalMonth <= elapsed;
                         const isTarget = m.fiscalMonth === inputTargetFm;
@@ -264,15 +273,6 @@ export default function SeisanKpiInputPage() {
                           </td>
                         );
                       })}
-                      <td style={{ ...tdMon, background: "#f8fafc", fontWeight: 700 }}>
-                        {fmt1(current)}
-                      </td>
-                      <td style={{ ...tdMon, fontWeight: 700, color: !Number.isFinite(attainment) ? "#16a34a" : attainment >= 0.95 ? "#16a34a" : attainment >= 0.8 ? "#d97706" : "#dc2626" }}>
-                        {fmtPct(attainment)}
-                      </td>
-                      <td style={tdMon}>
-                        <JudgmentBadge judgment={judgment} />
-                      </td>
                     </tr>
                   );
                 })}
@@ -347,3 +347,6 @@ const colName: React.CSSProperties = { width: 200, minWidth: 200, maxWidth: 200,
 const colUnit: React.CSSProperties = { width: 70, minWidth: 70, maxWidth: 70, left: 200 };
 const colAnnual: React.CSSProperties = { width: 76, minWidth: 76, maxWidth: 76, left: 270 };
 const colMonthly: React.CSSProperties = { width: 64, minWidth: 64, maxWidth: 64, left: 346 };
+const colCum: React.CSSProperties = { width: 80, minWidth: 80, maxWidth: 80, left: 410 };
+const colPct: React.CSSProperties = { width: 64, minWidth: 64, maxWidth: 64, left: 490 };
+const colJudge: React.CSSProperties = { width: 64, minWidth: 64, maxWidth: 64, left: 554 };

@@ -32,7 +32,7 @@ L1: M0XX 経営【新設・独立メニュー】
  └ L2: M0XX-01 経営計画
      ├ program: 中期経営計画ダッシュボード /keiei/dashboard
      ├ program: 全社KPI(年度計画 vs 実績) /keiei/company-kpi
-     ├ program: 会計データ入力(月/四半期/半期) /keiei/kaikei-input
+     ├ program: 会計データ入力(月/四半期/半期/年) /keiei/kaikei-input
      └ program: 中計マスタ管理(管理者)  /keiei/midterm
 
 L1: M0YY 生産本部KPI

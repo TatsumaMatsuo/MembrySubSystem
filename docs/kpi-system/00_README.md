@@ -30,7 +30,7 @@
 |------|------|--------|
 | 経営 | 中期経営計画ダッシュボード | `/keiei/dashboard` |
 | 経営 | 全社KPI(年度計画 vs 実績) | `/keiei/company-kpi` |
-| 経営 | 会計データ入力(月/四半期/半期) | `/keiei/kaikei-input` |
+| 経営 | 会計データ入力(月/四半期/半期/年) | `/keiei/kaikei-input` |
 | 経営 | 中計マスタ管理 | `/keiei/midterm` |
 | 生産本部 | ① ダッシュボード | `/seisan-kpi/dashboard` |
 | 生産本部 | ② KPI実績入力 | `/seisan-kpi/input` |

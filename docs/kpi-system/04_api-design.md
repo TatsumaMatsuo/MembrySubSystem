@@ -22,7 +22,7 @@
 | GET | `/api/keiei/midterm?planId=MTP-1` | 中期経営計画(ヘッダ+明細)取得。複数中計対応 |
 | POST/PATCH | `/api/keiei/midterm` | 中計の作成/編集(管理者)。**線形補間で明細自動生成** |
 | GET | `/api/keiei/company-kpi?period=50` | 全社年度PL計画(既存 `COMPANY_KPI` 流用)取得 |
-| GET/POST | `/api/keiei/kaikei-actual` | 会計データ実績(粒度=月/四半期/半期・本部長一括入力)取得/保存 |
+| GET/POST | `/api/keiei/kaikei-actual` | 会計データ実績(粒度=月/四半期/半期/年・本部長一括入力)取得/保存 |
 | GET | `/api/keiei/dashboard?period=50` | 経営ダッシュボード集約(中計進捗+全社KPI進捗+会計入力状況) |
 
 ### 1.2 生産本部レイヤー(L2)— `/api/seisan-kpi/*`
@@ -199,7 +199,7 @@ function midtermTrajectory(startPeriod, startValue, endPeriod, endTarget): Recor
 ### 2.10 会計データの粒度正規化
 
 ```ts
-// 月/四半期/半期 の混在を年度累計に正規化。月別があれば四半期/半期は自動集計。
+// 月/四半期/半期/年 の混在を年度累計に正規化。月別があれば四半期/半期/年は自動集計。
 function normalizeKaikei(rows: KaikeiActual[], elapsed: number) { /* 粒度→累計 */ }
 ```
 

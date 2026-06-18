@@ -42,6 +42,7 @@ export default function SeisanKpiMasterPage() {
 
   return (
     <MainLayout>
+      <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: 20, maxWidth: 1340, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>KPIマスタ / グループマスタ管理</h1>
@@ -72,6 +73,7 @@ export default function SeisanKpiMasterPage() {
         {tab === "kpi"
           ? <KpiMasterTab period={period} setPeriod={setPeriod} setMessage={setMessage} />
           : <GroupMasterTab period={period} setMessage={setMessage} />}
+      </div>
       </div>
     </MainLayout>
   );

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
 import { getLarkTables, SCHEDULE_FIELDS } from "@/lib/lark-tables";
-import { AI_MODELS } from "@/lib/ai-models";
+import { AI_MODEL_CHAINS, createMessageWithFallback } from "@/lib/ai-models";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -53,8 +53,7 @@ async function ocrScheduleImage(imageBase64: string): Promise<Record<string, { s
 
   const currentYear = new Date().getFullYear();
 
-  const message = await anthropic.messages.create({
-    model: AI_MODELS.OCR_SCHEDULE,
+  const message = await createMessageWithFallback(anthropic, AI_MODEL_CHAINS.OCR_SCHEDULE, {
     max_tokens: 16000,
     // budget_tokens は Sonnet 4.6 では非推奨だが有効。SDK更新後に adaptive へ移行可
     thinking: { type: "enabled", budget_tokens: 8000 },

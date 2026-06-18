@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { AI_MODELS } from "@/lib/ai-models";
+import { AI_MODEL_CHAINS, createMessageWithFallback } from "@/lib/ai-models";
 import { getCostAnalysisBySeiban } from "@/services/cost-analysis.service";
 import { getCustomerRequestsBySeiban } from "@/services/customer-requests.service";
 import { getQualityIssuesBySeiban } from "@/services/quality-issues.service";
@@ -89,8 +89,7 @@ export async function GET(request: NextRequest) {
 
     const anthropic = new Anthropic({ apiKey });
 
-    const message = await anthropic.messages.create({
-      model: AI_MODELS.TEXT_ANALYSIS,
+    const message = await createMessageWithFallback(anthropic, AI_MODEL_CHAINS.TEXT_ANALYSIS, {
       max_tokens: 1024,
       messages: [
         {

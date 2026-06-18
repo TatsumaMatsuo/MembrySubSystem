@@ -1,0 +1,29 @@
+name: AI Model Health Check
+
+# 毎日 09:00 JST (00:00 UTC) に、lib/ai-models.ts のモデルIDが
+# まだ Anthropic で利用可能かを確認する。廃止(404)があればジョブが失敗し、
+# GitHub から通知メールが届く → lib/ai-models.ts を更新する合図。
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check-models:
+    runs-on: ubuntu-latest
+    name: Check Anthropic model availability
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check model availability
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npx tsx scripts/check-ai-models.ts

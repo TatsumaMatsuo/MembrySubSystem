@@ -36,6 +36,17 @@ interface BasicRow { kpiId: string; kpiName: string; department: string; level: 
 
 const FY_MONTHS = ["8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月", "4月", "5月", "6月", "7月"];
 
+/** 数値を小数点以下1桁で表示(null/非数は ―) */
+function fmt1(v: number | null | undefined): string {
+  return v == null || !Number.isFinite(v) ? "―" : (Math.round(v * 10) / 10).toFixed(1);
+}
+/** 入力文字列を小数点以下1桁までに制限(2桁目以降を切り捨て) */
+function limit1(s: string): string {
+  if (s === "" || s === "-") return s;
+  const m = s.match(/^-?\d*\.?\d?/);
+  return m ? m[0] : s;
+}
+
 export default function SeisanKpiInputPage() {
   const [period, setPeriod] = useState<number>(50);
   const [elapsed, setElapsed] = useState<number>(0);
@@ -103,7 +114,7 @@ export default function SeisanKpiInputPage() {
   const fmtPct = (v: number) => (!Number.isFinite(v) ? "―" : `${Math.round(v * 100)}%`);
 
   const setEdit = (kpiId: string, fm: number, val: string) => {
-    setEdits((e) => ({ ...e, [`${kpiId}:${fm}`]: val }));
+    setEdits((e) => ({ ...e, [`${kpiId}:${fm}`]: limit1(val) }));
   };
 
   const dirtyItems = useMemo(() => {
@@ -114,7 +125,7 @@ export default function SeisanKpiInputPage() {
         period,
         kpiId,
         fiscalMonth: Number(fmStr),
-        value: val === "" ? null : Number(val),
+        value: val === "" ? null : Math.round(Number(val) * 10) / 10,
       });
     }
     return items;
@@ -225,8 +236,8 @@ export default function SeisanKpiInputPage() {
                     <tr key={row.kpiId}>
                       <td style={{ ...tdLeft, ...freezeCell, ...colName }} title={row.kpiName}>{row.kpiName}</td>
                       <td style={{ ...tdSub, ...freezeCell, ...colUnit }}>{row.unit}</td>
-                      <td style={{ ...tdSub, ...freezeCell, ...colAnnual }}>{row.annualTarget}</td>
-                      <td style={{ ...tdSub, ...freezeCell, ...colMonthly, ...freezeEdge }}>{row.monthlyTarget}</td>
+                      <td style={{ ...tdSub, ...freezeCell, ...colAnnual }}>{fmt1(row.annualTarget)}</td>
+                      <td style={{ ...tdSub, ...freezeCell, ...colMonthly, ...freezeEdge }}>{fmt1(row.monthlyTarget)}</td>
                       {row.months.map((m) => {
                         const locked = m.fiscalMonth <= elapsed;
                         const isTarget = m.fiscalMonth === inputTargetFm;
@@ -240,10 +251,11 @@ export default function SeisanKpiInputPage() {
                         return (
                           <td key={m.fiscalMonth} style={{ ...tdMon, background: locked ? "#f1f5f9" : isTarget ? "#fef9c3" : undefined }}>
                             {locked ? (
-                              <span style={{ color: "#94a3b8" }}>{m.value ?? "―"}</span>
+                              <span style={{ color: "#94a3b8" }}>{fmt1(m.value)}</span>
                             ) : (
                               <input
                                 type="number"
+                                step="0.1"
                                 value={shown}
                                 onChange={(e) => setEdit(row.kpiId, m.fiscalMonth, e.target.value)}
                                 style={{ width: 52, border: isTarget ? "2px solid #facc15" : "1px solid #e2e8f0", borderRadius: 4, padding: "3px 4px", textAlign: "right", fontSize: 12 }}
@@ -253,7 +265,7 @@ export default function SeisanKpiInputPage() {
                         );
                       })}
                       <td style={{ ...tdMon, background: "#f8fafc", fontWeight: 700 }}>
-                        {Number.isFinite(current) ? Math.round(current * 100) / 100 : "―"}
+                        {fmt1(current)}
                       </td>
                       <td style={{ ...tdMon, fontWeight: 700, color: !Number.isFinite(attainment) ? "#16a34a" : attainment >= 0.95 ? "#16a34a" : attainment >= 0.8 ? "#d97706" : "#dc2626" }}>
                         {fmtPct(attainment)}

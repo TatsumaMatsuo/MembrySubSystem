@@ -151,9 +151,10 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
       {showNew && <NewKpiDialog period={props.period} depts={[...new Set(rows.map((r) => r.department).filter(Boolean))]} cats={cats} onClose={() => setShowNew(false)} onSaved={() => { setShowNew(false); load(); }} setMessage={props.setMessage} />}
 
       <div style={{ ...card, overflowX: "auto" }}>
+        <style>{`.km-table tbody tr:nth-child(even){background:#f6f8fb}.km-table tbody tr:hover{background:#eef5ff}.km-table tbody tr.km-off{background:#eceff3;color:#94a3b8}.km-table tbody tr.km-off:hover{background:#e3e7ed}`}</style>
         <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>{props.period}期 / {filtered.length}件(全{rows.length}件)。セルを編集して各行の保存ボタンで確定(AUDIT記録)。</div>
         {loading ? <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>読み込み中…</div> : (
-          <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12, whiteSpace: "nowrap" }}>
+          <table className="km-table" style={{ borderCollapse: "collapse", width: "100%", fontSize: 12, whiteSpace: "nowrap" }}>
             <thead>
               <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
                 {["KPI_ID", "階層", "部署", "カテゴリ", "KPI名称", "単位", "集計", "方向", "年間目標", "月次目標", "オーナー", "データソース", "入力タイミング", "備考", "有効", ""].map((h) => <th key={h} style={th}>{h}</th>)}
@@ -163,21 +164,21 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
               {filtered.map((r) => {
                 const dirty = !!edits[r.kpiId];
                 return (
-                  <tr key={r.recordId} style={{ background: r.isActive ? undefined : "#f8fafc" }}>
+                  <tr key={r.recordId} className={!r.isActive ? "km-off" : undefined}>
                     <td style={{ ...td, fontWeight: 700 }}>{r.kpiId}</td>
                     <td style={td}>{r.level}</td>
                     <td style={td}>{r.department}</td>
                     <td style={td}>{r.category}</td>
-                    <td style={tdEd}><input value={getVal(r, "kpiName")} onChange={(e) => setVal(r.kpiId, { kpiName: e.target.value })} style={{ ...cellInput, width: 180 }} /></td>
-                    <td style={tdEd}><input value={getVal(r, "unit")} onChange={(e) => setVal(r.kpiId, { unit: e.target.value })} style={{ ...cellInput, width: 50 }} /></td>
-                    <td style={tdEd}><select value={getVal(r, "aggType")} onChange={(e) => setVal(r.kpiId, { aggType: e.target.value })} style={cellInput}>{AGG_TYPES.map((a) => <option key={a} value={a}>{a}</option>)}</select></td>
-                    <td style={tdEd}><select value={getVal(r, "direction")} onChange={(e) => setVal(r.kpiId, { direction: e.target.value })} style={cellInput}>{DIRECTIONS.map((d) => <option key={d} value={d}>{d}</option>)}</select></td>
-                    <td style={tdEd}><input type="number" value={getVal(r, "annualTarget")} onChange={(e) => setVal(r.kpiId, { annualTarget: Number(e.target.value) })} style={{ ...cellInput, width: 70, textAlign: "right" }} /></td>
-                    <td style={tdEd}><input type="number" value={getVal(r, "monthlyTarget")} onChange={(e) => setVal(r.kpiId, { monthlyTarget: Number(e.target.value) })} style={{ ...cellInput, width: 70, textAlign: "right" }} /></td>
-                    <td style={tdEd}><input value={getVal(r, "owner")} onChange={(e) => setVal(r.kpiId, { owner: e.target.value })} style={{ ...cellInput, width: 100 }} /></td>
-                    <td style={tdEd}><input value={getVal(r, "dataSource")} onChange={(e) => setVal(r.kpiId, { dataSource: e.target.value })} style={{ ...cellInput, width: 120 }} /></td>
-                    <td style={tdEd}><input value={getVal(r, "inputTiming")} onChange={(e) => setVal(r.kpiId, { inputTiming: e.target.value })} style={{ ...cellInput, width: 96 }} /></td>
-                    <td style={tdEd}><input value={getVal(r, "notes")} onChange={(e) => setVal(r.kpiId, { notes: e.target.value })} style={{ ...cellInput, width: 130 }} /></td>
+                    <td style={tdEd}><input value={getVal(r, "kpiName")} onChange={(e) => setVal(r.kpiId, { kpiName: e.target.value })} style={{ ...cellInput, minWidth: 160 }} /></td>
+                    <td style={tdEd}><input value={getVal(r, "unit")} onChange={(e) => setVal(r.kpiId, { unit: e.target.value })} style={{ ...cellInput, minWidth: 44 }} /></td>
+                    <td style={tdEd}><select value={getVal(r, "aggType")} onChange={(e) => setVal(r.kpiId, { aggType: e.target.value })} style={{ ...cellInput, minWidth: 96 }}>{AGG_TYPES.map((a) => <option key={a} value={a}>{a}</option>)}</select></td>
+                    <td style={tdEd}><select value={getVal(r, "direction")} onChange={(e) => setVal(r.kpiId, { direction: e.target.value })} style={{ ...cellInput, minWidth: 96 }}>{DIRECTIONS.map((d) => <option key={d} value={d}>{d}</option>)}</select></td>
+                    <td style={tdEd}><input type="number" value={getVal(r, "annualTarget")} onChange={(e) => setVal(r.kpiId, { annualTarget: Number(e.target.value) })} style={{ ...cellInput, minWidth: 64, textAlign: "right" }} /></td>
+                    <td style={tdEd}><input type="number" value={getVal(r, "monthlyTarget")} onChange={(e) => setVal(r.kpiId, { monthlyTarget: Number(e.target.value) })} style={{ ...cellInput, minWidth: 64, textAlign: "right" }} /></td>
+                    <td style={tdEd}><input value={getVal(r, "owner")} onChange={(e) => setVal(r.kpiId, { owner: e.target.value })} style={{ ...cellInput, minWidth: 90 }} /></td>
+                    <td style={tdEd}><input value={getVal(r, "dataSource")} onChange={(e) => setVal(r.kpiId, { dataSource: e.target.value })} style={{ ...cellInput, minWidth: 110 }} /></td>
+                    <td style={tdEd}><input value={getVal(r, "inputTiming")} onChange={(e) => setVal(r.kpiId, { inputTiming: e.target.value })} style={{ ...cellInput, minWidth: 90 }} /></td>
+                    <td style={tdEd}><input value={getVal(r, "notes")} onChange={(e) => setVal(r.kpiId, { notes: e.target.value })} style={{ ...cellInput, minWidth: 120 }} /></td>
                     <td style={{ ...td, textAlign: "center" }}>
                       <input type="checkbox" checked={getVal(r, "isActive")} onChange={(e) => setVal(r.kpiId, { isActive: e.target.checked })} style={{ width: 16, height: 16, accentColor: "#16a34a" }} />
                     </td>
@@ -439,8 +440,8 @@ const sel: React.CSSProperties = { border: "1px solid #e2e8f0", borderRadius: 8,
 const btnGhost: React.CSSProperties = { background: "#fff", color: "#1f3864", border: "1px solid #1f3864", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" };
 const th: React.CSSProperties = { padding: "7px 9px", borderBottom: "1px solid #e2e8f0", textAlign: "left", fontWeight: 600, fontSize: 11 };
 const td: React.CSSProperties = { padding: "6px 9px", borderBottom: "1px solid #f1f5f9", textAlign: "left" };
-const tdEd: React.CSSProperties = { ...td, background: "#fcfcfd" };
-const cellInput: React.CSSProperties = { border: "1px solid #e2e8f0", borderRadius: 4, padding: "3px 5px", fontSize: 12 };
+const tdEd: React.CSSProperties = { ...td };
+const cellInput: React.CSSProperties = { width: "100%", boxSizing: "border-box", border: "1px solid #e2e8f0", borderRadius: 4, padding: "3px 5px", fontSize: 12 };
 const thMx: React.CSSProperties = { padding: "7px 9px", border: "1px solid #e2e8f0", textAlign: "center", fontWeight: 600, fontSize: 11, background: "#f1f5f9", color: "#64748b" };
 const tdMx: React.CSSProperties = { padding: "6px 9px", border: "1px solid #e2e8f0", textAlign: "center" };
 const lbl: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "#475569", fontWeight: 600 };

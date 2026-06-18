@@ -206,10 +206,10 @@ export default function SeisanKpiInputPage() {
             <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12, whiteSpace: "nowrap" }}>
               <thead>
                 <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
-                  <th style={thLeft}>KPI名称</th>
-                  <th style={th}>単位</th>
-                  <th style={th}>年間目標</th>
-                  <th style={th}>月割</th>
+                  <th style={{ ...thLeft, ...freezeHead, ...colName }}>KPI名称</th>
+                  <th style={{ ...th, ...freezeHead, ...colUnit }}>単位</th>
+                  <th style={{ ...th, ...freezeHead, ...colAnnual }}>年間目標</th>
+                  <th style={{ ...th, ...freezeHead, ...colMonthly, ...freezeEdge }}>月割</th>
                   {FY_MONTHS.map((m, i) => (
                     <th key={m} style={{ ...th, background: i + 1 === inputTargetFm ? "#fef9c3" : undefined, color: i + 1 === inputTargetFm ? "#92400e" : undefined }}>{m}</th>
                   ))}
@@ -223,10 +223,10 @@ export default function SeisanKpiInputPage() {
                   const { current, attainment, judgment } = recompute(row);
                   return (
                     <tr key={row.kpiId}>
-                      <td style={tdLeft}>{row.kpiName}</td>
-                      <td style={tdSub}>{row.unit}</td>
-                      <td style={tdSub}>{row.annualTarget}</td>
-                      <td style={tdSub}>{row.monthlyTarget}</td>
+                      <td style={{ ...tdLeft, ...freezeCell, ...colName }} title={row.kpiName}>{row.kpiName}</td>
+                      <td style={{ ...tdSub, ...freezeCell, ...colUnit }}>{row.unit}</td>
+                      <td style={{ ...tdSub, ...freezeCell, ...colAnnual }}>{row.annualTarget}</td>
+                      <td style={{ ...tdSub, ...freezeCell, ...colMonthly, ...freezeEdge }}>{row.monthlyTarget}</td>
                       {row.months.map((m) => {
                         const locked = m.fiscalMonth <= elapsed;
                         const isTarget = m.fiscalMonth === inputTargetFm;
@@ -325,3 +325,12 @@ const td: React.CSSProperties = { padding: "6px 8px", borderBottom: "1px solid #
 const tdLeft: React.CSSProperties = { ...td, textAlign: "left", fontWeight: 600 };
 const tdSub: React.CSSProperties = { ...td, color: "#64748b" };
 const tdMon: React.CSSProperties = { ...td, textAlign: "center", fontVariantNumeric: "tabular-nums" };
+
+// 左4列(KPI名称/単位/年間目標/月割)を横スクロール時に固定する sticky スタイル
+const freezeCell: React.CSSProperties = { position: "sticky", background: "#fff", zIndex: 2, overflow: "hidden", textOverflow: "ellipsis" };
+const freezeHead: React.CSSProperties = { position: "sticky", background: "#f1f5f9", zIndex: 3, overflow: "hidden", textOverflow: "ellipsis" };
+const freezeEdge: React.CSSProperties = { boxShadow: "2px 0 4px -2px rgba(15,23,42,0.15)" }; // 固定列の右端境界
+const colName: React.CSSProperties = { width: 200, minWidth: 200, maxWidth: 200, left: 0 };
+const colUnit: React.CSSProperties = { width: 70, minWidth: 70, maxWidth: 70, left: 200 };
+const colAnnual: React.CSSProperties = { width: 76, minWidth: 76, maxWidth: 76, left: 270 };
+const colMonthly: React.CSSProperties = { width: 64, minWidth: 64, maxWidth: 64, left: 346 };

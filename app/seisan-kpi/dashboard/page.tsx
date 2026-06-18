@@ -81,24 +81,24 @@ export default function SeisanDashboardPage() {
 
         {error && <div style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: "#fef2f2", color: "#991b1b" }}>{error}</div>}
 
-        {/* 信号盤 */}
-        <div style={sectionTitle}>経営KPI 信号盤（生産本部全体・Lv2）</div>
-        {loading ? <div style={{ padding: 30, color: "#64748b" }}>読み込み中…</div> : (
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 14 }}>
-            {signals.map((s) => (
-              <div key={s.kpiId} style={{ ...card, borderLeft: `6px solid ${JUDGMENT_COLORS[s.judgment]}`, position: "relative" }}>
-                <span style={{ position: "absolute", top: 14, right: 14 }}><JudgmentBadge judgment={s.judgment} size="sm" /></span>
-                <div style={{ fontSize: 12.5, color: "#64748b", fontWeight: 600, minHeight: 34 }}>{s.name}</div>
-                <div style={{ fontSize: 24, fontWeight: 800, margin: "4px 0 1px" }}>{fmtNum(s.current)}<span style={{ fontSize: 12, color: "#64748b" }}> {s.unit}</span></div>
-                <div style={{ fontSize: 11, color: "#64748b" }}>目標 {fmtNum(s.target)} {s.unit}</div>
+        {/* 信号盤 ＋ 要対応KPI を横並び（Web）。モバイルは縦積み */}
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,2.4fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+          <div>
+            <div style={sectionTitle}>経営KPI 信号盤（生産本部全体・Lv2）</div>
+            {loading ? <div style={{ padding: 30, color: "#64748b" }}>読み込み中…</div> : (
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(3,1fr)", gap: 14 }}>
+                {signals.map((s) => (
+                  <div key={s.kpiId} style={{ ...card, borderLeft: `6px solid ${JUDGMENT_COLORS[s.judgment]}`, position: "relative" }}>
+                    <span style={{ position: "absolute", top: 14, right: 14 }}><JudgmentBadge judgment={s.judgment} size="sm" /></span>
+                    <div style={{ fontSize: 12.5, color: "#64748b", fontWeight: 600, minHeight: 34 }}>{s.name}</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, margin: "4px 0 1px" }}>{fmtNum(s.current)}<span style={{ fontSize: 12, color: "#64748b" }}> {s.unit}</span></div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>目標 {fmtNum(s.target)} {s.unit}</div>
+                  </div>
+                ))}
+                {signals.length === 0 && <div style={{ color: "#64748b", padding: 20 }}>Lv2 KPIの実績がありません。</div>}
               </div>
-            ))}
-            {signals.length === 0 && <div style={{ color: "#64748b", padding: 20 }}>Lv2 KPIの実績がありません。</div>}
+            )}
           </div>
-        )}
-
-        {/* 要対応 + ★ランキング */}
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "0.8fr 1.1fr 1.1fr", gap: 16, marginTop: 8 }}>
           <div>
             <div style={sectionTitle}>要対応KPI</div>
             <div style={card}>
@@ -114,6 +114,10 @@ export default function SeisanDashboardPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ★達成ランキング（製造部 / 生産管理部）を横並び */}
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginTop: 8 }}>
           <div>
             <div style={sectionTitle}>製造部 ★達成ランキング（6課）</div>
             <div style={card}>{manuf.map((r, i) => <StarRow key={r.department} rank={i + 1} {...r} max={maxStar} crown={["🥇", "🥈", "🥉"][i]} />)}</div>

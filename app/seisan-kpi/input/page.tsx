@@ -197,7 +197,7 @@ export default function SeisanKpiInputPage() {
           </div>
         )}
 
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 6, overflowX: "auto" }}>
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 6, overflow: "auto", maxHeight: "calc(100vh - 300px)" }}>
           {loading ? (
             <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>読み込み中…</div>
           ) : rows.length === 0 ? (
@@ -211,11 +211,11 @@ export default function SeisanKpiInputPage() {
                   <th style={{ ...th, ...freezeHead, ...colAnnual }}>年間目標</th>
                   <th style={{ ...th, ...freezeHead, ...colMonthly, ...freezeEdge }}>月割</th>
                   {FY_MONTHS.map((m, i) => (
-                    <th key={m} style={{ ...th, background: i + 1 === inputTargetFm ? "#fef9c3" : undefined, color: i + 1 === inputTargetFm ? "#92400e" : undefined }}>{m}</th>
+                    <th key={m} style={{ ...th, ...headSticky, background: i + 1 === inputTargetFm ? "#fef9c3" : "#f1f5f9", color: i + 1 === inputTargetFm ? "#92400e" : undefined }}>{m}</th>
                   ))}
-                  <th style={th}>年累計/平均</th>
-                  <th style={th}>進捗率</th>
-                  <th style={th}>判定</th>
+                  <th style={{ ...th, ...headSticky }}>年累計/平均</th>
+                  <th style={{ ...th, ...headSticky }}>進捗率</th>
+                  <th style={{ ...th, ...headSticky }}>判定</th>
                 </tr>
               </thead>
               <tbody>
@@ -328,7 +328,8 @@ const tdMon: React.CSSProperties = { ...td, textAlign: "center", fontVariantNume
 
 // 左4列(KPI名称/単位/年間目標/月割)を横スクロール時に固定する sticky スタイル
 const freezeCell: React.CSSProperties = { position: "sticky", background: "#fff", zIndex: 2, overflow: "hidden", textOverflow: "ellipsis" };
-const freezeHead: React.CSSProperties = { position: "sticky", background: "#f1f5f9", zIndex: 3, overflow: "hidden", textOverflow: "ellipsis" };
+const freezeHead: React.CSSProperties = { position: "sticky", top: 0, background: "#f1f5f9", zIndex: 4, overflow: "hidden", textOverflow: "ellipsis" }; // 角セル(行+列固定)
+const headSticky: React.CSSProperties = { position: "sticky", top: 0, background: "#f1f5f9", zIndex: 3 }; // ヘッダ行(縦スクロール固定)
 const freezeEdge: React.CSSProperties = { boxShadow: "2px 0 4px -2px rgba(15,23,42,0.15)" }; // 固定列の右端境界
 const colName: React.CSSProperties = { width: 200, minWidth: 200, maxWidth: 200, left: 0 };
 const colUnit: React.CSSProperties = { width: 70, minWidth: 70, maxWidth: 70, left: 200 };

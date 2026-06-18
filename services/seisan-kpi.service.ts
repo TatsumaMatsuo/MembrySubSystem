@@ -278,7 +278,8 @@ export async function getInputRows(period: number, department?: string): Promise
   const pinfo = periods.find((p) => p.period === period);
   const elapsed = pinfo?.elapsedMonths ?? 0;
 
-  const filtered = department
+  // 「生産本部全体」は総覧ビュー: 部署で絞らず全KPIを表示。それ以外の部署は一致で絞る。
+  const filtered = department && department !== "生産本部全体"
     ? master.filter((m) => m.department === department)
     : master;
 

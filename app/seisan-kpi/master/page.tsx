@@ -150,14 +150,15 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
       {showClone && <CloneDialog fromPeriod={props.period} onClose={() => setShowClone(false)} setMessage={props.setMessage} />}
       {showNew && <NewKpiDialog period={props.period} depts={[...new Set(rows.map((r) => r.department).filter(Boolean))]} cats={cats} onClose={() => setShowNew(false)} onSaved={() => { setShowNew(false); load(); }} setMessage={props.setMessage} />}
 
-      <div style={{ ...card, overflowX: "auto" }}>
+      <div style={{ ...card }}>
         <style>{`.km-table tbody tr:nth-child(even){background:#f6f8fb}.km-table tbody tr:hover{background:#eef5ff}.km-table tbody tr.km-off{background:#eceff3;color:#94a3b8}.km-table tbody tr.km-off:hover{background:#e3e7ed}`}</style>
         <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>{props.period}期 / {filtered.length}件(全{rows.length}件)。セルを編集して各行の保存ボタンで確定(AUDIT記録)。</div>
         {loading ? <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>読み込み中…</div> : (
+          <div style={{ overflow: "auto", maxHeight: "calc(100vh - 340px)" }}>
           <table className="km-table" style={{ borderCollapse: "collapse", width: "100%", fontSize: 12, whiteSpace: "nowrap" }}>
             <thead>
               <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
-                {["KPI_ID", "階層", "部署", "カテゴリ", "KPI名称", "単位", "集計", "方向", "年間目標", "月次目標", "オーナー", "データソース", "入力タイミング", "備考", "有効", ""].map((h) => <th key={h} style={th}>{h}</th>)}
+                {["KPI_ID", "階層", "部署", "カテゴリ", "KPI名称", "単位", "集計", "方向", "年間目標", "月次目標", "オーナー", "データソース", "入力タイミング", "備考", "有効", ""].map((h) => <th key={h} style={{ ...th, position: "sticky", top: 0, background: "#f1f5f9", zIndex: 1 }}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -191,6 +192,7 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
               })}
             </tbody>
           </table>
+          </div>
         )}
         <div style={{ fontSize: 11, color: "#64748b", marginTop: 10 }}>
           編集項目: KPI名称・単位・集計タイプ・良い方向・年間目標・月次目標換算・オーナー・有効フラグ。期切替=新期作成で前期定義を複製→目標値のみ更新。部署はLark部門に追従。
@@ -249,7 +251,7 @@ function CloneDialog(props: { fromPeriod: number; onClose: () => void; setMessag
 
 /* ===== KPI追加ダイアログ ===== */
 function NewKpiDialog(props: { period: number; depts: string[]; cats: string[]; onClose: () => void; onSaved: () => void; setMessage: (m: string | null) => void }) {
-  const [f, setF] = useState({ kpiId: "", level: "Lv4", department: props.depts[0] ?? "", category: props.cats[0] ?? "", kpiName: "", unit: "", aggType: "累計", direction: "高い方が良い", annualTarget: 0, monthlyTarget: 0, owner: "", dataSource: "", inputTiming: "", notes: "" });
+  const [f, setF] = useState({ kpiId: "", level: "Lv4", department: "", category: "", kpiName: "", unit: "", aggType: "累計", direction: "高い方が良い", annualTarget: 0, monthlyTarget: 0, owner: "", dataSource: "", inputTiming: "", notes: "" });
   const [busy, setBusy] = useState(false);
   const set = (patch: Partial<typeof f>) => setF((s) => ({ ...s, ...patch }));
 

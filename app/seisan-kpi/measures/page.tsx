@@ -97,6 +97,7 @@ export default function SeisanKpiMeasuresPage() {
 
   return (
     <MainLayout>
+      <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: 20, maxWidth: 1340, margin: "0 auto" }}>
         {/* ヘッダ */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
@@ -250,6 +251,7 @@ export default function SeisanKpiMeasuresPage() {
         )}
 
         <PastMeasures />
+      </div>
       </div>
     </MainLayout>
   );

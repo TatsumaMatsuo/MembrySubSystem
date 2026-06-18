@@ -70,6 +70,7 @@ export default function SeisanKpiStarsPage() {
 
   return (
     <MainLayout>
+      <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: 20, maxWidth: 1340, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>★達成評価 ― 部署ごと</h1>
@@ -209,6 +210,7 @@ export default function SeisanKpiStarsPage() {
             </div>
           </>
         )}
+      </div>
       </div>
     </MainLayout>
   );

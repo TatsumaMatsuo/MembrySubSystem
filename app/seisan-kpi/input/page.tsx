@@ -146,6 +146,7 @@ export default function SeisanKpiInputPage() {
 
   return (
     <MainLayout>
+      <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: "20px", maxWidth: 1500, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>
@@ -312,6 +313,7 @@ export default function SeisanKpiInputPage() {
             )}
           </div>
         )}
+      </div>
       </div>
     </MainLayout>
   );

@@ -47,6 +47,7 @@ export default function SeisanKpiHelpPage() {
 
   return (
     <MainLayout>
+      <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: 20, maxWidth: 1180, margin: "0 auto" }}>
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1f3864", color: "#fff", borderRadius: 14, padding: "16px 24px", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
           <h1 style={{ fontSize: 19, margin: 0, fontWeight: 700 }}>📖 ヘルプ ― 運用ガイド</h1>
@@ -165,6 +166,7 @@ export default function SeisanKpiHelpPage() {
             </Card>
           </main>
         </div>
+      </div>
       </div>
     </MainLayout>
   );

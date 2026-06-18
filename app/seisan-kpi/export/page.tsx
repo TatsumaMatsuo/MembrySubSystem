@@ -47,6 +47,7 @@ export default function SeisanKpiExportPage() {
 
   return (
     <MainLayout>
+      <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: 20, maxWidth: 1340, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }} className="no-print">
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>データエクスポート</h1>
@@ -102,6 +103,7 @@ export default function SeisanKpiExportPage() {
             )}
           {rows.length > 50 && <div className="no-print" style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>… 他 {rows.length - 50} 件(CSV/Excel出力で全件取得できます)</div>}
         </div>
+      </div>
       </div>
     </MainLayout>
   );

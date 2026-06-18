@@ -57,6 +57,7 @@ export default function SeisanKpiHistoryPage() {
 
   return (
     <MainLayout>
+      <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: 20, maxWidth: 1340, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>過去実績参照 ― 43〜49期 + 50期目標</h1>
@@ -96,6 +97,7 @@ export default function SeisanKpiHistoryPage() {
           : scope === "zensha" ? <ZenshaView rows={data.zensha ?? []} />
           : scope === "busho" ? <BushoView dept={dept} rows={data.busho ?? []} />
           : <GroupView group={data.group} />}
+      </div>
       </div>
     </MainLayout>
   );

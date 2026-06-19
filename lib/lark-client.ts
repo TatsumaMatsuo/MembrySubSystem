@@ -65,36 +65,69 @@ export async function getBaseRecords(tableId: string, params?: {
   pageToken?: string;
   baseToken?: string;
 }) {
-  try {
-    const appToken = params?.baseToken || getLarkBaseToken();
-    console.log("[lark-client] getBaseRecords called:", {
-      app_token: appToken,
-      table_id: tableId,
-      filter: params?.filter,
-    });
-    const response = await larkClient.bitable.appTableRecord.list({
-      path: {
-        app_token: appToken,
-        table_id: tableId,
-      },
-      params: {
-        filter: params?.filter,
-        sort: params?.sort ? JSON.stringify(params.sort) : undefined,
-        page_size: params?.pageSize || 100,
-        page_token: params?.pageToken,
-      },
-    });
-    console.log("[lark-client] Response:", {
-      code: response.code,
-      msg: response.msg,
-      total: response.data?.total,
-      items_count: response.data?.items?.length,
-    });
-    return response;
-  } catch (error) {
-    console.error("Error fetching Lark Base records:", error);
-    throw error;
+  const appToken = params?.baseToken || getLarkBaseToken();
+  console.log("[lark-client] getBaseRecords called:", {
+    app_token: appToken,
+    table_id: tableId,
+    filter: params?.filter,
+  });
+  let lastError: any;
+  // 一過性エラー(頻度制限/5xx/ネットワーク)は短い待機で最大3回リトライ。読み取りのみなので安全。
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await larkClient.bitable.appTableRecord.list({
+        path: {
+          app_token: appToken,
+          table_id: tableId,
+        },
+        params: {
+          filter: params?.filter,
+          sort: params?.sort ? JSON.stringify(params.sort) : undefined,
+          page_size: params?.pageSize || 100,
+          page_token: params?.pageToken,
+        },
+      });
+      console.log("[lark-client] Response:", {
+        code: response.code,
+        msg: response.msg,
+        total: response.data?.total,
+        items_count: response.data?.items?.length,
+      });
+      return response;
+    } catch (error: any) {
+      lastError = error;
+      const status = error?.status ?? error?.response?.status;
+      const detail = error?.response?.data ?? error?.data;
+      const code = detail?.code;
+      const msg: string = detail?.msg ?? "";
+      // Lark頻度制限は HTTP 400/429 + 特定code/メッセージで返ることがある
+      const rateLimited =
+        [1254607, 1254290, 1254291, 99991400, 99991661].includes(code) ||
+        /frequenc|rate.?limit|too many|limit exceeded|限流|限频|频繁/i.test(msg);
+      const transient =
+        status === 429 || (typeof status === "number" && status >= 500 && status < 600) ||
+        error?.code === "ECONNRESET" || error?.code === "ETIMEDOUT" || error?.code === "ENOTFOUND" ||
+        rateLimited;
+      if (transient && attempt < 2) {
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+        continue;
+      }
+      break;
+    }
   }
+  // 恒久エラー: Larkの詳細(table/status/code/msg)を含めて投げ直し、真因を特定できるようにする。
+  const detail = lastError?.response?.data ?? lastError?.data;
+  const status = lastError?.status ?? lastError?.response?.status;
+  console.error("Error fetching Lark Base records:", {
+    table_id: tableId,
+    filter: params?.filter,
+    status,
+    detail: detail ? JSON.stringify(detail).slice(0, 500) : undefined,
+  });
+  if (detail?.code != null || detail?.msg) {
+    throw new Error(`Lark取得失敗 table=${tableId} status=${status ?? "?"} code=${detail?.code ?? "?"} msg=${detail?.msg ?? "?"}`);
+  }
+  throw lastError;
 }
 
 export async function createBaseRecord(

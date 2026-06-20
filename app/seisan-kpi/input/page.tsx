@@ -204,7 +204,7 @@ export default function SeisanKpiInputPage() {
         </div>
         {rows.some((r) => r.readOnly) && (
           <div style={{ fontSize: 12, padding: "8px 12px", borderRadius: 8, marginBottom: 10, background: "#eef5ff", border: "1px solid #c7ddff", color: "#1e3a8a" }}>
-            積み上げ先に設定されたKPI（子を持つ行）は、子の実績を<b>集計した結果</b>です（集計タイプに従い 累計=合算／平均=単純平均／直近=合算・多段対応）。集計行は<b>入力不可</b>。元の値は子（各課）を選択して入力してください。
+            積み上げ先に設定されたKPI（子を持つ行）は、子の実績を<b>集計した結果</b>です（集計タイプに従い 累計=合算／平均=単純平均・多段対応／<b>直近月値は集計せず各自入力</b>）。集計行は<b>入力不可</b>。元の値は子（各課）を選択して入力してください。
           </div>
         )}
 

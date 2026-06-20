@@ -309,8 +309,9 @@ export async function getInputRows(period: number, department?: string): Promise
     const node = masterById.get(kpiId);
     const children = childrenByParent.get(kpiId) ?? [];
     let result: (number | null)[];
-    if (!node || children.length === 0) {
-      result = ownVals(kpiId); // 葉=自身の実績
+    // 直近月値は積み上げ集計しない(合算しない)。子があっても自身の値をそのまま使う。
+    if (!node || children.length === 0 || node.aggType === "直近月値") {
+      result = ownVals(kpiId); // 葉 or 直近月値=自身の実績
     } else {
       stack.add(kpiId);
       const childVals = children.map((c) => resolveVals(c.kpiId, stack));
@@ -324,7 +325,9 @@ export async function getInputRows(period: number, department?: string): Promise
     monthCache.set(kpiId, result);
     return result;
   };
-  const isComputed = (kpiId: string) => (childrenByParent.get(kpiId)?.length ?? 0) > 0;
+  // 子を持つKPI=集計値(読取専用)。ただし直近月値は集計しない=常に手入力(自身の値)。
+  const isComputed = (kpiId: string) =>
+    (childrenByParent.get(kpiId)?.length ?? 0) > 0 && masterById.get(kpiId)?.aggType !== "直近月値";
 
   const rows: KpiInputRow[] = filtered
     .filter((m) => m.aggType !== "基礎データ算出") // 算出KPIは会計データ画面で扱う

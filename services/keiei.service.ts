@@ -105,7 +105,7 @@ function averageKaikeiValue(rows: KaikeiRow[]): number {
 }
 
 /** KAIKEI_ACTUAL を勘定科目ごとに年度累計へ正規化(百万円)。人員数=期中平均/総資産=直近。 */
-async function getKaikeiCumByAccount(period: number): Promise<Map<string, number>> {
+export async function getKaikeiCumByAccount(period: number): Promise<Map<string, number>> {
   const t = getLarkTables();
   const r = await getBaseRecords(t.KAIKEI_ACTUAL, {
     baseToken: base(),

@@ -1617,11 +1617,31 @@ function targetValidity(pastValues: number[], target: number | null, direction: 
   }
 }
 
-/** 全社・部門スコープ: HISTORY(43-49期)推移 + 50期目標 + 妥当性 */
+/**
+ * 過去実績(HISTORY)指標 → 取得元の対応。
+ * HISTORYテーブルはKPIコードを持たない手動移行データのため、50期以降を実績から動的反映するには
+ * 指標名→ソースの対応をここで明示する。未定義の指標(例: 鉄工一人当たり生産量)は過去値(43-49)のみ表示。
+ */
+type HistorySource =
+  | { kind: "kpi"; kpiId: string } // KPI月次実績(ACTUAL)の年間集計(集計タイプはマスタに従う)
+  | { kind: "kaikei"; metric: "粗利率" | "総資産回転率" }; // 会計データ(KAIKEI)から算出
+const HISTORY_INDICATOR_SOURCE: Record<string, HistorySource> = {
+  クレーム件数: { kind: "kpi", kpiId: "M-03" },
+  社内不具合件数: { kind: "kpi", kpiId: "M-04" },
+  鉄工全体生産量: { kind: "kpi", kpiId: "M-16" },
+  縫製全体生産量: { kind: "kpi", kpiId: "M-17" },
+  粗利率: { kind: "kaikei", metric: "粗利率" },
+  総資産回転率: { kind: "kaikei", metric: "総資産回転率" },
+  // 鉄工一人当たり生産量: 取得元未定義 → 過去(43-49)のみ表示(現時点で対応不要)
+};
+/** 動的反映の対象とする最初の期(システム運用開始=ACTUAL/会計が存在する期)。これ未満はHISTORYの静的値 */
+const HISTORY_DYNAMIC_FROM_PERIOD = 50;
+
+/** 全社・部門スコープ: HISTORY(43-49期)+ 完了した50期以降を実績から動的反映 + 50期目標 + 妥当性 */
 async function getHistoryZensha(): Promise<HistorySeriesRow[]> {
   const t = getLarkTables();
-  const items = await getAllRecords(t.SEISAN_KPI_HISTORY);
-  // 指標名でグループ化
+  const [items, periods] = await Promise.all([getAllRecords(t.SEISAN_KPI_HISTORY), getPeriods()]);
+  // 指標名でグループ化(43-49期: HISTORYの静的値)
   const byIndicator = new Map<string, { unit: string; aggLevel: string; target50: number | null; vals: Map<number, number | null> }>();
   for (const it of items) {
     const f = it.fields;
@@ -1640,6 +1660,58 @@ async function getHistoryZensha(): Promise<HistorySeriesRow[]> {
     const g = byIndicator.get(indicator)!;
     g.vals.set(period, value);
     if (g.target50 == null) g.target50 = asNum(f[HF.target_50]);
+  }
+
+  // ===== 50期以降の「完了した期」を実績(ACTUAL)/会計(KAIKEI)から動的反映 =====
+  // 当期(進行中)は対象外。例: 当期が51期なら50期を実績ベースで系列に追加する。
+  const currentPeriod = (periods.find((p) => p.isCurrent) ?? periods[0])?.period ?? HISTORY_DYNAMIC_FROM_PERIOD;
+  const completedPeriods = periods
+    .map((p) => p.period)
+    .filter((p) => p >= HISTORY_DYNAMIC_FROM_PERIOD && p < currentPeriod)
+    .sort((a, b) => a - b);
+  const needKpi = [...byIndicator.keys()].some((ind) => HISTORY_INDICATOR_SOURCE[ind]?.kind === "kpi");
+  const needKaikei = [...byIndicator.keys()].some((ind) => HISTORY_INDICATOR_SOURCE[ind]?.kind === "kaikei");
+  if (completedPeriods.length && (needKpi || needKaikei)) {
+    // 循環import回避のため会計サービスは動的import
+    const getKaikeiCumByAccount = needKaikei
+      ? (await import("@/services/keiei.service")).getKaikeiCumByAccount
+      : null;
+    for (const P of completedPeriods) {
+      const [masterP, actualsP, kaikeiP] = await Promise.all([
+        needKpi ? getKpiMaster(P) : Promise.resolve([] as KpiMasterRow[]),
+        needKpi ? getActualsByKpi(P) : Promise.resolve(new Map<string, Map<number, { value: number | null; recordId: string }>>()),
+        getKaikeiCumByAccount ? getKaikeiCumByAccount(P) : Promise.resolve(new Map<string, number>()),
+      ]);
+      const masterById = new Map(masterP.map((m) => [m.kpiId, m] as const));
+      const elapsedP = periods.find((p) => p.period === P)?.elapsedMonths || 12;
+      for (const [indicator, g] of byIndicator) {
+        if (g.vals.has(P)) continue; // HISTORYに既存値があれば尊重(上書きしない)
+        const src = HISTORY_INDICATOR_SOURCE[indicator];
+        if (!src) continue;
+        let value: number | null = null;
+        if (src.kind === "kpi") {
+          const m = masterById.get(src.kpiId);
+          if (m) {
+            const months: MonthlyActual[] = Array.from({ length: 12 }, (_, i) => ({
+              fiscalMonth: i + 1,
+              value: actualsP.get(src.kpiId)?.get(i + 1)?.value ?? null,
+            }));
+            value = Math.round(aggregate(m.aggType, months, 12) * 100) / 100;
+          }
+        } else {
+          const sales = kaikeiP.get("売上高") ?? 0;
+          const cost = kaikeiP.get("製造原価") ?? 0;
+          const assets = kaikeiP.get("総資産") ?? 0;
+          if (src.metric === "粗利率") {
+            value = sales > 0 ? Math.round(((sales - cost) / sales) * 1000) / 10 : null; // %(小数1桁)
+          } else {
+            const annualized = elapsedP > 0 ? (sales / elapsedP) * 12 : 0;
+            value = assets > 0 ? Math.round((annualized / assets) * 100) / 100 : null; // 回
+          }
+        }
+        if (value != null) g.vals.set(P, value);
+      }
+    }
   }
 
   const rows: HistorySeriesRow[] = [];

@@ -161,7 +161,7 @@ export default function SeisanKpiInputPage() {
       <div style={{ padding: "20px", maxWidth: 1500, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>
-            KPI実績入力 ― 月次実績
+            KPI実績入力
           </h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
             <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>

@@ -88,7 +88,7 @@ export default function SeisanKpiStarsPage() {
       <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: 20, maxWidth: 1340, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>★達成評価 ― 部署ごと</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>★達成評価</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
             {periods.length > 0 && (
               <select value={period} onChange={(e) => load(Number(e.target.value))} title="期を選択(過去の実績を参照)" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#1f3864", background: "#fff", cursor: "pointer" }}>

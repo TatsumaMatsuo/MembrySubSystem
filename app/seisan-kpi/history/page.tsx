@@ -60,7 +60,7 @@ export default function SeisanKpiHistoryPage() {
       <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ padding: 20, maxWidth: 1340, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>過去実績参照 ― 43〜49期 + 50期目標</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>KPI過去実績参照</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
             <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>{data?.period ?? "—"}期</span>
             <button onClick={() => load(scope, dept, group)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>

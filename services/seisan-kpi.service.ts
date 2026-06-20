@@ -112,6 +112,15 @@ export interface KpiInputRow extends KpiMasterRow {
 
 const base = () => getLarkBaseToken();
 
+/**
+ * 子(課)から自動算出せず「手入力」を維持する親(集約)KPI。積み上げ対象外。
+ *
+ * 生産効率(M-14 鉄工 / M-15 縫製): 全体の正しい生産効率は「総生産量 ÷ 総投入工数」だが、
+ * 投入工数(時間)のKPIがマスタに存在せず、子の効率値を単純平均/生産量加重しても実値を再現できない
+ * (Excel側で工数を用いて算出した値を保持する)。将来、各課に工数KPIを追加できれば加重平均に移行可。
+ */
+export const ROLLUP_MANUAL_PARENTS = new Set<string>(["M-14", "M-15"]);
+
 /** 全件取得(ページネーション)。Lark の1ページ上限500件を跨いで全て取得 */
 async function getAllRecords(tableId: string, filter?: string): Promise<any[]> {
   const items: any[] = [];
@@ -325,9 +334,11 @@ export async function getInputRows(period: number, department?: string): Promise
     monthCache.set(kpiId, result);
     return result;
   };
-  // 子を持つKPI=集計値(読取専用)。ただし直近月値は集計しない=常に手入力(自身の値)。
+  // 子を持つKPI=集計値(読取専用)。ただし直近月値・手入力維持親(生産効率)は集計しない=手入力(自身の値)。
   const isComputed = (kpiId: string) =>
-    (childrenByParent.get(kpiId)?.length ?? 0) > 0 && masterById.get(kpiId)?.aggType !== "直近月値";
+    (childrenByParent.get(kpiId)?.length ?? 0) > 0 &&
+    masterById.get(kpiId)?.aggType !== "直近月値" &&
+    !ROLLUP_MANUAL_PARENTS.has(kpiId);
 
   const rows: KpiInputRow[] = filtered
     .filter((m) => m.aggType !== "基礎データ算出") // 算出KPIは会計データ画面で扱う
@@ -530,6 +541,111 @@ export async function upsertActual(input: {
   const r: any = await createBaseRecord(t.SEISAN_KPI_ACTUAL, fields, { baseToken: base() });
   await writeAudit({ table: "SEISAN_KPI_ACTUAL", recordId: actualId, operation: "作成", after: fields, operator });
   return { recordId: r?.data?.record?.record_id ?? "", created: true };
+}
+
+/**
+ * 親(集約)KPIを子(課)の実績から再計算して保存する。
+ *
+ * 子実績の登録・**訂正**後に呼ぶ想定。値は毎回「子のソース値」から再計算するため、
+ * 子の修正(減算含む)も正しく反映される(加算差分ではない)。
+ *
+ * 集計ルール: 累計型=合算 / 平均型=単純平均 / 直近月値型=対象外 /
+ *             手入力維持親(ROLLUP_MANUAL_PARENTS=生産効率)=対象外。
+ * 多段(課→部→本部)に対応し、葉に近い親から順に計算して上位へ反映する。
+ * 変更があった月セルのみ upsert する(無駄な書込・監査を出さない)。
+ *
+ * @param changedKpiIds 今回値が変わった子KPIのコード
+ * @returns 更新したセル数と親KPIコード一覧
+ */
+export async function recomputeRollupParents(
+  period: number,
+  changedKpiIds: string[],
+  operator = ""
+): Promise<{ updatedCells: number; updatedParents: string[] }> {
+  const master = await getKpiMaster(period);
+  const masterById = new Map(master.map((m) => [m.kpiId, m] as const));
+  const childrenByParent = new Map<string, KpiMasterRow[]>();
+  const parentOf = new Map<string, string>();
+  for (const m of master) {
+    const parent = (m.rollupTarget ?? "").trim();
+    if (parent) {
+      if (!childrenByParent.has(parent)) childrenByParent.set(parent, []);
+      childrenByParent.get(parent)!.push(m);
+      parentOf.set(m.kpiId, parent);
+    }
+  }
+  // 子から自動算出する親か(直近月値・手入力維持親は除く)
+  const isComputedParent = (kpiId: string): boolean => {
+    const node = masterById.get(kpiId);
+    return (
+      !!node &&
+      (childrenByParent.get(kpiId)?.length ?? 0) > 0 &&
+      node.aggType !== "直近月値" &&
+      !ROLLUP_MANUAL_PARENTS.has(kpiId)
+    );
+  };
+
+  // 変更子から祖先(再計算対象の親)を収集
+  const affectedParents = new Set<string>();
+  for (const kid of changedKpiIds) {
+    let cur = parentOf.get(kid);
+    const guard = new Set<string>();
+    while (cur && !guard.has(cur)) {
+      guard.add(cur);
+      if (isComputedParent(cur)) affectedParents.add(cur);
+      cur = parentOf.get(cur);
+    }
+  }
+  if (affectedParents.size === 0) return { updatedCells: 0, updatedParents: [] };
+
+  // 現在の実績(可変。上位親の計算に下位の再計算結果を反映するため書き換える)
+  const actuals = await getActualsByKpi(period); // Map<kpiId, Map<fm,{value,recordId}>>
+  const monthVal = (kpiId: string, fm: number): number | null => actuals.get(kpiId)?.get(fm)?.value ?? null;
+
+  // 葉に近い(深い)親から処理 → 上位はその結果を読む
+  const depthOf = (kpiId: string): number => {
+    let d = 0, cur = parentOf.get(kpiId); const g = new Set<string>();
+    while (cur && !g.has(cur)) { g.add(cur); d++; cur = parentOf.get(cur); }
+    return d;
+  };
+  const ordered = [...affectedParents].sort((a, b) => depthOf(b) - depthOf(a));
+
+  const toPersist: { kpiId: string; fm: number; value: number | null }[] = [];
+  for (const pid of ordered) {
+    const node = masterById.get(pid)!;
+    const children = childrenByParent.get(pid)!;
+    for (let fm = 1; fm <= 12; fm++) {
+      const vs = children
+        .map((c) => monthVal(c.kpiId, fm))
+        .filter((v): v is number => v != null);
+      const computed =
+        vs.length === 0
+          ? null
+          : node.aggType === "平均"
+          ? vs.reduce((s, v) => s + v, 0) / vs.length
+          : vs.reduce((s, v) => s + v, 0);
+      const newVal = computed == null ? null : Math.round(computed * 100) / 100;
+      const stored = monthVal(pid, fm);
+      const storedR = stored == null ? null : Math.round(stored * 100) / 100;
+      if (newVal !== storedR) {
+        if (!actuals.has(pid)) actuals.set(pid, new Map());
+        const existing = actuals.get(pid)!.get(fm);
+        actuals.get(pid)!.set(fm, { value: newVal, recordId: existing?.recordId ?? "" });
+        toPersist.push({ kpiId: pid, fm, value: newVal });
+      }
+    }
+  }
+
+  for (const c of toPersist) {
+    await upsertActual({
+      period,
+      kpiId: c.kpiId,
+      fiscalMonth: c.fm,
+      value: c.value,
+      inputBy: operator ? `${operator}(自動集計)` : "自動集計",
+    });
+  }
+  return { updatedCells: toPersist.length, updatedParents: [...new Set(toPersist.map((c) => c.kpiId))] };
 }
 
 /* =========================================================================

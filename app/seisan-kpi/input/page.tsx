@@ -157,6 +157,14 @@ export default function SeisanKpiInputPage() {
   // 入力対象月 = 経過月数の次の月(確定済みは elapsed まで)
   const inputTargetFm = elapsed + 1;
 
+  // 携帯では「KPI名称」だけ左固定し、他の固定列は通常スクロール(入力欄を見やすく)。
+  // PCは従来どおり左7列を固定。
+  const fHead = isMobile ? headSticky : freezeHead;   // 非名称ヘッダ: 携帯は縦のみ固定
+  const fCell = isMobile ? undefined : freezeCell;     // 非名称セル: 携帯は固定しない
+  const nameCol = isMobile ? colNameMobile : colName;  // 名称列幅(携帯は狭く)
+  const nameEdge = isMobile ? freezeEdge : undefined;  // 携帯は名称列の右に境界
+  const judgeEdge = isMobile ? undefined : freezeEdge; // PCは判定列(固定の右端)に境界
+
   return (
     <MainLayout>
       <div style={{ height: "100%", overflowY: "auto" }}>
@@ -224,13 +232,13 @@ export default function SeisanKpiInputPage() {
             <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12, whiteSpace: "nowrap" }}>
               <thead>
                 <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
-                  <th style={{ ...thLeft, ...freezeHead, ...colName }}>KPI名称</th>
-                  <th style={{ ...th, ...freezeHead, ...colUnit }}>単位</th>
-                  <th style={{ ...th, ...freezeHead, ...colAnnual }}>年間目標</th>
-                  <th style={{ ...th, ...freezeHead, ...colMonthly }}>月割</th>
-                  <th style={{ ...th, ...freezeHead, ...colCum }}>年累計/平均</th>
-                  <th style={{ ...th, ...freezeHead, ...colPct }}>進捗率</th>
-                  <th style={{ ...th, ...freezeHead, ...colJudge, ...freezeEdge }}>判定</th>
+                  <th style={{ ...thLeft, ...freezeHead, ...nameCol, ...nameEdge }}>KPI名称</th>
+                  <th style={{ ...th, ...fHead, ...colUnit }}>単位</th>
+                  <th style={{ ...th, ...fHead, ...colAnnual }}>年間目標</th>
+                  <th style={{ ...th, ...fHead, ...colMonthly }}>月割</th>
+                  <th style={{ ...th, ...fHead, ...colCum }}>年累計/平均</th>
+                  <th style={{ ...th, ...fHead, ...colPct }}>進捗率</th>
+                  <th style={{ ...th, ...fHead, ...colJudge, ...judgeEdge }}>判定</th>
                   {FY_MONTHS.map((m, i) => (
                     <th key={m} style={{ ...th, ...headSticky, background: i + 1 === inputTargetFm ? "#fef9c3" : "#f1f5f9", color: i + 1 === inputTargetFm ? "#92400e" : undefined }}>{m}</th>
                   ))}
@@ -241,17 +249,17 @@ export default function SeisanKpiInputPage() {
                   const { current, attainment, judgment } = recompute(row);
                   return (
                     <tr key={row.kpiId}>
-                      <td style={{ ...tdLeft, ...freezeCell, ...colName }} title={`${row.department} / ${row.kpiName}`}>{row.kpiName}<div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 400 }}>{row.department}</div></td>
-                      <td style={{ ...tdSub, ...freezeCell, ...colUnit }}>{row.unit}</td>
-                      <td style={{ ...tdSub, ...freezeCell, ...colAnnual }}>{fmt1(row.annualTarget)}</td>
-                      <td style={{ ...tdSub, ...freezeCell, ...colMonthly }}>{fmt1(row.monthlyTarget)}</td>
-                      <td style={{ ...tdMon, ...freezeCell, ...colCum, background: "#f8fafc", fontWeight: 700 }}>
+                      <td style={{ ...tdLeft, ...freezeCell, ...nameCol, ...nameEdge }} title={`${row.department} / ${row.kpiName}`}>{row.kpiName}<div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 400 }}>{row.department}</div></td>
+                      <td style={{ ...tdSub, ...fCell, ...colUnit }}>{row.unit}</td>
+                      <td style={{ ...tdSub, ...fCell, ...colAnnual }}>{fmt1(row.annualTarget)}</td>
+                      <td style={{ ...tdSub, ...fCell, ...colMonthly }}>{fmt1(row.monthlyTarget)}</td>
+                      <td style={{ ...tdMon, ...fCell, ...colCum, background: "#f8fafc", fontWeight: 700 }}>
                         {fmt1(current)}
                       </td>
-                      <td style={{ ...tdMon, ...freezeCell, ...colPct, fontWeight: 700, color: !Number.isFinite(attainment) ? "#16a34a" : attainment >= 0.95 ? "#16a34a" : attainment >= 0.8 ? "#d97706" : "#dc2626" }}>
+                      <td style={{ ...tdMon, ...fCell, ...colPct, fontWeight: 700, color: !Number.isFinite(attainment) ? "#16a34a" : attainment >= 0.95 ? "#16a34a" : attainment >= 0.8 ? "#d97706" : "#dc2626" }}>
                         {fmtPct(attainment)}
                       </td>
-                      <td style={{ ...tdMon, ...freezeCell, ...colJudge, ...freezeEdge }}>
+                      <td style={{ ...tdMon, ...fCell, ...colJudge, ...judgeEdge }}>
                         <JudgmentBadge judgment={judgment} />
                       </td>
                       {row.months.map((m) => {
@@ -351,6 +359,8 @@ const freezeHead: React.CSSProperties = { position: "sticky", top: 0, background
 const headSticky: React.CSSProperties = { position: "sticky", top: 0, background: "#f1f5f9", zIndex: 3 }; // ヘッダ行(縦スクロール固定)
 const freezeEdge: React.CSSProperties = { boxShadow: "2px 0 4px -2px rgba(15,23,42,0.15)" }; // 固定列の右端境界
 const colName: React.CSSProperties = { width: 200, minWidth: 200, maxWidth: 200, left: 0 };
+// 携帯: 名称列のみ固定するため幅を狭めて入力欄の表示領域を確保
+const colNameMobile: React.CSSProperties = { width: 124, minWidth: 124, maxWidth: 124, left: 0 };
 const colUnit: React.CSSProperties = { width: 70, minWidth: 70, maxWidth: 70, left: 200 };
 const colAnnual: React.CSSProperties = { width: 76, minWidth: 76, maxWidth: 76, left: 270 };
 const colMonthly: React.CSSProperties = { width: 64, minWidth: 64, maxWidth: 64, left: 346 };

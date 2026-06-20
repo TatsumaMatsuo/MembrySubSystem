@@ -29,6 +29,8 @@ export default function SeisanDashboardPage() {
   const [manage, setManage] = useState<Rank[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filterDept, setFilterDept] = useState("");
+  const [filterLevel, setFilterLevel] = useState("");
   const isMobile = useIsMobile();
 
   const load = async () => {
@@ -57,6 +59,13 @@ export default function SeisanDashboardPage() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
 
   const maxStar = Math.max(1, ...manuf.map((r) => r.stars), ...manage.map((r) => r.stars));
+
+  // 要対応KPI明細の抽出条件(部署・レベル)。選択肢は明細データから動的生成
+  const alertDepts = Array.from(new Set(alertList.map((r) => r.department).filter(Boolean)));
+  const alertLevels = Array.from(new Set(alertList.map((r) => r.level).filter(Boolean))).sort();
+  const filteredAlertList = alertList.filter(
+    (r) => (!filterDept || r.department === filterDept) && (!filterLevel || r.level === filterLevel)
+  );
 
   return (
     <MainLayout>
@@ -128,25 +137,41 @@ export default function SeisanDashboardPage() {
 
         {/* 要対応KPI 明細 */}
         <div style={sectionTitle}>要対応KPI 一覧（赤・黄判定）</div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "0 4px 10px", fontSize: 13 }}>
+          <span style={{ color: "#64748b", fontWeight: 600 }}>抽出条件</span>
+          <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)} style={selStyle}>
+            <option value="">部署: すべて</option>
+            {alertDepts.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} style={selStyle}>
+            <option value="">レベル: すべて</option>
+            {alertLevels.map((lv) => <option key={lv} value={lv}>{lv}</option>)}
+          </select>
+          {(filterDept || filterLevel) && (
+            <button onClick={() => { setFilterDept(""); setFilterLevel(""); }} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer", color: "#64748b" }}>条件クリア</button>
+          )}
+          <span style={{ color: "#94a3b8", marginLeft: "auto" }}>{filteredAlertList.length} 件</span>
+        </div>
         <div style={{ ...card, padding: 0, overflowX: "auto" }}>
           <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12.5, minWidth: 560 }}>
             <thead>
               <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
-                <th style={thL}>KPI</th><th style={thL}>部署</th><th style={th}>レベル</th><th style={th}>実績</th><th style={th}>目標</th><th style={th}>判定</th>
+                <th style={thL}>KPI</th><th style={thL}>部署</th><th style={th}>レベル</th><th style={th}>目標</th><th style={th}>実績</th><th style={th}>判定</th>
               </tr>
             </thead>
             <tbody>
-              {alertList.map((r) => (
+              {filteredAlertList.map((r) => (
                 <tr key={r.kpiId} style={{ background: r.judgment === "赤" ? "#fef2f2" : "#fffbeb" }}>
                   <td style={tdL}>{r.name}</td>
                   <td style={tdL}>{r.department}</td>
                   <td style={td}>{r.level}</td>
-                  <td style={td}>{fmtNum(r.current)} {r.unit}</td>
                   <td style={td}>{fmtNum(r.target)} {r.unit}</td>
+                  <td style={td}>{fmtNum(r.current)} {r.unit}</td>
                   <td style={td}><JudgmentBadge judgment={r.judgment} size="sm" /></td>
                 </tr>
               ))}
               {alertList.length === 0 && !loading && <tr><td colSpan={6} style={{ ...tdL, textAlign: "center", color: "#16a34a", padding: 18, fontWeight: 700 }}>要対応KPIはありません（全て緑）</td></tr>}
+              {alertList.length > 0 && filteredAlertList.length === 0 && <tr><td colSpan={6} style={{ ...tdL, textAlign: "center", color: "#94a3b8", padding: 18 }}>抽出条件に該当するKPIがありません。</td></tr>}
             </tbody>
           </table>
         </div>
@@ -216,6 +241,7 @@ function StarRow({ rank, department, stars, max, crown }: { rank: number; depart
 }
 
 const card: React.CSSProperties = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 16, boxShadow: "0 1px 3px rgba(15,23,42,.05)" };
+const selStyle: React.CSSProperties = { border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, background: "#fff", color: "#1f3864" };
 const sectionTitle: React.CSSProperties = { fontSize: 14, fontWeight: 700, color: "#1f3864", margin: "20px 4px 10px" };
 const th: React.CSSProperties = { padding: "9px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "right", fontWeight: 600, fontSize: 11.5 };
 const thL: React.CSSProperties = { ...th, textAlign: "left" };

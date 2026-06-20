@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getKpiMasterFull, upsertKpiMaster, getCurrentPeriod } from "@/services/seisan-kpi.service";
+import { getKpiMasterFull, upsertKpiMaster, getCurrentPeriod, getNextKpiId } from "@/services/seisan-kpi.service";
 import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
 
 export const dynamic = "force-dynamic";
@@ -35,10 +35,11 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const period = Number(body?.period);
-    const kpiId = String(body?.kpiId ?? "").trim();
-    if (!period || !kpiId) {
-      return NextResponse.json({ error: "period / kpiId は必須です" }, { status: 400 });
+    if (!period) {
+      return NextResponse.json({ error: "period は必須です" }, { status: 400 });
     }
+    // kpiId 未指定は新規追加 → M-### を自動採番(編集時は必ず指定される)
+    const kpiId = String(body?.kpiId ?? "").trim() || (await getNextKpiId());
 
     const num = (v: any) => (v === "" || v == null ? undefined : Number(v));
     const result = await upsertKpiMaster({

@@ -152,7 +152,7 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
       </div>
 
       {showClone && <CloneDialog fromPeriod={props.period} onClose={() => setShowClone(false)} setMessage={props.setMessage} />}
-      {showNew && <NewKpiDialog period={props.period} depts={[...new Set(rows.map((r) => r.department).filter(Boolean))]} cats={cats} onClose={() => setShowNew(false)} onSaved={() => { setShowNew(false); load(); }} setMessage={props.setMessage} />}
+      {showNew && <NewKpiDialog period={props.period} depts={[...new Set(rows.map((r) => r.department).filter(Boolean))]} cats={cats} rollupTargets={rollupTargets} onClose={() => setShowNew(false)} onSaved={() => { setShowNew(false); load(); }} setMessage={props.setMessage} />}
 
       <div style={{ ...card }}>
         <style>{`.km-table tbody tr:nth-child(even){background:#f6f8fb}.km-table tbody tr:hover{background:#eef5ff}.km-table tbody tr.km-off{background:#eceff3;color:#94a3b8}.km-table tbody tr.km-off:hover{background:#e3e7ed}`}</style>
@@ -259,13 +259,14 @@ function CloneDialog(props: { fromPeriod: number; onClose: () => void; setMessag
 }
 
 /* ===== KPI追加ダイアログ ===== */
-function NewKpiDialog(props: { period: number; depts: string[]; cats: string[]; onClose: () => void; onSaved: () => void; setMessage: (m: string | null) => void }) {
-  const [f, setF] = useState({ kpiId: "", level: "Lv4", department: "", category: "", kpiName: "", unit: "", aggType: "累計", direction: "高い方が良い", annualTarget: 0, monthlyTarget: 0, owner: "", dataSource: "", inputTiming: "", notes: "" });
+function NewKpiDialog(props: { period: number; depts: string[]; cats: string[]; rollupTargets: { kpiId: string; label: string }[]; onClose: () => void; onSaved: () => void; setMessage: (m: string | null) => void }) {
+  // kpiId はサーバー側で M-### を自動採番するためフォームには持たない
+  const [f, setF] = useState({ level: "Lv4", department: "", category: "", kpiName: "", unit: "", aggType: "累計", direction: "高い方が良い", annualTarget: 0, monthlyTarget: 0, owner: "", dataSource: "", inputTiming: "", notes: "", rollupTarget: "" });
   const [busy, setBusy] = useState(false);
   const set = (patch: Partial<typeof f>) => setF((s) => ({ ...s, ...patch }));
 
   const run = async () => {
-    if (!f.kpiId.trim() || !f.kpiName.trim()) { props.setMessage("KPI_IDとKPI名称は必須です"); return; }
+    if (!f.kpiName.trim()) { props.setMessage("KPI名称は必須です"); return; }
     setBusy(true);
     try {
       const json = await fetchJson(`/api/seisan-kpi/master`, {
@@ -273,7 +274,7 @@ function NewKpiDialog(props: { period: number; depts: string[]; cats: string[]; 
         body: JSON.stringify({ period: props.period, ...f }),
       });
       if (json.error) throw new Error(json.error);
-      props.setMessage(`✅ KPI「${f.kpiId}」を追加しました`);
+      props.setMessage(`✅ KPI「${json.data?.kpiId ?? ""}」を追加しました`);
       props.onSaved();
     } catch (e: any) { props.setMessage(`追加エラー: ${e.message}`); }
     finally { setBusy(false); }
@@ -287,7 +288,7 @@ function NewKpiDialog(props: { period: number; depts: string[]; cats: string[]; 
           <button onClick={props.onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}><X size={16} /></button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <label style={lbl}>KPI_ID<input value={f.kpiId} onChange={(e) => set({ kpiId: e.target.value })} placeholder="例: K-NEW-01" style={inp} /></label>
+          <label style={lbl}>KPI_ID<input value="保存時に自動採番（M-###）" readOnly disabled style={{ ...inp, background: "#f1f5f9", color: "#94a3b8" }} title="KPIコードは保存時に M-### の連番で自動採番されます" /></label>
           <label style={lbl}>階層<select value={f.level} onChange={(e) => set({ level: e.target.value })} style={inp}>{["Lv2", "Lv3", "Lv4"].map((l) => <option key={l}>{l}</option>)}</select></label>
           <label style={lbl}>KPI名称<input value={f.kpiName} onChange={(e) => set({ kpiName: e.target.value })} style={inp} /></label>
           <label style={lbl}>単位<input value={f.unit} onChange={(e) => set({ unit: e.target.value })} style={inp} /></label>
@@ -301,6 +302,13 @@ function NewKpiDialog(props: { period: number; depts: string[]; cats: string[]; 
           <label style={lbl}>データソース<input value={f.dataSource} onChange={(e) => set({ dataSource: e.target.value })} style={inp} /></label>
           <label style={lbl}>入力タイミング<input value={f.inputTiming} onChange={(e) => set({ inputTiming: e.target.value })} style={inp} /></label>
           <label style={lbl}>備考<input value={f.notes} onChange={(e) => set({ notes: e.target.value })} style={inp} /></label>
+          <label style={{ ...lbl, gridColumn: "1 / -1" }} title="このKPIの積み上げ先(親)。設定すると親側で合算/平均され、この行は親側で読み取り専用集計されます">
+            積み上げ先(親KPI)
+            <select value={f.rollupTarget} onChange={(e) => set({ rollupTarget: e.target.value })} style={inp}>
+              <option value="">（なし・葉KPI）</option>
+              {props.rollupTargets.map((t) => <option key={t.kpiId} value={t.kpiId}>{t.label}</option>)}
+            </select>
+          </label>
         </div>
         <button onClick={run} disabled={busy} style={{ background: "#1f3864", color: "#fff", border: "none", borderRadius: 9, padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 14 }}>
           <Save size={14} style={{ verticalAlign: "-2px" }} /> {busy ? "追加中…" : "追加する"}

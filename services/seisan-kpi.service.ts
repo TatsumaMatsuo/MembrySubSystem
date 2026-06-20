@@ -1290,6 +1290,21 @@ export async function getKpiMasterFull(period: number): Promise<KpiMasterFullRow
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+/**
+ * 次のKPIコードを採番(M-### 連番)。全期のマスタを走査し既存M番号の最大+1を3桁ゼロ埋めで返す。
+ * (期をまたいで同一コードを使うため全期で一意になるよう全件から最大を取る)
+ */
+export async function getNextKpiId(): Promise<string> {
+  const t = getLarkTables();
+  const all = await getAllRecords(t.SEISAN_KPI_MASTER);
+  let max = 0;
+  for (const it of all) {
+    const m = asText(it.fields[MF.kpi_id]).match(/^M-(\d+)$/);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `M-${String(max + 1).padStart(3, "0")}`;
+}
+
 /** KPIマスタの作成・更新(KPIコード×期で一意)。全変更AUDIT記録 */
 export async function upsertKpiMaster(input: Partial<KpiMasterFullRow> & {
   period: number;

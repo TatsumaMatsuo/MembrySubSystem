@@ -96,6 +96,8 @@ export interface KpiMasterRow {
   annualTarget: number;
   monthlyTarget: number;
   sortOrder: number;
+  /** 積み上げ先(親)KPIのKPIコード。空=積み上げ先なし(葉) */
+  rollupTarget: string;
 }
 
 export interface KpiInputRow extends KpiMasterRow {
@@ -243,6 +245,7 @@ export async function getKpiMaster(period: number): Promise<KpiMasterRow[]> {
         annualTarget: asNum(f[MF.annual_target]) ?? 0,
         monthlyTarget: asNum(f[MF.monthly_target]) ?? 0,
         sortOrder: asNum(f[MF.sort_order]) ?? 0,
+        rollupTarget: asText(f[MF.rollup_target]),
       };
     })
     .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -265,26 +268,7 @@ async function getActualsByKpi(
   return map;
 }
 
-// ===== 「全体」部署の積み上げ定義 =====
-const ROLLUP_TETSU = ["本社鉄工課", "第2工場鉄工課", "北関東鉄工課"];   // 鉄工3課
-const ROLLUP_HOUSEI = ["本社縫製課", "北多久縫製課", "北関東縫製課"];   // 縫製3課
-/** 全体部署 → 配下課(積み上げ元) */
-const ROLLUP_CHILDREN: Record<string, string[]> = {
-  "製造部全体": [...ROLLUP_TETSU, ...ROLLUP_HOUSEI],
-  "生産管理部全体": ["調達課", "生産管理課", "検査課"],
-  "生産本部全体": [...ROLLUP_TETSU, ...ROLLUP_HOUSEI, "調達課", "生産管理課", "検査課"],
-};
-/** 鉄工/縫製で分かれる全体KPI → 各課の元KPI名 + 対象課。未定義の全体KPIは同名を配下課全体で集計 */
-const ROLLUP_MAP: Record<string, { source: string; courses: string[] }> = {
-  "鉄工トータルリードタイム": { source: "リードタイム", courses: ROLLUP_TETSU },
-  "縫製トータルリードタイム": { source: "リードタイム", courses: ROLLUP_HOUSEI },
-  "鉄工生産効率": { source: "生産効率(一人1h当たり)", courses: ROLLUP_TETSU },
-  "縫製生産効率": { source: "生産効率(一人1h当たり)", courses: ROLLUP_HOUSEI },
-  "鉄工生産量(補助KPI)": { source: "生産量(補助KPI)", courses: ROLLUP_TETSU },
-  "縫製生産量(補助KPI)": { source: "生産量(補助KPI)", courses: ROLLUP_HOUSEI },
-};
-
-/** 入力画面用: KPIマスタ + 月次実績 + 算出(現在値/達成率/判定)。「全体」は各課から積み上げ(読取専用) */
+/** 入力画面用: KPIマスタ + 月次実績 + 算出。積み上げ先(親)を持つKPIは子から集計(読取専用・多段対応) */
 export async function getInputRows(period: number, department?: string): Promise<{
   period: number;
   elapsedMonths: number;
@@ -299,53 +283,63 @@ export async function getInputRows(period: number, department?: string): Promise
   const pinfo = periods.find((p) => p.period === period);
   const elapsed = pinfo?.elapsedMonths ?? 0;
 
-  const isTotal = !!department && ROLLUP_CHILDREN[department] != null;
-  // 全体部署=自身のKPI(exact)。課=exact。未指定=全件。
   const filtered = department ? master.filter((m) => m.department === department) : master;
 
-  // 全体KPIの月次を配下課から積み上げる(累計=合算/平均=単純平均/直近月値=合算)。積み上げ元が無ければ sourced=false。
-  const rollupMonths = (k: KpiMasterRow): { months: { fiscalMonth: number; value: number | null }[]; sourced: boolean } => {
-    const map = ROLLUP_MAP[k.kpiName];
-    const sourceName = map?.source ?? k.kpiName;
-    const courses = map?.courses ?? ROLLUP_CHILDREN[department!] ?? [];
-    const srcKpis = master.filter((s) => courses.includes(s.department) && s.kpiName === sourceName);
-    if (srcKpis.length === 0) return { months: [], sourced: false };
-    const months = Array.from({ length: 12 }, (_, i) => {
-      const fm = i + 1;
-      const vals: number[] = [];
-      for (const sk of srcKpis) {
-        const v = actuals.get(sk.kpiId)?.get(fm)?.value;
-        if (v != null) vals.push(v);
-      }
-      const value = vals.length === 0
-        ? null
-        : k.aggType === "平均"
-          ? vals.reduce((s, v) => s + v, 0) / vals.length
-          : vals.reduce((s, v) => s + v, 0);
-      return { fiscalMonth: fm, value };
-    });
-    return { months, sourced: true };
+  // ===== 積み上げツリー: rollupTarget(親KPIコード)で親子を構成。多段(課→部→本部)対応 =====
+  // 子を持つKPI=計算値(読取専用)、子の無いKPI=葉(手入力)。各親は自身の集計タイプで子を合算/平均。
+  const childrenByParent = new Map<string, KpiMasterRow[]>();
+  for (const m of master) {
+    const parent = (m.rollupTarget ?? "").trim();
+    if (parent) {
+      if (!childrenByParent.has(parent)) childrenByParent.set(parent, []);
+      childrenByParent.get(parent)!.push(m);
+    }
+  }
+  const masterById = new Map(master.map((m) => [m.kpiId, m] as const));
+  const ownVals = (kpiId: string): (number | null)[] => {
+    const am = actuals.get(kpiId);
+    return Array.from({ length: 12 }, (_, i) => am?.get(i + 1)?.value ?? null);
   };
-  const ownMonths = (m: KpiMasterRow) => {
-    const am = actuals.get(m.kpiId) ?? new Map();
-    return Array.from({ length: 12 }, (_, i) => {
-      const fm = i + 1;
-      const rec = am.get(fm);
-      return { fiscalMonth: fm, value: rec?.value ?? null, recordId: rec?.recordId };
-    });
+  // 月次値をボトムアップ再帰解決(メモ化 + 循環検出)
+  const monthCache = new Map<string, (number | null)[]>();
+  const resolveVals = (kpiId: string, stack: Set<string>): (number | null)[] => {
+    const cached = monthCache.get(kpiId);
+    if (cached) return cached;
+    if (stack.has(kpiId)) return Array(12).fill(null); // 循環は無視
+    const node = masterById.get(kpiId);
+    const children = childrenByParent.get(kpiId) ?? [];
+    let result: (number | null)[];
+    if (!node || children.length === 0) {
+      result = ownVals(kpiId); // 葉=自身の実績
+    } else {
+      stack.add(kpiId);
+      const childVals = children.map((c) => resolveVals(c.kpiId, stack));
+      stack.delete(kpiId);
+      result = Array.from({ length: 12 }, (_, i) => {
+        const vs = childVals.map((cv) => cv[i]).filter((v): v is number => v != null);
+        if (vs.length === 0) return null;
+        return node.aggType === "平均" ? vs.reduce((s, v) => s + v, 0) / vs.length : vs.reduce((s, v) => s + v, 0);
+      });
+    }
+    monthCache.set(kpiId, result);
+    return result;
   };
+  const isComputed = (kpiId: string) => (childrenByParent.get(kpiId)?.length ?? 0) > 0;
 
   const rows: KpiInputRow[] = filtered
     .filter((m) => m.aggType !== "基礎データ算出") // 算出KPIは会計データ画面で扱う
     .map((m) => {
+      const computed = isComputed(m.kpiId);
       let months: { fiscalMonth: number; value: number | null; recordId?: string }[];
-      let readOnly = false;
-      if (isTotal) {
-        const r = rollupMonths(m);
-        if (r.sourced) { months = r.months; readOnly = true; }       // 積み上げ=入力不可
-        else { months = ownMonths(m); }                              // 積み上げ元なし(在庫/外注等)=全体で手入力可
+      if (computed) {
+        months = resolveVals(m.kpiId, new Set()).map((v, i) => ({ fiscalMonth: i + 1, value: v }));
       } else {
-        months = ownMonths(m);
+        const am = actuals.get(m.kpiId) ?? new Map();
+        months = Array.from({ length: 12 }, (_, i) => {
+          const fm = i + 1;
+          const rec = am.get(fm);
+          return { fiscalMonth: fm, value: rec?.value ?? null, recordId: rec?.recordId };
+        });
       }
       const ma: MonthlyActual[] = months.map((x) => ({ fiscalMonth: x.fiscalMonth, value: x.value }));
       const current = aggregate(m.aggType, ma, elapsed);
@@ -355,7 +349,7 @@ export async function getInputRows(period: number, department?: string): Promise
         current,
         elapsed
       );
-      return { ...m, months, current, attainment, judgment, readOnly };
+      return { ...m, months, current, attainment, judgment, readOnly: computed };
     });
 
   // 基礎データ算出KPI(会計データから算出・本画面では参照のみ)
@@ -1140,6 +1134,7 @@ export interface KpiMasterFullRow {
   sortOrder: number;
   isActive: boolean;
   notes: string;
+  rollupTarget: string;
 }
 
 /** KPIマスタ全項目を取得(管理画面用。recordId 付き) */
@@ -1170,6 +1165,7 @@ export async function getKpiMasterFull(period: number): Promise<KpiMasterFullRow
         sortOrder: asNum(f[MF.sort_order]) ?? 0,
         isActive: f[MF.is_active] == null ? true : asBool(f[MF.is_active]),
         notes: asText(f[MF.notes]),
+        rollupTarget: asText(f[MF.rollup_target]),
       };
     })
     .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -1215,6 +1211,7 @@ export async function upsertKpiMaster(input: Partial<KpiMasterFullRow> & {
   set(MF.sort_order, input.sortOrder);
   set(MF.is_active, input.isActive);
   set(MF.notes, input.notes);
+  set(MF.rollup_target, input.rollupTarget);
 
   if (existingRec) {
     await updateBaseRecord(t.SEISAN_KPI_MASTER, existingRec.record_id, fields, { baseToken: base() });

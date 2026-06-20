@@ -559,6 +559,7 @@ export const SEISAN_KPI_MASTER_FIELDS = {
   sort_order: "並び順",
   is_active: "有効フラグ",
   notes: "備考",
+  rollup_target: "積み上げ先KPI",
 } as const;
 
 /** 生産KPI_期マスタ */

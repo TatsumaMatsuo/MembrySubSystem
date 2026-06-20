@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
       sortOrder: num(body?.sortOrder),
       isActive: typeof body?.isActive === "boolean" ? body.isActive : undefined,
       notes: body?.notes,
+      rollupTarget: body?.rollupTarget,
       operator,
     });
     return NextResponse.json({ data: result });

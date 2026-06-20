@@ -202,9 +202,9 @@ export default function SeisanKpiInputPage() {
           確定済み(ロック)
           <span style={{ marginLeft: 12 }}>数値入力で判定が即時更新されます。</span>
         </div>
-        {dept.includes("全体") && (
+        {rows.some((r) => r.readOnly) && (
           <div style={{ fontSize: 12, padding: "8px 12px", borderRadius: 8, marginBottom: 10, background: "#eef5ff", border: "1px solid #c7ddff", color: "#1e3a8a" }}>
-「{dept}」は各課の実績を積み上げた<b>集計結果</b>です（集計タイプに従い 累計=合算／平均=単純平均／直近=合算）。積み上げKPIは<b>入力不可</b>（積み上げ元の無い全体固有KPIのみ入力可）。各課の値は各課を選択して入力してください。
+            積み上げ先に設定されたKPI（子を持つ行）は、子の実績を<b>集計した結果</b>です（集計タイプに従い 累計=合算／平均=単純平均／直近=合算・多段対応）。集計行は<b>入力不可</b>。元の値は子（各課）を選択して入力してください。
           </div>
         )}
 

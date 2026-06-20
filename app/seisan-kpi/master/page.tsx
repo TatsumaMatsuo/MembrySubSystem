@@ -17,6 +17,7 @@ interface KpiRow {
   department: string; departmentId: string; category: string; kpiName: string; unit: string;
   aggType: string; direction: string; annualTarget: number; monthlyTarget: number;
   owner: string; dataSource: string; inputTiming: string; sortOrder: number; isActive: boolean; notes: string;
+  rollupTarget: string;
 }
 interface MatrixGroup { recordId: string; groupId: string; groupName: string; groupType: string; sortOrder: number; isActive: boolean }
 interface GroupMatrix { period: number; departments: string[]; groups: MatrixGroup[]; membership: Record<string, Record<string, string>> }
@@ -110,6 +111,11 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
 
   const divs = useMemo(() => [...new Set(rows.map((r) => r.departmentDiv).filter(Boolean))], [rows]);
   const cats = useMemo(() => [...new Set(rows.map((r) => r.category).filter(Boolean))], [rows]);
+  // 積み上げ先(親)の候補 = 「全体」部署のKPI(部/本部)。値=KPIコード。
+  const rollupTargets = useMemo(
+    () => rows.filter((r) => r.department.includes("全体")).map((r) => ({ kpiId: r.kpiId, label: `${r.kpiName}〔${r.department}〕` })),
+    [rows]
+  );
 
   const getVal = <K extends keyof KpiRow>(r: KpiRow, key: K): KpiRow[K] => {
     const e = edits[r.kpiId]?.[key];
@@ -158,7 +164,7 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
           <table className="km-table" style={{ borderCollapse: "collapse", width: "100%", fontSize: 12, whiteSpace: "nowrap" }}>
             <thead>
               <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
-                {["KPI_ID", "階層", "部署", "カテゴリ", "KPI名称", "単位", "集計", "方向", "年間目標", "月次目標", "オーナー", "データソース", "入力タイミング", "備考", "有効", ""].map((h) => <th key={h} style={{ ...th, position: "sticky", top: 0, background: "#f1f5f9", zIndex: 1 }}>{h}</th>)}
+                {["KPI_ID", "階層", "部署", "カテゴリ", "KPI名称", "単位", "集計", "方向", "年間目標", "月次目標", "オーナー", "データソース", "入力タイミング", "備考", "積み上げ先", "有効", ""].map((h) => <th key={h} style={{ ...th, position: "sticky", top: 0, background: "#f1f5f9", zIndex: 1 }}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -180,6 +186,12 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
                     <td style={tdEd}><input value={getVal(r, "dataSource")} onChange={(e) => setVal(r.kpiId, { dataSource: e.target.value })} style={{ ...cellInput, minWidth: 110 }} /></td>
                     <td style={tdEd}><input value={getVal(r, "inputTiming")} onChange={(e) => setVal(r.kpiId, { inputTiming: e.target.value })} style={{ ...cellInput, minWidth: 90 }} /></td>
                     <td style={tdEd}><input value={getVal(r, "notes")} onChange={(e) => setVal(r.kpiId, { notes: e.target.value })} style={{ ...cellInput, minWidth: 120 }} /></td>
+                    <td style={tdEd}>
+                      <select value={getVal(r, "rollupTarget")} onChange={(e) => setVal(r.kpiId, { rollupTarget: e.target.value })} style={{ ...cellInput, minWidth: 170 }} title="このKPIの積み上げ先(親)。設定すると親側で合算/平均され、この行は親側で読み取り専用集計されます">
+                        <option value="">(なし)</option>
+                        {rollupTargets.filter((t) => t.kpiId !== r.kpiId).map((t) => <option key={t.kpiId} value={t.kpiId}>{t.label}</option>)}
+                      </select>
+                    </td>
                     <td style={{ ...td, textAlign: "center" }}>
                       <input type="checkbox" checked={getVal(r, "isActive")} onChange={(e) => setVal(r.kpiId, { isActive: e.target.checked })} style={{ width: 16, height: 16, accentColor: "#16a34a" }} />
                     </td>

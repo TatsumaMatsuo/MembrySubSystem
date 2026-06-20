@@ -302,8 +302,17 @@ export function Sidebar({
   const renderLevel2Menu = (child: { menu: MenuDisplayMaster; programs: FunctionPlacementMaster[] }) => {
     const hasPrograms = child.programs && child.programs.length > 0;
 
-    // プログラムが1つだけの場合は直接リンク
-    if (hasPrograms && child.programs.length === 1) {
+    // L2メニューが「同名の単一プログラムへのショートカット」(例: 設計依頼→設計依頼)の
+    // 場合のみ、L2自体を直接リンク化する。
+    // メニュー名とプログラム名が異なる場合(例: 生産管理部→納期変更)は、部署を
+    // グループ見出しとして残し、プログラムを子リンクとして展開する。
+    const isSingleShortcut =
+      hasPrograms &&
+      child.programs.length === 1 &&
+      child.menu.menu_name.trim() === child.programs[0].program_name.trim();
+
+    // 同名ショートカットの場合は直接リンク
+    if (isSingleShortcut) {
       const program = child.programs[0];
       const active = isActive(program.url_path);
       const openInNewTab = program.program_id === "PGM030";

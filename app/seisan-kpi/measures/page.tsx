@@ -8,6 +8,7 @@ import { HelpLink, JudgmentBadge, EFFECT_COLORS, JUDGMENT_COLORS } from "@/compo
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { RefreshCw, Plus, Save, X } from "lucide-react";
 import type { Judgment, Effect } from "@/lib/kpi";
+import { fetchJson } from "@/lib/fetch-json";
 
 const FY_MONTHS = ["8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月", "4月", "5月", "6月", "7月"];
 const STATUSES = ["下書き", "実施中", "完了", "中止"];
@@ -58,8 +59,7 @@ export default function SeisanKpiMeasuresPage() {
       const params = new URLSearchParams();
       if (g) params.set("group", g);
       if (p) params.set("period", String(p));
-      const res = await fetch(`/api/seisan-kpi/measures?${params.toString()}`);
-      const json = await res.json();
+      const json = await fetchJson(`/api/seisan-kpi/measures?${params.toString()}`);
       if (json.error) throw new Error(json.error);
       const d: ScreenData = json.data;
       setData(d);
@@ -79,8 +79,7 @@ export default function SeisanKpiMeasuresPage() {
     (async () => {
       let initial: number | undefined;
       try {
-        const r = await fetch("/api/seisan-kpi/periods");
-        const j = await r.json();
+        const j = await fetchJson("/api/seisan-kpi/periods");
         const list = (j.data ?? []) as { period: number; isCurrent?: boolean }[];
         const nums = list.map((x) => x.period).filter((n) => Number.isFinite(n));
         if (nums.length) { setPeriods(nums); initial = list.find((x) => x.isCurrent)?.period ?? nums[0]; }
@@ -274,8 +273,7 @@ function PastMeasures() {
     try {
       const p = new URLSearchParams();
       if (fKpi) p.set("targetKpi", fKpi); if (fStatus) p.set("status", fStatus); if (fPeriod) p.set("period", fPeriod);
-      const res = await fetch(`/api/seisan-kpi/measures/past?${p.toString()}`);
-      const json = await res.json();
+      const json = await fetchJson(`/api/seisan-kpi/measures/past?${p.toString()}`);
       if (!json.error) { setRows(json.data.rows ?? []); setKpiOptions(json.data.kpiOptions ?? []); setPeriodsOpt(json.data.periods ?? []); }
     } catch { /* noop */ }
     finally { setLoading(false); }
@@ -350,7 +348,7 @@ function NewMeasureForm(props: {
     if (!name.trim()) { props.onError("施策名を入力してください"); return; }
     setSaving(true);
     try {
-      const res = await fetch("/api/seisan-kpi/measures", {
+      const json = await fetchJson("/api/seisan-kpi/measures", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           period: props.period, groupId: props.groupId, measureName: name, targetKpiId,
@@ -358,7 +356,6 @@ function NewMeasureForm(props: {
           goalValue: goalValue === "" ? null : Number(goalValue),
         }),
       });
-      const json = await res.json();
       if (json.error) throw new Error(json.error);
       props.onSaved(json.data.measureId);
     } catch (e: any) {
@@ -448,7 +445,7 @@ function PdcaDetail(props: {
     const e = edits[fm] ?? {};
     setSavingFm(fm);
     try {
-      const res = await fetch("/api/seisan-kpi/pdca", {
+      const json = await fetchJson("/api/seisan-kpi/pdca", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           period: props.period, measureId: measure.measureId, fiscalMonth: fm,
@@ -457,7 +454,6 @@ function PdcaDetail(props: {
           effect: e.effect, directorComment: e.directorComment, nextAction: e.nextAction,
         }),
       });
-      const json = await res.json();
       if (json.error) throw new Error(json.error);
       props.onSaved();
     } catch (err: any) {

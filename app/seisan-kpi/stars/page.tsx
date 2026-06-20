@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useCallback } from "react";
 import { MainLayout } from "@/components/layout";
 import { HelpLink } from "@/components/features/seisan-kpi";
+import { fetchJson } from "@/lib/fetch-json";
 import { RefreshCw } from "lucide-react";
 
 const FY_MONTHS = ["8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月", "4月", "5月", "6月", "7月"];
@@ -37,8 +38,7 @@ export default function SeisanKpiStarsPage() {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await fetch(`/api/seisan-kpi/stars${p ? `?period=${p}` : ""}`);
-      const json = await res.json();
+      const json = await fetchJson(`/api/seisan-kpi/stars${p ? `?period=${p}` : ""}`);
       if (json.error) throw new Error(json.error);
       setData(json.data);
       setPeriod(json.data.period);
@@ -53,8 +53,7 @@ export default function SeisanKpiStarsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/api/seisan-kpi/periods");
-        const j = await r.json();
+        const j = await fetchJson("/api/seisan-kpi/periods");
         const nums = (j.data ?? [])
           .map((x: { period: number }) => x.period)
           .filter((n: number) => Number.isFinite(n))
@@ -72,11 +71,10 @@ export default function SeisanKpiStarsPage() {
 
   const saveAdj = async (dept: string, type: string, fm: number, val: string) => {
     try {
-      const res = await fetch(`/api/seisan-kpi/stars`, {
+      const json = await fetchJson(`/api/seisan-kpi/stars`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ period: data?.period, department: dept, fiscalMonth: fm, type, delta: val === "" ? null : Number(val) }),
       });
-      const json = await res.json();
       if (json.error) throw new Error(json.error);
       await load(data?.period);
       setMessage(`✅ ${dept} ${type} ${FY_MONTHS[fm - 1]} を保存しました`);

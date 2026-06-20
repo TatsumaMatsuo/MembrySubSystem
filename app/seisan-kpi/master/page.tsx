@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { MainLayout } from "@/components/layout";
 import { HelpLink } from "@/components/features/seisan-kpi";
 import { useIsMobile } from "@/lib/use-is-mobile";
+import { fetchJson } from "@/lib/fetch-json";
 import { RefreshCw, Plus, Save, Copy, X } from "lucide-react";
 
 const AGG_TYPES = ["累計", "平均", "直近月値", "基礎データ算出"];
@@ -32,8 +33,7 @@ export default function SeisanKpiMasterPage() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/api/seisan-kpi/periods");
-        const j = await r.json();
+        const j = await fetchJson("/api/seisan-kpi/periods");
         const list = (j.data ?? []) as { period: number; isCurrent?: boolean }[];
         const nums = list.map((x) => x.period).filter((n) => Number.isFinite(n));
         if (nums.length) { setPeriods(nums); setPeriod(list.find((x) => x.isCurrent)?.period ?? nums[0]); }
@@ -93,8 +93,7 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
   const load = useCallback(async () => {
     setLoading(true); props.setMessage(null);
     try {
-      const res = await fetch(`/api/seisan-kpi/master?period=${props.period}`);
-      const json = await res.json();
+      const json = await fetchJson(`/api/seisan-kpi/master?period=${props.period}`);
       if (json.error) throw new Error(json.error);
       setRows(json.data.rows ?? []);
       setEdits({});
@@ -127,11 +126,10 @@ function KpiMasterTab(props: { period: number; setPeriod: (p: number) => void; s
     const e = edits[r.kpiId]; if (!e) return;
     setSavingId(r.kpiId);
     try {
-      const res = await fetch(`/api/seisan-kpi/master`, {
+      const json = await fetchJson(`/api/seisan-kpi/master`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ period: props.period, kpiId: r.kpiId, ...e }),
       });
-      const json = await res.json();
       if (json.error) throw new Error(json.error);
       props.setMessage(`✅ ${r.kpiId} を保存しました`);
       await load();
@@ -224,11 +222,10 @@ function CloneDialog(props: { fromPeriod: number; onClose: () => void; setMessag
     if (!confirm(`${props.fromPeriod}期の定義(KPIマスタ・グループ・所属)を ${toPeriod}期に複製します。よろしいですか?`)) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/seisan-kpi/period-clone`, {
+      const json = await fetchJson(`/api/seisan-kpi/period-clone`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fromPeriod: props.fromPeriod, toPeriod, startDate, endDate }),
       });
-      const json = await res.json();
       if (json.error) throw new Error(json.error);
       const c = json.data.cloned;
       props.setMessage(`✅ ${toPeriod}期を作成しました(KPI ${c.master} / グループ ${c.groups} / 所属 ${c.members})`);
@@ -271,11 +268,10 @@ function NewKpiDialog(props: { period: number; depts: string[]; cats: string[]; 
     if (!f.kpiId.trim() || !f.kpiName.trim()) { props.setMessage("KPI_IDとKPI名称は必須です"); return; }
     setBusy(true);
     try {
-      const res = await fetch(`/api/seisan-kpi/master`, {
+      const json = await fetchJson(`/api/seisan-kpi/master`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ period: props.period, ...f }),
       });
-      const json = await res.json();
       if (json.error) throw new Error(json.error);
       props.setMessage(`✅ KPI「${f.kpiId}」を追加しました`);
       props.onSaved();
@@ -325,8 +321,7 @@ function GroupMasterTab(props: { period: number; setMessage: (m: string | null) 
   const load = useCallback(async () => {
     setLoading(true); props.setMessage(null);
     try {
-      const res = await fetch(`/api/seisan-kpi/groups?period=${props.period}`);
-      const json = await res.json();
+      const json = await fetchJson(`/api/seisan-kpi/groups?period=${props.period}`);
       if (json.error) throw new Error(json.error);
       setData(json.data);
     } catch (e: any) { props.setMessage(`読み込みエラー: ${e.message}`); }
@@ -339,11 +334,10 @@ function GroupMasterTab(props: { period: number; setMessage: (m: string | null) 
     const key = `${dept}:${groupId}`;
     setBusyCell(key);
     try {
-      const res = await fetch(`/api/seisan-kpi/groups/members`, {
+      const json = await fetchJson(`/api/seisan-kpi/groups/members`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ period: props.period, groupId, department: dept, member }),
       });
-      const json = await res.json();
       if (json.error) throw new Error(json.error);
       await load();
     } catch (e: any) { props.setMessage(`保存エラー: ${e.message}`); }
@@ -426,11 +420,10 @@ function NewGroupForm(props: { period: number; nextOrder: number; onClose: () =>
     if (!name.trim()) { props.setMessage("グループ名を入力してください"); return; }
     setBusy(true);
     try {
-      const res = await fetch(`/api/seisan-kpi/groups`, {
+      const json = await fetchJson(`/api/seisan-kpi/groups`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ period: props.period, groupName: name, groupType: type, sortOrder: props.nextOrder, isActive: true }),
       });
-      const json = await res.json();
       if (json.error) throw new Error(json.error);
       props.onSaved();
     } catch (e: any) { props.setMessage(`保存エラー: ${e.message}`); }

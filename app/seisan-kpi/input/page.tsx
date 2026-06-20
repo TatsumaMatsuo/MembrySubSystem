@@ -15,6 +15,7 @@ import {
   type Judgment,
   type MonthlyActual,
 } from "@/lib/kpi";
+import { fetchJson } from "@/lib/fetch-json";
 
 interface InputRow {
   kpiId: string;
@@ -69,8 +70,7 @@ export default function SeisanKpiInputPage() {
       const params = new URLSearchParams();
       if (p) params.set("period", String(p));
       if (d) params.set("dept", d);
-      const res = await fetch(`/api/seisan-kpi/input?${params.toString()}`);
-      const json = await res.json();
+      const json = await fetchJson(`/api/seisan-kpi/input?${params.toString()}`);
       if (json.error) throw new Error(json.error);
       const data = json.data;
       setPeriod(data.period);
@@ -137,12 +137,11 @@ export default function SeisanKpiInputPage() {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/seisan-kpi/actuals", {
+      const json = await fetchJson("/api/seisan-kpi/actuals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items: dirtyItems }),
       });
-      const json = await res.json();
       if (json.error) throw new Error(json.error);
       setMessage(`✅ ${json.data.saved}件を保存しました`);
       await load(period, dept);

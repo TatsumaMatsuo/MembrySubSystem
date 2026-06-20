@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { MainLayout } from "@/components/layout";
 import { HelpLink } from "@/components/features/seisan-kpi";
 import { Download, FileText, Printer, RefreshCw } from "lucide-react";
+import { fetchJson } from "@/lib/fetch-json";
 
 type ExportType = "actuals" | "measures" | "stars";
 const DATASETS: { key: ExportType; label: string; desc: string }[] = [
@@ -25,8 +26,7 @@ export default function SeisanKpiExportPage() {
   const load = useCallback(async (t: ExportType) => {
     setLoading(true); setMessage(null);
     try {
-      const res = await fetch(`/api/seisan-kpi/export?type=${t}&format=json`);
-      const json = await res.json();
+      const json = await fetchJson(`/api/seisan-kpi/export?type=${t}&format=json`);
       if (json.error) throw new Error(json.error);
       const d = json.data;
       setPeriod(d.period);

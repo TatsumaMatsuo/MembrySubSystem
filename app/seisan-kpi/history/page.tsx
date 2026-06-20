@@ -7,6 +7,7 @@ import { MainLayout } from "@/components/layout";
 import { HelpLink, JudgmentBadge } from "@/components/features/seisan-kpi";
 import { RefreshCw } from "lucide-react";
 import type { Judgment } from "@/lib/kpi";
+import { fetchJson } from "@/lib/fetch-json";
 
 interface HistorySeriesRow { indicator: string; unit: string; aggLevel: string; series: { period: number; value: number | null }[]; target50: number | null; validity: string }
 interface DeptHistoryRow { kpiId: string; category: string; kpiName: string; unit: string; direction: string; prevActual: number | null; annualTarget: number; current: number; judgment: Judgment }
@@ -42,8 +43,7 @@ export default function SeisanKpiHistoryPage() {
       const params = new URLSearchParams({ scope: sc });
       if (d) params.set("dept", d);
       if (g) params.set("group", g);
-      const res = await fetch(`/api/seisan-kpi/history?${params.toString()}`);
-      const json = await res.json();
+      const json = await fetchJson(`/api/seisan-kpi/history?${params.toString()}`);
       if (json.error) throw new Error(json.error);
       const dd: HistoryData = json.data;
       setData(dd);

@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout";
 import { HelpLink, JudgmentBadge, JUDGMENT_COLORS } from "@/components/features/seisan-kpi";
 import { useIsMobile } from "@/lib/use-is-mobile";
+import { fetchJson } from "@/lib/fetch-json";
 import { RefreshCw } from "lucide-react";
 
 type Judgment = "緑" | "黄" | "赤";
@@ -33,9 +34,7 @@ export default function SeisanDashboardPage() {
   const load = async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/api/seisan-kpi/dashboard?period=${period}`);
-      const json = await res.json();
-      if (json.error) throw new Error(json.error);
+      const json = await fetchJson<{ data: any; error?: string }>(`/api/seisan-kpi/dashboard?period=${period}`);
       const d = json.data;
       setPeriod(d.period); setElapsed(d.elapsedMonths);
       setSignals(d.signals ?? []); setAlert(d.alert ?? { red: 0, amber: 0 });
@@ -44,8 +43,7 @@ export default function SeisanDashboardPage() {
       setManuf(d.manufacturingRank ?? []); setManage(d.managementRank ?? []);
       // 施策の進捗(当期): 過去施策参照APIを当期で集計
       try {
-        const pr = await fetch(`/api/seisan-kpi/measures/past?period=${d.period}`);
-        const pj = await pr.json();
+        const pj = await fetchJson<{ data?: { rows?: { lastAction: string; lastEffect: string }[] } }>(`/api/seisan-kpi/measures/past?period=${d.period}`);
         const kv = { 継続: 0, 強化: 0, 見直し: 0, 完了: 0, 改善: 0, 悪化: 0 };
         for (const m of (pj.data?.rows ?? []) as { lastAction: string; lastEffect: string }[]) {
           if (m.lastAction in kv) (kv as any)[m.lastAction]++;

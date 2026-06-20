@@ -31,6 +31,7 @@ interface InputRow {
   current: number;
   attainment: number;
   judgment: Judgment;
+  readOnly?: boolean;
 }
 interface BasicRow { kpiId: string; kpiName: string; department: string; level: string; unit: string; annualTarget: number; category: string; }
 
@@ -201,6 +202,11 @@ export default function SeisanKpiInputPage() {
           確定済み(ロック)
           <span style={{ marginLeft: 12 }}>数値入力で判定が即時更新されます。</span>
         </div>
+        {dept.includes("全体") && (
+          <div style={{ fontSize: 12, padding: "8px 12px", borderRadius: 8, marginBottom: 10, background: "#eef5ff", border: "1px solid #c7ddff", color: "#1e3a8a" }}>
+「{dept}」は各課の実績を積み上げた<b>集計結果</b>です（集計タイプに従い 累計=合算／平均=単純平均／直近=合算）。積み上げKPIは<b>入力不可</b>（積み上げ元の無い全体固有KPIのみ入力可）。各課の値は各課を選択して入力してください。
+          </div>
+        )}
 
         {message && (
           <div style={{ fontSize: 13, padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: message.startsWith("✅") ? "#ecfdf5" : "#fef2f2", color: message.startsWith("✅") ? "#065f46" : "#991b1b" }}>
@@ -234,7 +240,7 @@ export default function SeisanKpiInputPage() {
                   const { current, attainment, judgment } = recompute(row);
                   return (
                     <tr key={row.kpiId}>
-                      <td style={{ ...tdLeft, ...freezeCell, ...colName }} title={row.kpiName}>{row.kpiName}</td>
+                      <td style={{ ...tdLeft, ...freezeCell, ...colName }} title={`${row.department} / ${row.kpiName}`}>{row.kpiName}<div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 400 }}>{row.department}</div></td>
                       <td style={{ ...tdSub, ...freezeCell, ...colUnit }}>{row.unit}</td>
                       <td style={{ ...tdSub, ...freezeCell, ...colAnnual }}>{fmt1(row.annualTarget)}</td>
                       <td style={{ ...tdSub, ...freezeCell, ...colMonthly }}>{fmt1(row.monthlyTarget)}</td>
@@ -248,7 +254,7 @@ export default function SeisanKpiInputPage() {
                         <JudgmentBadge judgment={judgment} />
                       </td>
                       {row.months.map((m) => {
-                        const locked = m.fiscalMonth <= elapsed;
+                        const locked = m.fiscalMonth <= elapsed || !!row.readOnly;
                         const isTarget = m.fiscalMonth === inputTargetFm;
                         const key = `${row.kpiId}:${m.fiscalMonth}`;
                         const editVal = edits[key];

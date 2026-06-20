@@ -30,15 +30,18 @@ export default function SeisanKpiStarsPage() {
   const [message, setMessage] = useState<string | null>(null);
   // 手入力編集: key=`${dept}:${type}:${fm}` → string
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [period, setPeriod] = useState<number>(0);
+  const [periods, setPeriods] = useState<number[]>([]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (p?: number) => {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await fetch(`/api/seisan-kpi/stars`);
+      const res = await fetch(`/api/seisan-kpi/stars${p ? `?period=${p}` : ""}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       setData(json.data);
+      setPeriod(json.data.period);
       setEdits({});
     } catch (e: any) {
       setMessage(`読み込みエラー: ${e.message}`);
@@ -47,7 +50,21 @@ export default function SeisanKpiStarsPage() {
     }
   }, []);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/seisan-kpi/periods");
+        const j = await r.json();
+        const nums = (j.data ?? [])
+          .map((x: { period: number }) => x.period)
+          .filter((n: number) => Number.isFinite(n))
+          .sort((a: number, b: number) => a - b);
+        if (nums.length) setPeriods(nums);
+      } catch { /* 期マスタ取得失敗時は現行期のみ */ }
+      await load();
+    })();
+    /* eslint-disable-next-line */
+  }, []);
 
   const depts = data ? (tab === "manufacturing" ? data.manufacturing : data.indirect) : [];
   const ranking = [...depts].map((d) => ({ department: d.department, grandTotal: d.grandTotal })).sort((a, b) => b.grandTotal - a.grandTotal);
@@ -61,7 +78,7 @@ export default function SeisanKpiStarsPage() {
       });
       const json = await res.json();
       if (json.error) throw new Error(json.error);
-      await load();
+      await load(data?.period);
       setMessage(`✅ ${dept} ${type} ${FY_MONTHS[fm - 1]} を保存しました`);
     } catch (e: any) {
       setMessage(`保存エラー: ${e.message}`);
@@ -75,10 +92,15 @@ export default function SeisanKpiStarsPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>★達成評価 ― 部署ごと</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
+            {periods.length > 0 && (
+              <select value={period} onChange={(e) => load(Number(e.target.value))} title="期を選択(過去の実績を参照)" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#1f3864", background: "#fff", cursor: "pointer" }}>
+                {periods.map((p) => <option key={p} value={p}>{p}期</option>)}
+              </select>
+            )}
             <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>
-              {data?.period ?? "—"}期 / 経過 {data?.elapsedMonths ?? 0}ヶ月
+              経過 {data?.elapsedMonths ?? 0}ヶ月{data?.isPeriodClosed ? "・期末確定" : ""}
             </span>
-            <button onClick={load} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
+            <button onClick={() => load(period || undefined)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
             <HelpLink section="star" />

@@ -100,10 +100,10 @@ export default function SeisanKpiMeasuresPage() {
   return (
     <MainLayout>
       <div style={{ height: "100%", overflowY: "auto" }}>
-      <div style={{ padding: 20, maxWidth: 1340, margin: "0 auto" }}>
+      <div style={{ padding: isMobile ? 12 : 20, maxWidth: 1340, margin: "0 auto" }}>
         {/* ヘッダ */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>
+          <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>
             KPI施策管理 (重点施策PDCA)
           </h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>

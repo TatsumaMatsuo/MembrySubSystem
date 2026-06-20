@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useCallback } from "react";
 import { MainLayout } from "@/components/layout";
 import { HelpLink } from "@/components/features/seisan-kpi";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { Download, FileText, Printer, RefreshCw } from "lucide-react";
 import { fetchJson } from "@/lib/fetch-json";
 
@@ -22,6 +23,7 @@ export default function SeisanKpiExportPage() {
   const [cols, setCols] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const load = useCallback(async (t: ExportType) => {
     setLoading(true); setMessage(null);
@@ -48,9 +50,9 @@ export default function SeisanKpiExportPage() {
   return (
     <MainLayout>
       <div style={{ height: "100%", overflowY: "auto" }}>
-      <div style={{ padding: 20, maxWidth: 1340, margin: "0 auto" }}>
+      <div style={{ padding: isMobile ? 12 : 20, maxWidth: 1340, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }} className="no-print">
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>データエクスポート</h1>
+          <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>データエクスポート</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
             <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>{period}期</span>
             <button onClick={() => load(type)} style={btn}><RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込</button>

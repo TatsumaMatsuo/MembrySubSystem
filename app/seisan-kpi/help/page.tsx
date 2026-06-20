@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useEffect } from "react";
 import { MainLayout } from "@/components/layout";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { JUDGE_GREEN, JUDGE_AMBER } from "@/lib/kpi";
 
 /**
@@ -31,6 +32,7 @@ const FLOW = [
 ];
 
 export default function SeisanKpiHelpPage() {
+  const isMobile = useIsMobile();
   // ?section= またはハッシュで該当セクションへスクロール
   useEffect(() => {
     const hash = window.location.hash?.replace("#", "");
@@ -48,18 +50,18 @@ export default function SeisanKpiHelpPage() {
   return (
     <MainLayout>
       <div style={{ height: "100%", overflowY: "auto" }}>
-      <div style={{ padding: 20, maxWidth: 1180, margin: "0 auto" }}>
-        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1f3864", color: "#fff", borderRadius: 14, padding: "16px 24px", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-          <h1 style={{ fontSize: 19, margin: 0, fontWeight: 700 }}>📖 ヘルプ ― 運用ガイド</h1>
+      <div style={{ padding: isMobile ? 12 : 20, maxWidth: 1180, margin: "0 auto" }}>
+        <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#1f3864", color: "#fff", borderRadius: 14, padding: isMobile ? "12px 16px" : "16px 24px", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+          <h1 style={{ fontSize: isMobile ? 16 : 19, margin: 0, fontWeight: 700 }}>📖 ヘルプ ― 運用ガイド</h1>
           <div style={{ fontSize: 12, opacity: 0.85 }}>山口産業株式会社 生産本部 / 50期(令和7年8月1日〜令和8年7月31日)</div>
         </header>
 
-        <div style={{ display: "grid", gridTemplateColumns: "210px 1fr", gap: 18, alignItems: "start" }}>
-          {/* 目次 */}
-          <nav style={{ position: "sticky", top: 16, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: 14, fontSize: 13 }}>
-            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, margin: "0 4px 6px" }}>目次</div>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "210px 1fr", gap: isMobile ? 12 : 18, alignItems: "start" }}>
+          {/* 目次（モバイルは横並び・非スティッキー） */}
+          <nav style={{ position: isMobile ? "static" : "sticky", top: 16, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: isMobile ? 10 : 14, fontSize: 13, display: isMobile ? "flex" : "block", flexWrap: "wrap", gap: isMobile ? 4 : 0 }}>
+            <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, margin: isMobile ? 0 : "0 4px 6px", width: isMobile ? "100%" : undefined }}>目次</div>
             {TOC.map(([id, label]) => (
-              <a key={id} href={`#${id}`} style={{ display: "block", color: "#475569", textDecoration: "none", padding: "6px 8px", borderRadius: 7 }}>{label}</a>
+              <a key={id} href={`#${id}`} style={{ display: "block", color: "#475569", textDecoration: "none", padding: "6px 8px", borderRadius: 7, ...(isMobile ? { background: "#f1f5f9", fontSize: 12 } : {}) }}>{label}</a>
             ))}
           </nav>
 
@@ -185,6 +187,7 @@ function Card({ id, title, children }: { id: string; title: string; children: Re
 }
 function Table({ head, rows, termCol }: { head?: string[]; rows: string[][]; termCol?: boolean }) {
   return (
+    <div style={{ overflowX: "auto" }}>
     <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12.5, marginTop: 6 }}>
       {head && <thead><tr>{head.map((h) => <th key={h} style={thtd(true)}>{h}</th>)}</tr></thead>}
       <tbody>
@@ -195,6 +198,7 @@ function Table({ head, rows, termCol }: { head?: string[]; rows: string[][]; ter
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 function Pill({ children }: { children: React.ReactNode }) {

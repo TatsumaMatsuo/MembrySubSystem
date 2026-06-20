@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { MainLayout } from "@/components/layout";
 import { HelpLink, JudgmentBadge } from "@/components/features/seisan-kpi";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { Save, RefreshCw, Lock, AlertCircle, Check } from "lucide-react";
 import {
   aggregate,
@@ -62,6 +63,7 @@ export default function SeisanKpiInputPage() {
   const [message, setMessage] = useState<string | null>(null);
   // 編集中の値: key = `${kpiId}:${fiscalMonth}` → string
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const isMobile = useIsMobile();
 
   const load = useCallback(async (p?: number, d?: string) => {
     setLoading(true);
@@ -158,9 +160,9 @@ export default function SeisanKpiInputPage() {
   return (
     <MainLayout>
       <div style={{ height: "100%", overflowY: "auto" }}>
-      <div style={{ padding: "20px", maxWidth: 1500, margin: "0 auto" }}>
+      <div style={{ padding: isMobile ? 12 : 20, maxWidth: 1500, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>
+          <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>
             KPI実績入力
           </h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>

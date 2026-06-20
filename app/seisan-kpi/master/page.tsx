@@ -28,6 +28,7 @@ export default function SeisanKpiMasterPage() {
   const [period, setPeriod] = useState<number>(50);
   const [periods, setPeriods] = useState<number[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   // 期マスタからドロップダウンを生成し、現在期を初期選択
   useEffect(() => {
@@ -44,9 +45,9 @@ export default function SeisanKpiMasterPage() {
   return (
     <MainLayout>
       <div style={{ height: "100%", overflowY: "auto" }}>
-      <div style={{ padding: 20, maxWidth: 1340, margin: "0 auto" }}>
+      <div style={{ padding: isMobile ? 12 : 20, maxWidth: 1340, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>KPIマスタ / グループマスタ管理</h1>
+          <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>KPIマスタ / グループマスタ管理</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <select value={period} onChange={(e) => setPeriod(Number(e.target.value))} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#1f3864", background: "#fff", cursor: "pointer" }}>
               {(periods.length ? periods : [period]).map((p) => <option key={p} value={p}>{p}期</option>)}
@@ -263,6 +264,7 @@ function NewKpiDialog(props: { period: number; depts: string[]; cats: string[]; 
   // kpiId はサーバー側で M-### を自動採番するためフォームには持たない
   const [f, setF] = useState({ level: "Lv4", department: "", category: "", kpiName: "", unit: "", aggType: "累計", direction: "高い方が良い", annualTarget: 0, monthlyTarget: 0, owner: "", dataSource: "", inputTiming: "", notes: "", rollupTarget: "" });
   const [busy, setBusy] = useState(false);
+  const isMobile = useIsMobile();
   const set = (patch: Partial<typeof f>) => setF((s) => ({ ...s, ...patch }));
 
   const run = async () => {
@@ -287,7 +289,7 @@ function NewKpiDialog(props: { period: number; depts: string[]; cats: string[]; 
           <div style={{ fontSize: 15, fontWeight: 800, color: "#1f3864" }}>KPI追加（{props.period}期）</div>
           <button onClick={props.onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}><X size={16} /></button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10 }}>
           <label style={lbl}>KPI_ID<input value="保存時に自動採番（M-###）" readOnly disabled style={{ ...inp, background: "#f1f5f9", color: "#94a3b8" }} title="KPIコードは保存時に M-### の連番で自動採番されます" /></label>
           <label style={lbl}>階層<select value={f.level} onChange={(e) => set({ level: e.target.value })} style={inp}>{["Lv2", "Lv3", "Lv4"].map((l) => <option key={l}>{l}</option>)}</select></label>
           <label style={lbl}>KPI名称<input value={f.kpiName} onChange={(e) => set({ kpiName: e.target.value })} style={inp} /></label>

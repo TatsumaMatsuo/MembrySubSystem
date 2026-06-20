@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useCallback } from "react";
 import { MainLayout } from "@/components/layout";
 import { HelpLink, JudgmentBadge } from "@/components/features/seisan-kpi";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { RefreshCw } from "lucide-react";
 import type { Judgment } from "@/lib/kpi";
 import { fetchJson } from "@/lib/fetch-json";
@@ -36,6 +37,7 @@ export default function SeisanKpiHistoryPage() {
   const [group, setGroup] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const load = useCallback(async (sc: typeof scope, d?: string, g?: string) => {
     setLoading(true); setMessage(null);
@@ -58,9 +60,9 @@ export default function SeisanKpiHistoryPage() {
   return (
     <MainLayout>
       <div style={{ height: "100%", overflowY: "auto" }}>
-      <div style={{ padding: 20, maxWidth: 1340, margin: "0 auto" }}>
+      <div style={{ padding: isMobile ? 12 : 20, maxWidth: 1340, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>KPI過去実績参照</h1>
+          <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 700, color: "#1f3864", margin: 0 }}>KPI過去実績参照</h1>
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13 }}>
             <span style={{ background: "#1f3864", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>{data?.period ?? "—"}期</span>
             <button onClick={() => load(scope, dept, group)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
@@ -71,7 +73,7 @@ export default function SeisanKpiHistoryPage() {
         </div>
 
         {/* スコープタブ */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
           {([["zensha", "全社・部門"], ["busho", "部署別"], ["group", "グループ別"]] as const).map(([k, label]) => (
             <button key={k} onClick={() => setScope(k)}
               style={{ padding: "8px 16px", borderRadius: 9, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: scope === k ? "#1f3864" : "#dde5ef", color: scope === k ? "#fff" : "#475569" }}>

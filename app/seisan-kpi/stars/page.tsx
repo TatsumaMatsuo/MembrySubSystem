@@ -11,7 +11,7 @@ import { RefreshCw } from "lucide-react";
 
 const FY_MONTHS = ["8月", "9月", "10月", "11月", "12月", "1月", "2月", "3月", "4月", "5月", "6月", "7月"];
 
-interface StarCell { fiscalMonth: number; value: number | null; star: boolean; future: boolean }
+interface StarCell { fiscalMonth: number; value: number | null; star: boolean; future: boolean; excluded: boolean }
 interface StarItemRow { kpiId: string; category: string; name: string; unit: string; monthlyTarget: number; direction: string; cells: StarCell[]; total: number }
 interface ManualStarRow { type: string; months: (number | null)[]; total: number }
 interface DeptStars {
@@ -71,6 +71,23 @@ export default function SeisanKpiStarsPage() {
   const ranking = [...depts].map((d) => ({ department: d.department, grandTotal: d.grandTotal })).sort((a, b) => b.grandTotal - a.grandTotal);
   const maxStar = Math.max(1, ...ranking.map((r) => r.grandTotal));
 
+  // 自動★の手動削除/復元(月間達成で付いた★をクリックで切替)
+  const toggleStar = async (dept: string, kpiId: string, fm: number, excluded: boolean) => {
+    const action = excluded ? "削除" : "復元";
+    if (excluded && !window.confirm(`${dept} ${FY_MONTHS[fm - 1]} の★を削除します。よろしいですか?`)) return;
+    try {
+      const json = await fetchJson(`/api/seisan-kpi/stars`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period: data?.period, department: dept, kpiId, fiscalMonth: fm, excluded }),
+      });
+      if (json.error) throw new Error(json.error);
+      await load(data?.period);
+      setMessage(`✅ ${dept} ${FY_MONTHS[fm - 1]} の★を${action}しました`);
+    } catch (e: any) {
+      setMessage(`${action}エラー: ${e.message}`);
+    }
+  };
+
   const saveAdj = async (dept: string, type: string, fm: number, val: string) => {
     try {
       const json = await fetchJson(`/api/seisan-kpi/stars`, {
@@ -117,7 +134,7 @@ export default function SeisanKpiStarsPage() {
           ))}
         </div>
         <div style={{ fontSize: 11, color: "#64748b", margin: "0 0 12px 2px" }}>
-          【ルール】月間目標達成で★{tab === "indirect" && "(経過月内の空欄も達成扱い)"} / 年間目標を期末累計で達成すると★+3(期末のみ) / 5S大賞・労災は手入力
+          【ルール】月間目標達成で★{tab === "indirect" && "(経過月内の空欄も達成扱い)"} / 年間目標を期末累計で達成すると★+3(期末のみ) / 5S大賞・労災は手入力 / 自動の★はクリックで手動削除・復元可
         </div>
 
         {message && (
@@ -167,12 +184,28 @@ export default function SeisanKpiStarsPage() {
                         )}
                         <td style={{ ...td, textAlign: "left", color: "#475569" }}>{it.category}: {it.name}</td>
                         <td style={{ ...td, color: "#64748b", fontSize: 11 }}>{it.monthlyTarget}</td>
-                        {it.cells.map((c) => (
-                          <td key={c.fiscalMonth} style={{ ...td, color: c.star ? "#eab308" : c.future ? "#f1f5f9" : "#e2e8f0", fontWeight: c.star ? 800 : 400 }}
-                            title={c.value != null ? `実績 ${c.value}` : c.future ? "未到来" : "実績なし"}>
-                            {c.future ? "" : c.star ? "★" : "・"}
-                          </td>
-                        ))}
+                        {it.cells.map((c) => {
+                          const clickable = !c.future && (c.star || c.excluded);
+                          const title = c.star
+                            ? `${c.value != null ? `実績 ${c.value}・` : ""}クリックで★を削除`
+                            : c.excluded
+                            ? "★を手動削除済み・クリックで復元"
+                            : c.value != null ? `実績 ${c.value}` : c.future ? "未到来" : "実績なし";
+                          return (
+                            <td key={c.fiscalMonth}
+                              onClick={clickable ? () => toggleStar(d.department, it.kpiId, c.fiscalMonth, c.star) : undefined}
+                              title={title}
+                              style={{
+                                ...td,
+                                cursor: clickable ? "pointer" : "default",
+                                color: c.star ? "#eab308" : c.excluded ? "#cbd5e1" : c.future ? "#f1f5f9" : "#e2e8f0",
+                                fontWeight: c.star ? 800 : 400,
+                                textDecoration: c.excluded ? "line-through" : "none",
+                              }}>
+                              {c.future ? "" : c.star ? "★" : c.excluded ? "★" : "・"}
+                            </td>
+                          );
+                        })}
                         <td style={{ ...td, background: "#fffbeb", fontWeight: 800, color: "#a16207" }}>{it.total}</td>
                       </tr>
                     ))}
@@ -228,7 +261,7 @@ export default function SeisanKpiStarsPage() {
             ))}
 
             <div style={{ fontSize: 11, color: "#64748b", padding: "0 4px", lineHeight: 1.8 }}>
-              月間★は <code>SEISAN_KPI_ACTUAL</code> と月間目標の比較で自動判定(<code>lib/kpi/monthlyStar</code>)。5S大賞・労災は <code>SEISAN_KPI_STAR_ADJ</code>(手入力・セルを編集してフォーカスを外すと保存)。総合計★=自動★+期末ボーナス(年間達成で★+3)+手入力調整。部署=Lark部門。
+              月間★は <code>SEISAN_KPI_ACTUAL</code> と月間目標の比較で自動判定(<code>lib/kpi/monthlyStar</code>)。自動の★(<code>★</code>)はクリックで手動削除でき、削除した★(<span style={{ textDecoration: "line-through", color: "#cbd5e1" }}>★</span>)は再クリックで復元できる。5S大賞・労災は <code>SEISAN_KPI_STAR_ADJ</code>(手入力・セルを編集してフォーカスを外すと保存)。総合計★=自動★+期末ボーナス(年間達成で★+3)+手入力調整。部署=Lark部門。
             </div>
           </>
         )}

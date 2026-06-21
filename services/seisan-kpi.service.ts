@@ -1035,12 +1035,15 @@ const STAR_MANUFACTURING = [
 const STAR_INDIRECT = ["調達課", "生産管理課", "検査課"];
 /** 手入力(STAR_ADJ)の常設行。種別はこの順で表示 */
 const STAR_MANUAL_TYPES = ["5S大賞", "労災"];
+/** 自動★の手動削除を表す STAR_ADJ 種別の接頭辞(種別=`除外:<KPIコード>`)。手入力行には出さず、自動★セルに反映する。 */
+const STAR_EXCLUDE_PREFIX = "除外:";
 
 export interface StarCell {
   fiscalMonth: number;
   value: number | null;
   star: boolean;
   future: boolean; // 経過月数より先(未到来)
+  excluded: boolean; // 月間達成だが手動で★を削除した(復元可能)
 }
 export interface StarItemRow {
   kpiId: string;
@@ -1100,8 +1103,9 @@ export async function getStars(period: number): Promise<{
   const elapsed = pinfo?.elapsedMonths ?? 0;
   const isPeriodClosed = elapsed >= 12;
 
-  // STAR_ADJ を 部署→種別→月配列 に整理
+  // STAR_ADJ を 部署→種別→月配列 に整理。種別=`除外:<KPIコード>` は自動★の手動削除なので別管理。
   const adjByDept = new Map<string, Map<string, (number | null)[]>>();
+  const excludedStars = new Set<string>(); // `${部署}:${KPIコード}:${会計月序}`
   for (const it of adjItems) {
     const dept = asText(it.fields[SF.department]);
     const type = asText(it.fields[SF.type]) || "その他";
@@ -1110,6 +1114,11 @@ export async function getStars(period: number): Promise<{
     if (!dept || !ym) continue;
     const fm = ymToFiscalMonth(ym);
     if (fm < 1 || fm > 12) continue;
+    if (type.startsWith(STAR_EXCLUDE_PREFIX)) {
+      const kpiId = type.slice(STAR_EXCLUDE_PREFIX.length);
+      if (kpiId) excludedStars.add(`${dept}:${kpiId}:${fm}`);
+      continue; // 手入力行には出さず、自動★セルへ反映
+    }
     if (!adjByDept.has(dept)) adjByDept.set(dept, new Map());
     const byType = adjByDept.get(dept)!;
     if (!byType.has(type)) byType.set(type, Array(12).fill(null));
@@ -1130,13 +1139,16 @@ export async function getStars(period: number): Promise<{
       const months = monthsOf(m.kpiId);
       const cells: StarCell[] = months.map((mo) => {
         const future = mo.fiscalMonth > elapsed;
-        const star = !future && monthlyStar(
+        const rawStar = !future && monthlyStar(
           { monthlyTarget: m.monthlyTarget, direction: m.direction },
           mo.value,
           indirectBlankAsAchieved
         );
+        // 月間達成だが手動で削除された★は集計に含めない(復元可能なので excluded で保持)
+        const excluded = rawStar && excludedStars.has(`${department}:${m.kpiId}:${mo.fiscalMonth}`);
+        const star = rawStar && !excluded;
         if (star) monthlySubtotal[mo.fiscalMonth - 1] += 1;
-        return { fiscalMonth: mo.fiscalMonth, value: mo.value, star, future };
+        return { fiscalMonth: mo.fiscalMonth, value: mo.value, star, future, excluded };
       });
       return {
         kpiId: m.kpiId, category: m.category, name: m.kpiName, unit: m.unit,
@@ -1225,6 +1237,68 @@ export async function upsertStarAdj(input: {
   const r: any = await createBaseRecord(t.SEISAN_KPI_STAR_ADJ, fields, { baseToken: base() });
   await writeAudit({ table: "SEISAN_KPI_STAR_ADJ", recordId: adjId, operation: "作成", after: fields, operator });
   return { recordId: r?.data?.record?.record_id ?? "", adjId, created: true };
+}
+
+/**
+ * 自動判定された★(部署×項目×月)を手動で削除/復元する。
+ *
+ * STAR_ADJ に種別=`除外:<KPIコード>`・★増減=-1 のレコードを置く(部署×KPI×対象月で一意)。
+ * getStars はこの種別を手入力行ではなく該当の自動★セルに適用し、★を非表示・集計除外する。
+ * excluded=false(復元)時はレコードを削除して自動判定に戻す。
+ */
+export async function setStarExclusion(input: {
+  period: number;
+  department: string;
+  departmentId?: string;
+  kpiId: string;
+  fiscalMonth: number;
+  excluded: boolean;
+  reason?: string;
+  operator?: string;
+}): Promise<{ adjId: string; excluded: boolean }> {
+  const t = getLarkTables();
+  const periods = await getPeriods();
+  const pinfo = periods.find((p) => p.period === input.period);
+  const ym = fiscalMonthToYm(pinfo?.startDate ?? "", input.fiscalMonth);
+  const type = `${STAR_EXCLUDE_PREFIX}${input.kpiId}`;
+  const adjId = `${input.period}-${input.department}-${type}-${ym.replace("-", "")}`;
+  const operator = input.operator ?? "";
+
+  const found = await getBaseRecords(t.SEISAN_KPI_STAR_ADJ, {
+    baseToken: base(),
+    filter: `CurrentValue.[${SF.adj_id}] = "${adjId}"`,
+    pageSize: 1,
+  });
+  const existing = (found.data?.items ?? [])[0] as any;
+
+  if (input.excluded) {
+    const fields: Record<string, any> = {
+      [SF.adj_id]: adjId,
+      [SF.period]: input.period,
+      [SF.department]: input.department,
+      [SF.department_id]: input.departmentId ?? "",
+      [SF.target_ym]: ym,
+      [SF.type]: type,
+      [SF.delta]: -1,
+      [SF.reason]: input.reason || "自動★を手動で削除",
+      [SF.registered_by]: operator,
+    };
+    if (existing) {
+      await updateBaseRecord(t.SEISAN_KPI_STAR_ADJ, existing.record_id, fields, { baseToken: base() });
+      await writeAudit({ table: "SEISAN_KPI_STAR_ADJ", recordId: adjId, operation: "更新", before: existing.fields, after: fields, operator });
+    } else {
+      await createBaseRecord(t.SEISAN_KPI_STAR_ADJ, fields, { baseToken: base() });
+      await writeAudit({ table: "SEISAN_KPI_STAR_ADJ", recordId: adjId, operation: "作成", after: fields, operator });
+    }
+    return { adjId, excluded: true };
+  }
+
+  // 復元: 除外レコードを削除して自動判定へ戻す
+  if (existing) {
+    await deleteBaseRecord(t.SEISAN_KPI_STAR_ADJ, existing.record_id, { baseToken: base() });
+    await writeAudit({ table: "SEISAN_KPI_STAR_ADJ", recordId: adjId, operation: "削除", before: existing.fields, operator });
+  }
+  return { adjId, excluded: false };
 }
 
 /* =========================================================================

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStars, upsertStarAdj, getCurrentPeriod } from "@/services/seisan-kpi.service";
+import { getStars, upsertStarAdj, setStarExclusion, getCurrentPeriod } from "@/services/seisan-kpi.service";
 import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +38,29 @@ export async function POST(req: NextRequest) {
     const period = Number(body?.period);
     const department = String(body?.department ?? "");
     const fiscalMonth = Number(body?.fiscalMonth);
+    const kpiId = String(body?.kpiId ?? "");
+
+    // 自動★の手動削除/復元(kpiId 指定): 月間達成で付いた★を非表示・集計除外する
+    if (kpiId) {
+      if (!period || !department || !fiscalMonth) {
+        return NextResponse.json(
+          { error: "period / department / fiscalMonth / kpiId は必須です" },
+          { status: 400 }
+        );
+      }
+      const result = await setStarExclusion({
+        period,
+        department,
+        departmentId: body?.departmentId || undefined,
+        kpiId,
+        fiscalMonth,
+        excluded: body?.excluded !== false, // 既定=削除。false で復元
+        reason: body?.reason,
+        operator,
+      });
+      return NextResponse.json({ data: result });
+    }
+
     const type = String(body?.type ?? "");
     if (!period || !department || !fiscalMonth || !type) {
       return NextResponse.json(

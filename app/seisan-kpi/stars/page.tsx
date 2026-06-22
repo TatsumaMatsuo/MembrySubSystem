@@ -198,8 +198,9 @@ export default function SeisanKpiStarsPage() {
                               style={{
                                 ...td,
                                 cursor: clickable ? "pointer" : "default",
-                                color: c.star ? "#eab308" : c.excluded ? "#cbd5e1" : c.future ? "#f1f5f9" : "#e2e8f0",
-                                fontWeight: c.star ? 800 : 400,
+                                background: c.excluded ? "#fee2e2" : undefined,
+                                color: c.star ? "#eab308" : c.excluded ? "#dc2626" : c.future ? "#f1f5f9" : "#e2e8f0",
+                                fontWeight: c.star || c.excluded ? 800 : 400,
                                 textDecoration: c.excluded ? "line-through" : "none",
                               }}>
                               {c.future ? "" : c.star ? "★" : c.excluded ? "★" : "・"}
@@ -261,7 +262,7 @@ export default function SeisanKpiStarsPage() {
             ))}
 
             <div style={{ fontSize: 11, color: "#64748b", padding: "0 4px", lineHeight: 1.8 }}>
-              月間★は <code>SEISAN_KPI_ACTUAL</code> と月間目標の比較で自動判定(<code>lib/kpi/monthlyStar</code>)。自動の★(<code>★</code>)はクリックで手動削除でき、削除した★(<span style={{ textDecoration: "line-through", color: "#cbd5e1" }}>★</span>)は再クリックで復元できる。5S大賞・労災は <code>SEISAN_KPI_STAR_ADJ</code>(手入力・セルを編集してフォーカスを外すと保存)。総合計★=自動★+期末ボーナス(年間達成で★+3)+手入力調整。部署=Lark部門。
+              月間★は <code>SEISAN_KPI_ACTUAL</code> と月間目標の比較で自動判定(<code>lib/kpi/monthlyStar</code>)。自動の★(<code>★</code>)はクリックで手動削除でき、削除したセル(<span style={{ background: "#fee2e2", color: "#dc2626", textDecoration: "line-through", fontWeight: 800, padding: "0 4px", borderRadius: 3 }}>★</span> 赤背景・取り消し線)は再クリックで復元できる。5S大賞・労災は <code>SEISAN_KPI_STAR_ADJ</code>(手入力・セルを編集してフォーカスを外すと保存)。総合計★=自動★+期末ボーナス(年間達成で★+3)+手入力調整。部署=Lark部門。
             </div>
           </>
         )}

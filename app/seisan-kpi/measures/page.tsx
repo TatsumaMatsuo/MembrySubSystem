@@ -31,7 +31,7 @@ interface PdcaRow {
   effect: Effect | ""; effectMemo: string; directorComment: string; nextAction: string; writer: string;
 }
 interface MeasureRow {
-  recordId: string; measureId: string; no: number; measureName: string; groupId: string;
+  recordId: string; measureId: string; no: number; measureName: string; detail: string; groupId: string;
   targetKpiId: string; targetKpiName: string; unit: string; status: string;
   startMonth: number | null; endMonth: number | null; baseValue: number | null; goalValue: number | null;
   current: number; judgment: Judgment; direction: string; pdca: PdcaRow[];
@@ -168,10 +168,10 @@ export default function SeisanKpiMeasuresPage() {
               )}
             </div>
 
-            {/* マスター・ディテール */}
-            <SectionTitle>重点施策(件数無制限)＝マスター ／ 選択施策のPDCA履歴＝ディテール</SectionTitle>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(380px, 1fr) 1.4fr", gap: 14, alignItems: "start" }}>
-              {/* マスター */}
+            {/* マスター・ディテール(上下2段) */}
+            <SectionTitle>① 重点施策(件数無制限)＝マスター</SectionTitle>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "stretch" }}>
+              {/* 1段目: マスター */}
               <div style={card}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#1f3864", marginBottom: 8 }}>
                   重点施策一覧 <span style={{ color: "#64748b", fontWeight: 400 }}>(全{measures.length}件)</span>
@@ -180,7 +180,8 @@ export default function SeisanKpiMeasuresPage() {
                   <thead>
                     <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
                       <th style={{ ...th, width: 32 }}>No</th>
-                      <th style={{ ...th, textAlign: "left" }}>施策名 / 対象KPI</th>
+                      <th style={{ ...th, textAlign: "left", width: 200 }}>施策名 / 対象KPI</th>
+                      <th style={{ ...th, textAlign: "left" }}>施策詳細</th>
                       <th style={{ ...th, width: 60 }}>状態</th>
                       <th style={{ ...th, width: 92 }}>基準→現在</th>
                       <th style={{ ...th, width: 54 }}>PDCA</th>
@@ -188,7 +189,7 @@ export default function SeisanKpiMeasuresPage() {
                   </thead>
                   <tbody>
                     {measures.length === 0 ? (
-                      <tr><td colSpan={5} style={{ ...td, textAlign: "center", color: "#94a3b8", padding: 24 }}>施策がありません。「＋施策を追加」から登録してください。</td></tr>
+                      <tr><td colSpan={6} style={{ ...td, textAlign: "center", color: "#94a3b8", padding: 24 }}>施策がありません。「＋施策を追加」から登録してください。</td></tr>
                     ) : measures.map((m) => {
                       const sel = m.measureId === selectedMeasure;
                       return (
@@ -198,6 +199,9 @@ export default function SeisanKpiMeasuresPage() {
                           <td style={td}>
                             <div style={{ fontWeight: 600 }}>{m.measureName}</div>
                             <div style={{ fontSize: 11, color: "#2563eb" }}>{m.targetKpiName}</div>
+                          </td>
+                          <td style={{ ...td, color: "#475569", whiteSpace: "pre-wrap", fontSize: 11.5, maxWidth: 360 }}>
+                            {m.detail ? m.detail : <span style={{ color: "#cbd5e1" }}>—</span>}
                           </td>
                           <td style={{ ...td, textAlign: "center" }}>
                             <span style={pill(statusColor[m.status] ?? "#64748b")}>{m.status}</span>
@@ -224,7 +228,8 @@ export default function SeisanKpiMeasuresPage() {
                 </div>
               </div>
 
-              {/* ディテール */}
+              {/* 2段目: ディテール */}
+              <SectionTitle>② {showNewMeasure ? "重点施策の追加" : "選択施策のPDCA履歴＝ディテール"}</SectionTitle>
               <div style={card}>
                 {showNewMeasure ? (
                   <NewMeasureForm
@@ -330,6 +335,7 @@ function NewMeasureForm(props: {
   onCancel: () => void; onSaved: (measureId: string) => void; onError: (msg: string) => void;
 }) {
   const [name, setName] = useState("");
+  const [detail, setDetail] = useState("");
   const [targetKpiId, setTargetKpiId] = useState(props.kpis[0]?.kpiId ?? "");
   const [status, setStatus] = useState("実施中");
   const [startMonth, setStartMonth] = useState<number>(1);
@@ -351,7 +357,7 @@ function NewMeasureForm(props: {
       const json = await fetchJson("/api/seisan-kpi/measures", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          period: props.period, groupId: props.groupId, measureName: name, targetKpiId,
+          period: props.period, groupId: props.groupId, measureName: name, detail, targetKpiId,
           status, startMonth, baseValue: baseValue === "" ? null : Number(baseValue),
           goalValue: goalValue === "" ? null : Number(goalValue),
         }),
@@ -372,6 +378,11 @@ function NewMeasureForm(props: {
       <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
         <label style={lbl}>施策名
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="例: 鉄工チェックリスト" style={inp} />
+        </label>
+        <label style={lbl}>施策詳細
+          <textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={3}
+            placeholder="施策の内容・狙い・進め方など(例: 全工程の出荷前チェックリストを導入し、検査漏れによる手戻りを削減する)"
+            style={{ ...inp, resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }} />
         </label>
         <label style={lbl}>対象KPI
           <select value={targetKpiId} onChange={(e) => onPickKpi(e.target.value)} style={inp}>
@@ -471,6 +482,11 @@ function PdcaDetail(props: {
             {measure.goalValue != null && <> ／ 狙い値 {measure.goalValue}</>} ／ PDCA {measure.pdca.length}件
             <span style={{ ...pill(statusColor[measure.status] ?? "#64748b"), marginLeft: 8 }}>{measure.status}</span>
           </div>
+          {measure.detail && (
+            <div style={{ fontSize: 12, color: "#334155", marginTop: 6, whiteSpace: "pre-wrap", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", lineHeight: 1.5 }}>
+              <b style={{ color: "#64748b", fontWeight: 700 }}>施策詳細:</b> {measure.detail}
+            </div>
+          )}
         </div>
       </div>
 

@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
       measureId: body?.measureId || undefined,
       no: body?.no != null ? Number(body.no) : undefined,
       measureName,
+      detail: String(body?.detail ?? ""),
       targetKpiId,
       status: String(body?.status ?? "下書き"),
       startMonth: body?.startMonth != null ? Number(body.startMonth) : null,

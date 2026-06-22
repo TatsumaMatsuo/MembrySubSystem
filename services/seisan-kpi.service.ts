@@ -692,6 +692,7 @@ export interface MeasureRow {
   measureId: string;
   no: number;
   measureName: string;
+  detail: string; // 施策詳細(内容・狙い・進め方など)
   groupId: string;
   targetKpiId: string;
   targetKpiName: string;
@@ -871,6 +872,7 @@ export async function getMeasuresScreen(
           measureId,
           no: asNum(f[XF.no]) ?? 0,
           measureName: asText(f[XF.measure_name]),
+          detail: asText(f[XF.detail]),
           groupId: asText(f[XF.group_id]),
           targetKpiId,
           targetKpiName: km ? km.kpiName : asText(f[XF.target_kpi_id]),
@@ -907,6 +909,7 @@ export async function upsertMeasure(input: {
   measureId?: string; // 既存更新時
   no?: number;
   measureName: string;
+  detail?: string;
   targetKpiId: string;
   status: string;
   startMonth?: number | null;
@@ -935,6 +938,7 @@ export async function upsertMeasure(input: {
     [XF.group_id]: input.groupId,
     [XF.no]: no,
     [XF.measure_name]: input.measureName,
+    [XF.detail]: input.detail ?? "",
     [XF.target_kpi_id]: input.targetKpiId,
     [XF.status]: input.status,
     [XF.start_month]: input.startMonth ?? null,

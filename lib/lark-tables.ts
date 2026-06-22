@@ -615,6 +615,7 @@ export const SEISAN_KPI_MEASURE_FIELDS = {
   group_id: "グループコード",
   no: "No",
   measure_name: "施策名",
+  detail: "施策詳細",
   target_kpi_id: "対象KPIコード",
   status: "状態",
   start_month: "開始月",

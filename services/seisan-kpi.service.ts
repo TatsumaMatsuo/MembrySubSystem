@@ -402,7 +402,7 @@ export async function getDashboard(period: number): Promise<{
   period: number;
   elapsedMonths: number;
   signals: DashboardSignal[];
-  alert: { red: number; amber: number };
+  alert: { red: number; amber: number; green: number };
   alertList: { kpiId: string; name: string; department: string; level: string; unit: string; current: number; target: number; judgment: Judgment }[];
   trends: { kpiId: string; name: string; unit: string; target: number; monthly: (number | null)[] }[];
   manufacturingRank: DeptStarRank[];
@@ -433,20 +433,20 @@ export async function getDashboard(period: number): Promise<{
     return { kpiId: m.kpiId, name: m.kpiName, unit: m.unit, current: Math.round(c.current * 100) / 100, target: m.annualTarget, judgment: c.judgment };
   });
 
-  // 要対応: 全KPI(算出除く)の赤/黄件数 + 明細リスト
-  let red = 0, amber = 0;
+  // KPI一覧: 全KPI(算出除く)の明細 + 赤/黄/緑件数。判定・部署・レベルの絞込は画面側
+  let red = 0, amber = 0, green = 0;
   const alertList: { kpiId: string; name: string; department: string; level: string; unit: string; current: number; target: number; judgment: Judgment }[] = [];
   for (const m of master) {
     const c = calc(m);
     if (!c) continue;
     if (c.judgment === "赤") red++;
     else if (c.judgment === "黄") amber++;
-    if (c.judgment === "赤" || c.judgment === "黄") {
-      alertList.push({ kpiId: m.kpiId, name: m.kpiName, department: m.department, level: m.level, unit: m.unit, current: Math.round(c.current * 100) / 100, target: m.annualTarget, judgment: c.judgment });
-    }
+    else green++;
+    alertList.push({ kpiId: m.kpiId, name: m.kpiName, department: m.department, level: m.level, unit: m.unit, current: Math.round(c.current * 100) / 100, target: m.annualTarget, judgment: c.judgment });
   }
-  // 赤→黄、達成率の低い順
-  alertList.sort((a, b) => (a.judgment === b.judgment ? 0 : a.judgment === "赤" ? -1 : 1));
+  // 赤→黄→緑 の順
+  const jrank: Record<Judgment, number> = { 赤: 0, 黄: 1, 緑: 2 };
+  alertList.sort((a, b) => jrank[a.judgment] - jrank[b.judgment]);
 
   // 部署別★(Lv4): 各課のKPI(月次目標あり)で月間達成数を合算
   const deptStars = (dept: string): number => {
@@ -480,7 +480,7 @@ export async function getDashboard(period: number): Promise<{
     period,
     elapsedMonths: elapsed,
     signals,
-    alert: { red, amber },
+    alert: { red, amber, green },
     alertList,
     trends,
     manufacturingRank: rank(MANUF),

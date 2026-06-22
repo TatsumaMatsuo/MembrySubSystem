@@ -21,7 +21,7 @@ export default function SeisanDashboardPage() {
   const [period, setPeriod] = useState(50);
   const [elapsed, setElapsed] = useState(0);
   const [signals, setSignals] = useState<Signal[]>([]);
-  const [alert, setAlert] = useState<{ red: number; amber: number }>({ red: 0, amber: 0 });
+  const [alert, setAlert] = useState<{ red: number; amber: number; green: number }>({ red: 0, amber: 0, green: 0 });
   const [alertList, setAlertList] = useState<AlertRow[]>([]);
   const [trends, setTrends] = useState<Trend[]>([]);
   const [measureKv, setMeasureKv] = useState<{ 継続: number; 強化: number; 見直し: number; 完了: number; 改善: number; 悪化: number }>({ 継続: 0, 強化: 0, 見直し: 0, 完了: 0, 改善: 0, 悪化: 0 });
@@ -31,7 +31,11 @@ export default function SeisanDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [filterDept, setFilterDept] = useState("");
   const [filterLevel, setFilterLevel] = useState("");
+  // 判定の複数選択(赤・黄・緑)。既定は全表示
+  const [filterJudgments, setFilterJudgments] = useState<Judgment[]>(["赤", "黄", "緑"]);
   const isMobile = useIsMobile();
+  const toggleJudgment = (j: Judgment) =>
+    setFilterJudgments((s) => (s.includes(j) ? s.filter((x) => x !== j) : [...s, j]));
 
   const load = async () => {
     setLoading(true); setError(null);
@@ -39,7 +43,7 @@ export default function SeisanDashboardPage() {
       const json = await fetchJson<{ data: any; error?: string }>(`/api/seisan-kpi/dashboard?period=${period}`);
       const d = json.data;
       setPeriod(d.period); setElapsed(d.elapsedMonths);
-      setSignals(d.signals ?? []); setAlert(d.alert ?? { red: 0, amber: 0 });
+      setSignals(d.signals ?? []); setAlert(d.alert ?? { red: 0, amber: 0, green: 0 });
       setAlertList(d.alertList ?? []);
       setTrends(d.trends ?? []);
       setManuf(d.manufacturingRank ?? []); setManage(d.managementRank ?? []);
@@ -60,11 +64,14 @@ export default function SeisanDashboardPage() {
 
   const maxStar = Math.max(1, ...manuf.map((r) => r.stars), ...manage.map((r) => r.stars));
 
-  // 要対応KPI明細の抽出条件(部署・レベル)。選択肢は明細データから動的生成
+  // KPI一覧の抽出条件(判定・部署・レベル)。選択肢は明細データから動的生成
   const alertDepts = Array.from(new Set(alertList.map((r) => r.department).filter(Boolean)));
   const alertLevels = Array.from(new Set(alertList.map((r) => r.level).filter(Boolean))).sort();
   const filteredAlertList = alertList.filter(
-    (r) => (!filterDept || r.department === filterDept) && (!filterLevel || r.level === filterLevel)
+    (r) =>
+      filterJudgments.includes(r.judgment) &&
+      (!filterDept || r.department === filterDept) &&
+      (!filterLevel || r.level === filterLevel)
   );
 
   return (
@@ -135,10 +142,23 @@ export default function SeisanDashboardPage() {
           </div>
         </div>
 
-        {/* 要対応KPI 明細 */}
-        <div style={sectionTitle}>要対応KPI 一覧（赤・黄判定）</div>
+        {/* KPI一覧 */}
+        <div style={sectionTitle}>KPI 一覧（全KPI・判定で絞込）</div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "0 4px 10px", fontSize: 13 }}>
           <span style={{ color: "#64748b", fontWeight: 600 }}>抽出条件</span>
+          <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <span style={{ color: "#64748b" }}>判定:</span>
+            {(["赤", "黄", "緑"] as Judgment[]).map((j) => {
+              const on = filterJudgments.includes(j);
+              return (
+                <button key={j} onClick={() => toggleJudgment(j)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${on ? JUDGMENT_COLORS[j] : "#e2e8f0"}`, borderRadius: 999, padding: "5px 11px", cursor: "pointer", fontSize: 12.5, fontWeight: 700, background: on ? JUDGMENT_COLORS[j] : "#fff", color: on ? "#fff" : "#94a3b8" }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: on ? "#fff" : JUDGMENT_COLORS[j], display: "inline-block" }} />
+                  {j}（{j === "赤" ? alert.red : j === "黄" ? alert.amber : alert.green}）
+                </button>
+              );
+            })}
+          </span>
           <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)} style={selStyle}>
             <option value="">部署: すべて</option>
             {alertDepts.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -147,8 +167,8 @@ export default function SeisanDashboardPage() {
             <option value="">レベル: すべて</option>
             {alertLevels.map((lv) => <option key={lv} value={lv}>{lv}</option>)}
           </select>
-          {(filterDept || filterLevel) && (
-            <button onClick={() => { setFilterDept(""); setFilterLevel(""); }} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer", color: "#64748b" }}>条件クリア</button>
+          {(filterDept || filterLevel || filterJudgments.length !== 3) && (
+            <button onClick={() => { setFilterDept(""); setFilterLevel(""); setFilterJudgments(["赤", "黄", "緑"]); }} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer", color: "#64748b" }}>条件クリア</button>
           )}
           <span style={{ color: "#94a3b8", marginLeft: "auto" }}>{filteredAlertList.length} 件</span>
         </div>
@@ -161,7 +181,7 @@ export default function SeisanDashboardPage() {
             </thead>
             <tbody>
               {filteredAlertList.map((r) => (
-                <tr key={r.kpiId} style={{ background: r.judgment === "赤" ? "#fef2f2" : "#fffbeb" }}>
+                <tr key={r.kpiId} style={{ background: r.judgment === "赤" ? "#fef2f2" : r.judgment === "黄" ? "#fffbeb" : "#f0fdf4" }}>
                   <td style={tdL}>{r.name}</td>
                   <td style={tdL}>{r.department}</td>
                   <td style={td}>{r.level}</td>
@@ -170,7 +190,7 @@ export default function SeisanDashboardPage() {
                   <td style={td}><JudgmentBadge judgment={r.judgment} size="sm" /></td>
                 </tr>
               ))}
-              {alertList.length === 0 && !loading && <tr><td colSpan={6} style={{ ...tdL, textAlign: "center", color: "#16a34a", padding: 18, fontWeight: 700 }}>要対応KPIはありません（全て緑）</td></tr>}
+              {alertList.length === 0 && !loading && <tr><td colSpan={6} style={{ ...tdL, textAlign: "center", color: "#94a3b8", padding: 18 }}>KPIの実績がありません。</td></tr>}
               {alertList.length > 0 && filteredAlertList.length === 0 && <tr><td colSpan={6} style={{ ...tdL, textAlign: "center", color: "#94a3b8", padding: 18 }}>抽出条件に該当するKPIがありません。</td></tr>}
             </tbody>
           </table>

@@ -1035,8 +1035,14 @@ const STAR_MANUFACTURING = [
 const STAR_INDIRECT = ["調達課", "生産管理課", "検査課"];
 /** 手入力(STAR_ADJ)の常設行。種別はこの順で表示 */
 const STAR_MANUAL_TYPES = ["5S大賞", "労災"];
-/** 自動★の手動削除を表す STAR_ADJ 種別の接頭辞(種別=`除外:<KPIコード>`)。手入力行には出さず、自動★セルに反映する。 */
-const STAR_EXCLUDE_PREFIX = "除外:";
+/**
+ * 自動★の手動削除レコードの目印。
+ * 種別は単一選択(5S大賞/労災/その他)で新しい値を書けない(API でオプション追加不可)ため、
+ * 種別=「その他」+ 理由=`${STAR_EXCLUDE_REASON}<KPIコード>` で保持する。
+ * 手入力行には出さず、該当の自動★セルへ反映する。
+ */
+const STAR_EXCLUDE_REASON = "自動★削除:";
+const STAR_EXCLUDE_TYPE = "その他";
 
 export interface StarCell {
   fiscalMonth: number;
@@ -1103,7 +1109,7 @@ export async function getStars(period: number): Promise<{
   const elapsed = pinfo?.elapsedMonths ?? 0;
   const isPeriodClosed = elapsed >= 12;
 
-  // STAR_ADJ を 部署→種別→月配列 に整理。種別=`除外:<KPIコード>` は自動★の手動削除なので別管理。
+  // STAR_ADJ を 部署→種別→月配列 に整理。理由が自動★削除マーカーのレコードは別管理(手入力行に出さない)。
   const adjByDept = new Map<string, Map<string, (number | null)[]>>();
   const excludedStars = new Set<string>(); // `${部署}:${KPIコード}:${会計月序}`
   for (const it of adjItems) {
@@ -1111,11 +1117,12 @@ export async function getStars(period: number): Promise<{
     const type = asText(it.fields[SF.type]) || "その他";
     const ym = asText(it.fields[SF.target_ym]);
     const delta = asNum(it.fields[SF.delta]);
+    const reason = asText(it.fields[SF.reason]);
     if (!dept || !ym) continue;
     const fm = ymToFiscalMonth(ym);
     if (fm < 1 || fm > 12) continue;
-    if (type.startsWith(STAR_EXCLUDE_PREFIX)) {
-      const kpiId = type.slice(STAR_EXCLUDE_PREFIX.length);
+    if (reason.startsWith(STAR_EXCLUDE_REASON)) {
+      const kpiId = reason.slice(STAR_EXCLUDE_REASON.length).trim();
       if (kpiId) excludedStars.add(`${dept}:${kpiId}:${fm}`);
       continue; // 手入力行には出さず、自動★セルへ反映
     }
@@ -1242,8 +1249,9 @@ export async function upsertStarAdj(input: {
 /**
  * 自動判定された★(部署×項目×月)を手動で削除/復元する。
  *
- * STAR_ADJ に種別=`除外:<KPIコード>`・★増減=-1 のレコードを置く(部署×KPI×対象月で一意)。
- * getStars はこの種別を手入力行ではなく該当の自動★セルに適用し、★を非表示・集計除外する。
+ * STAR_ADJ に 種別=「その他」・理由=`自動★削除:<KPIコード>`・★増減=-1 のレコードを置く(部署×KPI×対象月で一意)。
+ * 種別は単一選択で新値を書けないため、KPIコードは理由に保持する。
+ * getStars はこの理由マーカーを手入力行ではなく該当の自動★セルに適用し、★を非表示・集計除外する。
  * excluded=false(復元)時はレコードを削除して自動判定に戻す。
  */
 export async function setStarExclusion(input: {
@@ -1260,8 +1268,9 @@ export async function setStarExclusion(input: {
   const periods = await getPeriods();
   const pinfo = periods.find((p) => p.period === input.period);
   const ym = fiscalMonthToYm(pinfo?.startDate ?? "", input.fiscalMonth);
-  const type = `${STAR_EXCLUDE_PREFIX}${input.kpiId}`;
-  const adjId = `${input.period}-${input.department}-${type}-${ym.replace("-", "")}`;
+  // KPIコードは理由(テキスト)に保持。種別=「その他」(単一選択の有効値)。
+  const reasonMarker = `${STAR_EXCLUDE_REASON}${input.kpiId}`;
+  const adjId = `${input.period}-${input.department}-除外-${input.kpiId}-${ym.replace("-", "")}`;
   const operator = input.operator ?? "";
 
   const found = await getBaseRecords(t.SEISAN_KPI_STAR_ADJ, {
@@ -1278,9 +1287,9 @@ export async function setStarExclusion(input: {
       [SF.department]: input.department,
       [SF.department_id]: input.departmentId ?? "",
       [SF.target_ym]: ym,
-      [SF.type]: type,
+      [SF.type]: STAR_EXCLUDE_TYPE,
       [SF.delta]: -1,
-      [SF.reason]: input.reason || "自動★を手動で削除",
+      [SF.reason]: reasonMarker,
       [SF.registered_by]: operator,
     };
     if (existing) {

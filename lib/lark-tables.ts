@@ -42,6 +42,8 @@ export function getLarkTables() {
     OFFICES: process.env.LARK_TABLE_OFFICES || "tbl1S12KMGhVW91p",
     // 社内工程表テーブル
     SCHEDULE: process.env.LARK_TABLE_SCHEDULE || "tblhhTgv5ynrkFjN",
+    // 基準風速・積雪量マスタ（営業: 基準風速/垂直積雪量 検索の参照データ。project base）
+    KIJUN_FUSOKU: process.env.LARK_TABLE_KIJUN_FUSOKU || "tblHMXBoYkXWGk4t",
 
     // ===== 生産本部KPIシステム(docs/kpi-system) =====
     // --- 経営レイヤー(L0/L1) ※全社年度KPIは既存 COMPANY_KPI を流用 ---
@@ -115,6 +117,8 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   OFFICES: "project",
   // 社内工程表（プロジェクトBase）
   SCHEDULE: "project",
+  // 基準風速・積雪量マスタ（プロジェクトBase）
+  KIJUN_FUSOKU: "project",
   // ===== 生産本部KPIシステム（全て project base） =====
   KEIEI_MIDTERM_PLAN_HEADER: "project",
   KEIEI_MIDTERM_PLAN: "project",
@@ -489,6 +493,25 @@ export const SALES_KPI_FIELDS = {
   claim_limit_yearly: "クレーム上限件数",
   // 備考
   notes: "備考",
+} as const;
+
+/**
+ * 基準風速・積雪量マスタ のフィールド定義（営業: 基準風速/垂直積雪量 検索）
+ * ※ Lark上の表示名は日本語（業務ユーザーが直接編集するため）
+ */
+export const KIJUN_FUSOKU_FIELDS = {
+  ken: "県名",
+  shi: "市・郡・区",
+  k1: "区分1",
+  k2: "区分2",
+  k3: "区分3",
+  wind: "基準風速", // m/s
+  snow: "垂直積雪量", // cm（標高依存地域は空）
+  elev_flag: "標高計算有無",
+  elev_sign: "標高符号",
+  elev_base: "基準標高",
+  elev_method: "積雪算出方法",
+  note: "備考",
 } as const;
 
 /* ===========================================================================

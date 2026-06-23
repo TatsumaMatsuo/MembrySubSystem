@@ -45,12 +45,13 @@ export const config = {
     /*
      * 以下を除外してすべてのパスで認証を要求:
      * - api/auth (認証API routes)
+     * - api/batch (cron用バッチAPI: セッション無しで叩かれるため自前のBearer BATCH_SECRET認証に委ねる)
      * - api/debug-env, api/debug-auth (デバッグAPI)
      * - auth (認証関連ページ: signin, error, lark-callback)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico, public assets
      */
-    "/((?!api/auth|api/lark-auth|api/debug-env|api/debug-auth|api/debug-lark|auth|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
+    "/((?!api/auth|api/lark-auth|api/batch|api/debug-env|api/debug-auth|api/debug-lark|auth|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
   ],
 };

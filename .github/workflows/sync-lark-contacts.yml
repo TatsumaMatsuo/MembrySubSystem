@@ -1,0 +1,73 @@
+name: Sync Lark Contacts to 社員マスタ
+
+# 毎日 02:00 JST (17:00 UTC 前日) に Lark Contact → 社員マスタ を同期
+on:
+  schedule:
+    - cron: '0 17 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'ドライラン（差分のみ・書き込まない）'
+        required: false
+        type: boolean
+        default: true
+      force:
+        description: 'スコープ未付与でも強制実行'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    name: Upsert Lark org users into 社員マスタ
+    steps:
+      - name: Call sync API
+        env:
+          APP_URL: ${{ secrets.APP_URL || 'https://main.d4a0s1k3z8dqc.amplifyapp.com' }}
+          BATCH_SECRET: ${{ secrets.BATCH_SECRET }}
+        run: |
+          # schedule 起動時は dry_run/force が空になるため既定値を補う
+          DRY_RUN="${{ inputs.dry_run }}"
+          FORCE="${{ inputs.force }}"
+          if [ -z "$DRY_RUN" ]; then DRY_RUN="false"; fi   # cron は実反映
+          if [ -z "$FORCE" ]; then FORCE="false"; fi
+
+          echo "Calling sync API (dryRun: ${DRY_RUN}, force: ${FORCE})"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${APP_URL}/api/batch/sync-lark-contacts" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${BATCH_SECRET}" \
+            -d "{\"dryRun\":${DRY_RUN},\"force\":${FORCE}}")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP Status: ${HTTP_CODE}"
+          echo "Response: ${BODY}"
+
+          # 412 = スコープ未付与で書込中止（運用上の警告。ジョブは失敗扱いにする）
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "::error::Sync API returned HTTP ${HTTP_CODE}"
+            echo "result<<EOF" >> "$GITHUB_OUTPUT"
+            echo "$BODY" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          echo "result<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$BODY" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+        id: api_call
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Sync Lark Contacts" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dry Run: ${{ inputs.dry_run || 'false (cron)' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          echo '${{ steps.api_call.outputs.result }}' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

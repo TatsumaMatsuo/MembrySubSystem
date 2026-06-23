@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect, useMemo } from "react";
 import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
+import { computeSnow } from "@/lib/kijun-fusoku-snow";
 import { Wind, Snowflake, MapPin, RefreshCw, AlertCircle, Search, Mountain } from "lucide-react";
 
 interface KijunFusokuRecord {
@@ -16,6 +17,9 @@ interface KijunFusokuRecord {
   wind: number | null;
   snow: number | null;
   elev: boolean;
+  elevSign: string;
+  elevBase: number | null;
+  elevMethod: string;
   note: string;
 }
 
@@ -39,6 +43,7 @@ export default function KijunFusokuPage() {
   const [k2, setK2] = useState("");
   const [k3, setK3] = useState("");
   const [shiQuery, setShiQuery] = useState(""); // 市・郡・区のインクリメンタル検索
+  const [elevation, setElevation] = useState(""); // 標高(m)・標高依存地域の積雪算出用
 
   async function fetchData(refresh = false) {
     setLoading(true);
@@ -60,13 +65,14 @@ export default function KijunFusokuPage() {
     fetchData();
   }, []);
 
-  // 選択をリセット（上位変更時に下位をクリア）
-  function selectKen(v: string) { setKen(v); setShi(""); setK1(""); setK2(""); setK3(""); setShiQuery(""); }
-  function selectShi(v: string) { setShi(v); setK1(""); setK2(""); setK3(""); }
+  // 選択をリセット（上位変更時に下位をクリア。標高入力も都度リセット）
+  function selectKen(v: string) { setKen(v); setShi(""); setK1(""); setK2(""); setK3(""); setShiQuery(""); setElevation(""); }
+  function selectShi(v: string) { setShi(v); setK1(""); setK2(""); setK3(""); setElevation(""); }
   function selectSub(level: SubLevel, v: string) {
     if (level === "k1") { setK1(v); setK2(""); setK3(""); }
     else if (level === "k2") { setK2(v); setK3(""); }
     else setK3(v);
+    setElevation("");
   }
 
   // 県プルダウン
@@ -124,6 +130,17 @@ export default function KijunFusokuPage() {
     }
     return { state: "ambiguous" as const };
   }, [ken, shi, subSteps, candidates]);
+
+  // 標高依存地域: 入力標高から垂直積雪量を算出（自己完結する式のみ。不能は手動）
+  const snowCalc = useMemo(() => {
+    if (result.state !== "ok" || !result.rec?.elev) return null;
+    const elv = Number(elevation);
+    if (!elevation.trim() || !Number.isFinite(elv) || elv < 0) return null;
+    return computeSnow(
+      { sign: result.rec.elevSign, base: result.rec.elevBase, method: result.rec.elevMethod, note: result.rec.note },
+      elv
+    );
+  }, [result, elevation]);
 
   const selectClass =
     "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 disabled:bg-gray-100 disabled:text-gray-400";
@@ -269,10 +286,38 @@ export default function KijunFusokuPage() {
                           <span className="text-sm font-bold">垂直積雪量</span>
                         </div>
                         {result.rec.elev ? (
-                          <div className="flex flex-col items-center justify-center text-amber-600 py-2">
-                            <Mountain className="w-6 h-6 mb-1" />
-                            <span className="text-sm font-bold">標高計算が必要</span>
-                            <span className="text-xs text-amber-500">(標高依存地域・v2対応予定)</span>
+                          <div className="w-full space-y-2">
+                            <div className="flex items-center justify-center gap-1 text-amber-600">
+                              <Mountain className="w-4 h-4" />
+                              <span className="text-xs font-bold">標高依存地域</span>
+                            </div>
+                            <div className="flex items-center justify-center gap-1">
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                value={elevation}
+                                onChange={(e) => setElevation(e.target.value)}
+                                placeholder="標高"
+                                className="w-24 px-2 py-1.5 border border-gray-300 rounded-md text-center text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
+                              />
+                              <span className="text-sm text-gray-500">m</span>
+                            </div>
+                            {snowCalc?.kind === "auto" && snowCalc.cm != null ? (
+                              <div className="text-center">
+                                <div className="text-4xl font-extrabold text-emerald-700">
+                                  {snowCalc.cm}
+                                  <span className="text-lg font-bold ml-1">cm</span>
+                                </div>
+                                <p className="text-[11px] text-amber-600 mt-1 font-bold">参考値・要確認</p>
+                              </div>
+                            ) : elevation.trim() ? (
+                              <p className="text-[11px] text-gray-500 text-center px-2">
+                                この地域は自動算出に対応していません。下記の算出方法で確認してください。
+                              </p>
+                            ) : (
+                              <p className="text-[11px] text-gray-400 text-center">標高(m)を入力</p>
+                            )}
                           </div>
                         ) : (
                           <div className="text-4xl font-extrabold text-emerald-700">
@@ -292,6 +337,29 @@ export default function KijunFusokuPage() {
                       </p>
                       {result.rec.note && <p className="mt-1 text-xs text-gray-500">備考: {result.rec.note}</p>}
                     </div>
+
+                    {/* 標高依存地域: 算出方法の原文（根拠・手計算用） */}
+                    {result.rec.elev && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-1">
+                        <p className="text-xs font-bold text-amber-700 flex items-center gap-1">
+                          <Mountain className="w-3.5 h-3.5" /> 標高による積雪量の算出方法（公式の根拠）
+                        </p>
+                        {(result.rec.elevSign || result.rec.elevBase != null) && (
+                          <p className="text-[11px] text-gray-600">
+                            {result.rec.elevBase != null && <>基準標高: {result.rec.elevBase}m　</>}
+                            {result.rec.elevSign && <>符号: {result.rec.elevSign}</>}
+                          </p>
+                        )}
+                        <p className="text-[11px] text-gray-600 whitespace-pre-wrap leading-relaxed">
+                          {result.rec.elevMethod || "（算出方法の記載がありません。所管自治体にご確認ください。）"}
+                        </p>
+                        {snowCalc?.kind === "auto" && (
+                          <p className="text-[11px] text-amber-600">
+                            ※ 上の参考値は算出方法から自動計算した目安です。最終値は必ず原典・所管でご確認ください。
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     <p className="text-xs text-gray-400 border-t border-gray-100 pt-3">
                       ※ 海率は考慮しておりません。リストに無い地域の基準風速は 30m/s が目安です。

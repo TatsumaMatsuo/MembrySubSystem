@@ -22,7 +22,10 @@ export interface KijunFusokuRecord {
   k3: string; // 区分3
   wind: number | null; // 基準風速 m/s
   snow: number | null; // 垂直積雪量 cm（標高依存地域は null）
-  elev: boolean; // 標高計算有無（true=標高依存=v2で算出）
+  elev: boolean; // 標高計算有無（true=標高依存）
+  elevSign: string; // 標高符号 T 例 "<="（標高依存地域の算出用）
+  elevBase: number | null; // 基準標高 U (m)
+  elevMethod: string; // 積雪算出方法 W（原文）
   note: string; // 備考
 }
 
@@ -61,6 +64,9 @@ async function loadAll(tableId: string): Promise<KijunFusokuRecord[]> {
         wind: numOf(f[F.wind]),
         snow: numOf(f[F.snow]),
         elev: f[F.elev_flag] === true,
+        elevSign: textOf(f[F.elev_sign]).trim(),
+        elevBase: numOf(f[F.elev_base]),
+        elevMethod: textOf(f[F.elev_method]).trim(),
         note: textOf(f[F.note]).trim(),
       });
     }

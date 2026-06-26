@@ -22,18 +22,20 @@ import {
   deleteBaseRecord,
   getLarkBaseToken,
 } from "../../lib/lark-client";
-import { getLarkTables, KIJUN_FUSOKU_FIELDS as F } from "../../lib/lark-tables";
+import { getLarkTables, KIJUN_FUSOKU_FIELDS as F, KIJUN_FUSOKU_CONST_FIELDS as CFIELDS } from "../../lib/lark-tables";
 
-const DEFAULT_XLSX = path.join(os.homedir(), "Downloads", "基準風速_垂直積雪量検索 (1).xlsx");
+const DEFAULT_XLSX = path.join(os.homedir(), "Downloads", "基準風速_垂直積雪量検索 (3).xlsx");
 const SHEET = "積雪・風速元データ";
 
 // 「積雪・風速元データ」の絶対列インデックス（A=0）。データは R8〜。
 // D=県名(3) E=市郡区(4) F=区分1(5) G=区分2(6) H=区分3(7)
 // Q=基準風速(16) R=積雪量(17) S=標高計算(18) T=符号(19) U=基準値(20) V=備考(21) W=算出方法(22)
-// Y=定数1(24) Z=定数2(25) AA=定数3(26) AB=定数4(27) AC=定数5(28) AD=定数6(29) AE=計算パターンID(30)
+// 定数1〜19 = Y(24)〜AQ(42)（連番）, 計算パターンID = AR(43)
+const CONST_START = 24; // 定数1 の列（Y）
+const CONST_COUNT = 19; // 定数1〜19
 const COL = {
   ken: 3, shi: 4, k1: 5, k2: 6, k3: 7, wind: 16, snow: 17, elevFlag: 18, elevSign: 19, elevBase: 20, note: 21, elevMethod: 22,
-  c1: 24, c2: 25, c3: 26, c4: 27, c5: 28, c6: 29, pid: 30,
+  pid: 43,
 };
 const DATA_START = 7; // R8（0始まり）
 
@@ -85,8 +87,8 @@ function readExcel(file: string): SrcRow[] {
       elevBase: numI(cell(R, COL.elevBase)),
       elevMethod: s(cell(R, COL.elevMethod)),
       note: s(cell(R, COL.note)),
-      // 定数は係数（0.002 等）を含むため丸めない
-      consts: [COL.c1, COL.c2, COL.c3, COL.c4, COL.c5, COL.c6].map((c) => num(cell(R, c))),
+      // 定数1〜19。係数（0.002 等）を含むため丸めない
+      consts: Array.from({ length: CONST_COUNT }, (_, i) => num(cell(R, CONST_START + i))),
       pid: s(cell(R, COL.pid)),
     });
   }
@@ -136,17 +138,14 @@ function buildFields(r: SrcRow): Record<string, any> {
   if (r.elevBase != null) f[F.elev_base] = r.elevBase;
   if (r.elevMethod) f[F.elev_method] = r.elevMethod;
   if (r.note) f[F.note] = r.note;
-  // 計算パターン（標高依存積雪の確定算出用）
-  const CFIELDS = [F.const1, F.const2, F.const3, F.const4, F.const5, F.const6];
-  r.consts.forEach((v, idx) => { if (v != null) f[CFIELDS[idx]] = v; });
+  // 計算パターン（標高依存積雪の確定算出用）。定数1〜19
+  r.consts.forEach((v, idx) => { if (v != null && idx < CFIELDS.length) f[CFIELDS[idx]] = v; });
   if (r.pid) f[F.pattern_id] = r.pid;
   return f;
 }
 
 /** 数値として比較するフィールド名の集合（diff 用） */
-const NUMERIC_FIELDS = new Set<string>([
-  F.wind, F.snow, F.elev_base, F.const1, F.const2, F.const3, F.const4, F.const5, F.const6,
-]);
+const NUMERIC_FIELDS = new Set<string>([F.wind, F.snow, F.elev_base, ...CFIELDS]);
 
 const txt = (v: any): string => {
   if (v == null) return "";
@@ -203,7 +202,7 @@ async function main() {
     const probe = buildFields({
       ken: "_接続テスト", shi: "_", k1: "_", k2: "_", k3: "_",
       wind: 30, snow: 100, elev: true, elevSign: "<=", elevBase: 500, elevMethod: "_", note: "_",
-      consts: [0.002, 0.5, 1, 2, 3, 4], pid: "K001",
+      consts: Array.from({ length: CONST_COUNT }, (_, i) => i + 1), pid: "K001",
     });
     let probeId: string | undefined;
     try {

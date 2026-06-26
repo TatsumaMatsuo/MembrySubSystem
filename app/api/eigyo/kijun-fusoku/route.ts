@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBaseRecords, getLarkBaseToken } from "@/lib/lark-client";
-import { getLarkTables, KIJUN_FUSOKU_FIELDS as F } from "@/lib/lark-tables";
+import { getLarkTables, KIJUN_FUSOKU_FIELDS as F, KIJUN_FUSOKU_CONST_FIELDS as CFIELDS } from "@/lib/lark-tables";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -71,7 +71,7 @@ async function loadAll(tableId: string): Promise<KijunFusokuRecord[]> {
         elevMethod: textOf(f[F.elev_method]).trim(),
         note: textOf(f[F.note]).trim(),
         patternId: textOf(f[F.pattern_id]).trim(),
-        consts: [F.const1, F.const2, F.const3, F.const4, F.const5, F.const6].map((k) => numOf(f[k])),
+        consts: CFIELDS.map((k) => numOf(f[k])),
       });
     }
     pageToken = res.data?.has_more ? res.data?.page_token : undefined;

@@ -12,7 +12,7 @@
  * を検査する。投入後の整合性確認・式テンプレートの評価バグ検出が目的。
  */
 import { getBaseRecords, getLarkBaseToken } from "../../lib/lark-client";
-import { getLarkTables, KIJUN_FUSOKU_FIELDS as F } from "../../lib/lark-tables";
+import { getLarkTables, KIJUN_FUSOKU_FIELDS as F, KIJUN_FUSOKU_CONST_FIELDS as CFIELDS } from "../../lib/lark-tables";
 import { computeSnow } from "../../lib/kijun-fusoku-snow";
 import { PATTERN_FORMULAS, PATTERN_COUNT } from "../../lib/kijun-fusoku-patterns";
 
@@ -47,7 +47,7 @@ async function loadElevRows(): Promise<Row[]> {
       out.push({
         label: [f[F.ken], f[F.shi], f[F.k1], f[F.k2], f[F.k3]].map(txt).filter(Boolean).join(" "),
         pid: txt(f[F.pattern_id]).trim(),
-        consts: [F.const1, F.const2, F.const3, F.const4, F.const5, F.const6].map((k) => num(f[k])),
+        consts: CFIELDS.map((k) => num(f[k])),
         base: num(f[F.elev_base]),
         snow: num(f[F.snow]),
       });

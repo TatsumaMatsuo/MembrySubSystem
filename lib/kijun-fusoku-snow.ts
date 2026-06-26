@@ -10,10 +10,13 @@
 
 import { PATTERN_FORMULAS } from "./kijun-fusoku-patterns";
 
+/** 式で参照しうる定数の最大個数（Excel 定数1〜19） */
+export const MAX_CONSTS = 19;
+
 export interface SnowInput {
   /** 計算パターンID（例 "K025"）。Excel「計算パターンID」列 */
   patternId: string;
-  /** 定数1〜6（Excel 定数1..6）。未設定は null */
+  /** 定数1〜19（Excel 定数1..19）。未設定は null。配列長は可変 */
   consts: (number | null)[];
   /** 基準値（Excel 基準値＝しきい標高 m）。式の「基準値」変数 */
   base: number | null;
@@ -102,13 +105,8 @@ function tokenize(src: string): Tok[] {
  * 評価値は number | boolean | string。IF 条件は boolean（数値は !=0 を真）。
  */
 
-interface Scope {
-  標高変数: number;
-  定数1: number | null; 定数2: number | null; 定数3: number | null;
-  定数4: number | null; 定数5: number | null; 定数6: number | null;
-  基準値: number | null;
-  積雪量: number | null;
-}
+/** 変数名 → 値（標高変数 / 定数1..19 / 基準値 / 積雪量） */
+type Scope = Record<string, number | null>;
 
 class Parser {
   private p = 0;
@@ -228,11 +226,10 @@ class Parser {
   }
 
   private variable(name: string): number {
-    const s = this.scope as unknown as Record<string, number | null>;
-    if (!(name in s)) throw new Error(`未知の変数: ${name}`);
-    const v = s[name];
+    if (!(name in this.scope)) throw new Error(`未知の変数: ${name}`);
+    const v = this.scope[name];
     if (v == null || !Number.isFinite(v)) throw new Error(`変数 ${name} が未設定`);
-    return v;
+    return v as number;
   }
 }
 
@@ -272,11 +269,10 @@ export function computeSnow(input: SnowInput, elevationM: number): SnowResult {
   const c = input.consts || [];
   const scope: Scope = {
     標高変数: elevationM,
-    定数1: c[0] ?? null, 定数2: c[1] ?? null, 定数3: c[2] ?? null,
-    定数4: c[3] ?? null, 定数5: c[4] ?? null, 定数6: c[5] ?? null,
     基準値: input.base ?? null,
     積雪量: input.snow ?? null,
   };
+  for (let i = 1; i <= MAX_CONSTS; i++) scope[`定数${i}`] = c[i - 1] ?? null;
 
   try {
     const toks = tokenize(formula);

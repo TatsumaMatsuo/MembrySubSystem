@@ -391,26 +391,27 @@ export default function KijunFusokuPage() {
                       </div>
                     </div>
 
+                    {/* 用途地域の確認（つなぎ: landzone 県別ページ。将来は不動産情報ライブラリAPIで地点表示） */}
+                    {landzoneUrlForPrefecture(result.rec.ken) && (
+                      <a
+                        href={landzoneUrlForPrefecture(result.rec.ken)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 w-full px-4 py-3 text-base font-bold text-white bg-gradient-to-r from-indigo-500 to-violet-500 rounded-xl shadow-md hover:from-indigo-600 hover:to-violet-600 hover:shadow-lg transition-all"
+                      >
+                        <MapPin className="w-5 h-5" />
+                        用途地域を確認する
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
+
                     {/* 選択地域・備考 */}
                     <div className="text-sm text-gray-600">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <p className="font-bold text-gray-800">
-                          {[result.rec.ken, result.rec.shi, result.rec.k1, result.rec.k2, result.rec.k3]
-                            .filter(Boolean)
-                            .join(" ")}
-                        </p>
-                        {/* 用途地域の確認（つなぎ: landzone 県別ページ。将来は不動産情報ライブラリAPIで地点表示） */}
-                        {landzoneUrlForPrefecture(result.rec.ken) && (
-                          <a
-                            href={landzoneUrlForPrefecture(result.rec.ken)!}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100"
-                          >
-                            <MapPin className="w-3.5 h-3.5" /> 用途地域マップで確認 <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
-                        )}
-                      </div>
+                      <p className="font-bold text-gray-800">
+                        {[result.rec.ken, result.rec.shi, result.rec.k1, result.rec.k2, result.rec.k3]
+                          .filter(Boolean)
+                          .join(" ")}
+                      </p>
                       {result.rec.note && <p className="mt-1 text-xs text-gray-500">備考: {result.rec.note}</p>}
                     </div>
 

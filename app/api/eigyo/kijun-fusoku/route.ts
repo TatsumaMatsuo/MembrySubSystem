@@ -23,10 +23,12 @@ export interface KijunFusokuRecord {
   wind: number | null; // 基準風速 m/s
   snow: number | null; // 垂直積雪量 cm（標高依存地域は null）
   elev: boolean; // 標高計算有無（true=標高依存）
-  elevSign: string; // 標高符号 T 例 "<="（標高依存地域の算出用）
-  elevBase: number | null; // 基準標高 U (m)
-  elevMethod: string; // 積雪算出方法 W（原文）
+  elevSign: string; // 標高符号 T 例 "<="（参考表示）
+  elevBase: number | null; // 基準値（しきい標高 m）。式の「基準値」変数
+  elevMethod: string; // 積雪算出方法 W（原文・算出根拠の表示用）
   note: string; // 備考
+  patternId: string; // 計算パターンID（例 "K025"）標高依存積雪の確定算出用
+  consts: (number | null)[]; // 定数1〜6（式の係数）
 }
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1時間
@@ -68,6 +70,8 @@ async function loadAll(tableId: string): Promise<KijunFusokuRecord[]> {
         elevBase: numOf(f[F.elev_base]),
         elevMethod: textOf(f[F.elev_method]).trim(),
         note: textOf(f[F.note]).trim(),
+        patternId: textOf(f[F.pattern_id]).trim(),
+        consts: [F.const1, F.const2, F.const3, F.const4, F.const5, F.const6].map((k) => numOf(f[k])),
       });
     }
     pageToken = res.data?.has_more ? res.data?.page_token : undefined;

@@ -24,18 +24,24 @@ import {
 } from "../../lib/lark-client";
 import { getLarkTables, KIJUN_FUSOKU_FIELDS as F } from "../../lib/lark-tables";
 
-const DEFAULT_XLSX = path.join(os.homedir(), "Downloads", "基準風速・垂直積雪量検索.xlsx");
+const DEFAULT_XLSX = path.join(os.homedir(), "Downloads", "基準風速_垂直積雪量検索 (1).xlsx");
 const SHEET = "積雪・風速元データ";
 
-// 「積雪・風速元データ」の列インデックス（range が B 始まりのため index0 = B 列）
-// B=県番号(0) D=県名(2) E=市郡区(3) F=区分1(4) G=区分2(5) H=区分3(6)
-// Q=基準風速(15) R=垂直積雪量(16) S=標高計算(17) T=符号(18) U=基準標高(19) V=備考(20) W=算出方法(21)
-const COL = { ken: 2, shi: 3, k1: 4, k2: 5, k3: 6, wind: 15, snow: 16, elevFlag: 17, elevSign: 18, elevBase: 19, note: 20, elevMethod: 21 };
+// 「積雪・風速元データ」の絶対列インデックス（A=0）。データは R8〜。
+// D=県名(3) E=市郡区(4) F=区分1(5) G=区分2(6) H=区分3(7)
+// Q=基準風速(16) R=積雪量(17) S=標高計算(18) T=符号(19) U=基準値(20) V=備考(21) W=算出方法(22)
+// Y=定数1(24) Z=定数2(25) AA=定数3(26) AB=定数4(27) AC=定数5(28) AD=定数6(29) AE=計算パターンID(30)
+const COL = {
+  ken: 3, shi: 4, k1: 5, k2: 6, k3: 7, wind: 16, snow: 17, elevFlag: 18, elevSign: 19, elevBase: 20, note: 21, elevMethod: 22,
+  c1: 24, c2: 25, c3: 26, c4: 27, c5: 28, c6: 29, pid: 30,
+};
+const DATA_START = 7; // R8（0始まり）
 
 interface SrcRow {
   ken: string; shi: string; k1: string; k2: string; k3: string;
   wind: number | null; snow: number | null; elev: boolean;
   elevSign: string; elevBase: number | null; elevMethod: string; note: string;
+  consts: (number | null)[]; pid: string;
 }
 
 const s = (v: any): string => (v == null ? "" : String(v).replace(/\s+/g, " ").trim());
@@ -52,31 +58,36 @@ const numI = (v: any): number | null => {
 const key = (r: { ken: string; shi: string; k1: string; k2: string; k3: string }) =>
   [r.ken, r.shi, r.k1, r.k2, r.k3].map((x) => s(x)).join("|");
 
-/** Excel を読み込み正規化 */
+/** Excel を読み込み正規化（絶対列アドレスで読取） */
 function readExcel(file: string): SrcRow[] {
   const wb = XLSX.readFile(file);
   const ws = wb.Sheets[SHEET];
   if (!ws) throw new Error(`シート「${SHEET}」が見つかりません: ${file}`);
-  const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: "" });
+  const range = XLSX.utils.decode_range(ws["!ref"]!);
+  const cell = (R: number, c: number): any => {
+    const x = ws[XLSX.utils.encode_cell({ r: R, c })];
+    return x == null ? "" : x.v;
+  };
   const out: SrcRow[] = [];
-  for (let i = 7; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r) continue;
-    const ken = s(r[COL.ken]);
+  for (let R = DATA_START; R <= range.e.r; R++) {
+    const ken = s(cell(R, COL.ken));
     if (!ken) continue; // 県名が無い行はスキップ
     out.push({
       ken,
-      shi: s(r[COL.shi]),
-      k1: s(r[COL.k1]),
-      k2: s(r[COL.k2]),
-      k3: s(r[COL.k3]),
-      wind: numI(r[COL.wind]),
-      snow: numI(r[COL.snow]),
-      elev: s(r[COL.elevFlag]) === "〇",
-      elevSign: s(r[COL.elevSign]),
-      elevBase: numI(r[COL.elevBase]),
-      elevMethod: s(r[COL.elevMethod]),
-      note: s(r[COL.note]),
+      shi: s(cell(R, COL.shi)),
+      k1: s(cell(R, COL.k1)),
+      k2: s(cell(R, COL.k2)),
+      k3: s(cell(R, COL.k3)),
+      wind: numI(cell(R, COL.wind)),
+      snow: numI(cell(R, COL.snow)),
+      elev: s(cell(R, COL.elevFlag)) === "〇" || s(cell(R, COL.elevFlag)) === "○",
+      elevSign: s(cell(R, COL.elevSign)),
+      elevBase: numI(cell(R, COL.elevBase)),
+      elevMethod: s(cell(R, COL.elevMethod)),
+      note: s(cell(R, COL.note)),
+      // 定数は係数（0.002 等）を含むため丸めない
+      consts: [COL.c1, COL.c2, COL.c3, COL.c4, COL.c5, COL.c6].map((c) => num(cell(R, c))),
+      pid: s(cell(R, COL.pid)),
     });
   }
   return out;
@@ -103,6 +114,8 @@ function dedupe(src: SrcRow[]): SrcRow[] {
     cur.elevBase = cur.elevBase ?? r.elevBase;
     cur.elevMethod = cur.elevMethod || r.elevMethod;
     cur.note = cur.note || r.note;
+    cur.consts = cur.consts.map((v, idx) => v ?? r.consts[idx]);
+    cur.pid = cur.pid || r.pid;
   }
   return [...map.values()];
 }
@@ -123,8 +136,17 @@ function buildFields(r: SrcRow): Record<string, any> {
   if (r.elevBase != null) f[F.elev_base] = r.elevBase;
   if (r.elevMethod) f[F.elev_method] = r.elevMethod;
   if (r.note) f[F.note] = r.note;
+  // 計算パターン（標高依存積雪の確定算出用）
+  const CFIELDS = [F.const1, F.const2, F.const3, F.const4, F.const5, F.const6];
+  r.consts.forEach((v, idx) => { if (v != null) f[CFIELDS[idx]] = v; });
+  if (r.pid) f[F.pattern_id] = r.pid;
   return f;
 }
+
+/** 数値として比較するフィールド名の集合（diff 用） */
+const NUMERIC_FIELDS = new Set<string>([
+  F.wind, F.snow, F.elev_base, F.const1, F.const2, F.const3, F.const4, F.const5, F.const6,
+]);
 
 const txt = (v: any): string => {
   if (v == null) return "";
@@ -140,7 +162,7 @@ function diff(cur: Record<string, any>, next: Record<string, any>): Record<strin
   for (const [k, v] of Object.entries(next)) {
     if (k === F.elev_flag) {
       if ((cur[k] === true) !== (v === true)) changed[k] = v;
-    } else if (k === F.wind || k === F.snow || k === F.elev_base) {
+    } else if (NUMERIC_FIELDS.has(k)) {
       if (num(cur[k]) !== num(v)) changed[k] = v;
     } else {
       if (txt(cur[k]).trim() !== txt(v).trim()) changed[k] = v;
@@ -181,6 +203,7 @@ async function main() {
     const probe = buildFields({
       ken: "_接続テスト", shi: "_", k1: "_", k2: "_", k3: "_",
       wind: 30, snow: 100, elev: true, elevSign: "<=", elevBase: 500, elevMethod: "_", note: "_",
+      consts: [0.002, 0.5, 1, 2, 3, 4], pid: "K001",
     });
     let probeId: string | undefined;
     try {

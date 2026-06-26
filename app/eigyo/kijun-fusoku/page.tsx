@@ -21,6 +21,8 @@ interface KijunFusokuRecord {
   elevBase: number | null;
   elevMethod: string;
   note: string;
+  patternId: string;
+  consts: (number | null)[];
 }
 
 // 区分の段階レベル（県・市の次に絞り込む）
@@ -131,13 +133,14 @@ export default function KijunFusokuPage() {
     return { state: "ambiguous" as const };
   }, [ken, shi, subSteps, candidates]);
 
-  // 標高依存地域: 入力標高から垂直積雪量を算出（自己完結する式のみ。不能は手動）
+  // 標高依存地域: 入力標高から垂直積雪量を確定算出（計算パターン×定数）。
+  // パターンID未割当・定数未設定・式外の場合は manual（算出方法の原文を参照）。
   const snowCalc = useMemo(() => {
     if (result.state !== "ok" || !result.rec?.elev) return null;
     const elv = Number(elevation);
     if (!elevation.trim() || !Number.isFinite(elv) || elv < 0) return null;
     return computeSnow(
-      { sign: result.rec.elevSign, base: result.rec.elevBase, method: result.rec.elevMethod, note: result.rec.note },
+      { patternId: result.rec.patternId, consts: result.rec.consts, base: result.rec.elevBase, snow: result.rec.snow },
       elv
     );
   }, [result, elevation]);
@@ -309,11 +312,13 @@ export default function KijunFusokuPage() {
                                   {snowCalc.cm}
                                   <span className="text-lg font-bold ml-1">cm</span>
                                 </div>
-                                <p className="text-[11px] text-amber-600 mt-1 font-bold">参考値・要確認</p>
+                                <p className="text-[11px] text-emerald-600 mt-1">
+                                  標高 {Number(elevation)}m での算出値
+                                </p>
                               </div>
                             ) : elevation.trim() ? (
                               <p className="text-[11px] text-gray-500 text-center px-2">
-                                この地域は自動算出に対応していません。下記の算出方法で確認してください。
+                                この地域は現在自動算出の準備中です。下記の算出方法で確認してください。
                               </p>
                             ) : (
                               <p className="text-[11px] text-gray-400 text-center">標高(m)を入力</p>
@@ -354,8 +359,8 @@ export default function KijunFusokuPage() {
                           {result.rec.elevMethod || "（算出方法の記載がありません。所管自治体にご確認ください。）"}
                         </p>
                         {snowCalc?.kind === "auto" && (
-                          <p className="text-[11px] text-amber-600">
-                            ※ 上の参考値は算出方法から自動計算した目安です。最終値は必ず原典・所管でご確認ください。
+                          <p className="text-[11px] text-emerald-600">
+                            ※ 上の積雪量は、この算出方法（公式）に標高を当てはめて算出した値です。
                           </p>
                         )}
                       </div>

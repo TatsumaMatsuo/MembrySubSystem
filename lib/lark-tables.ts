@@ -509,9 +509,17 @@ export const KIJUN_FUSOKU_FIELDS = {
   snow: "垂直積雪量", // cm（標高依存地域は空）
   elev_flag: "標高計算有無",
   elev_sign: "標高符号",
-  elev_base: "基準標高",
-  elev_method: "積雪算出方法",
+  elev_base: "基準標高", // 式の「基準値」変数（しきい標高 m）
+  elev_method: "積雪算出方法", // 旧方式の原文（参考表示用に保持）
   note: "備考",
+  // 標高依存積雪の確定算出（計算パターン方式）用
+  const1: "定数1",
+  const2: "定数2",
+  const3: "定数3",
+  const4: "定数4",
+  const5: "定数5",
+  const6: "定数6",
+  pattern_id: "計算パターンID",
 } as const;
 
 /* ===========================================================================

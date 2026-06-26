@@ -2,11 +2,11 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
 import { computeSnow } from "@/lib/kijun-fusoku-snow";
-import { sortByPrefectureCode } from "@/lib/prefectures";
+import { PREFECTURE_ORDER } from "@/lib/prefectures";
 import { Wind, Snowflake, MapPin, RefreshCw, AlertCircle, Search, Mountain } from "lucide-react";
 
 interface KijunFusokuRecord {
@@ -35,9 +35,12 @@ function distinct(values: string[]): string[] {
 }
 
 export default function KijunFusokuPage() {
+  // records は「選択中の県」のレコードのみ保持（県単位でサーバ取得）
   const [records, setRecords] = useState<KijunFusokuRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
+  // 県ごとの取得結果をクライアント側でもキャッシュ（再選択時の再取得を防ぐ）
+  const cacheRef = useRef<Map<string, KijunFusokuRecord[]>>(new Map());
 
   // 選択状態
   const [ken, setKen] = useState("");
@@ -48,28 +51,34 @@ export default function KijunFusokuPage() {
   const [shiQuery, setShiQuery] = useState(""); // 市・郡・区のインクリメンタル検索
   const [elevation, setElevation] = useState(""); // 標高(m)・標高依存地域の積雪算出用
 
-  async function fetchData(refresh = false) {
+  // 選択した県のレコードを取得（県単位。キャッシュ優先）
+  async function fetchPrefecture(targetKen: string, refresh = false) {
+    if (!targetKen) { setRecords([]); return; }
+    const cached = cacheRef.current.get(targetKen);
+    if (cached && !refresh) { setRecords(cached); return; }
     setLoading(true);
     setError("");
     try {
       const json = await fetchJson<{ success: boolean; records: KijunFusokuRecord[]; error?: string }>(
-        `/api/eigyo/kijun-fusoku${refresh ? "?refresh=1" : ""}`
+        `/api/eigyo/kijun-fusoku?ken=${encodeURIComponent(targetKen)}${refresh ? "&refresh=1" : ""}`
       );
       if (!json.success) throw new Error(json.error || "取得に失敗しました");
-      setRecords(json.records || []);
+      const recs = json.records || [];
+      cacheRef.current.set(targetKen, recs);
+      setRecords(recs);
     } catch (e: any) {
       setError(e?.message || "取得に失敗しました");
+      setRecords([]);
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // 選択をリセット（上位変更時に下位をクリア。標高入力も都度リセット）
-  function selectKen(v: string) { setKen(v); setShi(""); setK1(""); setK2(""); setK3(""); setShiQuery(""); setElevation(""); }
+  // 選択をリセット（上位変更時に下位をクリア。標高入力も都度リセット）。県確定でその県を取得。
+  function selectKen(v: string) {
+    setKen(v); setShi(""); setK1(""); setK2(""); setK3(""); setShiQuery(""); setElevation("");
+    fetchPrefecture(v);
+  }
   function selectShi(v: string) { setShi(v); setK1(""); setK2(""); setK3(""); setElevation(""); }
   function selectSub(level: SubLevel, v: string) {
     if (level === "k1") { setK1(v); setK2(""); setK3(""); }
@@ -78,11 +87,8 @@ export default function KijunFusokuPage() {
     setElevation("");
   }
 
-  // 県プルダウン（都道府県コード昇順。北海道→沖縄）
-  const prefectures = useMemo(() => {
-    const uniq = [...new Set(records.map((r) => r.ken).filter((v) => v && v.trim()))];
-    return sortByPrefectureCode(uniq);
-  }, [records]);
+  // 県プルダウン（都道府県コード昇順。北海道→沖縄）。一覧は定数なのでDB取得不要。
+  const prefectures = PREFECTURE_ORDER;
 
   // 市・郡・区プルダウン（県で絞り込み + インクリメンタル検索）
   const cities = useMemo(() => {
@@ -166,8 +172,8 @@ export default function KijunFusokuPage() {
               <p className="text-sm text-gray-500">営業部 &gt; 基準風速・垂直積雪量 検索</p>
             </div>
             <button
-              onClick={() => fetchData(true)}
-              disabled={loading}
+              onClick={() => ken && fetchPrefecture(ken, true)}
+              disabled={loading || !ken}
               className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -193,7 +199,7 @@ export default function KijunFusokuPage() {
                   <MapPin className="w-4 h-4" /> 地域を選択
                 </h3>
                 <span className="text-xs text-white/90">
-                  {loading ? "読込中..." : `${records.length.toLocaleString()} 地域`}
+                  {loading ? "読込中..." : ken ? `${records.length.toLocaleString()} 地域` : "県を選択"}
                 </span>
               </div>
               <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">

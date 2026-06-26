@@ -8,11 +8,13 @@ export const maxDuration = 60;
 /**
  * 基準風速・垂直積雪量 検索データ API。
  *
- * Lark Bitable「基準風速・積雪量マスタ」(project base) の全レコードを取得し、
- * 県名→市郡区→区分1→区分2→区分3 のカスケード検索用にコンパクトな配列で返す。
+ * Lark Bitable「基準風速・積雪量マスタ」(project base) を **県単位** で取得する。
+ * クエリ `?ken=<県名>` が必須で、サーバ側で 県名 フィルタを掛けて該当県のレコードのみ返す。
+ * 市・郡・区→区分1〜3 の絞り込みは、取得済みの県内データに対してクライアント側で行う。
  *
- * 7,643行と件数が多く毎リクエストの全件読込は数秒かかるため、モジュールスコープの
- * インメモリキャッシュ(TTL)で温かいコンテナ内は再利用する。
+ * 全件(7,643行)を毎回読むのを避け、県ごと(数十〜数百行)に絞ることで取得量を大幅削減。
+ * 県ごとにインメモリキャッシュ(TTL)し、温かいコンテナ内は再利用する。
+ * 県プルダウンの一覧はクライアント側の定数(lib/prefectures.ts)で持つため初回のDB取得は不要。
  */
 export interface KijunFusokuRecord {
   ken: string; // 県名
@@ -32,7 +34,8 @@ export interface KijunFusokuRecord {
 }
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1時間
-let _cache: { at: number; data: KijunFusokuRecord[] } | null = null;
+// 県名 → その県のレコード（県単位キャッシュ）
+const _cache = new Map<string, { at: number; data: KijunFusokuRecord[] }>();
 
 function textOf(v: any): string {
   if (v == null) return "";
@@ -47,12 +50,14 @@ function numOf(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-async function loadAll(tableId: string): Promise<KijunFusokuRecord[]> {
+async function loadByPrefecture(tableId: string, ken: string): Promise<KijunFusokuRecord[]> {
   const baseToken = getLarkBaseToken();
+  // 県名でサーバ側フィルタ（" を含む県名は無いがエスケープしておく）
+  const filter = `CurrentValue.[${F.ken}] = "${ken.replace(/"/g, '\\"')}"`;
   const out: KijunFusokuRecord[] = [];
   let pageToken: string | undefined;
   do {
-    const res: any = await getBaseRecords(tableId, { baseToken, pageSize: 500, pageToken });
+    const res: any = await getBaseRecords(tableId, { baseToken, filter, pageSize: 500, pageToken });
     for (const it of res.data?.items || []) {
       const f = it.fields || {};
       const ken = textOf(f[F.ken]).trim();
@@ -90,18 +95,29 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const force = url.searchParams.get("refresh") === "1";
+  const ken = (url.searchParams.get("ken") || "").trim();
+
+  if (!ken) {
+    return NextResponse.json(
+      { success: false, error: "県名(ken)を指定してください" },
+      { status: 400 }
+    );
+  }
 
   try {
     const now = Date.now();
-    if (force || !_cache || now - _cache.at > CACHE_TTL_MS) {
-      const data = await loadAll(tableId);
-      _cache = { at: now, data };
+    const cached = _cache.get(ken);
+    if (force || !cached || now - cached.at > CACHE_TTL_MS) {
+      const data = await loadByPrefecture(tableId, ken);
+      _cache.set(ken, { at: now, data });
     }
+    const entry = _cache.get(ken)!;
     return NextResponse.json({
       success: true,
-      count: _cache.data.length,
-      cachedAt: _cache.at,
-      records: _cache.data,
+      ken,
+      count: entry.data.length,
+      cachedAt: entry.at,
+      records: entry.data,
     });
   } catch (error: any) {
     console.error("[kijun-fusoku] Error:", error);

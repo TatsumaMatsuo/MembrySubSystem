@@ -7,7 +7,7 @@ import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
 import { computeSnow } from "@/lib/kijun-fusoku-snow";
 import { PREFECTURE_ORDER } from "@/lib/prefectures";
-import { Wind, Snowflake, MapPin, RefreshCw, AlertCircle, Search, Mountain } from "lucide-react";
+import { Wind, Snowflake, MapPin, RefreshCw, AlertCircle, Search, Mountain, Map as MapIcon, ExternalLink } from "lucide-react";
 
 interface KijunFusokuRecord {
   ken: string;
@@ -50,6 +50,28 @@ export default function KijunFusokuPage() {
   const [k3, setK3] = useState("");
   const [shiQuery, setShiQuery] = useState(""); // 市・郡・区のインクリメンタル検索
   const [elevation, setElevation] = useState(""); // 標高(m)・標高依存地域の積雪算出用
+  // 地理院地図(GSI)の代表点標高（目安）。実敷地標高とは異なるため自動入力はしない
+  const [gsi, setGsi] = useState<{ lat: number; lon: number; elevation: number | null; title: string } | null>(null);
+  const [gsiLoading, setGsiLoading] = useState(false);
+
+  // 地理院地図APIで地域の代表点標高を取得し、地図を中心表示で開く
+  async function lookupGsi(r: KijunFusokuRecord) {
+    setGsiLoading(true);
+    setError("");
+    try {
+      const qs = new URLSearchParams({ ken: r.ken, shi: r.shi, k1: r.k1, k2: r.k2, k3: r.k3 });
+      const json = await fetchJson<{ success: boolean; lat: number; lon: number; elevation: number | null; title: string; error?: string }>(
+        `/api/eigyo/gsi-elevation?${qs.toString()}`
+      );
+      if (!json.success) throw new Error(json.error || "代表地点を特定できませんでした");
+      setGsi({ lat: json.lat, lon: json.lon, elevation: json.elevation, title: json.title });
+      window.open(`https://maps.gsi.go.jp/#15/${json.lat}/${json.lon}/`, "_blank", "noopener,noreferrer");
+    } catch (e: any) {
+      setError(e?.message || "標高の取得に失敗しました");
+    } finally {
+      setGsiLoading(false);
+    }
+  }
 
   // 選択した県のレコードを取得（県単位。キャッシュ優先）
   async function fetchPrefecture(targetKen: string, refresh = false) {
@@ -76,15 +98,15 @@ export default function KijunFusokuPage() {
 
   // 選択をリセット（上位変更時に下位をクリア。標高入力も都度リセット）。県確定でその県を取得。
   function selectKen(v: string) {
-    setKen(v); setShi(""); setK1(""); setK2(""); setK3(""); setShiQuery(""); setElevation("");
+    setKen(v); setShi(""); setK1(""); setK2(""); setK3(""); setShiQuery(""); setElevation(""); setGsi(null);
     fetchPrefecture(v);
   }
-  function selectShi(v: string) { setShi(v); setK1(""); setK2(""); setK3(""); setElevation(""); }
+  function selectShi(v: string) { setShi(v); setK1(""); setK2(""); setK3(""); setElevation(""); setGsi(null); }
   function selectSub(level: SubLevel, v: string) {
     if (level === "k1") { setK1(v); setK2(""); setK3(""); }
     else if (level === "k2") { setK2(v); setK3(""); }
     else setK3(v);
-    setElevation("");
+    setElevation(""); setGsi(null);
   }
 
   // 県プルダウン（都道府県コード昇順。北海道→沖縄）。一覧は定数なのでDB取得不要。
@@ -315,6 +337,32 @@ export default function KijunFusokuPage() {
                                 className="w-24 px-2 py-1.5 border border-gray-300 rounded-md text-center text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
                               />
                               <span className="text-sm text-gray-500">m</span>
+                            </div>
+                            {/* 地理院地図で標高を確認（区分まで確定後）。代表点標高は目安・自動入力しない */}
+                            <div className="flex flex-col items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => result.rec && lookupGsi(result.rec)}
+                                disabled={gsiLoading}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-md hover:bg-sky-100 disabled:opacity-50"
+                              >
+                                <MapIcon className="w-3.5 h-3.5" />
+                                {gsiLoading ? "取得中…" : "地理院地図で標高を確認"}
+                              </button>
+                              {gsi && (
+                                <p className="text-[10px] text-gray-500 text-center leading-tight">
+                                  目安: 約 <span className="font-bold text-gray-700">{gsi.elevation ?? "—"}</span>m
+                                  <span className="text-gray-400">（{gsi.title} の代表点・要敷地確認）</span>
+                                  <a
+                                    href={`https://maps.gsi.go.jp/#15/${gsi.lat}/${gsi.lon}/`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-0.5 ml-1 text-sky-600 hover:underline"
+                                  >
+                                    地図 <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                </p>
+                              )}
                             </div>
                             {snowCalc?.kind === "auto" && snowCalc.cm != null ? (
                               <div className="text-center">

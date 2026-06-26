@@ -13,8 +13,33 @@ export const PREFECTURE_ORDER: readonly string[] = [
   "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
 ];
 
+/**
+ * 都道府県名 → ローマ字スラッグ（ISO 3166-2:JP 準拠の小文字。長音なし）。
+ * PREFECTURE_ORDER と同じ並び順。用途地域マップ(landzone)の県別ページURLに使用。
+ */
+export const PREFECTURE_ROMAJI: readonly string[] = [
+  "hokkaido", "aomori", "iwate", "miyagi", "akita", "yamagata", "fukushima", "ibaraki",
+  "tochigi", "gunma", "saitama", "chiba", "tokyo", "kanagawa", "niigata", "toyama",
+  "ishikawa", "fukui", "yamanashi", "nagano", "gifu", "shizuoka", "aichi", "mie",
+  "shiga", "kyoto", "osaka", "hyogo", "nara", "wakayama", "tottori", "shimane",
+  "okayama", "hiroshima", "yamaguchi", "tokushima", "kagawa", "ehime", "kochi", "fukuoka",
+  "saga", "nagasaki", "kumamoto", "oita", "miyazaki", "kagoshima", "okinawa",
+];
+
 /** 都道府県名 → 並び順インデックス（未知名は末尾扱い） */
 const PREFECTURE_RANK = new Map(PREFECTURE_ORDER.map((name, i) => [name, i]));
+
+/** 都道府県名 → ローマ字スラッグ */
+const ROMAJI_BY_NAME = new Map(PREFECTURE_ORDER.map((name, i) => [name, PREFECTURE_ROMAJI[i]]));
+
+/**
+ * 用途地域マップ(landzone)の県別ページURLを返す（つなぎ用・不動産情報ライブラリAPI導入までの暫定）。
+ * 未知の県名は null。
+ */
+export function landzoneUrlForPrefecture(ken: string): string | null {
+  const slug = ROMAJI_BY_NAME.get(ken);
+  return slug ? `https://landzone.sengine.xyz/${slug}.html` : null;
+}
 
 /**
  * 都道府県名の配列を都道府県コード昇順に並べ替える。

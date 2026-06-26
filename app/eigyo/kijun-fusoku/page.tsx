@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo } from "react";
 import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
 import { computeSnow } from "@/lib/kijun-fusoku-snow";
+import { sortByPrefectureCode } from "@/lib/prefectures";
 import { Wind, Snowflake, MapPin, RefreshCw, AlertCircle, Search, Mountain } from "lucide-react";
 
 interface KijunFusokuRecord {
@@ -77,8 +78,11 @@ export default function KijunFusokuPage() {
     setElevation("");
   }
 
-  // 県プルダウン
-  const prefectures = useMemo(() => distinct(records.map((r) => r.ken)), [records]);
+  // 県プルダウン（都道府県コード昇順。北海道→沖縄）
+  const prefectures = useMemo(() => {
+    const uniq = [...new Set(records.map((r) => r.ken).filter((v) => v && v.trim()))];
+    return sortByPrefectureCode(uniq);
+  }, [records]);
 
   // 市・郡・区プルダウン（県で絞り込み + インクリメンタル検索）
   const cities = useMemo(() => {

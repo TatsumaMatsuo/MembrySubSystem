@@ -104,6 +104,18 @@ export async function resolveFileIdByName(name: string): Promise<string | null> 
 }
 
 /**
+ * file_id の実体(バイナリ)を取得する。Boxの content エンドポイントは 302 で
+ * dl.boxcloud のプレッサインドURLへ飛ぶが、fetch は既定で追従するため Response をそのまま返す。
+ * サーバ側でストリーム中継して inline 表示(application/pdf)に使う。
+ */
+export async function fetchFileContent(fileId: string): Promise<Response> {
+  const token = await getAccessToken();
+  return fetch(`${BOX_API}/files/${fileId}/content`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+/**
  * file_id のダウンロード用プレッサインドURLを取得（Boxが返す302のLocation）。
  * このURLは短時間有効で、ブラウザを直接リダイレクトしてPDFを開ける。
  */

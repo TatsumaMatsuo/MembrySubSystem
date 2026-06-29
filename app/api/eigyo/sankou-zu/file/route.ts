@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isBoxConfigured, resolveFileIdByName, getDownloadUrl } from "@/lib/box-client";
+import { isBoxConfigured, resolveFileIdByName, fetchFileContent } from "@/lib/box-client";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -7,15 +7,15 @@ export const maxDuration = 60;
 /**
  * 参考図面PDF 中継API（Box CCG）。
  *
- * 設計: docs/eigyo-sankou-zu/README.md §8-A / docs/eigyo-sankou-zu/box-setup.md。
  * サーバが Box の固定フォルダ(BOX_FOLDER_ID)内を `name`(ファイル名)で検索し、file_id を解決して
- * ダウンロード用プレッサインドURLへ302する。Boxトークンはサーバ側のみで保持する。
- * 認証はミドルウェアでセッション必須（未認証は401）。
+ * 実体をストリーム中継する。既定は inline（ブラウザ内/PDFビューアで表示、ダウンロードしない）。
+ * `?disposition=attachment` でダウンロード。Boxトークンはサーバ側のみ。認証はミドルウェアでセッション必須。
  *
- * Box未設定(環境変数なし)の間は501を返す。設定すると pdfEnabled=true になり画面の「開く」が有効化。
+ * 表示は app/pdf-viewer（pdf.js）から本エンドポイントを参照（売約詳細の図面表示と同方式）。
  */
 export async function GET(request: Request) {
-  const name = (new URL(request.url).searchParams.get("name") || "").trim();
+  const url = new URL(request.url);
+  const name = (url.searchParams.get("name") || "").trim();
 
   if (!isBoxConfigured()) {
     return NextResponse.json(
@@ -27,7 +27,6 @@ export async function GET(request: Request) {
       { status: 501 }
     );
   }
-
   if (!name) {
     return NextResponse.json({ success: false, error: "ファイル名(name)を指定してください" }, { status: 400 });
   }
@@ -40,15 +39,31 @@ export async function GET(request: Request) {
         { status: 404 }
       );
     }
-    const url = await getDownloadUrl(fileId);
-    if (!url) {
+    const res = await fetchFileContent(fileId);
+    if (!res.ok) {
       return NextResponse.json(
-        { success: false, error: "ダウンロードURLを取得できませんでした" },
+        { success: false, error: `Boxからの取得に失敗しました (status=${res.status})` },
         { status: 502 }
       );
     }
-    // プレッサインドURLへリダイレクト（ブラウザが直接Boxから取得）
-    return NextResponse.redirect(url, 302);
+    const buf = await res.arrayBuffer();
+
+    const lower = name.toLowerCase();
+    const contentType = lower.endsWith(".pdf")
+      ? "application/pdf"
+      : res.headers.get("content-type") || "application/octet-stream";
+    const disposition = url.searchParams.get("disposition") === "attachment" ? "attachment" : "inline";
+    const enc = encodeURIComponent(name);
+
+    return new NextResponse(buf, {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Content-Length": String(buf.byteLength),
+        "Content-Disposition": `${disposition}; filename*=UTF-8''${enc}`,
+        "Cache-Control": "private, max-age=300",
+      },
+    });
   } catch (error: any) {
     console.error("[sankou-zu/file] Error:", error);
     return NextResponse.json(

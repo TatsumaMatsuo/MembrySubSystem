@@ -11,9 +11,12 @@ function PdfViewerContent() {
   const fileToken = searchParams.get("file_token") || "";
   const fileName = searchParams.get("name") || "file.pdf";
   const source = searchParams.get("source") || "";
+  // src: 任意の中継エンドポイントを直接指定（例: 参考図台帳の /api/eigyo/sankou-zu/file?name=...）。
+  // 指定時はそれを inline 取得元として使う。未指定時は従来の Lark file_token 経由。
+  const src = searchParams.get("src") || "";
 
-  const proxyUrl = `/api/file/proxy?file_token=${encodeURIComponent(fileToken)}&name=${encodeURIComponent(fileName)}${source ? `&source=${source}` : ""}`;
-  const downloadUrl = `${proxyUrl}&disposition=attachment`;
+  const proxyUrl = src || `/api/file/proxy?file_token=${encodeURIComponent(fileToken)}&name=${encodeURIComponent(fileName)}${source ? `&source=${source}` : ""}`;
+  const downloadUrl = `${proxyUrl}${proxyUrl.includes("?") ? "&" : "?"}disposition=attachment`;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
@@ -27,7 +30,7 @@ function PdfViewerContent() {
 
   // PDF読み込み
   useEffect(() => {
-    if (!fileToken) return;
+    if (!fileToken && !src) return;
     let cancelled = false;
 
     const loadPdf = async () => {
@@ -61,7 +64,7 @@ function PdfViewerContent() {
 
     loadPdf();
     return () => { cancelled = true; };
-  }, [fileToken, proxyUrl]);
+  }, [fileToken, src, proxyUrl]);
 
   // ページレンダリング
   const renderPage = useCallback(async (pageNum: number) => {
@@ -129,7 +132,7 @@ function PdfViewerContent() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  if (!fileToken) {
+  if (!fileToken && !src) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-100">
         <p className="text-gray-500 text-lg">ファイルトークンが指定されていません</p>

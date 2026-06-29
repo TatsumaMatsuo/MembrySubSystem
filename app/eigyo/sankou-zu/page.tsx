@@ -299,7 +299,13 @@ export default function SankouZuPage() {
   function openPdf(r: Daicho) {
     const name = s(r["ファイル名"]);
     if (!name) { setError("この行にはファイル名が登録されていません"); return; }
-    window.open(`/api/eigyo/sankou-zu/file?name=${encodeURIComponent(name)}`, "_blank", "noopener,noreferrer");
+    // 売約詳細と同方式: 新規タブの pdf-viewer(pdf.js)で表示。ダウンロードはしない。
+    const src = `/api/eigyo/sankou-zu/file?name=${encodeURIComponent(name)}`;
+    window.open(
+      `/pdf-viewer?src=${encodeURIComponent(src)}&name=${encodeURIComponent(name)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   }
 
   // Excel(CSV)出力: 現在の検索結果(全件)を全列でダウンロード。Excel用にBOM付きUTF-8。

@@ -6,7 +6,7 @@ import { useState, useMemo, useRef } from "react";
 import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
 import { computeSnow } from "@/lib/kijun-fusoku-snow";
-import { PREFECTURE_ORDER, youtoChikiMapUrlForPrefecture } from "@/lib/prefectures";
+import { PREFECTURE_ORDER } from "@/lib/prefectures";
 import { Wind, Snowflake, MapPin, RefreshCw, AlertCircle, Search, Mountain, Map as MapIcon, ExternalLink } from "lucide-react";
 
 interface KijunFusokuRecord {
@@ -33,6 +33,11 @@ type SubLevel = (typeof SUB_LEVELS)[number];
 function distinct(values: string[]): string[] {
   return [...new Set(values.filter((v) => v && v.trim()))].sort((a, b) => a.localeCompare(b, "ja"));
 }
+
+// 用途地域は国交省「不動産情報ライブラリ」の公式地図で確認する。
+// 同サイト利用規約 第7条(リンクの設定)に従い、リンクは必ずトップページとし、
+// 「不動産情報ライブラリ」へのリンクである旨を明示する（後援・監修等の誤認を与えない表現）。
+const REINFOLIB_TOP_URL = "https://www.reinfolib.mlit.go.jp/";
 
 export default function KijunFusokuPage() {
   // records は「選択中の県」のレコードのみ保持（県単位でサーバ取得）
@@ -391,20 +396,24 @@ export default function KijunFusokuPage() {
                       </div>
                     </div>
 
-                    {/* 用途地域の確認: 不動産情報ライブラリ(国交省)の公式地図を当該県・住所検索モードで開く。
-                        実敷地を住所検索・クリックして用途地域を確認する(用途地域は区画単位のため代表点では不正確)。 */}
-                    {youtoChikiMapUrlForPrefecture(result.rec.ken) && (
+                    {/* 用途地域の確認: 国交省「不動産情報ライブラリ」公式サイトへ誘導（外部）。
+                        利用規約 第7条に従いリンク先はトップページ。サイト内で住所検索し用途地域を確認する
+                        （用途地域は区画単位で変わるため、実敷地での確認が必要）。 */}
+                    <div className="space-y-1">
                       <a
-                        href={youtoChikiMapUrlForPrefecture(result.rec.ken)!}
+                        href={REINFOLIB_TOP_URL}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 w-full px-4 py-3 text-base font-bold text-white bg-gradient-to-r from-indigo-500 to-violet-500 rounded-xl shadow-md hover:from-indigo-600 hover:to-violet-600 hover:shadow-lg transition-all"
                       >
                         <MapPin className="w-5 h-5" />
-                        用途地域を確認する（公式地図）
+                        用途地域を確認する（不動産情報ライブラリ）
                         <ExternalLink className="w-4 h-4" />
                       </a>
-                    )}
+                      <p className="text-[11px] text-gray-400 text-center">
+                        国土交通省「不動産情報ライブラリ」（外部サイト）が開きます。サイト内の地図で住所を検索してご確認ください。
+                      </p>
+                    </div>
 
                     {/* 選択地域・備考 */}
                     <div className="text-sm text-gray-600">

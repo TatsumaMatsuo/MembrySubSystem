@@ -6,7 +6,7 @@ import { useState, useMemo, useRef } from "react";
 import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
 import { computeSnow } from "@/lib/kijun-fusoku-snow";
-import { PREFECTURE_ORDER, landzoneUrlForPrefecture } from "@/lib/prefectures";
+import { PREFECTURE_ORDER, youtoChikiMapUrlForPrefecture } from "@/lib/prefectures";
 import { Wind, Snowflake, MapPin, RefreshCw, AlertCircle, Search, Mountain, Map as MapIcon, ExternalLink } from "lucide-react";
 
 interface KijunFusokuRecord {
@@ -391,16 +391,17 @@ export default function KijunFusokuPage() {
                       </div>
                     </div>
 
-                    {/* 用途地域の確認（つなぎ: landzone 県別ページ。将来は不動産情報ライブラリAPIで地点表示） */}
-                    {landzoneUrlForPrefecture(result.rec.ken) && (
+                    {/* 用途地域の確認: 不動産情報ライブラリ(国交省)の公式地図を当該県・住所検索モードで開く。
+                        実敷地を住所検索・クリックして用途地域を確認する(用途地域は区画単位のため代表点では不正確)。 */}
+                    {youtoChikiMapUrlForPrefecture(result.rec.ken) && (
                       <a
-                        href={landzoneUrlForPrefecture(result.rec.ken)!}
+                        href={youtoChikiMapUrlForPrefecture(result.rec.ken)!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 w-full px-4 py-3 text-base font-bold text-white bg-gradient-to-r from-indigo-500 to-violet-500 rounded-xl shadow-md hover:from-indigo-600 hover:to-violet-600 hover:shadow-lg transition-all"
                       >
                         <MapPin className="w-5 h-5" />
-                        用途地域を確認する
+                        用途地域を確認する（公式地図）
                         <ExternalLink className="w-4 h-4" />
                       </a>
                     )}

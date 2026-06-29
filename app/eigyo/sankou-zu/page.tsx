@@ -39,6 +39,7 @@ function distinct(values: (string | number | undefined)[]): string[] {
 
 export default function SankouZuPage() {
   const [all, setAll] = useState<Daicho[]>([]);
+  const [buhin, setBuhin] = useState<Daicho[]>([]);
   const [pdfEnabled, setPdfEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -49,6 +50,8 @@ export default function SankouZuPage() {
   const [buzai, setBuzai] = useState("");
   const [youto, setYouto] = useState<Set<string>>(new Set());
   const [tateya, setTateya] = useState<Set<string>>(new Set());
+  const [route, setRoute] = useState<Set<string>>(new Set()); // 設計ルート
+  const [shinsei, setShinsei] = useState<Set<string>>(new Set()); // 申請有無
   const [kiMin, setKiMin] = useState("");
   const [kiMax, setKiMax] = useState("");
   const [maguchiMin, setMaguchiMin] = useState("");
@@ -57,6 +60,18 @@ export default function SankouZuPage() {
   const [ketaMax, setKetaMax] = useState("");
   const [nokiMin, setNokiMin] = useState("");
   const [nokiMax, setNokiMax] = useState("");
+  const [fuMin, setFuMin] = useState(""); // 設計条件(基準風)
+  const [fuMax, setFuMax] = useState("");
+  const [yukiMin, setYukiMin] = useState(""); // 設計条件(基準雪)
+  const [yukiMax, setYukiMax] = useState("");
+  const [pitchMin, setPitchMin] = useState(""); // 柱ピッチ
+  const [pitchMax, setPitchMax] = useState("");
+  const [koubaiMin, setKoubaiMin] = useState(""); // 勾配
+  const [koubaiMax, setKoubaiMax] = useState("");
+  const [hisashiMin, setHisashiMin] = useState(""); // 庇出巾
+  const [hisashiMax, setHisashiMax] = useState("");
+  const [buzaiKigou, setBuzaiKigou] = useState(""); // 部材記号(部品マスタ 分類1 = 台帳の列名)
+  const [buzaiHinmei, setBuzaiHinmei] = useState(""); // 部品名称
 
   async function load(refresh = false) {
     setLoading(true);
@@ -65,6 +80,7 @@ export default function SankouZuPage() {
       const json = await fetchJson<ApiResp>(`/api/eigyo/sankou-zu${refresh ? "?refresh=1" : ""}`);
       if (!json.success) throw new Error(json.error || "取得に失敗しました");
       setAll(json.daicho || []);
+      setBuhin(json.buhin || []);
       setPdfEnabled(Boolean(json.pdfEnabled));
     } catch (e: any) {
       setError(e?.message || "取得に失敗しました");
@@ -82,6 +98,16 @@ export default function SankouZuPage() {
 
   const youtoOptions = useMemo(() => distinct(all.map((r) => r["用途"])), [all]);
   const tateyaOptions = useMemo(() => distinct(all.map((r) => r["建屋区分"])), [all]);
+  const routeOptions = useMemo(() => distinct(all.map((r) => r["設計ルート"])), [all]);
+  const shinseiOptions = useMemo(() => distinct(all.map((r) => r["申請有無"])), [all]);
+
+  // 部材記号(部品マスタ 分類1)の一覧。台帳の同名列を絞り込み対象にする
+  const buzaiKigouOptions = useMemo(() => distinct(buhin.map((r) => r["分類1"])), [buhin]);
+  // 選択中の部材記号に対応する部品名称候補
+  const buzaiHinmeiOptions = useMemo(() => {
+    if (!buzaiKigou) return [];
+    return distinct(buhin.filter((r) => s(r["分類1"]) === buzaiKigou).map((r) => r["部品名称"]));
+  }, [buhin, buzaiKigou]);
 
   function toggle(setFn: React.Dispatch<React.SetStateAction<Set<string>>>, v: string) {
     setFn((prev) => {
@@ -109,25 +135,43 @@ export default function SankouZuPage() {
       if (bz && !BUZAI_FIELDS.some((f) => s(r[f]).includes(bz))) return false;
       if (youto.size > 0 && !youto.has(s(r["用途"]))) return false;
       if (tateya.size > 0 && !tateya.has(s(r["建屋区分"]))) return false;
+      if (route.size > 0 && !route.has(s(r["設計ルート"]))) return false;
+      if (shinsei.size > 0 && !shinsei.has(s(r["申請有無"]))) return false;
       if (!inRange(r["期"], kiMin, kiMax)) return false;
       if (!inRange(r["間口"], maguchiMin, maguchiMax)) return false;
       if (!inRange(r["桁行"], ketaMin, ketaMax)) return false;
       if (!inRange(r["軒高"], nokiMin, nokiMax)) return false;
+      if (!inRange(r["設計条件(基準風)"], fuMin, fuMax)) return false;
+      if (!inRange(r["設計条件(基準雪)"], yukiMin, yukiMax)) return false;
+      if (!inRange(r["柱ピッチ"], pitchMin, pitchMax)) return false;
+      if (!inRange(r["勾配"], koubaiMin, koubaiMax)) return false;
+      if (!inRange(r["庇出巾"], hisashiMin, hisashiMax)) return false;
+      if (buzaiKigou && buzaiHinmei && s(r[buzaiKigou]) !== buzaiHinmei) return false;
       return true;
     });
-  }, [all, word, buzai, youto, tateya, kiMin, kiMax, maguchiMin, maguchiMax, ketaMin, ketaMax, nokiMin, nokiMax]);
+  }, [all, word, buzai, youto, tateya, route, shinsei, kiMin, kiMax, maguchiMin, maguchiMax,
+      ketaMin, ketaMax, nokiMin, nokiMax, fuMin, fuMax, yukiMin, yukiMax, pitchMin, pitchMax,
+      koubaiMin, koubaiMax, hisashiMin, hisashiMax, buzaiKigou, buzaiHinmei]);
 
   const shown = filtered.slice(0, MAX_ROWS);
 
   // 条件が初期状態か（全件＝条件なしのときは一覧を出さず件数だけ案内）
   const hasCondition =
     !!word.trim() || !!buzai.trim() || youto.size > 0 || tateya.size > 0 ||
-    !!(kiMin || kiMax || maguchiMin || maguchiMax || ketaMin || ketaMax || nokiMin || nokiMax);
+    route.size > 0 || shinsei.size > 0 ||
+    !!(kiMin || kiMax || maguchiMin || maguchiMax || ketaMin || ketaMax || nokiMin || nokiMax) ||
+    !!(fuMin || fuMax || yukiMin || yukiMax || pitchMin || pitchMax || koubaiMin || koubaiMax || hisashiMin || hisashiMax) ||
+    !!(buzaiKigou && buzaiHinmei);
 
   function resetAll() {
     setWord(""); setBuzai(""); setYouto(new Set()); setTateya(new Set());
+    setRoute(new Set()); setShinsei(new Set());
     setKiMin(""); setKiMax(""); setMaguchiMin(""); setMaguchiMax("");
     setKetaMin(""); setKetaMax(""); setNokiMin(""); setNokiMax("");
+    setFuMin(""); setFuMax(""); setYukiMin(""); setYukiMax("");
+    setPitchMin(""); setPitchMax(""); setKoubaiMin(""); setKoubaiMax("");
+    setHisashiMin(""); setHisashiMax("");
+    setBuzaiKigou(""); setBuzaiHinmei("");
   }
 
   function openPdf(r: Daicho) {
@@ -206,14 +250,19 @@ export default function SankouZuPage() {
                   </div>
                 </div>
 
-                {/* 寸法 範囲 */}
+                {/* 寸法・条件 範囲 */}
                 {([
-                  ["間口", maguchiMin, setMaguchiMin, maguchiMax, setMaguchiMax],
-                  ["桁行", ketaMin, setKetaMin, ketaMax, setKetaMax],
-                  ["軒高", nokiMin, setNokiMin, nokiMax, setNokiMax],
+                  ["間口（m）", maguchiMin, setMaguchiMin, maguchiMax, setMaguchiMax],
+                  ["桁行（m）", ketaMin, setKetaMin, ketaMax, setKetaMax],
+                  ["軒高（m）", nokiMin, setNokiMin, nokiMax, setNokiMax],
+                  ["柱ピッチ（m）", pitchMin, setPitchMin, pitchMax, setPitchMax],
+                  ["勾配", koubaiMin, setKoubaiMin, koubaiMax, setKoubaiMax],
+                  ["庇出巾（m）", hisashiMin, setHisashiMin, hisashiMax, setHisashiMax],
+                  ["基準風速（m/s）", fuMin, setFuMin, fuMax, setFuMax],
+                  ["垂直積雪量（cm）", yukiMin, setYukiMin, yukiMax, setYukiMax],
                 ] as const).map(([label, vmin, setMin, vmax, setMax]) => (
                   <div key={label}>
-                    <label className="block text-xs font-bold text-gray-600 mb-1">{label}（m）</label>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">{label}</label>
                     <div className="flex items-center gap-2">
                       <input type="number" className={rangeClass} value={vmin} onChange={(e) => setMin(e.target.value)} placeholder="最小" />
                       <span className="text-gray-400 text-sm">〜</span>
@@ -222,10 +271,41 @@ export default function SankouZuPage() {
                   </div>
                 ))}
 
+                {/* 部材検索（部品マスタ連携: 部材記号→部品名称で台帳の該当列を絞り込み） */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">部材検索（記号→部品名称）</label>
+                  <select
+                    className={inputClass}
+                    value={buzaiKigou}
+                    onChange={(e) => { setBuzaiKigou(e.target.value); setBuzaiHinmei(""); }}
+                  >
+                    <option value="">部材記号を選択</option>
+                    {buzaiKigouOptions.map((k) => (
+                      <option key={k} value={k}>{k}</option>
+                    ))}
+                  </select>
+                  {buzaiKigou && (
+                    <select
+                      className={`${inputClass} mt-1`}
+                      value={buzaiHinmei}
+                      onChange={(e) => setBuzaiHinmei(e.target.value)}
+                    >
+                      <option value="">部品名称を選択（{buzaiHinmeiOptions.length}件）</option>
+                      {buzaiHinmeiOptions.map((h) => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
                 {/* 用途（複数） */}
                 <FacetGroup label="用途" options={youtoOptions} selected={youto} onToggle={(v) => toggle(setYouto, v)} />
                 {/* 建屋区分（複数） */}
                 <FacetGroup label="建屋区分" options={tateyaOptions} selected={tateya} onToggle={(v) => toggle(setTateya, v)} />
+                {/* 設計ルート（複数） */}
+                <FacetGroup label="設計ルート" options={routeOptions} selected={route} onToggle={(v) => toggle(setRoute, v)} />
+                {/* 申請有無（複数） */}
+                <FacetGroup label="申請有無" options={shinseiOptions} selected={shinsei} onToggle={(v) => toggle(setShinsei, v)} />
               </div>
             </aside>
 

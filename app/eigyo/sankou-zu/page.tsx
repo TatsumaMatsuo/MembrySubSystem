@@ -129,6 +129,11 @@ const TABS: Tab[] = [
 const ALL_FIELDS = TABS.flatMap((t) => t.fields);
 const SELECT_COLS = ALL_FIELDS.filter((f) => f.kind === "select").map((f) => f.col);
 const FIELD_LABEL: Record<string, string> = Object.fromEntries(ALL_FIELDS.map((f) => [f.col, f.label || f.col]));
+// 候補を「参考図部品マスタ」(分類1→部品名称)から引く部材記号17項目。それ以外の★は汎用マスタ(未整備の間は台帳実値)から。
+const BUHIN_COLS = new Set([
+  "C1", "T1", "G1", "B1", "B2", "B3", "B4", "P1", "P2", "P3", "P4",
+  "Ga", "Gc", "WB", "ST", "柱ラチ", "梁ラチ",
+]);
 const MAX_ROWS = 300;
 
 function s(v: string | number | undefined): string {
@@ -137,6 +142,7 @@ function s(v: string | number | undefined): string {
 
 export default function SankouZuPage() {
   const [all, setAll] = useState<Daicho[]>([]);
+  const [buhin, setBuhin] = useState<Daicho[]>([]);
   const [pdfEnabled, setPdfEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -160,6 +166,7 @@ export default function SankouZuPage() {
       const json = await fetchJson<ApiResp>(`/api/eigyo/sankou-zu${refresh ? "?refresh=1" : ""}`);
       if (!json.success) throw new Error(json.error || "取得に失敗しました");
       setAll(json.daicho || []);
+      setBuhin(json.buhin || []);
       setPdfEnabled(Boolean(json.pdfEnabled));
     } catch (e: any) {
       setError(e?.message || "取得に失敗しました");
@@ -175,18 +182,37 @@ export default function SankouZuPage() {
     load();
   }, []);
 
-  // 単一選択フィールドの候補（各列の実値から）
+  // 単一選択フィールドの候補。
+  //  部材記号17項目(BUHIN_COLS) → 参考図部品マスタ(分類1→部品名称)
+  //  それ以外の★ → 汎用マスタ(未整備のため当面は台帳の実値)
   const optionsByCol = useMemo(() => {
-    const sets: Record<string, Set<string>> = {};
-    for (const c of SELECT_COLS) sets[c] = new Set();
-    for (const r of all) for (const c of SELECT_COLS) {
-      const v = s(r[c]);
-      if (v) sets[c].add(v);
-    }
     const out: Record<string, string[]> = {};
-    for (const c of SELECT_COLS) out[c] = [...sets[c]].sort((a, b) => a.localeCompare(b, "ja", { numeric: true }));
+    const sort = (arr: string[]) => arr.sort((a, b) => a.localeCompare(b, "ja", { numeric: true }));
+
+    // 部品マスタ: 分類1 → 部品名称 候補
+    const buhinByKigou: Record<string, Set<string>> = {};
+    for (const r of buhin) {
+      const k = s(r["分類1"]);
+      const name = s(r["部品名称"]);
+      if (!k || !name) continue;
+      (buhinByKigou[k] ||= new Set()).add(name);
+    }
+
+    // 台帳実値（汎用マスタ未整備の項目向けフォールバック）
+    const daichoSets: Record<string, Set<string>> = {};
+    for (const c of SELECT_COLS) if (!BUHIN_COLS.has(c)) daichoSets[c] = new Set();
+    for (const r of all) for (const c of SELECT_COLS) {
+      if (BUHIN_COLS.has(c)) continue;
+      const v = s(r[c]);
+      if (v) daichoSets[c].add(v);
+    }
+
+    for (const c of SELECT_COLS) {
+      if (BUHIN_COLS.has(c)) out[c] = sort([...(buhinByKigou[c] || new Set())]);
+      else out[c] = sort([...daichoSets[c]]);
+    }
     return out;
-  }, [all]);
+  }, [all, buhin]);
 
   function inRange(val: string | number | undefined, min: string, max: string): boolean {
     if (!min && !max) return true;

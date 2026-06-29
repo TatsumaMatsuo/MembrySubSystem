@@ -5,19 +5,27 @@
  * file_id を解決してダウンロード/プレビューURLを得る。トークン・フォルダ索引はモジュール
  * キャッシュで保持する。Boxの認証情報はサーバ側のみ（クライアントに出さない）。
  *
- * 必要な環境変数: BOX_CLIENT_ID / BOX_CLIENT_SECRET / BOX_ENTERPRISE_ID / BOX_FOLDER_ID
+ * 環境変数: BOX_CLIENT_ID / BOX_CLIENT_SECRET / BOX_ENTERPRISE_ID / BOX_FOLDER_ID
+ * ※ AWS Amplify SSR では実行時に process.env を参照できない場合があるため、lark-client.ts と
+ *    同様にフォールバック値を持つ（private リポジトリ前提。Secret 再生成時は下記も更新）。
  */
 
 const BOX_TOKEN_URL = "https://api.box.com/oauth2/token";
 const BOX_API = "https://api.box.com/2.0";
 
+// Amplify SSR 実行時フォールバック（lib/lark-client.ts と同方針）
+const FALLBACK_BOX_CLIENT_ID = "apw266xosaz7letz0qoxgxfldmmowfj4";
+const FALLBACK_BOX_CLIENT_SECRET = "m2HvMJ4FrNFpsL2qRijp3yYegoy2Uyau";
+const FALLBACK_BOX_ENTERPRISE_ID = "315653928";
+const FALLBACK_BOX_FOLDER_ID = "213472048879";
+
+function boxClientId() { return process.env.BOX_CLIENT_ID || FALLBACK_BOX_CLIENT_ID; }
+function boxClientSecret() { return process.env.BOX_CLIENT_SECRET || FALLBACK_BOX_CLIENT_SECRET; }
+function boxEnterpriseId() { return process.env.BOX_ENTERPRISE_ID || FALLBACK_BOX_ENTERPRISE_ID; }
+function boxFolderId() { return process.env.BOX_FOLDER_ID || FALLBACK_BOX_FOLDER_ID; }
+
 export function isBoxConfigured(): boolean {
-  return Boolean(
-    process.env.BOX_CLIENT_ID &&
-      process.env.BOX_CLIENT_SECRET &&
-      process.env.BOX_ENTERPRISE_ID &&
-      process.env.BOX_FOLDER_ID
-  );
+  return Boolean(boxClientId() && boxClientSecret() && boxEnterpriseId() && boxFolderId());
 }
 
 // --- アクセストークン（CCG）。expires_in より少し手前で失効扱いにして再取得 ---
@@ -29,10 +37,10 @@ async function getAccessToken(): Promise<string> {
 
   const body = new URLSearchParams({
     grant_type: "client_credentials",
-    client_id: process.env.BOX_CLIENT_ID || "",
-    client_secret: process.env.BOX_CLIENT_SECRET || "",
+    client_id: boxClientId(),
+    client_secret: boxClientSecret(),
     box_subject_type: "enterprise",
-    box_subject_id: process.env.BOX_ENTERPRISE_ID || "",
+    box_subject_id: boxEnterpriseId(),
   });
 
   const res = await fetch(BOX_TOKEN_URL, {
@@ -56,7 +64,7 @@ let _index: { at: number; map: Map<string, string> } | null = null;
 
 async function buildFolderIndex(): Promise<Map<string, string>> {
   const token = await getAccessToken();
-  const folderId = process.env.BOX_FOLDER_ID || "";
+  const folderId = boxFolderId();
   const map = new Map<string, string>();
   let marker: string | undefined;
   do {

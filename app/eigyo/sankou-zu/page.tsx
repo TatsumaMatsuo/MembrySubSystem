@@ -326,22 +326,24 @@ export default function SankouZuPage() {
   }
 
   const selectClass =
-    "w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400";
+    "w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-fuchsia-400 focus:border-fuchsia-400";
   const rangeClass =
-    "w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm text-center focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400";
+    "w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm text-center focus:ring-2 focus:ring-fuchsia-400 focus:border-fuchsia-400";
 
   const current = TABS.find((t) => t.name === activeTab)!;
 
   return (
     <MainLayout>
-      <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-indigo-50 overflow-hidden">
+      <div className="h-full flex flex-col bg-gradient-to-br from-sky-50 via-fuchsia-50 to-amber-50 overflow-hidden">
         {/* ヘッダー */}
         <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <FileSearch className="w-6 h-6 text-indigo-500" />
-                参考図台帳検索
+              <h1 className="text-xl font-extrabold flex items-center gap-2">
+                <FileSearch className="w-6 h-6 text-fuchsia-500" />
+                <span className="bg-gradient-to-r from-fuchsia-600 via-purple-600 to-sky-600 bg-clip-text text-transparent">
+                  参考図台帳検索
+                </span>
               </h1>
               <p className="text-sm text-gray-500">営業部 &gt; 参考図台帳検索</p>
             </div>
@@ -361,7 +363,7 @@ export default function SankouZuPage() {
           <div className="h-full max-w-full mx-auto flex flex-col lg:flex-row gap-4">
             {/* 絞り込み */}
             <aside className="lg:w-96 flex-shrink-0 bg-white rounded-xl shadow border border-gray-100 overflow-hidden flex flex-col">
-              <div className="bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-3 flex items-center justify-between">
+              <div className="bg-gradient-to-r from-fuchsia-500 via-purple-500 to-sky-500 px-4 py-3 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <Filter className="w-4 h-4" /> 絞り込み{activeCount > 0 && `（${activeCount}）`}
                 </h3>
@@ -391,10 +393,10 @@ export default function SankouZuPage() {
                       key={t.name}
                       onClick={() => setActiveTab(t.name)}
                       className={`px-2.5 py-1 text-xs font-bold rounded-t-md border-b-2 transition-colors ${
-                        on ? "text-indigo-700 border-indigo-500 bg-indigo-50" : "text-gray-500 border-transparent hover:bg-gray-50"
+                        on ? "text-fuchsia-700 border-fuchsia-500 bg-fuchsia-50" : "text-gray-500 border-transparent hover:bg-gray-50"
                       }`}
                     >
-                      {t.name}{cnt > 0 && <span className="ml-1 text-indigo-500">({cnt})</span>}
+                      {t.name}{cnt > 0 && <span className="ml-1 text-fuchsia-500">({cnt})</span>}
                     </button>
                   );
                 })}
@@ -435,7 +437,7 @@ export default function SankouZuPage() {
                         type="button"
                         onClick={() => setPicker(f.col)}
                         className={`w-full px-2 py-1.5 border rounded-md text-sm text-left truncate flex items-center justify-between gap-1 ${
-                          v ? "border-indigo-300 bg-indigo-50 text-indigo-800" : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                          v ? "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-800" : "border-gray-300 text-gray-500 hover:bg-gray-50"
                         }`}
                         title={v || "指定なし"}
                       >
@@ -460,7 +462,7 @@ export default function SankouZuPage() {
                   <button
                     onClick={exportCsv}
                     disabled={loading || filtered.length === 0}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-md hover:bg-emerald-700 disabled:opacity-40"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold rounded-md hover:from-emerald-600 hover:to-teal-600 shadow-sm disabled:opacity-40"
                     title="検索結果をExcel(CSV)で出力"
                   >
                     <Download className="w-3.5 h-3.5" /> Excel出力
@@ -503,7 +505,7 @@ export default function SankouZuPage() {
                     </thead>
                     <tbody>
                       {shown.map((r, i) => (
-                        <tr key={`${s(r["伝票番号"])}-${i}`} className="border-t border-gray-100 hover:bg-indigo-50/40">
+                        <tr key={`${s(r["伝票番号"])}-${i}`} className="border-t border-gray-100 hover:bg-fuchsia-50/40">
                           <td className="px-2 py-1.5 sticky left-0 bg-white">
                             <div className="flex items-center gap-1">
                               <button
@@ -517,7 +519,7 @@ export default function SankouZuPage() {
                                 onClick={() => openPdf(r)}
                                 disabled={!pdfEnabled || !s(r["ファイル名"])}
                                 title={pdfEnabled ? s(r["ファイル名"]) : "PDF連携は準備中です"}
-                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-fuchsia-700 bg-fuchsia-50 border border-fuchsia-200 rounded-md hover:bg-fuchsia-100 disabled:opacity-40 disabled:cursor-not-allowed"
                               >
                                 <FileText className="w-3.5 h-3.5" /> 図面
                               </button>
@@ -587,7 +589,7 @@ function PickerModal({
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               autoFocus
-              className="w-full pl-8 pr-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-400"
+              className="w-full pl-8 pr-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-fuchsia-400"
               placeholder="候補を絞り込み"
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -598,7 +600,7 @@ function PickerModal({
         <div className="flex-1 overflow-y-auto p-2">
           <button
             onClick={() => onSelect("")}
-            className={`w-full text-left px-3 py-2 rounded-md text-sm mb-1 ${!value ? "bg-indigo-50 text-indigo-700 font-bold" : "text-gray-500 hover:bg-gray-50"}`}
+            className={`w-full text-left px-3 py-2 rounded-md text-sm mb-1 ${!value ? "bg-fuchsia-50 text-fuchsia-700 font-bold" : "text-gray-500 hover:bg-gray-50"}`}
           >
             指定なし（クリア）
           </button>
@@ -606,7 +608,7 @@ function PickerModal({
             <button
               key={o}
               onClick={() => onSelect(o)}
-              className={`w-full text-left px-3 py-2 rounded-md text-sm ${o === value ? "bg-indigo-100 text-indigo-800 font-bold" : "text-gray-700 hover:bg-gray-50"}`}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm ${o === value ? "bg-fuchsia-100 text-fuchsia-800 font-bold" : "text-gray-700 hover:bg-gray-50"}`}
             >
               {o}
             </button>
@@ -637,7 +639,7 @@ function DetailModal({
             <button
               onClick={onOpenPdf}
               disabled={!pdfEnabled || !s(record["ファイル名"])}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-40"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-fuchsia-600 rounded-md hover:bg-fuchsia-700 disabled:opacity-40"
               title={pdfEnabled ? s(record["ファイル名"]) : "PDF連携は準備中です"}
             >
               <FileText className="w-3.5 h-3.5" /> 図面を開く {pdfEnabled && <ExternalLink className="w-3 h-3" />}

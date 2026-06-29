@@ -186,3 +186,6 @@ scripts/count-programs.ts
 scripts/verify-mapping.ts
 scripts/verify-permits-flow.ts
 scripts/test-or-filter.ts
+
+# 参考図台帳 移行用エクスポート(業務データ・コミットしない)
+scripts/sankou-zu/data/

@@ -201,10 +201,15 @@ export async function batchCreateBaseRecords(
   for (let i = 0; i < records.length; i += CHUNK) {
     const chunk = records.slice(i, i + CHUNK);
     try {
-      await client.bitable.appTableRecord.batchCreate({
+      const res = await client.bitable.appTableRecord.batchCreate({
         path: { app_token: appToken, table_id: tableId },
         data: { records: chunk.map((fields) => ({ fields })) },
       });
+      // SDKはAPIエラーでも例外を投げず {code,msg} を返すため、明示的にcodeを検査する
+      // (未検査だとフィールド名不一致等で全件失敗してもサイレントに「成功」扱いになる)。
+      if (res.code !== 0) {
+        throw new Error(`Lark batchCreate失敗 table=${tableId} code=${res.code} msg=${res.msg}`);
+      }
     } catch (error) {
       console.error("Error batch-creating Lark Base records:", error);
       throw error;
@@ -228,12 +233,45 @@ export async function batchUpdateBaseRecords(
   for (let i = 0; i < records.length; i += CHUNK) {
     const chunk = records.slice(i, i + CHUNK);
     try {
-      await client.bitable.appTableRecord.batchUpdate({
+      const res = await client.bitable.appTableRecord.batchUpdate({
         path: { app_token: appToken, table_id: tableId },
         data: { records: chunk },
       });
+      if (res.code !== 0) {
+        throw new Error(`Lark batchUpdate失敗 table=${tableId} code=${res.code} msg=${res.msg}`);
+      }
     } catch (error) {
       console.error("Error batch-updating Lark Base records:", error);
+      throw error;
+    }
+  }
+}
+
+/**
+ * 複数レコードを一括削除(Lark Bitable batch_delete)。
+ * 1リクエスト最大500件のため500件ごとに分割送信する。
+ */
+export async function batchDeleteBaseRecords(
+  tableId: string,
+  recordIds: string[],
+  options?: { baseToken?: string }
+) {
+  const appToken = options?.baseToken || getLarkBaseToken();
+  const client = getLarkClient();
+  if (!client) throw new Error("Lark client not initialized");
+  const CHUNK = 500;
+  for (let i = 0; i < recordIds.length; i += CHUNK) {
+    const chunk = recordIds.slice(i, i + CHUNK);
+    try {
+      const res = await client.bitable.appTableRecord.batchDelete({
+        path: { app_token: appToken, table_id: tableId },
+        data: { records: chunk },
+      });
+      if (res.code !== 0) {
+        throw new Error(`Lark batchDelete失敗 table=${tableId} code=${res.code} msg=${res.msg}`);
+      }
+    } catch (error) {
+      console.error("Error batch-deleting Lark Base records:", error);
       throw error;
     }
   }

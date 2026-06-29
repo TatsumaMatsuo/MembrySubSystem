@@ -44,6 +44,9 @@ export function getLarkTables() {
     SCHEDULE: process.env.LARK_TABLE_SCHEDULE || "tblhhTgv5ynrkFjN",
     // 基準風速・積雪量マスタ（営業: 基準風速/垂直積雪量 検索の参照データ。project base）
     KIJUN_FUSOKU: process.env.LARK_TABLE_KIJUN_FUSOKU || "tblHMXBoYkXWGk4t",
+    // 参考図台帳検索（営業: Access 参考図.accdb 移行）。Lark UIで手動作成済（project base）。
+    SANKOU_DAICHO: process.env.LARK_TABLE_SANKOU_DAICHO || "tblB8WpT3dOIGwfj",
+    SANKOU_BUHIN: process.env.LARK_TABLE_SANKOU_BUHIN || "tbliF60cCLGAP66v",
 
     // ===== 生産本部KPIシステム(docs/kpi-system) =====
     // --- 経営レイヤー(L0/L1) ※全社年度KPIは既存 COMPANY_KPI を流用 ---
@@ -119,6 +122,9 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   SCHEDULE: "project",
   // 基準風速・積雪量マスタ（プロジェクトBase）
   KIJUN_FUSOKU: "project",
+  // 参考図台帳検索（プロジェクトBase）
+  SANKOU_DAICHO: "project",
+  SANKOU_BUHIN: "project",
   // ===== 生産本部KPIシステム（全て project base） =====
   KEIEI_MIDTERM_PLAN_HEADER: "project",
   KEIEI_MIDTERM_PLAN: "project",
@@ -540,6 +546,37 @@ export const KIJUN_FUSOKU_CONST_FIELDS: readonly string[] = [
   "定数1", "定数2", "定数3", "定数4", "定数5", "定数6", "定数7", "定数8", "定数9", "定数10",
   "定数11", "定数12", "定数13", "定数14", "定数15", "定数16", "定数17", "定数18", "定数19",
 ];
+
+/* ===========================================================================
+ * 参考図台帳検索（営業: Access 参考図.accdb 移行）フィールド定義
+ * 設計: docs/eigyo-sankou-zu/README.md, lark-table-spec.md
+ * ※ Lark 表示名は日本語。Access 列名を踏襲（ファイルパスは単一Boxフォルダのため列に持たない）。
+ * =========================================================================== */
+
+/** 参考図面台帳: 数値型フィールド（範囲検索に使用） */
+export const SANKOU_DAICHO_NUMERIC_FIELDS: readonly string[] = [
+  "伝票番号", "期", "設計条件(基準風)", "設計条件(基準雪)", "間口", "桁行", "軒高", "柱ピッチ", "勾配", "庇出巾",
+];
+
+/** 参考図面台帳: 全フィールド（Lark作成順の正・ファイルパスは除外）。突合キー=伝票番号 */
+export const SANKOU_DAICHO_FIELDS: readonly string[] = [
+  "伝票番号", "管理番号", "管理名", "売約番号", "案件名", "期", "設計ルート", "申請有無",
+  "設計条件(基準風)", "設計条件(基準雪)", "建屋区分", "用途", "計画概要memo",
+  "間口", "桁行", "軒高", "柱ピッチ", "勾配",
+  "出入口1", "サイズ1", "出入口2", "サイズ2", "庇出巾", "壁面",
+  "柱形状", "B-PL形状", "C1", "柱成", "柱ラチ", "T1", "梁成", "梁ラチ", "G1",
+  "B1", "B2", "B3", "B4", "P1", "P2", "P3", "P4", "Ga", "Gc", "WB", "ST",
+  "基礎形状", "F1", "F2", "F3", "FG", "土間",
+  "形状関連", "出入口関連", "膜関連", "設備関連", "構造関連", "移動建屋関連", "開閉関連", "畜舎関連",
+  "ファイル名",
+];
+
+/** 参考図面台帳の突合キー（業務PK） */
+export const SANKOU_DAICHO_KEY = "伝票番号";
+
+/** 参考図面部品マスタ: 全フィールド。突合キー=ID */
+export const SANKOU_BUHIN_FIELDS: readonly string[] = ["ID", "部品名称", "分類1", "分類2", "分類3"];
+export const SANKOU_BUHIN_KEY = "ID";
 
 /* ===========================================================================
  * 生産本部KPIマネジメントシステム フィールド定義

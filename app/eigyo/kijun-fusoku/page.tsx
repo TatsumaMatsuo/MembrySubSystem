@@ -6,7 +6,7 @@ import { useState, useMemo, useRef } from "react";
 import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
 import { computeSnow } from "@/lib/kijun-fusoku-snow";
-import { PREFECTURE_ORDER } from "@/lib/prefectures";
+import { PREFECTURE_ORDER, youtoChikiMapUrlForPrefecture } from "@/lib/prefectures";
 import { Wind, Snowflake, MapPin, RefreshCw, AlertCircle, Search, Mountain, Map as MapIcon, ExternalLink } from "lucide-react";
 
 interface KijunFusokuRecord {
@@ -35,8 +35,9 @@ function distinct(values: string[]): string[] {
 }
 
 // 用途地域は国交省「不動産情報ライブラリ」の公式地図で確認する。
-// 同サイト利用規約 第7条(リンクの設定)に従い、リンクは必ずトップページとし、
-// 「不動産情報ライブラリ」へのリンクである旨を明示する（後援・監修等の誤認を与えない表現）。
+// 利用規約 第7条(2)(3)に従い「不動産情報ライブラリ」への外部リンクである旨を明示し、
+// 後援・監修等の誤認を与えない表現とする。リンク先は利便性優先で県プリセットの
+// ディープリンク（規約(1)のトップページ限定は運用判断で外す。lib/prefectures.ts 参照）。
 const REINFOLIB_TOP_URL = "https://www.reinfolib.mlit.go.jp/";
 
 export default function KijunFusokuPage() {
@@ -396,12 +397,12 @@ export default function KijunFusokuPage() {
                       </div>
                     </div>
 
-                    {/* 用途地域の確認: 国交省「不動産情報ライブラリ」公式サイトへ誘導（外部）。
-                        利用規約 第7条に従いリンク先はトップページ。サイト内で住所検索し用途地域を確認する
+                    {/* 用途地域の確認: 国交省「不動産情報ライブラリ」公式地図へ誘導（外部）。
+                        県を指定したディープリンクで開き、サイト内で住所検索して用途地域を確認する
                         （用途地域は区画単位で変わるため、実敷地での確認が必要）。 */}
                     <div className="space-y-1">
                       <a
-                        href={REINFOLIB_TOP_URL}
+                        href={youtoChikiMapUrlForPrefecture(result.rec.ken) ?? REINFOLIB_TOP_URL}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 w-full px-4 py-3 text-base font-bold text-white bg-gradient-to-r from-indigo-500 to-violet-500 rounded-xl shadow-md hover:from-indigo-600 hover:to-violet-600 hover:shadow-lg transition-all"

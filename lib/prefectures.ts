@@ -16,6 +16,29 @@ export const PREFECTURE_ORDER: readonly string[] = [
 /** 都道府県名 → 並び順インデックス（未知名は末尾扱い） */
 const PREFECTURE_RANK = new Map(PREFECTURE_ORDER.map((name, i) => [name, i]));
 
+/** 都道府県名 → 都道府県コード（JIS X 0401, 北海道=1 … 沖縄県=47）。未知名は null。 */
+function prefectureCode(ken: string): number | null {
+  const i = PREFECTURE_RANK.get(ken);
+  return i == null ? null : i + 1;
+}
+
+/**
+ * 不動産情報ライブラリ（国土交通省）の地図ビューアを、当該都道府県・住所検索モードで開くURLを返す。
+ * 利用者が実敷地を住所検索・クリックして用途地域を確認する（用途地域は区画単位のため代表点では不正確）。
+ * パラメータは公式トップが内部生成する形式（initialState/areaOption/kCode/sCode）に準拠。
+ *
+ * 注: 同サイト利用規約 第7条(1)は外部リンクをトップページに限定するが、業務上の利便性
+ *     （県プリセット）を優先し、ディープリンクを採用する運用判断（ユーザー合意済）。
+ *     リンク名の名称明示・外部サイト注記（第7条(2)(3)）は遵守する。
+ * 未知の県名は null。
+ */
+export function youtoChikiMapUrlForPrefecture(ken: string): string | null {
+  const code = prefectureCode(ken);
+  return code == null
+    ? null
+    : `https://www.reinfolib.mlit.go.jp/map/?initialState=areaOpen&areaOption=address&kCode=${code}&sCode=0`;
+}
+
 /**
  * 都道府県名の配列を都道府県コード昇順に並べ替える。
  * マスタに無い名称（想定外）は末尾に五十音順で寄せる。

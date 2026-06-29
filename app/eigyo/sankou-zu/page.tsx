@@ -17,6 +17,7 @@ interface ApiResp {
   pdfEnabled?: boolean;
   daicho?: Daicho[];
   buhin?: Daicho[];
+  hanyou?: Record<string, string[]>; // 汎用マスタ 項目名→内容[]
 }
 
 // 全体フリーワードの対象列（案件名・各製番）
@@ -57,7 +58,8 @@ const RESULT_COLS: { col: string; label: string }[] = [
 
 // Access「参考図面出力画面」のタブ構成を踏襲した検索条件定義。
 //  kind: select=該当列の値から選択(検索ポップアップ) / range=From-To数値 / contains=部分一致テキスト
-type Field = { col: string; kind: "select" | "range" | "contains"; label?: string };
+// select=候補から単一選択(完全一致) / range=From-To / contains=部分一致テキスト / keyword=候補から選び部分一致
+type Field = { col: string; kind: "select" | "range" | "contains" | "keyword"; label?: string };
 interface Tab { name: string; fields: Field[] }
 
 const TABS: Tab[] = [
@@ -90,8 +92,8 @@ const TABS: Tab[] = [
     fields: [
       { col: "出入口1", kind: "select" },
       { col: "出入口2", kind: "select" },
-      { col: "サイズ1", kind: "select" },
-      { col: "サイズ2", kind: "select" },
+      { col: "サイズ1", kind: "contains" },
+      { col: "サイズ2", kind: "contains" },
       { col: "庇出巾", kind: "range", label: "庇出巾(mm)" },
     ],
   },
@@ -117,23 +119,35 @@ const TABS: Tab[] = [
   {
     name: "特記事項",
     fields: [
-      { col: "形状関連", kind: "contains" }, { col: "出入口関連", kind: "contains" },
-      { col: "畜舎関連", kind: "contains" }, { col: "設備関連", kind: "contains" },
-      { col: "膜関連", kind: "contains" }, { col: "構造関連", kind: "contains" },
-      { col: "移動建屋関連", kind: "contains" }, { col: "開閉関連", kind: "contains" },
+      { col: "形状関連", kind: "keyword" }, { col: "出入口関連", kind: "keyword" },
+      { col: "畜舎関連", kind: "keyword" }, { col: "設備関連", kind: "keyword" },
+      { col: "膜関連", kind: "keyword" }, { col: "構造関連", kind: "keyword" },
+      { col: "移動建屋関連", kind: "keyword" }, { col: "開閉関連", kind: "keyword" },
       { col: "計画概要memo", kind: "contains", label: "設計概要メモ" },
     ],
   },
 ];
 
 const ALL_FIELDS = TABS.flatMap((t) => t.fields);
-const SELECT_COLS = ALL_FIELDS.filter((f) => f.kind === "select").map((f) => f.col);
+// 候補から選ぶ項目(検索ポップアップ): select=完全一致 / keyword=部分一致
+const PICK_COLS = ALL_FIELDS.filter((f) => f.kind === "select" || f.kind === "keyword").map((f) => f.col);
+const KIND_BY_COL: Record<string, Field["kind"]> = Object.fromEntries(ALL_FIELDS.map((f) => [f.col, f.kind]));
 const FIELD_LABEL: Record<string, string> = Object.fromEntries(ALL_FIELDS.map((f) => [f.col, f.label || f.col]));
-// 候補を「参考図部品マスタ」(分類1→部品名称)から引く部材記号17項目。それ以外の★は汎用マスタ(未整備の間は台帳実値)から。
+
+// 候補を「参考図部品マスタ」(分類1→部品名称)から引く部材記号17項目。
 const BUHIN_COLS = new Set([
   "C1", "T1", "G1", "B1", "B2", "B3", "B4", "P1", "P2", "P3", "P4",
   "Ga", "Gc", "WB", "ST", "柱ラチ", "梁ラチ",
 ]);
+// 汎用マスタ(項目名)から候補を引く列 → 対象の項目名(複数可)。それ以外の★は台帳実値をフォールバック。
+const MASTER_ITEMS: Record<string, string[]> = {
+  "用途": ["用途"], "柱形状": ["柱形状"], "壁面": ["壁面"], "土間": ["土間"], "基礎形状": ["基礎形状"],
+  "B-PL形状": ["BPL"], "出入口1": ["出入口種類"], "出入口2": ["出入口種類"],
+  "F1": ["F1布基礎", "F1独立基礎", "F1H鋼材"], "F2": ["F2布基礎", "F2独立基礎"],
+  "F3": ["F3布基礎", "F3独立基礎"], "FG": ["FG布基礎", "FG独立基礎"],
+  "形状関連": ["形状関連"], "出入口関連": ["出入口関連"], "膜関連": ["膜関連"], "設備関連": ["設備関連"],
+  "構造関連": ["構造関連"], "移動建屋関連": ["移動建屋関連"], "開閉関連": ["開閉関連"], "畜舎関連": ["畜舎関連"],
+};
 const MAX_ROWS = 300;
 
 function s(v: string | number | undefined): string {
@@ -143,6 +157,7 @@ function s(v: string | number | undefined): string {
 export default function SankouZuPage() {
   const [all, setAll] = useState<Daicho[]>([]);
   const [buhin, setBuhin] = useState<Daicho[]>([]);
+  const [hanyou, setHanyou] = useState<Record<string, string[]>>({});
   const [pdfEnabled, setPdfEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -167,6 +182,7 @@ export default function SankouZuPage() {
       if (!json.success) throw new Error(json.error || "取得に失敗しました");
       setAll(json.daicho || []);
       setBuhin(json.buhin || []);
+      setHanyou(json.hanyou || {});
       setPdfEnabled(Boolean(json.pdfEnabled));
     } catch (e: any) {
       setError(e?.message || "取得に失敗しました");
@@ -182,9 +198,10 @@ export default function SankouZuPage() {
     load();
   }, []);
 
-  // 単一選択フィールドの候補。
+  // 検索ポップアップの候補。優先順:
   //  部材記号17項目(BUHIN_COLS) → 参考図部品マスタ(分類1→部品名称)
-  //  それ以外の★ → 汎用マスタ(未整備のため当面は台帳の実値)
+  //  汎用マスタ対象(MASTER_ITEMS) → 汎用マスタ(システム名=参考図面情報, 項目名→内容。複数項目は統合)
+  //  どちらでもない★ → 台帳の実値(フォールバック)
   const optionsByCol = useMemo(() => {
     const out: Record<string, string[]> = {};
     const sort = (arr: string[]) => arr.sort((a, b) => a.localeCompare(b, "ja", { numeric: true }));
@@ -198,21 +215,28 @@ export default function SankouZuPage() {
       (buhinByKigou[k] ||= new Set()).add(name);
     }
 
-    // 台帳実値（汎用マスタ未整備の項目向けフォールバック）
+    // 台帳実値（部品/汎用マスタを持たない列のフォールバック）
+    const fallbackCols = PICK_COLS.filter((c) => !BUHIN_COLS.has(c) && !MASTER_ITEMS[c]);
     const daichoSets: Record<string, Set<string>> = {};
-    for (const c of SELECT_COLS) if (!BUHIN_COLS.has(c)) daichoSets[c] = new Set();
-    for (const r of all) for (const c of SELECT_COLS) {
-      if (BUHIN_COLS.has(c)) continue;
+    for (const c of fallbackCols) daichoSets[c] = new Set();
+    for (const r of all) for (const c of fallbackCols) {
       const v = s(r[c]);
       if (v) daichoSets[c].add(v);
     }
 
-    for (const c of SELECT_COLS) {
-      if (BUHIN_COLS.has(c)) out[c] = sort([...(buhinByKigou[c] || new Set())]);
-      else out[c] = sort([...daichoSets[c]]);
+    for (const c of PICK_COLS) {
+      if (BUHIN_COLS.has(c)) {
+        out[c] = sort([...(buhinByKigou[c] || new Set())]);
+      } else if (MASTER_ITEMS[c]) {
+        const set = new Set<string>();
+        for (const item of MASTER_ITEMS[c]) for (const v of hanyou[item] || []) set.add(v);
+        out[c] = sort([...set]);
+      } else {
+        out[c] = sort([...(daichoSets[c] || new Set())]);
+      }
     }
     return out;
-  }, [all, buhin]);
+  }, [all, buhin, hanyou]);
 
   function inRange(val: string | number | undefined, min: string, max: string): boolean {
     if (!min && !max) return true;
@@ -232,6 +256,9 @@ export default function SankouZuPage() {
         if (f.kind === "select") {
           const v = sel[f.col];
           if (v && s(r[f.col]) !== v) return false;
+        } else if (f.kind === "keyword") {
+          const v = sel[f.col]; // 候補から選び、該当列に部分一致
+          if (v && !s(r[f.col]).includes(v)) return false;
         } else if (f.kind === "range") {
           const rr = rng[f.col];
           if (rr && !inRange(r[f.col], rr.min, rr.max)) return false;
@@ -255,7 +282,7 @@ export default function SankouZuPage() {
 
   const tabActiveCount = (tab: Tab) =>
     tab.fields.reduce((n, f) => {
-      if (f.kind === "select") return n + (sel[f.col] ? 1 : 0);
+      if (f.kind === "select" || f.kind === "keyword") return n + (sel[f.col] ? 1 : 0);
       if (f.kind === "range") return n + (rng[f.col]?.min || rng[f.col]?.max ? 1 : 0);
       return n + ((txt[f.col] || "").trim() ? 1 : 0);
     }, 0);
@@ -392,11 +419,12 @@ export default function SankouZuPage() {
                       </div>
                     );
                   }
-                  // select: ★検索ポップアップを開くボタン
+                  // select / keyword: ★検索ポップアップを開くボタン（keywordは選んだ値で部分一致）
                   const v = sel[f.col] || "";
+                  const isKw = f.kind === "keyword";
                   return (
-                    <div key={f.col}>
-                      <label className="block text-xs font-bold text-gray-600 mb-1 truncate">{label}</label>
+                    <div key={f.col} className={isKw ? "col-span-2" : ""}>
+                      <label className="block text-xs font-bold text-gray-600 mb-1 truncate">{label}{isKw && "（部分一致）"}</label>
                       <button
                         type="button"
                         onClick={() => setPicker(f.col)}

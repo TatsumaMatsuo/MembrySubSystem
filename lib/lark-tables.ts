@@ -47,6 +47,8 @@ export function getLarkTables() {
     // 参考図台帳検索（営業: Access 参考図.accdb 移行）。Lark UIで手動作成済（project base）。
     SANKOU_DAICHO: process.env.LARK_TABLE_SANKOU_DAICHO || "tblB8WpT3dOIGwfj",
     SANKOU_BUHIN: process.env.LARK_TABLE_SANKOU_BUHIN || "tbliF60cCLGAP66v",
+    // 参考図汎用マスタ（部材以外の★候補。区分/値/表示順/有効フラグ。project base）
+    SANKOU_HANYOU: process.env.LARK_TABLE_SANKOU_HANYOU || "tbl9MGRMMHGNXFUU",
 
     // ===== 生産本部KPIシステム(docs/kpi-system) =====
     // --- 経営レイヤー(L0/L1) ※全社年度KPIは既存 COMPANY_KPI を流用 ---
@@ -125,6 +127,7 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   // 参考図台帳検索（プロジェクトBase）
   SANKOU_DAICHO: "project",
   SANKOU_BUHIN: "project",
+  SANKOU_HANYOU: "project",
   // ===== 生産本部KPIシステム（全て project base） =====
   KEIEI_MIDTERM_PLAN_HEADER: "project",
   KEIEI_MIDTERM_PLAN: "project",
@@ -577,6 +580,16 @@ export const SANKOU_DAICHO_KEY = "伝票番号";
 /** 参考図面部品マスタ: 全フィールド。突合キー=ID */
 export const SANKOU_BUHIN_FIELDS: readonly string[] = ["ID", "部品名称", "分類1", "分類2", "分類3"];
 export const SANKOU_BUHIN_KEY = "ID";
+
+/**
+ * 参考図汎用マスタ（全社共通マスタ。tbl9MGRMMHGNXFUU）の実構造:
+ *   システム名 / 項目名 / 内容 / 備考1 / 備考2 / 備考3
+ * 参考図台帳検索は システム名="参考図面情報" の行を 項目名→内容[] で候補に使う。
+ * 項目名の例: 用途, 柱形状, 壁面, 土間, 基礎形状, BPL, 出入口種類, F1布基礎/F1独立基礎/F1H鋼材,
+ *   形状関連, 出入口関連, 膜関連, 設備関連, 構造関連, 移動建屋関連, 開閉関連, 畜舎関連 等。
+ * 候補ソースの読込は app/api/eigyo/sankou-zu/route.ts、列→項目名の対応は app/eigyo/sankou-zu/page.tsx。
+ */
+export const SANKOU_HANYOU_SYSTEM = "参考図面情報";
 
 /* ===========================================================================
  * 生産本部KPIマネジメントシステム フィールド定義

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBaseRecords, getLarkBaseToken } from "@/lib/lark-client";
+import { isBoxConfigured } from "@/lib/box-client";
 import {
   getLarkTables,
   SANKOU_DAICHO_FIELDS,
@@ -73,13 +74,6 @@ async function loadTable(
   return out;
 }
 
-function isPdfEnabled(): boolean {
-  // Box 中継APIが使える条件: フォルダIDとサーバ認証情報が揃っていること。
-  return Boolean(
-    process.env.BOX_FOLDER_ID &&
-      (process.env.BOX_CLIENT_ID || process.env.BOX_JWT_CONFIG_BASE64)
-  );
-}
 
 export async function GET(request: Request) {
   const tables = getLarkTables();
@@ -108,7 +102,7 @@ export async function GET(request: Request) {
       success: true,
       cachedAt: _cache.at,
       counts: { daicho: _cache.daicho.length, buhin: _cache.buhin.length },
-      pdfEnabled: isPdfEnabled(),
+      pdfEnabled: isBoxConfigured(),
       daicho: _cache.daicho,
       buhin: _cache.buhin,
     });

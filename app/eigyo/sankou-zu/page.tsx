@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
-import { FileText, Search, RefreshCw, AlertCircle, Filter, FileSearch, ExternalLink, X, Download, List } from "lucide-react";
+import { FileText, Search, RefreshCw, AlertCircle, Filter, FileSearch, ExternalLink, X, Download, List, Briefcase } from "lucide-react";
 
 type Daicho = Record<string, string | number | undefined>;
 
@@ -296,6 +296,30 @@ export default function SankouZuPage() {
   }
   function setTxtVal(col: string, v: string) { setTxt((p) => ({ ...p, [col]: v })); }
 
+  // 売約詳細を別タブで表示。受注製番(売約番号)で存在確認し、無ければメッセージ。
+  async function openBaiyaku(r: Daicho) {
+    const seiban = s(r["売約番号"]).trim();
+    if (!seiban) { setError("この図面には受注製番(売約番号)が登録されていません"); return; }
+    // ポップアップブロック回避のため先に同期で新規タブを開く
+    const win = window.open("", "_blank");
+    if (win) win.document.write("<p style='font:14px sans-serif;padding:16px;color:#555'>売約情報を確認中…</p>");
+    try {
+      const json = await fetchJson<{ success: boolean }>(`/api/baiyaku-detail?seiban=${encodeURIComponent(seiban)}`);
+      if (json.success) {
+        const target = `/baiyaku/${encodeURIComponent(seiban)}`;
+        if (win) win.location.href = target;
+        else window.open(target, "_blank", "noopener,noreferrer");
+      } else {
+        win?.close();
+        setError(`売約情報が存在しません（受注製番: ${seiban}）`);
+      }
+    } catch {
+      // baiyaku-detail は未存在で404を返す → 存在しません扱い
+      win?.close();
+      setError(`売約情報が存在しません（受注製番: ${seiban}）`);
+    }
+  }
+
   function openPdf(r: Daicho) {
     const name = s(r["ファイル名"]);
     if (!name) { setError("この行にはファイル名が登録されていません"); return; }
@@ -514,6 +538,14 @@ export default function SankouZuPage() {
                                 title="詳細表示"
                               >
                                 <List className="w-3.5 h-3.5" /> 詳細
+                              </button>
+                              <button
+                                onClick={() => openBaiyaku(r)}
+                                disabled={!s(r["売約番号"])}
+                                title={s(r["売約番号"]) ? `売約詳細を表示（受注製番: ${s(r["売約番号"])}）` : "受注製番が未登録"}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-md hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                <Briefcase className="w-3.5 h-3.5" /> 売約
                               </button>
                               <button
                                 onClick={() => openPdf(r)}

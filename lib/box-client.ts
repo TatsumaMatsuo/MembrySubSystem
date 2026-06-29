@@ -86,6 +86,11 @@ async function buildFolderIndex(): Promise<Map<string, string>> {
   return map;
 }
 
+/** 索引キャッシュを破棄（アップロード後など、フォルダ内容が変わったとき）。 */
+export function invalidateFolderIndex() {
+  _index = null;
+}
+
 async function getFolderIndex(force = false): Promise<Map<string, string>> {
   const now = Date.now();
   if (!force && _index && now - _index.at < FOLDER_INDEX_TTL_MS) return _index.map;
@@ -101,6 +106,44 @@ export async function resolveFileIdByName(name: string): Promise<string | null> 
   // 新規追加直後などキャッシュ未反映の可能性 → 強制再構築して再確認
   index = await getFolderIndex(true);
   return index.get(name) ?? null;
+}
+
+/**
+ * 固定フォルダにファイルをアップロードする。同名が既にあれば新バージョンとして上書き。
+ * 成功後は索引キャッシュを破棄。戻り値は確定したファイル名(Box側)。
+ */
+export async function uploadFile(
+  name: string,
+  data: ArrayBuffer | Uint8Array,
+  contentType?: string
+): Promise<{ id: string; name: string }> {
+  const token = await getAccessToken();
+  const folderId = boxFolderId();
+  const existingId = await resolveFileIdByName(name);
+  const url = existingId
+    ? `https://upload.box.com/api/2.0/files/${existingId}/content`
+    : `https://upload.box.com/api/2.0/files/content`;
+
+  const form = new FormData();
+  const attributes = existingId
+    ? JSON.stringify({ name })
+    : JSON.stringify({ name, parent: { id: folderId } });
+  form.append("attributes", attributes);
+  form.append("file", new Blob([data as BlobPart], { type: contentType || "application/octet-stream" }), name);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Boxアップロード失敗 status=${res.status} ${t.slice(0, 300)}`);
+  }
+  const json: any = await res.json();
+  const entry = json.entries?.[0] || json;
+  invalidateFolderIndex();
+  return { id: entry.id, name: entry.name };
 }
 
 /**

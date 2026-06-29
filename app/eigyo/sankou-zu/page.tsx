@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
-import { FileText, Search, RefreshCw, AlertCircle, Filter, FileSearch, ExternalLink, X, Download, List, Briefcase } from "lucide-react";
+import { FileText, Search, RefreshCw, AlertCircle, Filter, FileSearch, ExternalLink, X, Download, List, Briefcase, Plus, Save, Pencil, Upload } from "lucide-react";
 
 type Daicho = Record<string, string | number | undefined>;
 
@@ -150,6 +150,23 @@ const MASTER_ITEMS: Record<string, string[]> = {
 };
 const MAX_ROWS = 300;
 
+// 登録フォーム: 数値入力にする列／複数行テキストにする列
+const NUMERIC_COLS = new Set([
+  "伝票番号", "期", "設計条件(基準風)", "設計条件(基準雪)", "間口", "桁行", "軒高", "柱ピッチ", "勾配", "庇出巾",
+]);
+const TEXTAREA_COLS = new Set([
+  "計画概要memo", "形状関連", "出入口関連", "膜関連", "設備関連", "構造関連", "移動建屋関連", "開閉関連", "畜舎関連",
+]);
+// 登録フォームのグループ（全60列。ファイル名は図面アップロードで設定）
+const REG_GROUPS: { name: string; cols: string[] }[] = [
+  { name: "基本", cols: ["案件名", "管理名", "管理番号", "売約番号", "期", "設計ルート", "申請有無", "設計条件(基準風)", "設計条件(基準雪)", "建屋区分", "用途", "計画概要memo"] },
+  { name: "寸法", cols: ["間口", "桁行", "軒高", "柱ピッチ", "勾配"] },
+  { name: "出入口", cols: ["出入口1", "サイズ1", "出入口2", "サイズ2", "庇出巾", "壁面"] },
+  { name: "部材", cols: ["柱形状", "B-PL形状", "C1", "柱成", "柱ラチ", "T1", "梁成", "梁ラチ", "G1", "B1", "B2", "B3", "B4", "P1", "P2", "P3", "P4", "Ga", "Gc", "WB", "ST"] },
+  { name: "基礎", cols: ["基礎形状", "F1", "F2", "F3", "FG", "土間"] },
+  { name: "関連", cols: ["形状関連", "出入口関連", "膜関連", "設備関連", "構造関連", "移動建屋関連", "開閉関連", "畜舎関連"] },
+];
+
 function s(v: string | number | undefined): string {
   return v == null ? "" : String(v);
 }
@@ -173,6 +190,7 @@ export default function SankouZuPage() {
   // モーダル
   const [picker, setPicker] = useState<string | null>(null); // 検索ポップアップ中の列
   const [detail, setDetail] = useState<Daicho | null>(null); // 詳細表示中の行
+  const [register, setRegister] = useState<Daicho | null>(null); // 登録/編集中の行(空={}=新規)
 
   async function load(refresh = false) {
     setLoading(true);
@@ -371,14 +389,23 @@ export default function SankouZuPage() {
               </h1>
               <p className="text-sm text-gray-500">営業部 &gt; 参考図台帳検索</p>
             </div>
-            <button
-              onClick={() => load(true)}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              更新
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setRegister({})}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-bold rounded-lg hover:from-fuchsia-600 hover:to-purple-600 shadow-sm transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                新規登録
+              </button>
+              <button
+                onClick={() => load(true)}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                更新
+              </button>
+            </div>
           </div>
         </div>
 
@@ -540,6 +567,13 @@ export default function SankouZuPage() {
                                 <List className="w-3.5 h-3.5" /> 詳細
                               </button>
                               <button
+                                onClick={() => setRegister(r)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100"
+                                title="編集"
+                              >
+                                <Pencil className="w-3.5 h-3.5" /> 編集
+                              </button>
+                              <button
                                 onClick={() => openBaiyaku(r)}
                                 disabled={!s(r["売約番号"])}
                                 title={s(r["売約番号"]) ? `売約詳細を表示（受注製番: ${s(r["売約番号"])}）` : "受注製番が未登録"}
@@ -593,7 +627,191 @@ export default function SankouZuPage() {
           onClose={() => setDetail(null)}
         />
       )}
+
+      {/* 登録/編集モーダル */}
+      {register && (
+        <RegisterModal
+          initial={register}
+          optionsByCol={optionsByCol}
+          pdfEnabled={pdfEnabled}
+          onClose={() => setRegister(null)}
+          onSaved={() => { setRegister(null); load(true); }}
+        />
+      )}
     </MainLayout>
+  );
+}
+
+/** 登録/編集モーダル: 参考図面台帳の全項目を入力。図面PDFはBoxへアップロードしてファイル名を記録。 */
+function RegisterModal({
+  initial, optionsByCol, pdfEnabled, onClose, onSaved,
+}: {
+  initial: Daicho;
+  optionsByCol: Record<string, string[]>;
+  pdfEnabled: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const denpyo = s(initial["伝票番号"]);
+  const isEdit = denpyo !== "";
+  const [draft, setDraft] = useState<Record<string, string>>(() => {
+    const d: Record<string, string> = {};
+    for (const g of REG_GROUPS) for (const c of g.cols) d[c] = s(initial[c]);
+    d["ファイル名"] = s(initial["ファイル名"]);
+    return d;
+  });
+  const [file, setFile] = useState<File | null>(null);
+  const [tab, setTab] = useState(REG_GROUPS[0].name);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  const set = (c: string, v: string) => setDraft((p) => ({ ...p, [c]: v }));
+
+  function pickFile(f: File | null) {
+    setFile(f);
+    if (f && !draft["ファイル名"]) set("ファイル名", f.name); // 未入力ならファイル名を初期化
+  }
+
+  async function save() {
+    setSaving(true);
+    setErr("");
+    try {
+      // 1) PDFがあればBoxへアップロード（ファイル名はフォームの「ファイル名」を使用）
+      let fileName = draft["ファイル名"].trim();
+      if (file) {
+        if (!pdfEnabled) throw new Error("PDF連携(Box)が未設定のためアップロードできません");
+        const fd = new FormData();
+        fd.append("file", file);
+        if (fileName) fd.append("name", fileName);
+        const up = await fetch("/api/eigyo/sankou-zu/upload", { method: "POST", body: fd });
+        const uj = await up.json();
+        if (!up.ok || !uj.success) throw new Error(uj.error || "アップロードに失敗しました");
+        fileName = uj.name;
+      }
+      // 2) 台帳へ登録/更新
+      const fields: Record<string, string> = { ...draft, ファイル名: fileName };
+      const res = await fetch("/api/eigyo/sankou-zu/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ denpyo: isEdit ? denpyo : undefined, fields }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error || "登録に失敗しました");
+      onSaved();
+    } catch (e: any) {
+      setErr(e?.message || "保存に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputClass = "w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-fuchsia-400 focus:border-fuchsia-400";
+  const current = REG_GROUPS.find((g) => g.name === tab)!;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2 bg-gradient-to-r from-fuchsia-500 to-purple-500 rounded-t-xl">
+          <h3 className="text-sm font-bold text-white">
+            {isEdit ? `参考図面の編集（伝票番号 ${denpyo}）` : "参考図面の新規登録"}
+          </h3>
+          <button onClick={onClose} className="text-white/80 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+
+        {err && (
+          <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 shrink-0" /> {err}
+          </div>
+        )}
+
+        {/* タブ */}
+        <div className="flex flex-wrap gap-1 px-3 pt-3">
+          {REG_GROUPS.map((g) => (
+            <button
+              key={g.name}
+              onClick={() => setTab(g.name)}
+              className={`px-3 py-1 text-xs font-bold rounded-t-md border-b-2 ${
+                g.name === tab ? "text-fuchsia-700 border-fuchsia-500 bg-fuchsia-50" : "text-gray-500 border-transparent hover:bg-gray-50"
+              }`}
+            >
+              {g.name}
+            </button>
+          ))}
+          <button
+            onClick={() => setTab("__figure__")}
+            className={`px-3 py-1 text-xs font-bold rounded-t-md border-b-2 ${
+              tab === "__figure__" ? "text-fuchsia-700 border-fuchsia-500 bg-fuchsia-50" : "text-gray-500 border-transparent hover:bg-gray-50"
+            }`}
+          >
+            図面
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {tab === "__figure__" ? (
+            <div className="space-y-3 max-w-lg">
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">ファイル名（PDF突合キー）</label>
+                <input className={inputClass} value={draft["ファイル名"]} onChange={(e) => set("ファイル名", e.target.value)} placeholder="例: ★-案件名.pdf" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1">図面PDFをアップロード（任意）</label>
+                <label className="inline-flex items-center gap-2 px-3 py-2 bg-fuchsia-50 border border-fuchsia-200 text-fuchsia-700 text-sm font-bold rounded-md cursor-pointer hover:bg-fuchsia-100">
+                  <Upload className="w-4 h-4" />
+                  {file ? "別のファイルを選択" : "ファイルを選択"}
+                  <input type="file" className="hidden" accept="application/pdf,.pdf,.xdw" onChange={(e) => pickFile(e.target.files?.[0] || null)} />
+                </label>
+                {file && <p className="text-xs text-gray-600 mt-1">選択中: {file.name}（{Math.round(file.size / 1024)} KB）→ 保存時にBoxへアップロード</p>}
+                {!pdfEnabled && <p className="text-[11px] text-amber-600 mt-1">PDF連携(Box)未設定のためアップロードは無効です。ファイル名のみ記録できます。</p>}
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {current.cols.map((c) => {
+                const opts = optionsByCol[c];
+                if (TEXTAREA_COLS.has(c)) {
+                  return (
+                    <div key={c} className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-gray-600 mb-1">{c}</label>
+                      <textarea className={`${inputClass} h-20`} value={draft[c] || ""} onChange={(e) => set(c, e.target.value)} />
+                    </div>
+                  );
+                }
+                return (
+                  <div key={c}>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">{c}</label>
+                    <input
+                      className={inputClass}
+                      type={NUMERIC_COLS.has(c) ? "number" : "text"}
+                      value={draft[c] || ""}
+                      onChange={(e) => set(c, e.target.value)}
+                      list={opts && opts.length ? `reg-dl-${c}` : undefined}
+                    />
+                    {opts && opts.length > 0 && (
+                      <datalist id={`reg-dl-${c}`}>
+                        {opts.slice(0, 1000).map((o) => <option key={o} value={o} />)}
+                      </datalist>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">キャンセル</button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-bold rounded-lg hover:from-fuchsia-600 hover:to-purple-600 disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? "保存中..." : isEdit ? "更新する" : "登録する"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

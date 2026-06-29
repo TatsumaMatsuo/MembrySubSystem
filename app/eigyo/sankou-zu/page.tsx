@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
-import { FileText, Search, RefreshCw, AlertCircle, Filter, FileSearch, ExternalLink, X } from "lucide-react";
+import { FileText, Search, RefreshCw, AlertCircle, Filter, FileSearch, ExternalLink, X, Download, List } from "lucide-react";
 
 type Daicho = Record<string, string | number | undefined>;
 
@@ -22,8 +22,41 @@ interface ApiResp {
 // 全体フリーワードの対象列（案件名・各製番）
 const FREE_FIELDS = ["案件名", "管理名", "管理番号", "売約番号"] as const;
 
+// 詳細表示・Excel出力に使う全列（Access 参照図面情報2 の順）
+const ALL_COLS = [
+  "伝票番号", "管理番号", "管理名", "売約番号", "案件名", "期", "設計ルート", "申請有無",
+  "設計条件(基準風)", "設計条件(基準雪)", "建屋区分", "用途", "計画概要memo",
+  "間口", "桁行", "軒高", "柱ピッチ", "勾配",
+  "出入口1", "サイズ1", "出入口2", "サイズ2", "庇出巾", "壁面",
+  "柱形状", "B-PL形状", "C1", "柱成", "柱ラチ", "T1", "梁成", "梁ラチ", "G1",
+  "B1", "B2", "B3", "B4", "P1", "P2", "P3", "P4", "Ga", "Gc", "WB", "ST",
+  "基礎形状", "F1", "F2", "F3", "FG", "土間",
+  "形状関連", "出入口関連", "膜関連", "設備関連", "構造関連", "移動建屋関連", "開閉関連", "畜舎関連",
+  "ファイル名",
+] as const;
+
+// 結果一覧のグリッド列（横スクロール）
+const RESULT_COLS: { col: string; label: string }[] = [
+  { col: "伝票番号", label: "伝票番号" },
+  { col: "案件名", label: "案件名" },
+  { col: "売約番号", label: "受注製番" },
+  { col: "管理番号", label: "管理番号" },
+  { col: "建屋区分", label: "建屋区分" },
+  { col: "用途", label: "用途" },
+  { col: "申請有無", label: "申請" },
+  { col: "設計ルート", label: "設計ルート" },
+  { col: "間口", label: "間口" },
+  { col: "桁行", label: "桁行" },
+  { col: "軒高", label: "軒高" },
+  { col: "柱ピッチ", label: "柱ピッチ" },
+  { col: "勾配", label: "勾配" },
+  { col: "設計条件(基準風)", label: "基準風速" },
+  { col: "設計条件(基準雪)", label: "基準積雪" },
+  { col: "期", label: "期" },
+];
+
 // Access「参考図面出力画面」のタブ構成を踏襲した検索条件定義。
-//  kind: select=該当列の値から単一選択 / range=From-To数値 / contains=部分一致テキスト
+//  kind: select=該当列の値から選択(検索ポップアップ) / range=From-To数値 / contains=部分一致テキスト
 type Field = { col: string; kind: "select" | "range" | "contains"; label?: string };
 interface Tab { name: string; fields: Field[] }
 
@@ -95,6 +128,7 @@ const TABS: Tab[] = [
 
 const ALL_FIELDS = TABS.flatMap((t) => t.fields);
 const SELECT_COLS = ALL_FIELDS.filter((f) => f.kind === "select").map((f) => f.col);
+const FIELD_LABEL: Record<string, string> = Object.fromEntries(ALL_FIELDS.map((f) => [f.col, f.label || f.col]));
 const MAX_ROWS = 300;
 
 function s(v: string | number | undefined): string {
@@ -114,6 +148,10 @@ export default function SankouZuPage() {
   const [sel, setSel] = useState<Record<string, string>>({}); // 単一選択
   const [rng, setRng] = useState<Record<string, { min: string; max: string }>>({}); // From-To
   const [txt, setTxt] = useState<Record<string, string>>({}); // 部分一致
+
+  // モーダル
+  const [picker, setPicker] = useState<string | null>(null); // 検索ポップアップ中の列
+  const [detail, setDetail] = useState<Daicho | null>(null); // 詳細表示中の行
 
   async function load(refresh = false) {
     setLoading(true);
@@ -182,17 +220,13 @@ export default function SankouZuPage() {
 
   const shown = filtered.slice(0, MAX_ROWS);
 
-  const activeCount = useMemo(
-    () =>
-      Object.values(sel).filter(Boolean).length +
-      Object.values(rng).filter((r) => r.min || r.max).length +
-      Object.values(txt).filter((v) => v.trim()).length +
-      (word.trim() ? 1 : 0),
-    [sel, rng, txt, word]
-  );
+  const activeCount =
+    Object.values(sel).filter(Boolean).length +
+    Object.values(rng).filter((r) => r.min || r.max).length +
+    Object.values(txt).filter((v) => v.trim()).length +
+    (word.trim() ? 1 : 0);
   const hasCondition = activeCount > 0;
 
-  // タブごとの設定数（バッジ表示用）
   const tabActiveCount = (tab: Tab) =>
     tab.fields.reduce((n, f) => {
       if (f.kind === "select") return n + (sel[f.col] ? 1 : 0);
@@ -204,7 +238,6 @@ export default function SankouZuPage() {
     setWord(""); setSel({}); setRng({}); setTxt({});
   }
 
-  function setSelVal(col: string, v: string) { setSel((p) => ({ ...p, [col]: v })); }
   function setRngVal(col: string, key: "min" | "max", v: string) {
     setRng((p) => ({ ...p, [col]: { min: p[col]?.min || "", max: p[col]?.max || "", [key]: v } }));
   }
@@ -214,6 +247,23 @@ export default function SankouZuPage() {
     const name = s(r["ファイル名"]);
     if (!name) { setError("この行にはファイル名が登録されていません"); return; }
     window.open(`/api/eigyo/sankou-zu/file?name=${encodeURIComponent(name)}`, "_blank", "noopener,noreferrer");
+  }
+
+  // Excel(CSV)出力: 現在の検索結果(全件)を全列でダウンロード。Excel用にBOM付きUTF-8。
+  function exportCsv() {
+    const esc = (v: unknown) => {
+      const t = v == null ? "" : String(v);
+      return /[",\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+    };
+    const lines = [ALL_COLS.map(esc).join(",")];
+    for (const r of filtered) lines.push(ALL_COLS.map((c) => esc(r[c])).join(","));
+    const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `参考図台帳検索_${filtered.length}件.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const selectClass =
@@ -249,7 +299,7 @@ export default function SankouZuPage() {
 
         {/* メイン: 左=絞り込み / 右=結果 */}
         <main className="flex-1 overflow-hidden p-4 sm:p-6">
-          <div className="h-full max-w-7xl mx-auto flex flex-col lg:flex-row gap-4">
+          <div className="h-full max-w-full mx-auto flex flex-col lg:flex-row gap-4">
             {/* 絞り込み */}
             <aside className="lg:w-96 flex-shrink-0 bg-white rounded-xl shadow border border-gray-100 overflow-hidden flex flex-col">
               <div className="bg-gradient-to-r from-indigo-500 to-violet-500 px-4 py-3 flex items-center justify-between">
@@ -316,17 +366,22 @@ export default function SankouZuPage() {
                       </div>
                     );
                   }
-                  // select
-                  const opts = optionsByCol[f.col] || [];
+                  // select: ★検索ポップアップを開くボタン
+                  const v = sel[f.col] || "";
                   return (
                     <div key={f.col}>
                       <label className="block text-xs font-bold text-gray-600 mb-1 truncate">{label}</label>
-                      <select className={selectClass} value={sel[f.col] || ""} onChange={(e) => setSelVal(f.col, e.target.value)}>
-                        <option value="">指定なし（{opts.length}）</option>
-                        {opts.map((o) => (
-                          <option key={o} value={o}>{o}</option>
-                        ))}
-                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setPicker(f.col)}
+                        className={`w-full px-2 py-1.5 border rounded-md text-sm text-left truncate flex items-center justify-between gap-1 ${
+                          v ? "border-indigo-300 bg-indigo-50 text-indigo-800" : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                        }`}
+                        title={v || "指定なし"}
+                      >
+                        <span className="truncate">{v || "指定なし"}</span>
+                        <Search className="w-3.5 h-3.5 shrink-0 opacity-60" />
+                      </button>
                     </div>
                   );
                 })}
@@ -335,12 +390,22 @@ export default function SankouZuPage() {
 
             {/* 結果 */}
             <section className="flex-1 bg-white rounded-xl shadow border border-gray-100 overflow-hidden flex flex-col min-h-0">
-              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0 gap-2">
                 <h3 className="text-sm font-bold text-gray-700">検索結果</h3>
-                <span className="text-xs text-gray-500">
-                  {loading ? "読込中..." : `${filtered.length.toLocaleString()} / ${all.length.toLocaleString()} 件`}
-                  {filtered.length > MAX_ROWS && `（上位 ${MAX_ROWS} 件表示）`}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500">
+                    {loading ? "読込中..." : `${filtered.length.toLocaleString()} / ${all.length.toLocaleString()} 件`}
+                    {filtered.length > MAX_ROWS && `（上位 ${MAX_ROWS} 件表示）`}
+                  </span>
+                  <button
+                    onClick={exportCsv}
+                    disabled={loading || filtered.length === 0}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-md hover:bg-emerald-700 disabled:opacity-40"
+                    title="検索結果をExcel(CSV)で出力"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Excel出力
+                  </button>
+                </div>
               </div>
 
               {error && (
@@ -367,44 +432,42 @@ export default function SankouZuPage() {
                 ) : shown.length === 0 ? (
                   <p className="text-sm text-gray-500 text-center py-10">該当する図面が見つかりませんでした。</p>
                 ) : (
-                  <table className="w-full text-sm border-collapse">
-                    <thead className="sticky top-0 bg-gray-50">
+                  <table className="text-sm border-collapse whitespace-nowrap">
+                    <thead className="sticky top-0 bg-gray-50 z-10">
                       <tr className="text-left text-xs text-gray-500">
-                        <th className="px-2 py-2 font-bold">案件名</th>
-                        <th className="px-2 py-2 font-bold">用途</th>
-                        <th className="px-2 py-2 font-bold">建屋区分</th>
-                        <th className="px-2 py-2 font-bold whitespace-nowrap">間口×桁行×軒高</th>
-                        <th className="px-2 py-2 font-bold">期</th>
-                        <th className="px-2 py-2 font-bold">申請</th>
-                        <th className="px-2 py-2 font-bold">図面</th>
+                        <th className="px-2 py-2 font-bold sticky left-0 bg-gray-50">操作</th>
+                        {RESULT_COLS.map((c) => (
+                          <th key={c.col} className="px-2 py-2 font-bold">{c.label}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
                       {shown.map((r, i) => (
                         <tr key={`${s(r["伝票番号"])}-${i}`} className="border-t border-gray-100 hover:bg-indigo-50/40">
-                          <td className="px-2 py-2 text-gray-800">
-                            {s(r["案件名"]) || s(r["管理名"]) || <span className="text-gray-400">（無題）</span>}
-                            {s(r["売約番号"]) && <span className="block text-[10px] text-gray-400">売約 {s(r["売約番号"])}</span>}
+                          <td className="px-2 py-1.5 sticky left-0 bg-white">
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => setDetail(r)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-gray-700 bg-gray-100 border border-gray-200 rounded-md hover:bg-gray-200"
+                                title="詳細表示"
+                              >
+                                <List className="w-3.5 h-3.5" /> 詳細
+                              </button>
+                              <button
+                                onClick={() => openPdf(r)}
+                                disabled={!pdfEnabled || !s(r["ファイル名"])}
+                                title={pdfEnabled ? s(r["ファイル名"]) : "PDF連携は準備中です"}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                <FileText className="w-3.5 h-3.5" /> 図面
+                              </button>
+                            </div>
                           </td>
-                          <td className="px-2 py-2 text-gray-600">{s(r["用途"])}</td>
-                          <td className="px-2 py-2 text-gray-600">{s(r["建屋区分"])}</td>
-                          <td className="px-2 py-2 text-gray-600 whitespace-nowrap">
-                            {[r["間口"], r["桁行"], r["軒高"]].map((v) => (v == null ? "—" : v)).join(" × ")}
-                          </td>
-                          <td className="px-2 py-2 text-gray-600">{s(r["期"])}</td>
-                          <td className="px-2 py-2 text-gray-600">{s(r["申請有無"])}</td>
-                          <td className="px-2 py-2">
-                            <button
-                              onClick={() => openPdf(r)}
-                              disabled={!pdfEnabled || !s(r["ファイル名"])}
-                              title={pdfEnabled ? s(r["ファイル名"]) : "PDF連携は準備中です"}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              開く
-                              {pdfEnabled && <ExternalLink className="w-3 h-3" />}
-                            </button>
-                          </td>
+                          {RESULT_COLS.map((c) => (
+                            <td key={c.col} className="px-2 py-1.5 text-gray-700">
+                              {s(r[c.col]) || <span className="text-gray-300">—</span>}
+                            </td>
+                          ))}
                         </tr>
                       ))}
                     </tbody>
@@ -415,6 +478,130 @@ export default function SankouZuPage() {
           </div>
         </main>
       </div>
+
+      {/* ★検索ポップアップ（候補から選択） */}
+      {picker && (
+        <PickerModal
+          title={FIELD_LABEL[picker] || picker}
+          options={optionsByCol[picker] || []}
+          value={sel[picker] || ""}
+          onSelect={(v) => { setSel((p) => ({ ...p, [picker]: v })); setPicker(null); }}
+          onClose={() => setPicker(null)}
+        />
+      )}
+
+      {/* 行詳細モーダル */}
+      {detail && (
+        <DetailModal
+          record={detail}
+          pdfEnabled={pdfEnabled}
+          onOpenPdf={() => openPdf(detail)}
+          onClose={() => setDetail(null)}
+        />
+      )}
     </MainLayout>
+  );
+}
+
+/** ★検索ポップアップ: 候補一覧を絞り込んで単一選択（Accessの検索画面相当）。 */
+function PickerModal({
+  title, options, value, onSelect, onClose,
+}: {
+  title: string;
+  options: string[];
+  value: string;
+  onSelect: (v: string) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const list = useMemo(() => (q.trim() ? options.filter((o) => o.includes(q.trim())) : options), [options, q]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-gray-800">{title} を選択</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="p-3 border-b border-gray-100">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              autoFocus
+              className="w-full pl-8 pr-2 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-400"
+              placeholder="候補を絞り込み"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1">{list.length.toLocaleString()} 件の候補</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          <button
+            onClick={() => onSelect("")}
+            className={`w-full text-left px-3 py-2 rounded-md text-sm mb-1 ${!value ? "bg-indigo-50 text-indigo-700 font-bold" : "text-gray-500 hover:bg-gray-50"}`}
+          >
+            指定なし（クリア）
+          </button>
+          {list.map((o) => (
+            <button
+              key={o}
+              onClick={() => onSelect(o)}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm ${o === value ? "bg-indigo-100 text-indigo-800 font-bold" : "text-gray-700 hover:bg-gray-50"}`}
+            >
+              {o}
+            </button>
+          ))}
+          {list.length === 0 && <p className="text-sm text-gray-400 text-center py-6">該当する候補がありません</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 行詳細モーダル: 図面の全項目を表示。 */
+function DetailModal({
+  record, pdfEnabled, onOpenPdf, onClose,
+}: {
+  record: Daicho;
+  pdfEnabled: boolean;
+  onOpenPdf: () => void;
+  onClose: () => void;
+}) {
+  const title = s(record["案件名"]) || s(record["管理名"]) || "（無題）";
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-bold text-gray-800 truncate">{title}</h3>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={onOpenPdf}
+              disabled={!pdfEnabled || !s(record["ファイル名"])}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-40"
+              title={pdfEnabled ? s(record["ファイル名"]) : "PDF連携は準備中です"}
+            >
+              <FileText className="w-3.5 h-3.5" /> 図面を開く {pdfEnabled && <ExternalLink className="w-3 h-3" />}
+            </button>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+            {ALL_COLS.map((c) => {
+              const val = s(record[c]);
+              const wide = c.endsWith("関連") || c === "計画概要memo";
+              return (
+                <div key={c} className={wide ? "sm:col-span-2" : ""}>
+                  <dt className="text-[11px] font-bold text-gray-500">{c}</dt>
+                  <dd className={`text-sm text-gray-800 ${wide ? "whitespace-pre-wrap" : "truncate"}`}>
+                    {val || <span className="text-gray-300">—</span>}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -180,6 +180,7 @@ export default function SankouZuPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const loadedRef = useRef(false);
+  const lastSearchSig = useRef<string>(""); // 情報取得計測の重複防止(同一条件は再計上しない)
 
   // 検索条件
   const [word, setWord] = useState(""); // 全体フリーワード（案件名・製番）
@@ -215,7 +216,6 @@ export default function SankouZuPage() {
       setBuhin(json.buhin || []);
       setHanyou(json.hanyou || {});
       setPdfEnabled(Boolean(json.pdfEnabled));
-      logUsage("fetch"); // 情報取得回数 +1
     } catch (e: any) {
       setError(e?.message || "取得に失敗しました");
       setAll([]);
@@ -314,6 +314,21 @@ export default function SankouZuPage() {
     Object.values(txt).filter((v) => v.trim()).length +
     (word.trim() ? 1 : 0);
   const hasCondition = activeCount > 0;
+
+  // 情報取得回数: 検索条件が確定し結果が表示されるたびに +1。
+  // 入力中の多重計上はデバウンスで抑え、同一条件の再計上は防ぐ。
+  useEffect(() => {
+    if (!hasCondition || filtered.length === 0) return;
+    const sig = JSON.stringify({ word: word.trim(), sel, rng, txt });
+    const h = setTimeout(() => {
+      if (sig !== lastSearchSig.current) {
+        lastSearchSig.current = sig;
+        logUsage("fetch");
+      }
+    }, 1000);
+    return () => clearTimeout(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, hasCondition, word, sel, rng, txt]);
 
   const tabActiveCount = (tab: Tab) =>
     tab.fields.reduce((n, f) => {

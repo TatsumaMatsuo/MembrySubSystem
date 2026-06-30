@@ -190,29 +190,29 @@ export default function KijunFusokuPage() {
     <MainLayout>
       <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-sky-50 overflow-hidden">
         {/* ヘッダー */}
-        <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <Wind className="w-6 h-6 text-sky-500" />
-                基準風速・垂直積雪量 検索
+        <div className="flex-shrink-0 px-4 sm:px-6 py-4 border-b border-gray-200 bg-white">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Wind className="w-6 h-6 text-sky-500 shrink-0" />
+                <span className="truncate">基準風速・垂直積雪量 検索</span>
               </h1>
-              <p className="text-sm text-gray-500">営業部 &gt; 基準風速・垂直積雪量 検索</p>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">営業部 &gt; 基準風速・垂直積雪量 検索</p>
             </div>
             <button
               onClick={() => ken && fetchPrefecture(ken, true)}
               disabled={loading || !ken}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all shrink-0"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              更新
+              <span className="hidden sm:inline">更新</span>
             </button>
           </div>
         </div>
 
         {/* メインコンテンツ */}
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-3xl mx-auto space-y-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="max-w-3xl mx-auto space-y-5 sm:space-y-6">
             {error && (
               <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                 <AlertCircle className="w-4 h-4 shrink-0" />

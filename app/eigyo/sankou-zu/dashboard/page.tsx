@@ -28,8 +28,9 @@ interface UsageRow {
   fetch: number;
 }
 
-type Metric = "total" | "launch" | "fetch";
-const METRIC_LABEL: Record<Metric, string> = { total: "更新回数(合計)", launch: "起動回数", fetch: "情報取得回数" };
+// 更新回数 = 情報取得回数（fetch）。起動回数（launch）も切替表示可。
+type Metric = "fetch" | "launch";
+const METRIC_LABEL: Record<Metric, string> = { fetch: "更新回数", launch: "起動回数" };
 const DEFAULT_DEPT = "営業部";
 
 // 円グラフ用カラーパレット（POP系）
@@ -45,7 +46,7 @@ export default function SankouUsageDashboard() {
   const [from, setFrom] = useState(""); // 年月FROM（YYYY-MM）
   const [to, setTo] = useState("");     // 年月TO（YYYY-MM）
   const [dept, setDept] = useState(DEFAULT_DEPT); // 所属部署（""=全部署）
-  const [metric, setMetric] = useState<Metric>("total");
+  const [metric, setMetric] = useState<Metric>("fetch");
 
   async function load() {
     setLoading(true);
@@ -75,7 +76,7 @@ export default function SankouUsageDashboard() {
     setTo((cur) => cur || monthsAsc[monthsAsc.length - 1]);
   }, [monthsAsc]);
 
-  const metricVal = (r: UsageRow) => (metric === "launch" ? r.launch : metric === "fetch" ? r.fetch : r.launch + r.fetch);
+  const metricVal = (r: UsageRow) => (metric === "launch" ? r.launch : r.fetch);
 
   // FROM-TO + 所属部署 で絞り込み
   const filtered = useMemo(() => {
@@ -182,21 +183,20 @@ export default function SankouUsageDashboard() {
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-bold text-gray-600">対象指標</label>
                 <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-fuchsia-400" value={metric} onChange={(e) => setMetric(e.target.value as Metric)}>
-                  <option value="total">更新回数(合計)</option>
+                  <option value="fetch">更新回数</option>
                   <option value="launch">起動回数</option>
-                  <option value="fetch">情報取得回数</option>
                 </select>
               </div>
               <span className="pb-2 text-xs text-gray-400">{loading ? "読込中..." : `${filtered.length} 行`}</span>
             </div>
 
             {/* サマリー */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="rounded-xl border border-purple-100 bg-purple-50 p-5 flex items-center gap-4">
-                <TrendingUp className="w-8 h-8 text-purple-500" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="rounded-xl border border-sky-100 bg-sky-50 p-5 flex items-center gap-4">
+                <FileSearch className="w-8 h-8 text-sky-500" />
                 <div>
-                  <div className="text-xs font-bold text-purple-700">更新回数(合計)</div>
-                  <div className="text-3xl font-extrabold text-purple-700">{totals.total.toLocaleString()}</div>
+                  <div className="text-xs font-bold text-sky-700">更新回数（情報取得回数）</div>
+                  <div className="text-3xl font-extrabold text-sky-700">{totals.fetch.toLocaleString()}</div>
                 </div>
               </div>
               <div className="rounded-xl border border-fuchsia-100 bg-fuchsia-50 p-5 flex items-center gap-4">
@@ -204,13 +204,6 @@ export default function SankouUsageDashboard() {
                 <div>
                   <div className="text-xs font-bold text-fuchsia-700">起動回数</div>
                   <div className="text-3xl font-extrabold text-fuchsia-700">{totals.launch.toLocaleString()}</div>
-                </div>
-              </div>
-              <div className="rounded-xl border border-sky-100 bg-sky-50 p-5 flex items-center gap-4">
-                <FileSearch className="w-8 h-8 text-sky-500" />
-                <div>
-                  <div className="text-xs font-bold text-sky-700">情報取得回数</div>
-                  <div className="text-3xl font-extrabold text-sky-700">{totals.fetch.toLocaleString()}</div>
                 </div>
               </div>
             </div>

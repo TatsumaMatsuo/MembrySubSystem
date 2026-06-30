@@ -410,34 +410,34 @@ export default function SankouZuPage() {
     <MainLayout>
       <div className="h-full flex flex-col bg-gradient-to-br from-sky-50 via-fuchsia-50 to-amber-50 overflow-hidden">
         {/* ヘッダー */}
-        <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-extrabold flex items-center gap-2">
-                <FileSearch className="w-6 h-6 text-fuchsia-500" />
-                <span className="bg-gradient-to-r from-fuchsia-600 via-purple-600 to-sky-600 bg-clip-text text-transparent">
+        <div className="flex-shrink-0 px-4 sm:px-6 py-4 border-b border-gray-200 bg-white">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-extrabold flex items-center gap-2">
+                <FileSearch className="w-6 h-6 text-fuchsia-500 shrink-0" />
+                <span className="truncate bg-gradient-to-r from-fuchsia-600 via-purple-600 to-sky-600 bg-clip-text text-transparent">
                   参考図台帳検索
                 </span>
               </h1>
-              <p className="text-sm text-gray-500">営業部 &gt; 参考図台帳検索</p>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">営業部 &gt; 参考図台帳検索</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {canRegister && (
                 <button
                   onClick={() => setRegister({})}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-bold rounded-lg hover:from-fuchsia-600 hover:to-purple-600 shadow-sm transition-all"
+                  className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-bold rounded-lg hover:from-fuchsia-600 hover:to-purple-600 shadow-sm transition-all"
                 >
                   <Plus className="w-4 h-4" />
-                  新規登録
+                  <span className="hidden sm:inline">新規登録</span>
                 </button>
               )}
               <button
                 onClick={() => load(true)}
                 disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all"
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                更新
+                <span className="hidden sm:inline">更新</span>
               </button>
             </div>
           </div>
@@ -446,8 +446,8 @@ export default function SankouZuPage() {
         {/* メイン: 左=絞り込み / 右=結果 */}
         <main className="flex-1 overflow-hidden p-4 sm:p-6">
           <div className="h-full max-w-full mx-auto flex flex-col lg:flex-row gap-4">
-            {/* 絞り込み */}
-            <aside className="lg:w-96 flex-shrink-0 bg-white rounded-xl shadow border border-gray-100 overflow-hidden flex flex-col">
+            {/* 絞り込み（モバイルは高さを抑えて結果一覧を確保） */}
+            <aside className="lg:w-96 flex-shrink-0 max-h-[45vh] lg:max-h-none bg-white rounded-xl shadow border border-gray-100 overflow-hidden flex flex-col">
               <div className="bg-gradient-to-r from-fuchsia-500 via-purple-500 to-sky-500 px-4 py-3 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <Filter className="w-4 h-4" /> 絞り込み{activeCount > 0 && `（${activeCount}）`}

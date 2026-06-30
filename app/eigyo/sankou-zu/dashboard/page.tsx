@@ -133,22 +133,22 @@ export default function SankouUsageDashboard() {
   return (
     <MainLayout>
       <div className="h-full flex flex-col bg-gradient-to-br from-sky-50 via-fuchsia-50 to-amber-50 overflow-hidden">
-        <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 bg-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-extrabold flex items-center gap-2">
-                <BarChart3 className="w-6 h-6 text-fuchsia-500" />
-                <span className="bg-gradient-to-r from-fuchsia-600 via-purple-600 to-sky-600 bg-clip-text text-transparent">参考図台帳 利用状況</span>
+        <div className="flex-shrink-0 px-4 sm:px-6 py-4 border-b border-gray-200 bg-white">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-extrabold flex items-center gap-2">
+                <BarChart3 className="w-6 h-6 text-fuchsia-500 shrink-0" />
+                <span className="truncate bg-gradient-to-r from-fuchsia-600 via-purple-600 to-sky-600 bg-clip-text text-transparent">参考図台帳 利用状況</span>
               </h1>
-              <p className="text-sm text-gray-500">営業部 &gt; 参考図台帳 利用状況</p>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">設計部 &gt; 参考図台帳 利用状況</p>
             </div>
-            <button onClick={load} disabled={loading} className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 disabled:opacity-50">
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> 更新
+            <button onClick={load} disabled={loading} className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 disabled:opacity-50 shrink-0">
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> <span className="hidden sm:inline">更新</span>
             </button>
           </div>
         </div>
 
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="max-w-5xl mx-auto space-y-5">
             {error && (
               <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
@@ -157,37 +157,38 @@ export default function SankouUsageDashboard() {
             )}
 
             {/* フィルタ：年月FROM-TO / 所属部署 / 対象指標 */}
-            <div className="bg-white rounded-xl shadow border border-gray-100 p-4 flex flex-wrap items-end gap-x-5 gap-y-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-gray-600">年月（FROM）</label>
-                <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-fuchsia-400" value={from} onChange={(e) => setFrom(e.target.value)}>
-                  {monthsAsc.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
+            <div className="bg-white rounded-xl shadow border border-gray-100 p-4">
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-end gap-x-4 gap-y-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold text-gray-600">年月（FROM）</label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-fuchsia-400" value={from} onChange={(e) => setFrom(e.target.value)}>
+                    {monthsAsc.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold text-gray-600">年月（TO）</label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-fuchsia-400" value={to} onChange={(e) => setTo(e.target.value)}>
+                    {monthsAsc.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold text-gray-600">所属部署</label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-fuchsia-400" value={dept} onChange={(e) => setDept(e.target.value)}>
+                    <option value="">全部署</option>
+                    {/* 既定の営業部が一覧に無い場合も選べるように補完 */}
+                    {!depts.includes(DEFAULT_DEPT) && <option value={DEFAULT_DEPT}>{DEFAULT_DEPT}</option>}
+                    {depts.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold text-gray-600">対象指標</label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-fuchsia-400" value={metric} onChange={(e) => setMetric(e.target.value as Metric)}>
+                    <option value="fetch">更新回数</option>
+                    <option value="launch">起動回数</option>
+                  </select>
+                </div>
               </div>
-              <span className="pb-2 text-gray-400">〜</span>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-gray-600">年月（TO）</label>
-                <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-fuchsia-400" value={to} onChange={(e) => setTo(e.target.value)}>
-                  {monthsAsc.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-gray-600">所属部署</label>
-                <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-fuchsia-400" value={dept} onChange={(e) => setDept(e.target.value)}>
-                  <option value="">全部署</option>
-                  {/* 既定の営業部が一覧に無い場合も選べるように補完 */}
-                  {!depts.includes(DEFAULT_DEPT) && <option value={DEFAULT_DEPT}>{DEFAULT_DEPT}</option>}
-                  {depts.map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-gray-600">対象指標</label>
-                <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-fuchsia-400" value={metric} onChange={(e) => setMetric(e.target.value as Metric)}>
-                  <option value="fetch">更新回数</option>
-                  <option value="launch">起動回数</option>
-                </select>
-              </div>
-              <span className="pb-2 text-xs text-gray-400">{loading ? "読込中..." : `${filtered.length} 行`}</span>
+              <div className="mt-2 text-xs text-gray-400">{loading ? "読込中..." : `${filtered.length} 行`}</div>
             </div>
 
             {/* サマリー */}
@@ -251,8 +252,8 @@ export default function SankouUsageDashboard() {
                           nameKey="name"
                           cx="50%"
                           cy="50%"
-                          outerRadius={110}
-                          label={(p: any) => `${p.name} ${(p.percent * 100).toFixed(0)}%`}
+                          outerRadius="80%"
+                          label={(p: any) => (p.percent >= 0.05 ? `${(p.percent * 100).toFixed(0)}%` : "")}
                           labelLine={false}
                         >
                           {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}

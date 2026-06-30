@@ -664,6 +664,7 @@ function RegisterModal({
   const [tab, setTab] = useState(REG_GROUPS[0].name);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [pick, setPick] = useState<string | null>(null); // マスタ選択中の列
 
   const set = (c: string, v: string) => setDraft((p) => ({ ...p, [c]: v }));
 
@@ -709,6 +710,7 @@ function RegisterModal({
   const current = REG_GROUPS.find((g) => g.name === tab)!;
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-2 bg-gradient-to-r from-fuchsia-500 to-purple-500 rounded-t-xl">
@@ -768,15 +770,56 @@ function RegisterModal({
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {current.cols.map((c) => {
-                const opts = optionsByCol[c];
+                const opts = optionsByCol[c] || [];
+                // 完全一致でマスタ選択する項目(検索ポップアップ)=自由入力不可。部分一致(関連/サイズ等)=自由入力可。
+                const selectMaster = KIND_BY_COL[c] === "select" && opts.length > 0;
+
+                // 完全一致マスタ選択: ポップアップ選択のみ
+                if (selectMaster) {
+                  const v = draft[c] || "";
+                  return (
+                    <div key={c}>
+                      <label className="block text-xs font-bold text-gray-600 mb-1 truncate">{c}</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setPick(c)}
+                          className={`flex-1 min-w-0 px-2 py-1.5 border rounded-md text-sm text-left truncate flex items-center justify-between gap-1 ${
+                            v ? "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-800" : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                          }`}
+                          title={v || "選択してください"}
+                        >
+                          <span className="truncate">{v || "選択してください"}</span>
+                          <Search className="w-3.5 h-3.5 shrink-0 opacity-60" />
+                        </button>
+                        {v && (
+                          <button type="button" onClick={() => set(c, "")} className="text-gray-400 hover:text-gray-600 px-1" title="クリア">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // 複数行(関連=部分一致/メモ): 自由入力可。マスタ候補があれば「候補から追加」で末尾に挿入。
                 if (TEXTAREA_COLS.has(c)) {
                   return (
                     <div key={c} className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-gray-600 mb-1">{c}</label>
+                      <label className="block text-xs font-bold text-gray-600 mb-1 flex items-center justify-between">
+                        <span>{c}</span>
+                        {opts.length > 0 && (
+                          <button type="button" onClick={() => setPick(c)} className="text-fuchsia-600 hover:text-fuchsia-700 inline-flex items-center gap-0.5 text-[11px]">
+                            <Plus className="w-3 h-3" /> 候補から追加
+                          </button>
+                        )}
+                      </label>
                       <textarea className={`${inputClass} h-20`} value={draft[c] || ""} onChange={(e) => set(c, e.target.value)} />
                     </div>
                   );
                 }
+
+                // 自由入力(数値/テキスト)。部分一致のサイズ等もここ。
                 return (
                   <div key={c}>
                     <label className="block text-xs font-bold text-gray-600 mb-1">{c}</label>
@@ -785,13 +828,7 @@ function RegisterModal({
                       type={NUMERIC_COLS.has(c) ? "number" : "text"}
                       value={draft[c] || ""}
                       onChange={(e) => set(c, e.target.value)}
-                      list={opts && opts.length ? `reg-dl-${c}` : undefined}
                     />
-                    {opts && opts.length > 0 && (
-                      <datalist id={`reg-dl-${c}`}>
-                        {opts.slice(0, 1000).map((o) => <option key={o} value={o} />)}
-                      </datalist>
-                    )}
                   </div>
                 );
               })}
@@ -812,6 +849,26 @@ function RegisterModal({
         </div>
       </div>
     </div>
+
+    {/* 登録フォーム内のマスタ選択ポップアップ（完全一致=置換 / 関連=末尾に追加） */}
+    {pick && (
+      <PickerModal
+        title={pick}
+        options={optionsByCol[pick] || []}
+        value={TEXTAREA_COLS.has(pick) ? "" : (draft[pick] || "")}
+        onSelect={(val) => {
+          const col = pick;
+          if (TEXTAREA_COLS.has(col)) {
+            if (val) set(col, draft[col] ? `${draft[col]}\n${val}` : val);
+          } else {
+            set(col, val);
+          }
+          setPick(null);
+        }}
+        onClose={() => setPick(null)}
+      />
+    )}
+    </>
   );
 }
 

@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
-import { FileText, Search, RefreshCw, AlertCircle, Filter, FileSearch, ExternalLink, X, Download, List, Briefcase, Plus, Save, Pencil, Upload } from "lucide-react";
+import { FileText, Search, RefreshCw, AlertCircle, Filter, FileSearch, ExternalLink, X, Download, List, Briefcase, Plus, Save, Pencil, Upload, ChevronDown, ChevronUp } from "lucide-react";
 
 type Daicho = Record<string, string | number | undefined>;
 
@@ -188,6 +188,7 @@ export default function SankouZuPage() {
   const [sel, setSel] = useState<Record<string, string>>({}); // 単一選択
   const [rng, setRng] = useState<Record<string, { min: string; max: string }>>({}); // From-To
   const [txt, setTxt] = useState<Record<string, string>>({}); // 部分一致
+  const [filterOpen, setFilterOpen] = useState(true); // 絞り込みパネルの開閉（モバイルで結果確保のため折りたたみ可）
 
   // モーダル
   const [picker, setPicker] = useState<string | null>(null); // 検索ポップアップ中の列
@@ -448,17 +449,27 @@ export default function SankouZuPage() {
           <div className="h-full max-w-full mx-auto flex flex-col lg:flex-row gap-4">
             {/* 絞り込み（モバイルは高さを抑えて結果一覧を確保） */}
             <aside className="lg:w-96 flex-shrink-0 max-h-[45vh] lg:max-h-none bg-white rounded-xl shadow border border-gray-100 overflow-hidden flex flex-col">
-              <div className="bg-gradient-to-r from-fuchsia-500 via-purple-500 to-sky-500 px-4 py-3 flex items-center justify-between">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Filter className="w-4 h-4" /> 絞り込み{activeCount > 0 && `（${activeCount}）`}
-                </h3>
+              <div className="bg-gradient-to-r from-fuchsia-500 via-purple-500 to-sky-500 px-4 py-3 flex items-center justify-between gap-2">
+                {/* モバイルではヘッダータップで開閉。PCは常時展開 */}
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen((o) => !o)}
+                  className="text-sm font-bold text-white flex items-center gap-2 min-w-0 lg:cursor-default"
+                  aria-expanded={filterOpen}
+                >
+                  <Filter className="w-4 h-4 shrink-0" />
+                  <span className="truncate">絞り込み{activeCount > 0 && `（${activeCount}）`}</span>
+                  {filterOpen ? <ChevronUp className="w-4 h-4 shrink-0 lg:hidden" /> : <ChevronDown className="w-4 h-4 shrink-0 lg:hidden" />}
+                </button>
                 {hasCondition && (
-                  <button onClick={resetAll} className="text-xs text-white/90 hover:text-white flex items-center gap-1">
+                  <button onClick={resetAll} className="text-xs text-white/90 hover:text-white flex items-center gap-1 shrink-0">
                     <X className="w-3 h-3" /> クリア
                   </button>
                 )}
               </div>
 
+              {/* 折りたたみ対象（モバイルのみ開閉。PC=lgは常時表示） */}
+              <div className={`${filterOpen ? "flex" : "hidden"} lg:flex flex-col flex-1 min-h-0`}>
               {/* 全体フリーワード（常時表示） */}
               <div className="p-3 border-b border-gray-100">
                 <label className="block text-xs font-bold text-gray-600 mb-1">フリーワード（案件名・管理名・各製番）</label>
@@ -532,6 +543,7 @@ export default function SankouZuPage() {
                     </div>
                   );
                 })}
+              </div>
               </div>
             </aside>
 

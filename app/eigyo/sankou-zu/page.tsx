@@ -665,6 +665,7 @@ function RegisterModal({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [pick, setPick] = useState<string | null>(null); // マスタ選択中の列
+  const [baiyakuSearch, setBaiyakuSearch] = useState(false); // 売約検索モーダル
 
   const set = (c: string, v: string) => setDraft((p) => ({ ...p, [c]: v }));
 
@@ -774,6 +775,26 @@ function RegisterModal({
                 // 完全一致でマスタ選択する項目(検索ポップアップ)=自由入力不可。部分一致(関連/サイズ等)=自由入力可。
                 const selectMaster = KIND_BY_COL[c] === "select" && opts.length > 0;
 
+                // 売約番号: 自由入力 + 売約検索モーダル(複数条件)。選択時に案件名へ品名+品名2を設定。
+                if (c === "売約番号") {
+                  return (
+                    <div key={c}>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">売約番号（受注製番）</label>
+                      <div className="flex items-center gap-1">
+                        <input className={`${inputClass} flex-1`} value={draft[c] || ""} onChange={(e) => set(c, e.target.value)} />
+                        <button
+                          type="button"
+                          onClick={() => setBaiyakuSearch(true)}
+                          className="inline-flex items-center gap-1 px-2 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold rounded-md hover:bg-amber-100 whitespace-nowrap"
+                          title="売約情報を検索して選択"
+                        >
+                          <Briefcase className="w-3.5 h-3.5" /> 売約検索
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 // 完全一致マスタ選択: ポップアップ選択のみ
                 if (selectMaster) {
                   const v = draft[c] || "";
@@ -868,7 +889,171 @@ function RegisterModal({
         onClose={() => setPick(null)}
       />
     )}
+
+    {/* 売約検索モーダル: 複数条件で売約を検索→選択で 売約番号=製番 / 案件名=品名+品名2 */}
+    {baiyakuSearch && (
+      <BaiyakuSearchModal
+        onSelect={(row) => {
+          set("売約番号", row.seiban);
+          const anken = `${row.hinmei || ""}${row.hinmei2 || ""}`.trim();
+          if (anken) set("案件名", anken);
+          setBaiyakuSearch(false);
+        }}
+        onClose={() => setBaiyakuSearch(false)}
+      />
+    )}
     </>
+  );
+}
+
+interface BaiyakuRow {
+  seiban: string;
+  hinmei: string;
+  hinmei2?: string;
+  tantousha?: string;
+  juchu_date?: string;
+  juchu_kingaku?: number;
+  tokuisaki_atena1?: string;
+  tokuisaki_atena2?: string;
+}
+
+/** 売約検索モーダル: 売約情報検索画面と同様の複数条件で /api/baiyaku を検索し、行を選択する。 */
+function BaiyakuSearchModal({
+  onSelect, onClose,
+}: {
+  onSelect: (row: BaiyakuRow) => void;
+  onClose: () => void;
+}) {
+  const [seiban, setSeiban] = useState("");
+  const [ankenName, setAnkenName] = useState("");
+  const [tantousha, setTantousha] = useState("");
+  const [tokuisaki, setTokuisaki] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [status, setStatus] = useState("all");
+  const [rows, setRows] = useState<BaiyakuRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [searched, setSearched] = useState(false);
+
+  async function search() {
+    setLoading(true);
+    setErr("");
+    try {
+      const qs = new URLSearchParams();
+      if (seiban.trim()) qs.set("seiban", seiban.trim());
+      if (ankenName.trim()) qs.set("anken_name", ankenName.trim());
+      if (tantousha.trim()) qs.set("tantousha", tantousha.trim());
+      if (tokuisaki.trim()) qs.set("tokuisaki", tokuisaki.trim());
+      if (dateFrom) qs.set("juchu_date_from", dateFrom);
+      if (dateTo) qs.set("juchu_date_to", dateTo);
+      qs.set("sales_status", status);
+      const json = await fetchJson<{ success: boolean; data: BaiyakuRow[]; error?: string }>(`/api/baiyaku?${qs.toString()}`);
+      if (!json.success) throw new Error(json.error || "検索に失敗しました");
+      setRows(json.data || []);
+      setSearched(true);
+    } catch (e: any) {
+      setErr(e?.message || "検索に失敗しました");
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const inputClass = "w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400";
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[88vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-amber-500 to-orange-500 rounded-t-xl">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2"><Briefcase className="w-4 h-4" /> 売約検索</h3>
+          <button onClick={onClose} className="text-white/80 hover:text-white"><X className="w-4 h-4" /></button>
+        </div>
+
+        {/* 検索条件 */}
+        <div className="p-3 border-b border-gray-100 grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div>
+            <label className="block text-[11px] font-bold text-gray-600 mb-0.5">製番</label>
+            <input className={inputClass} value={seiban} onChange={(e) => setSeiban(e.target.value)} placeholder="部分一致" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-600 mb-0.5">案件名（品名）</label>
+            <input className={inputClass} value={ankenName} onChange={(e) => setAnkenName(e.target.value)} placeholder="部分一致" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-600 mb-0.5">担当者</label>
+            <input className={inputClass} value={tantousha} onChange={(e) => setTantousha(e.target.value)} placeholder="部分一致" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-600 mb-0.5">得意先</label>
+            <input className={inputClass} value={tokuisaki} onChange={(e) => setTokuisaki(e.target.value)} placeholder="部分一致" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-600 mb-0.5">ステータス</label>
+            <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
+              <option value="all">全て</option>
+              <option value="juchu_zan">受注残</option>
+              <option value="uriagezumi">売上済</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-600 mb-0.5">受注日</label>
+            <div className="flex items-center gap-1">
+              <input type="date" className={inputClass} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              <span className="text-gray-400 text-xs">〜</span>
+              <input type="date" className={inputClass} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            </div>
+          </div>
+          <div className="col-span-2 sm:col-span-3 flex justify-end">
+            <button onClick={search} disabled={loading} className="flex items-center gap-1 px-4 py-2 bg-amber-600 text-white text-sm font-bold rounded-lg hover:bg-amber-700 disabled:opacity-50">
+              <Search className="w-4 h-4" /> {loading ? "検索中..." : "検索"}
+            </button>
+          </div>
+        </div>
+
+        {err && (
+          <div className="mx-3 mt-2 flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 shrink-0" /> {err}
+          </div>
+        )}
+
+        {/* 結果 */}
+        <div className="flex-1 overflow-auto p-3 min-h-0">
+          {!searched ? (
+            <p className="text-sm text-gray-500 text-center py-10">条件を入れて検索してください。</p>
+          ) : rows.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-10">該当する売約が見つかりませんでした。</p>
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead className="sticky top-0 bg-gray-50">
+                <tr className="text-left text-xs text-gray-500">
+                  <th className="px-2 py-2 font-bold">製番</th>
+                  <th className="px-2 py-2 font-bold">案件名（品名+品名2）</th>
+                  <th className="px-2 py-2 font-bold">担当者</th>
+                  <th className="px-2 py-2 font-bold">得意先</th>
+                  <th className="px-2 py-2 font-bold">受注日</th>
+                  <th className="px-2 py-2 font-bold"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={`${r.seiban}-${i}`} className="border-t border-gray-100 hover:bg-amber-50/50">
+                    <td className="px-2 py-1.5 text-gray-700 whitespace-nowrap">{r.seiban}</td>
+                    <td className="px-2 py-1.5 text-gray-800">{`${r.hinmei || ""}${r.hinmei2 || ""}`.trim() || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.tantousha || "—"}</td>
+                    <td className="px-2 py-1.5 text-gray-600">{`${r.tokuisaki_atena1 || ""} ${r.tokuisaki_atena2 || ""}`.trim() || "—"}</td>
+                    <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap">{r.juchu_date || "—"}</td>
+                    <td className="px-2 py-1.5">
+                      <button onClick={() => onSelect(r)} className="px-3 py-1 bg-amber-600 text-white text-xs font-bold rounded-md hover:bg-amber-700 whitespace-nowrap">選択</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

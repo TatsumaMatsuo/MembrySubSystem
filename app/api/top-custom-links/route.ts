@@ -5,6 +5,14 @@ import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 // テーブルID (AWS Amplify SSR用フォールバック値付き)
 const CUSTOM_LINKS_TABLE_ID = process.env.LARK_TABLE_TOP_CUSTOM_LINKS || "tblup7d4meehzX92";
 
+// 共通リンク(全ログインユーザーに表示)のユーザーID。これ以外は個別ユーザー専用。
+const COMMON_USER_ID = "ALL";
+
+/** scope("common"=共通/"personal"=個人) と セッションユーザーID から保存先ユーザーIDを決定。既定=共通(ALL)。 */
+function resolveOwnerId(scope: unknown, sessionUserId: string): string {
+  return scope === "personal" ? sessionUserId : COMMON_USER_ID;
+}
+
 // フィールド名
 const FIELDS = {
   USER_ID: "ユーザーID",
@@ -59,6 +67,8 @@ export async function GET(request: NextRequest) {
     const links: CustomLink[] = [];
     let pageToken: string | undefined;
 
+    // 共通(ALL=全ユーザー表示)と本人個別の両方を取得
+    const userIdEsc = userId.replace(/"/g, '\\"');
     do {
       const response = await client.bitable.appTableRecord.list({
         path: {
@@ -68,7 +78,7 @@ export async function GET(request: NextRequest) {
         params: {
           page_size: 100,
           page_token: pageToken,
-          filter: `CurrentValue.[${FIELDS.USER_ID}] = "${userId}"`,
+          filter: `OR(CurrentValue.[${FIELDS.USER_ID}] = "${COMMON_USER_ID}", CurrentValue.[${FIELDS.USER_ID}] = "${userIdEsc}")`,
         },
       });
 
@@ -141,7 +151,7 @@ export async function POST(request: NextRequest) {
     const userId = session?.user?.id || "default";
 
     const body = await request.json();
-    const { display_name, url, icon_url, sort_order } = body;
+    const { display_name, url, icon_url, sort_order, scope } = body;
 
     if (!display_name || !url) {
       return NextResponse.json(
@@ -150,6 +160,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 公開範囲: 既定=共通(ALL=全ユーザー表示)。scope="personal" のときのみ本人専用。
+    const ownerId = resolveOwnerId(scope, userId);
     const now = Date.now();
 
     const response = await client.bitable.appTableRecord.create({
@@ -159,7 +171,7 @@ export async function POST(request: NextRequest) {
       },
       data: {
         fields: {
-          [FIELDS.USER_ID]: userId,
+          [FIELDS.USER_ID]: ownerId,
           [FIELDS.DISPLAY_NAME]: display_name,
           [FIELDS.URL]: url,
           [FIELDS.ICON_URL]: icon_url || "",
@@ -209,7 +221,7 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { record_id, display_name, url, icon_url, sort_order, is_active } = body;
+    const { record_id, display_name, url, icon_url, sort_order, is_active, scope } = body;
 
     if (!record_id) {
       return NextResponse.json(
@@ -227,6 +239,11 @@ export async function PUT(request: NextRequest) {
     if (icon_url !== undefined) updateFields[FIELDS.ICON_URL] = icon_url;
     if (sort_order !== undefined) updateFields[FIELDS.SORT_ORDER] = sort_order;
     if (is_active !== undefined) updateFields[FIELDS.IS_ACTIVE] = is_active;
+    // 公開範囲(共通/個人)の切替。personal は本人IDを保存先にする。
+    if (scope !== undefined) {
+      const session = await getServerSession();
+      updateFields[FIELDS.USER_ID] = resolveOwnerId(scope, session?.user?.id || "default");
+    }
 
     const response = await client.bitable.appTableRecord.update({
       path: {

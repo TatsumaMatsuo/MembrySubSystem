@@ -29,6 +29,11 @@ interface CustomLink {
   is_active: boolean;
 }
 
+// 公開範囲: common=共通(全ユーザー表示, ユーザーID=ALL) / personal=個人(本人専用)
+type Scope = "common" | "personal";
+const COMMON_USER_ID = "ALL";
+const scopeOf = (link: CustomLink): Scope => (link.user_id === COMMON_USER_ID ? "common" : "personal");
+
 export default function TopCustomizePage() {
   const [links, setLinks] = useState<CustomLink[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,9 +53,11 @@ export default function TopCustomizePage() {
     icon_url: "",
     sort_order: 0,
   });
+  const [newScope, setNewScope] = useState<Scope>("common"); // 公開範囲（既定=共通）
 
   // 編集用フォーム
   const [editLink, setEditLink] = useState<Partial<CustomLink>>({});
+  const [editScope, setEditScope] = useState<Scope>("common");
 
   // 画像をBase64に変換
   const handleImageUpload = async (
@@ -122,12 +129,14 @@ export default function TopCustomizePage() {
         body: JSON.stringify({
           ...newLink,
           sort_order: links.length,
+          scope: newScope, // 公開範囲（共通=ALL/個人=本人）
         }),
       });
 
       const data = await response.json();
       if (data.success) {
         setNewLink({ display_name: "", url: "", icon_url: "", sort_order: 0 });
+        setNewScope("common");
         setShowAddForm(false);
         await fetchLinks();
       }
@@ -142,6 +151,7 @@ export default function TopCustomizePage() {
   const startEdit = (link: CustomLink) => {
     setEditingId(link.record_id || null);
     setEditLink({ ...link });
+    setEditScope(scopeOf(link));
   };
 
   // 編集保存
@@ -153,13 +163,14 @@ export default function TopCustomizePage() {
       const response = await fetch("/api/top-custom-links", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editLink),
+        body: JSON.stringify({ ...editLink, scope: editScope }),
       });
 
       const data = await response.json();
       if (data.success) {
         setEditingId(null);
         setEditLink({});
+        setEditScope("common");
         await fetchLinks();
       }
     } catch (error) {
@@ -229,7 +240,8 @@ export default function TopCustomizePage() {
             <div className="bg-blue-50 rounded-lg p-4">
               <p className="text-sm text-blue-800">
                 TOP画面に表示するカスタムリンクボタンを設定できます。
-                登録したリンクはTOP画面のウィジェットエリアに表示され、クリックすると新しいタブで開きます。
+                公開範囲が「共通」のリンクは全ログインユーザーのTOP画面に表示され、「個人」のリンクは自分のTOP画面（個人リンク枠）のみに表示されます。
+                クリックすると新しいタブで開きます。
               </p>
             </div>
 
@@ -312,6 +324,24 @@ export default function TopCustomizePage() {
                                   }
                                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
+                              </div>
+                            </div>
+                            {/* 公開範囲 */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">公開範囲</label>
+                              <div className="flex gap-2">
+                                {([["common", "共通（全ユーザー）"], ["personal", "個人（自分のみ）"]] as [Scope, string][]).map(([s, label]) => (
+                                  <button
+                                    key={s}
+                                    type="button"
+                                    onClick={() => setEditScope(s)}
+                                    className={`flex-1 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                                      editScope === s ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                                    }`}
+                                  >
+                                    {label}
+                                  </button>
+                                ))}
                               </div>
                             </div>
                             <div>
@@ -417,7 +447,14 @@ export default function TopCustomizePage() {
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-800">{link.display_name}</div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-800 truncate">{link.display_name}</span>
+                                <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  scopeOf(link) === "common" ? "bg-purple-100 text-purple-700" : "bg-sky-100 text-sky-700"
+                                }`}>
+                                  {scopeOf(link) === "common" ? "共通" : "個人"}
+                                </span>
+                              </div>
                               <div className="text-sm text-gray-500 truncate">{link.url}</div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -501,6 +538,24 @@ export default function TopCustomizePage() {
                         placeholder="https://example.com"
                         className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
+                    </div>
+                  </div>
+                  {/* 公開範囲 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">公開範囲</label>
+                    <div className="flex gap-2">
+                      {([["common", "共通（全ユーザーに表示）"], ["personal", "個人（自分のみ）"]] as [Scope, string][]).map(([s, label]) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setNewScope(s)}
+                          className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                            newScope === s ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
                   </div>
                   <div>

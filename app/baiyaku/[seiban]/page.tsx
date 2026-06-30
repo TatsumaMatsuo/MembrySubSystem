@@ -994,7 +994,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                 </div>
                 <div>
                   <h2 className="font-bold text-white text-sm">Membry</h2>
-                  <p className="text-xs text-white/70">Sub System</p>
+                  <p className="text-xs text-white/70">Main System</p>
                 </div>
               </div>
               <button

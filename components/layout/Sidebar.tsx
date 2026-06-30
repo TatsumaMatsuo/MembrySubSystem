@@ -500,7 +500,7 @@ export function Sidebar({
             {!collapsed && (
               <div>
                 <h2 className="font-bold text-gray-900 text-sm">Membry</h2>
-                <p className="text-xs text-gray-500">Sub System</p>
+                <p className="text-xs text-gray-500">Main System</p>
               </div>
             )}
           </div>

@@ -1,6 +1,7 @@
 /**
  * 参考図台帳 利用状況ダッシュボード(/eigyo/sankou-zu/dashboard)をメニュー登録する。
- * 営業(M003-05)・設計(M004-01)の各「支援ツール」に配置し、それぞれの利用部署へ権限付与する。
+ * 設計(M004-01)「支援ツール」に配置し、設計部へ権限付与する。
+ * （営業 M003-05 配下には不要のため配置しない。撤去は scripts/remove-sankou-dashboard-eigyo.ts）
  * プログラムは1配置メニューのみのため部署ごとに別PGMを採番(URLは同一)。冪等(URL+配置で判定)。
  *
  * 実行: npx tsx scripts/register-sankou-dashboard-menu.ts [--dry-run]
@@ -18,7 +19,6 @@ const URL_PATH = "/eigyo/sankou-zu/dashboard";
 const NAME = "参考図利用状況";
 // 配置先メニューと、その配置を見せるグループ
 const PLACEMENTS = [
-  { menu: "M003-05", sort: 3, groups: ["営業部", "DX推進室"] },
   { menu: "M004-01", sort: 3, groups: ["設計部"] },
 ];
 

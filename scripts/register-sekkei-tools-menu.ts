@@ -27,7 +27,8 @@ const NEW_MENU = { id: "M004-01", name: "支援ツール", level: 2, parent: "M0
 // 設計部用に新設するプログラム(URLは既存と同じページを指す)
 const NEW_PROGRAMS = [
   { name: "基準風速積雪検索", url: "/eigyo/kijun-fusoku", menu: "M004-01", sort: 1 },
-  { name: "参考図台帳検索", url: "/eigyo/sankou-zu", menu: "M004-01", sort: 2 },
+  // 設計部は登録/編集を有効化するため ?register=1 を付与(営業部 PGM046 は付与しない=閲覧のみ)
+  { name: "参考図台帳検索", url: "/eigyo/sankou-zu?register=1", menu: "M004-01", sort: 2 },
 ];
 // 設計部から外す営業部経由の権限
 const REMOVE_GRANTS: { type: string; id: string }[] = [

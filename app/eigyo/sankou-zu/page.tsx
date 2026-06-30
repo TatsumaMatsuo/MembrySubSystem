@@ -176,6 +176,7 @@ export default function SankouZuPage() {
   const [buhin, setBuhin] = useState<Daicho[]>([]);
   const [hanyou, setHanyou] = useState<Record<string, string[]>>({});
   const [pdfEnabled, setPdfEnabled] = useState(false);
+  const [canRegister, setCanRegister] = useState(false); // ?register=1 のとき登録/編集を表示(設計部メニュー用)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const loadedRef = useRef(false);
@@ -213,6 +214,8 @@ export default function SankouZuPage() {
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
+    // 登録/編集の可否は URL の ?register=1 で判定(設計部メニューのみ付与)
+    setCanRegister(new URLSearchParams(window.location.search).get("register") === "1");
     load();
   }, []);
 
@@ -390,13 +393,15 @@ export default function SankouZuPage() {
               <p className="text-sm text-gray-500">営業部 &gt; 参考図台帳検索</p>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setRegister({})}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-bold rounded-lg hover:from-fuchsia-600 hover:to-purple-600 shadow-sm transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                新規登録
-              </button>
+              {canRegister && (
+                <button
+                  onClick={() => setRegister({})}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-bold rounded-lg hover:from-fuchsia-600 hover:to-purple-600 shadow-sm transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  新規登録
+                </button>
+              )}
               <button
                 onClick={() => load(true)}
                 disabled={loading}
@@ -566,13 +571,15 @@ export default function SankouZuPage() {
                               >
                                 <List className="w-3.5 h-3.5" /> 詳細
                               </button>
-                              <button
-                                onClick={() => setRegister(r)}
-                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100"
-                                title="編集"
-                              >
-                                <Pencil className="w-3.5 h-3.5" /> 編集
-                              </button>
+                              {canRegister && (
+                                <button
+                                  onClick={() => setRegister(r)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100"
+                                  title="編集"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" /> 編集
+                                </button>
+                              )}
                               <button
                                 onClick={() => openBaiyaku(r)}
                                 disabled={!s(r["売約番号"])}

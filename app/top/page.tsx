@@ -98,7 +98,7 @@ export default function TopPage() {
                 <Home className="w-6 h-6 text-indigo-500" />
                 TOPページ
               </h1>
-              <p className="text-sm text-gray-500">Membry Sub System</p>
+              <p className="text-sm text-gray-500">MembryMainSystem</p>
             </div>
             <Link
               href="/settings/top-customize"

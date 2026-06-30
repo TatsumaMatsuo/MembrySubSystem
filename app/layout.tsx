@@ -4,7 +4,7 @@ import { SessionProvider } from "@/components/providers/session-provider";
 
 export const metadata: Metadata = {
   title: "Membry - 統合業務システム",
-  description: "Membry Sub System - 統合業務管理プラットフォーム",
+  description: "MembryMainSystem - 統合業務管理プラットフォーム",
 };
 
 export default function RootLayout({

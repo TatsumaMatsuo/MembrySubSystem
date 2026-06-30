@@ -49,6 +49,8 @@ export function getLarkTables() {
     SANKOU_BUHIN: process.env.LARK_TABLE_SANKOU_BUHIN || "tbliF60cCLGAP66v",
     // 参考図汎用マスタ（部材以外の★候補。区分/値/表示順/有効フラグ。project base）
     SANKOU_HANYOU: process.env.LARK_TABLE_SANKOU_HANYOU || "tbl9MGRMMHGNXFUU",
+    // 参考図台帳 利用状況（年月×担当者で 起動回数/情報取得回数 を集計。project base）
+    SANKOU_USAGE: process.env.LARK_TABLE_SANKOU_USAGE || "tblCPZFOU4bBStJw",
 
     // ===== 生産本部KPIシステム(docs/kpi-system) =====
     // --- 経営レイヤー(L0/L1) ※全社年度KPIは既存 COMPANY_KPI を流用 ---
@@ -128,6 +130,7 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   SANKOU_DAICHO: "project",
   SANKOU_BUHIN: "project",
   SANKOU_HANYOU: "project",
+  SANKOU_USAGE: "project",
   // ===== 生産本部KPIシステム（全て project base） =====
   KEIEI_MIDTERM_PLAN_HEADER: "project",
   KEIEI_MIDTERM_PLAN: "project",

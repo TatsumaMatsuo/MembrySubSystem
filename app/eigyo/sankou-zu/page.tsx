@@ -193,6 +193,18 @@ export default function SankouZuPage() {
   const [detail, setDetail] = useState<Daicho | null>(null); // 詳細表示中の行
   const [register, setRegister] = useState<Daicho | null>(null); // 登録/編集中の行(空={}=新規)
 
+  // 利用状況の計測(失敗してもUIに影響させない fire-and-forget)
+  function logUsage(type: "launch" | "fetch") {
+    try {
+      fetch("/api/eigyo/sankou-zu/usage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch { /* noop */ }
+  }
+
   async function load(refresh = false) {
     setLoading(true);
     setError("");
@@ -203,6 +215,7 @@ export default function SankouZuPage() {
       setBuhin(json.buhin || []);
       setHanyou(json.hanyou || {});
       setPdfEnabled(Boolean(json.pdfEnabled));
+      logUsage("fetch"); // 情報取得回数 +1
     } catch (e: any) {
       setError(e?.message || "取得に失敗しました");
       setAll([]);
@@ -216,6 +229,7 @@ export default function SankouZuPage() {
     loadedRef.current = true;
     // 登録/編集の可否は URL の ?register=1 で判定(設計部メニューのみ付与)
     setCanRegister(new URLSearchParams(window.location.search).get("register") === "1");
+    logUsage("launch"); // 起動回数 +1(メニュー選択=ページ起動)
     load();
   }, []);
 

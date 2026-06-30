@@ -35,8 +35,8 @@ function SignInContent() {
             <FileText className="h-10 w-10 text-white" />
           </div>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">売約情報システム</h1>
-        <p className="text-gray-600 mt-2">Lark連携 売約情報管理システム</p>
+        <h1 className="text-2xl font-bold text-gray-900">Membry総合管理システム</h1>
+        <p className="text-gray-600 mt-2">Lark連携 Membry総合管理システム</p>
       </div>
 
       {error && (

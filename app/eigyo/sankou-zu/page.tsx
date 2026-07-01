@@ -178,9 +178,12 @@ export default function SankouZuPage() {
   const [hanyou, setHanyou] = useState<Record<string, string[]>>({});
   const [pdfEnabled, setPdfEnabled] = useState(false);
   // 登録/編集の可否と部署表記は URL の ?register=1 で判定(設計部メニューのみ付与)。
-  // useSearchParams でクエリ変化に追従させ、営業部⇔設計部のソフトナビ遷移でも正しく切り替える。
+  // 初期値は useSearchParams(SSR/初回描画のちらつき防止)。以降は下の useEffect で
+  // URL変化(pushState/replaceState/popstate)を直接購読して更新する。
+  // ※営業部⇔設計部は同一パス(/eigyo/sankou-zu)のクエリ違い遷移で、Next の Router Cache
+  //   ヒット時に useSearchParams が再評価されないケースがあるため、URLを直接監視して確実に追従。
   const searchParams = useSearchParams();
-  const canRegister = searchParams.get("register") === "1"; // ?register=1 のとき登録/編集を表示(設計部メニュー用)
+  const [canRegister, setCanRegister] = useState(searchParams.get("register") === "1");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const loadedRef = useRef(false);
@@ -234,6 +237,34 @@ export default function SankouZuPage() {
     loadedRef.current = true;
     logUsage("launch"); // 起動回数 +1(メニュー選択=ページ起動)
     load();
+  }, []);
+
+  // URL の ?register=1 を直接監視して canRegister を更新する。
+  // Next の <Link> は history.pushState で遷移する(popstate は発火しない)ため、
+  // pushState/replaceState をラップして URL 変化を捕捉し、営業部⇔設計部の
+  // 同一パス遷移でも登録/編集ボタンとサブタイトルを確実に切り替える。
+  useEffect(() => {
+    const sync = () =>
+      setCanRegister(new URLSearchParams(window.location.search).get("register") === "1");
+    sync();
+    const origPush = window.history.pushState;
+    const origReplace = window.history.replaceState;
+    window.history.pushState = function (...args: Parameters<typeof origPush>) {
+      const ret = origPush.apply(this, args);
+      sync();
+      return ret;
+    };
+    window.history.replaceState = function (...args: Parameters<typeof origReplace>) {
+      const ret = origReplace.apply(this, args);
+      sync();
+      return ret;
+    };
+    window.addEventListener("popstate", sync);
+    return () => {
+      window.history.pushState = origPush;
+      window.history.replaceState = origReplace;
+      window.removeEventListener("popstate", sync);
+    };
   }, []);
 
   // 検索ポップアップの候補。優先順:

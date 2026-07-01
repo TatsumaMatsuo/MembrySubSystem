@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
 import { FileText, Search, RefreshCw, AlertCircle, Filter, FileSearch, ExternalLink, X, Download, List, Briefcase, Plus, Save, Pencil, Upload, ChevronDown, ChevronUp } from "lucide-react";
@@ -176,7 +177,10 @@ export default function SankouZuPage() {
   const [buhin, setBuhin] = useState<Daicho[]>([]);
   const [hanyou, setHanyou] = useState<Record<string, string[]>>({});
   const [pdfEnabled, setPdfEnabled] = useState(false);
-  const [canRegister, setCanRegister] = useState(false); // ?register=1 のとき登録/編集を表示(設計部メニュー用)
+  // 登録/編集の可否と部署表記は URL の ?register=1 で判定(設計部メニューのみ付与)。
+  // useSearchParams でクエリ変化に追従させ、営業部⇔設計部のソフトナビ遷移でも正しく切り替える。
+  const searchParams = useSearchParams();
+  const canRegister = searchParams.get("register") === "1"; // ?register=1 のとき登録/編集を表示(設計部メニュー用)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const loadedRef = useRef(false);
@@ -228,8 +232,6 @@ export default function SankouZuPage() {
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
-    // 登録/編集の可否は URL の ?register=1 で判定(設計部メニューのみ付与)
-    setCanRegister(new URLSearchParams(window.location.search).get("register") === "1");
     logUsage("launch"); // 起動回数 +1(メニュー選択=ページ起動)
     load();
   }, []);
@@ -420,7 +422,9 @@ export default function SankouZuPage() {
                   参考図台帳検索
                 </span>
               </h1>
-              <p className="text-xs sm:text-sm text-gray-500 truncate">営業部 &gt; 参考図台帳検索</p>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">
+                {canRegister ? "設計部 > 支援ツール > 参考図台帳検索" : "営業部 > 参考図台帳検索"}
+              </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {canRegister && (

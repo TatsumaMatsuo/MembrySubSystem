@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getMidtermHeaders,
   getMidtermForEdit,
+  getMidtermIndicatorOptions,
   upsertMidtermPlan,
   type MidtermPlanEdit,
 } from "@/services/keiei.service";
@@ -18,8 +19,8 @@ export async function GET(req: NextRequest) {
       const data = await getMidtermForEdit(planId);
       return NextResponse.json({ data });
     }
-    const headers = await getMidtermHeaders();
-    return NextResponse.json({ data: { headers } });
+    const [headers, kgiOptions] = await Promise.all([getMidtermHeaders(), getMidtermIndicatorOptions()]);
+    return NextResponse.json({ data: { headers, kgiOptions } });
   } catch (e: any) {
     console.error("[keiei/midterm GET] error:", e);
     return NextResponse.json({ error: e?.message ?? "failed" }, { status: 500 });

@@ -8,6 +8,7 @@
 import {
   getBaseRecords,
   getLarkBaseToken,
+  getTableFields,
   createBaseRecord,
   updateBaseRecord,
   batchCreateBaseRecords,
@@ -729,6 +730,24 @@ export function generateTrajectory(
 }
 
 /** 中計の保存(ヘッダ + 明細を upsert) */
+/**
+ * KGI指標の選択肢を取得する。中計明細「指標」(単一選択)の登録済みオプション名を返す。
+ * ※Larkの選択肢はAPIで追加できないため、UIはこの一覧からのみ選ばせる(未登録値は保存で拒否=403になる)。
+ *   新しいKGIを増やす場合は Lark UI で「指標」「KGI指標セット」フィールドの選択肢を追加する。
+ * 取得失敗時は空配列(UI側で現在値のみ表示)。
+ */
+export async function getMidtermIndicatorOptions(): Promise<string[]> {
+  try {
+    const t = getLarkTables();
+    const res: any = await getTableFields(t.KEIEI_MIDTERM_PLAN, base());
+    const field = (res.data?.items ?? []).find((x: any) => x.field_name === MD.indicator);
+    return (field?.property?.options ?? []).map((o: any) => o?.name).filter((n: any): n is string => !!n);
+  } catch (e) {
+    console.error("[keiei] getMidtermIndicatorOptions failed:", e);
+    return [];
+  }
+}
+
 export async function upsertMidtermPlan(input: MidtermPlanEdit, operator = ""): Promise<{ planId: string }> {
   const t = getLarkTables();
   const bt = base();

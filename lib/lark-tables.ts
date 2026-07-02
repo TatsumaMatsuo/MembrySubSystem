@@ -579,8 +579,15 @@ export const SANKOU_DAICHO_FIELDS: readonly string[] = [
   "ファイル名",
 ];
 
-/** 建屋区分マスタ（建屋区分名称の絞り込み候補ソース） */
+/** 建屋区分マスタのフィールド（絞り込み候補＝名称、登録は建屋区分コードを台帳「建屋区分」へ書込） */
 export const SANKOU_KENYA_NAME_FIELD = "建屋区分名称";
+export const SANKOU_KENYA_CODE_FIELD = "建屋区分コード";
+
+/**
+ * 参考図面台帳の書込不可フィールド（登録/更新で送らない）。
+ * 建屋区分名称は「建屋区分」コードから引くLookup項目のため、コードのみ書き込めば自動反映される。
+ */
+export const SANKOU_DAICHO_READONLY_FIELDS: readonly string[] = ["建屋区分名称"];
 
 /** 参考図面台帳の突合キー（業務PK） */
 export const SANKOU_DAICHO_KEY = "伝票番号";

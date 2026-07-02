@@ -8,6 +8,7 @@ import { fetchJson } from "@/lib/fetch-json";
 import { FileText, Search, RefreshCw, AlertCircle, Filter, FileSearch, ExternalLink, X, Download, List, Briefcase, Plus, Save, Pencil, Upload, ChevronDown, ChevronUp } from "lucide-react";
 
 type Daicho = Record<string, string | number | undefined>;
+type KenyaOpt = { code: string; name: string }; // 建屋区分マスタ: コード↔名称
 
 interface ApiResp {
   success: boolean;
@@ -18,7 +19,7 @@ interface ApiResp {
   daicho?: Daicho[];
   buhin?: Daicho[];
   hanyou?: Record<string, string[]>; // 汎用マスタ 項目名→内容[]
-  kenya?: string[]; // 建屋区分マスタ 建屋区分名称[]（建屋区分の絞り込み候補）
+  kenya?: KenyaOpt[]; // 建屋区分マスタ（絞り込み=名称/登録=コード）
 }
 
 // 全体フリーワードの対象列（案件名・各製番）
@@ -181,7 +182,7 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
   const [all, setAll] = useState<Daicho[]>([]);
   const [buhin, setBuhin] = useState<Daicho[]>([]);
   const [hanyou, setHanyou] = useState<Record<string, string[]>>({});
-  const [kenya, setKenya] = useState<string[]>([]); // 建屋区分マスタの建屋区分名称一覧（絞り込み候補）
+  const [kenya, setKenya] = useState<KenyaOpt[]>([]); // 建屋区分マスタ（絞り込み=名称/登録=コード）
   const [pdfEnabled, setPdfEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -269,7 +270,7 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
     for (const c of PICK_COLS) {
       if (c === "建屋区分名称") {
         // 建屋区分は建屋区分マスタの名称一覧から選ぶ(台帳に無い区分も候補に出す)
-        out[c] = sort([...kenya]);
+        out[c] = sort(kenya.map((k) => k.name));
       } else if (BUHIN_COLS.has(c)) {
         out[c] = sort([...(buhinByKigou[c] || new Set())]);
       } else if (MASTER_ITEMS[c]) {
@@ -690,6 +691,7 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
         <RegisterModal
           initial={register}
           optionsByCol={optionsByCol}
+          kenya={kenya}
           pdfEnabled={pdfEnabled}
           onClose={() => setRegister(null)}
           onSaved={() => { setRegister(null); load(true); }}
@@ -706,16 +708,21 @@ export default function SankouZuPage() {
 
 /** 登録/編集モーダル: 参考図面台帳の全項目を入力。図面PDFはBoxへアップロードしてファイル名を記録。 */
 function RegisterModal({
-  initial, optionsByCol, pdfEnabled, onClose, onSaved,
+  initial, optionsByCol, kenya, pdfEnabled, onClose, onSaved,
 }: {
   initial: Daicho;
   optionsByCol: Record<string, string[]>;
+  kenya: KenyaOpt[];
   pdfEnabled: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const denpyo = s(initial["伝票番号"]);
   const isEdit = denpyo !== "";
+  // 建屋区分: マスタ名称から選び、台帳「建屋区分」にはコードを書き込む(建屋区分名称はLookupで自動反映)
+  const kenyaNames = useMemo(() => kenya.map((k) => k.name).sort((a, b) => a.localeCompare(b, "ja", { numeric: true })), [kenya]);
+  const kenyaNameByCode = useMemo(() => Object.fromEntries(kenya.map((k) => [k.code, k.name])), [kenya]);
+  const kenyaCodeByName = useMemo(() => Object.fromEntries(kenya.map((k) => [k.name, k.code])), [kenya]);
   const [draft, setDraft] = useState<Record<string, string>>(() => {
     const d: Record<string, string> = {};
     for (const g of REG_GROUPS) for (const c of g.cols) d[c] = s(initial[c]);
@@ -857,6 +864,36 @@ function RegisterModal({
                   );
                 }
 
+                // 建屋区分: 建屋区分マスタの名称から選択し、コードを保存(名称はLookupで自動反映)
+                if (c === "建屋区分") {
+                  const code = draft[c] || "";
+                  const name = kenyaNameByCode[code] || "";
+                  const display = code ? (name ? `${name}（${code}）` : code) : "";
+                  return (
+                    <div key={c}>
+                      <label className="block text-xs font-bold text-gray-600 mb-1 truncate">建屋区分</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setPick("建屋区分")}
+                          className={`flex-1 min-w-0 px-2 py-1.5 border rounded-md text-sm text-left truncate flex items-center justify-between gap-1 ${
+                            code ? "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-800" : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                          }`}
+                          title={display || "選択してください"}
+                        >
+                          <span className="truncate">{display || "選択してください"}</span>
+                          <Search className="w-3.5 h-3.5 shrink-0 opacity-60" />
+                        </button>
+                        {code && (
+                          <button type="button" onClick={() => set(c, "")} className="text-gray-400 hover:text-gray-600 px-1" title="クリア">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
                 // 完全一致マスタ選択: ポップアップ選択のみ
                 if (selectMaster) {
                   const v = draft[c] || "";
@@ -933,15 +970,17 @@ function RegisterModal({
       </div>
     </div>
 
-    {/* 登録フォーム内のマスタ選択ポップアップ（完全一致=置換 / 関連=末尾に追加） */}
+    {/* 登録フォーム内のマスタ選択ポップアップ（建屋区分=名称選択→コード保存 / 完全一致=置換 / 関連=末尾に追加） */}
     {pick && (
       <PickerModal
         title={pick}
-        options={optionsByCol[pick] || []}
-        value={TEXTAREA_COLS.has(pick) ? "" : (draft[pick] || "")}
+        options={pick === "建屋区分" ? kenyaNames : (optionsByCol[pick] || [])}
+        value={pick === "建屋区分" ? (kenyaNameByCode[draft["建屋区分"] || ""] || "") : (TEXTAREA_COLS.has(pick) ? "" : (draft[pick] || ""))}
         onSelect={(val) => {
           const col = pick;
-          if (TEXTAREA_COLS.has(col)) {
+          if (col === "建屋区分") {
+            set(col, kenyaCodeByName[val] ?? val); // 名称→コードを保存(名称はLookupで自動反映)
+          } else if (TEXTAREA_COLS.has(col)) {
             if (val) set(col, draft[col] ? `${draft[col]}\n${val}` : val);
           } else {
             set(col, val);

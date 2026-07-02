@@ -27,6 +27,32 @@ interface UsageRow {
   launch: number;
   fetch: number;
 }
+interface SekkeiRow {
+  ym: string;    // YYYY-MM
+  count: number; // 全体設計依頼数
+}
+
+/** 相関係数の表示ラベルと色。仮説(利用増→依頼減)を支持する負の相関は緑で示す。 */
+function corrText(r: number | null): { label: string; cls: string } {
+  if (r == null) return { label: "データ不足（両方揃う月が3未満）", cls: "bg-gray-100 text-gray-500" };
+  const a = Math.abs(r);
+  const strength = a >= 0.7 ? "強い" : a >= 0.4 ? "中程度の" : "弱い";
+  if (a < 0.2) return { label: `ほぼ無相関 (r=${r.toFixed(2)})`, cls: "bg-gray-100 text-gray-600" };
+  if (r < 0) return { label: `${strength}負の相関 (r=${r.toFixed(2)})`, cls: "bg-emerald-100 text-emerald-700" };
+  return { label: `${strength}正の相関 (r=${r.toFixed(2)})`, cls: "bg-amber-100 text-amber-700" };
+}
+
+/** ピアソン相関係数（点が3未満/分散0はnull）。参考図利用と設計依頼の相関強度を示す。 */
+function pearson(pairs: [number, number][]): number | null {
+  const n = pairs.length;
+  if (n < 3) return null;
+  let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+  for (const [x, y] of pairs) { sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; }
+  const dx = Math.sqrt(n * sxx - sx * sx);
+  const dy = Math.sqrt(n * syy - sy * sy);
+  if (dx === 0 || dy === 0) return null;
+  return (n * sxy - sx * sy) / (dx * dy);
+}
 
 // 更新回数 = 情報取得回数（fetch）。起動回数（launch）も切替表示可。
 type Metric = "fetch" | "launch";
@@ -41,6 +67,7 @@ const PIE_COLORS = [
 
 export default function SankouUsageDashboard() {
   const [rows, setRows] = useState<UsageRow[]>([]);
+  const [sekkei, setSekkei] = useState<SekkeiRow[]>([]); // 設計依頼件数(相関用)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [from, setFrom] = useState(""); // 年月FROM（YYYY-MM）
@@ -52,12 +79,14 @@ export default function SankouUsageDashboard() {
     setLoading(true);
     setError("");
     try {
-      const json = await fetchJson<{ success: boolean; rows: UsageRow[]; error?: string }>("/api/eigyo/sankou-zu/usage");
+      const json = await fetchJson<{ success: boolean; rows: UsageRow[]; sekkei?: SekkeiRow[]; error?: string }>("/api/eigyo/sankou-zu/usage");
       if (!json.success) throw new Error(json.error || "取得に失敗しました");
       setRows(json.rows || []);
+      setSekkei(json.sekkei || []);
     } catch (e: any) {
       setError(e?.message || "取得に失敗しました");
       setRows([]);
+      setSekkei([]);
     } finally {
       setLoading(false);
     }
@@ -65,8 +94,12 @@ export default function SankouUsageDashboard() {
 
   useEffect(() => { load(); }, []);
 
-  // 全期間の年月（昇順）と部署一覧
-  const monthsAsc = useMemo(() => [...new Set(rows.map((r) => r.ym).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [rows]);
+  // 全期間の年月（昇順）と部署一覧。設計依頼のみの月も範囲に含める。
+  const monthsAsc = useMemo(
+    () => [...new Set([...rows.map((r) => r.ym), ...sekkei.map((s) => s.ym)].filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [rows, sekkei]
+  );
+  const sekkeiByMonth = useMemo(() => new Map(sekkei.map((s) => [s.ym, s.count])), [sekkei]);
   const depts = useMemo(() => [...new Set(rows.map((r) => r.dept).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ja")), [rows]);
 
   // データ読込後、FROM/TO 未設定なら全範囲を初期値に
@@ -95,24 +128,32 @@ export default function SankouUsageDashboard() {
     return { launch, fetch, total: launch + fetch };
   }, [filtered]);
 
-  // 推移グラフ用：年月ごとの更新回数合計（昇順）。FROM-TO の全月を欠損ゼロで埋める
+  // 推移グラフ用：年月ごとの更新回数合計（昇順）。FROM-TO の全月を欠損ゼロで埋める。
+  // 設計依頼件数(sekkei)は同じ月に紐付ける。該当月が無ければ null(線は途切れさせる)。
   const trendData = useMemo(() => {
-    if (!from || !to) return [];
+    if (!from || !to) return [] as { ym: string; value: number; sekkei: number | null }[];
     const sum = new Map<string, number>();
     for (const r of filtered) sum.set(r.ym, (sum.get(r.ym) || 0) + metricVal(r));
     // FROM〜TO の連続月を生成
-    const out: { ym: string; value: number }[] = [];
+    const out: { ym: string; value: number; sekkei: number | null }[] = [];
     const [fy, fm] = from.split("-").map(Number);
     const [ty, tm] = to.split("-").map(Number);
     let y = fy, mo = fm;
     let guard = 0;
     while ((y < ty || (y === ty && mo <= tm)) && guard++ < 240) {
       const key = `${y}-${String(mo).padStart(2, "0")}`;
-      out.push({ ym: key, value: sum.get(key) || 0 });
+      out.push({ ym: key, value: sum.get(key) || 0, sekkei: sekkeiByMonth.has(key) ? sekkeiByMonth.get(key)! : null });
       mo++; if (mo > 12) { mo = 1; y++; }
     }
     return out;
-  }, [filtered, from, to, metric]);
+  }, [filtered, from, to, metric, sekkeiByMonth]);
+
+  // 相関係数：表示中の「利用件数(metric)」と「全体設計依頼数」を、両方揃う月で算出。
+  const corr = useMemo(() => {
+    const pairs: [number, number][] = [];
+    for (const d of trendData) if (d.sekkei != null) pairs.push([d.value, d.sekkei]);
+    return { r: pearson(pairs), n: pairs.length };
+  }, [trendData]);
 
   // 円グラフ用：担当者ごとの更新回数合計（降順）
   const pieData = useMemo(() => {
@@ -209,24 +250,32 @@ export default function SankouUsageDashboard() {
               </div>
             </div>
 
-            {/* 推移グラフ（月ごと） */}
+            {/* 推移＋相関グラフ（参考図の利用件数 vs 全体設計依頼数） */}
             <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+              <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-fuchsia-500" />
-                <h3 className="text-sm font-bold text-gray-700">{METRIC_LABEL[metric]} 推移{dept ? `（${dept}）` : "（全部署）"}</h3>
+                <h3 className="text-sm font-bold text-gray-700">{METRIC_LABEL[metric]} × 全体設計依頼数{dept ? `（${dept}）` : "（全部署）"}</h3>
+                <span className={`ml-auto px-2.5 py-1 rounded-full text-xs font-bold ${corrText(corr.r).cls}`} title="ピアソン相関係数（両方の値が揃う月で算出）">
+                  相関 {corrText(corr.r).label}{corr.r != null ? `・n=${corr.n}` : ""}
+                </span>
               </div>
-              <div className="p-4" style={{ width: "100%", height: 320 }}>
+              <div className="px-4 pt-3 text-[11px] text-gray-400">
+                左軸＝{METRIC_LABEL[metric]}（参考図） / 右軸＝全体設計依頼数（全社）。負の相関ほど「参考図の利用増→設計依頼減」の仮説を支持します。
+              </div>
+              <div className="p-4 pt-2" style={{ width: "100%", height: 340 }}>
                 {trendData.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-sm text-gray-400">データがありません。</div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={trendData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                    <LineChart data={trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                       <XAxis dataKey="ym" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                      <Tooltip formatter={(v) => [`${(v as number).toLocaleString()} 回`, METRIC_LABEL[metric]]} />
+                      <YAxis yAxisId="left" tick={{ fontSize: 12 }} allowDecimals={false} stroke="#d946ef" />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} allowDecimals={false} stroke="#0ea5e9" />
+                      <Tooltip formatter={(v, name) => [v == null ? "—" : `${(v as number).toLocaleString()} ${name === "全体設計依頼数" ? "件" : "回"}`, name as string]} />
                       <Legend />
-                      <Line type="monotone" dataKey="value" name={METRIC_LABEL[metric]} stroke="#d946ef" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                      <Line yAxisId="left" type="monotone" dataKey="value" name={METRIC_LABEL[metric]} stroke="#d946ef" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                      <Line yAxisId="right" type="monotone" dataKey="sekkei" name="全体設計依頼数" stroke="#0ea5e9" strokeWidth={2.5} strokeDasharray="5 4" dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
                     </LineChart>
                   </ResponsiveContainer>
                 )}

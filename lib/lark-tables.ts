@@ -589,6 +589,16 @@ export const SANKOU_KENYA_CODE_FIELD = "建屋区分コード";
  */
 export const SANKOU_DAICHO_READONLY_FIELDS: readonly string[] = ["建屋区分名称"];
 
+/**
+ * 設計依頼集計テーブル（参考図利用分析の相関用。参考図の利用件数と設計依頼件数の相関を見る）。
+ * 参考図とは別baseにあるため base token も明示指定する。集計年月は YYYY/MM 形式。
+ * ※Amplify SSRは実行時envを読めないためフォールバック定数を必ず持たせる。
+ */
+export const SEKKEI_IRAI_BASE = process.env.LARK_BASE_TOKEN_SEKKEI_IRAI || "CxVgbbMI6apIY8swB63j5zKNp1b";
+export const SEKKEI_IRAI_TABLE = process.env.LARK_TABLE_SEKKEI_IRAI || "tblrNsEMuTP8Lg4u";
+export const SEKKEI_IRAI_YM_FIELD = "集計年月"; // YYYY/MM（YYYY-MM へ正規化して利用状況と突合）
+export const SEKKEI_IRAI_COUNT_FIELD = "全体設計依頼数";
+
 /** 参考図面台帳の突合キー（業務PK） */
 export const SANKOU_DAICHO_KEY = "伝票番号";
 

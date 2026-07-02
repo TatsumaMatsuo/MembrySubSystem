@@ -46,6 +46,7 @@ const RESULT_COLS: { col: string; label: string }[] = [
   { col: "売約番号", label: "受注製番" },
   { col: "管理番号", label: "管理番号" },
   { col: "建屋区分", label: "建屋区分" },
+  { col: "建屋区分名称", label: "建屋区分名称" },
   { col: "用途", label: "用途" },
   { col: "申請有無", label: "申請" },
   { col: "設計ルート", label: "設計ルート" },

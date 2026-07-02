@@ -3,7 +3,6 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { MainLayout } from "@/components/layout";
 import { fetchJson } from "@/lib/fetch-json";
 import { FileText, Search, RefreshCw, AlertCircle, Filter, FileSearch, ExternalLink, X, Download, List, Briefcase, Plus, Save, Pencil, Upload, ChevronDown, ChevronUp } from "lucide-react";
@@ -172,18 +171,16 @@ function s(v: string | number | undefined): string {
   return v == null ? "" : String(v);
 }
 
-export default function SankouZuPage() {
+// 参考図台帳検索の本体。営業部(閲覧のみ)と設計部(登録/編集可)で別ルートから props で呼び分ける。
+//  - canRegister: 登録/編集ボタンを表示するか(設計部=true / 営業部=false)
+//  - deptLabel: 題名下のパンくず表記(部署別)
+// ※以前は同一URL(?register=1)で切替えていたが、Next の同一パス遷移で追従しないため
+//   /eigyo/sankou-zu(営業部) と /sekkei/sankou-zu(設計部) の別ルートに分離した。
+export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean; deptLabel: string }) {
   const [all, setAll] = useState<Daicho[]>([]);
   const [buhin, setBuhin] = useState<Daicho[]>([]);
   const [hanyou, setHanyou] = useState<Record<string, string[]>>({});
   const [pdfEnabled, setPdfEnabled] = useState(false);
-  // 登録/編集の可否と部署表記は URL の ?register=1 で判定(設計部メニューのみ付与)。
-  // 初期値は useSearchParams(SSR/初回描画のちらつき防止)。以降は下の useEffect で
-  // URL変化(pushState/replaceState/popstate)を直接購読して更新する。
-  // ※営業部⇔設計部は同一パス(/eigyo/sankou-zu)のクエリ違い遷移で、Next の Router Cache
-  //   ヒット時に useSearchParams が再評価されないケースがあるため、URLを直接監視して確実に追従。
-  const searchParams = useSearchParams();
-  const [canRegister, setCanRegister] = useState(searchParams.get("register") === "1");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const loadedRef = useRef(false);
@@ -237,34 +234,6 @@ export default function SankouZuPage() {
     loadedRef.current = true;
     logUsage("launch"); // 起動回数 +1(メニュー選択=ページ起動)
     load();
-  }, []);
-
-  // URL の ?register=1 を直接監視して canRegister を更新する。
-  // Next の <Link> は history.pushState で遷移する(popstate は発火しない)ため、
-  // pushState/replaceState をラップして URL 変化を捕捉し、営業部⇔設計部の
-  // 同一パス遷移でも登録/編集ボタンとサブタイトルを確実に切り替える。
-  useEffect(() => {
-    const sync = () =>
-      setCanRegister(new URLSearchParams(window.location.search).get("register") === "1");
-    sync();
-    const origPush = window.history.pushState;
-    const origReplace = window.history.replaceState;
-    window.history.pushState = function (...args: Parameters<typeof origPush>) {
-      const ret = origPush.apply(this, args);
-      sync();
-      return ret;
-    };
-    window.history.replaceState = function (...args: Parameters<typeof origReplace>) {
-      const ret = origReplace.apply(this, args);
-      sync();
-      return ret;
-    };
-    window.addEventListener("popstate", sync);
-    return () => {
-      window.history.pushState = origPush;
-      window.history.replaceState = origReplace;
-      window.removeEventListener("popstate", sync);
-    };
   }, []);
 
   // 検索ポップアップの候補。優先順:
@@ -453,9 +422,7 @@ export default function SankouZuPage() {
                   参考図台帳検索
                 </span>
               </h1>
-              <p className="text-xs sm:text-sm text-gray-500 truncate">
-                {canRegister ? "設計部 > 支援ツール > 参考図台帳検索" : "営業部 > 参考図台帳検索"}
-              </p>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">{deptLabel}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {canRegister && (
@@ -723,6 +690,11 @@ export default function SankouZuPage() {
       )}
     </MainLayout>
   );
+}
+
+// 営業部ルート(/eigyo/sankou-zu): 閲覧のみ。登録/編集ボタンは非表示。
+export default function SankouZuPage() {
+  return <SankouZuView canRegister={false} deptLabel="営業部 > 参考図台帳検索" />;
 }
 
 /** 登録/編集モーダル: 参考図面台帳の全項目を入力。図面PDFはBoxへアップロードしてファイル名を記録。 */

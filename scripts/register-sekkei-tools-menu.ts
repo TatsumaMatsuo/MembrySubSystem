@@ -24,11 +24,16 @@ const T_GPERM = process.env.LARK_TABLE_GROUP_PERMISSION || "tbldL8lBsCnhCJQx";
 
 const GROUP = "設計部";
 const NEW_MENU = { id: "M004-01", name: "支援ツール", level: 2, parent: "M004", sort: 1 };
-// 設計部用に新設するプログラム(URLは既存と同じページを指す)
+// 設計部用に新設するプログラム
 const NEW_PROGRAMS = [
   { name: "基準風速積雪検索", url: "/eigyo/kijun-fusoku", menu: "M004-01", sort: 1 },
-  // 設計部は登録/編集を有効化するため ?register=1 を付与(営業部 PGM046 は付与しない=閲覧のみ)
-  { name: "参考図台帳検索", url: "/eigyo/sankou-zu?register=1", menu: "M004-01", sort: 2 },
+  // 設計部は登録/編集を有効化。営業部(/eigyo/sankou-zu=閲覧のみ)とは別ルートに分離し、
+  // メニュー切替を確実に反映する。以前の /eigyo/sankou-zu?register=1 から移行(下の URL_MIGRATIONS)。
+  { name: "参考図台帳検索", url: "/sekkei/sankou-zu", menu: "M004-01", sort: 2 },
+];
+// 既存プログラムのURL移行(配置メニュー内でURLを付け替え。プログラムIDと権限は維持)
+const URL_MIGRATIONS: { menu: string; from: string; to: string }[] = [
+  { menu: "M004-01", from: "/eigyo/sankou-zu?register=1", to: "/sekkei/sankou-zu" },
 ];
 // 設計部から外す営業部経由の権限
 const REMOVE_GRANTS: { type: string; id: string }[] = [
@@ -70,6 +75,11 @@ async function main() {
     const r: any = await c.bitable.appTableRecord.create({ path: { app_token: BASE, table_id: t }, data: { fields } });
     if (r.code !== 0) throw new Error(`create失敗 ${t}: ${r.msg}`);
   };
+  const update = async (t: string, record_id: string, fields: any) => {
+    if (dry) return;
+    const r: any = await c.bitable.appTableRecord.update({ path: { app_token: BASE, table_id: t, record_id }, data: { fields } });
+    if (r.code !== 0) throw new Error(`update失敗 ${t}: ${r.msg}`);
+  };
 
   console.log(`=== 設計部 支援ツール 配置${dry ? " (DRY-RUN)" : ""} ===`);
 
@@ -85,6 +95,20 @@ async function main() {
 
   // 2) プログラム(URL+配置で冪等。新規は最大PGM+1で採番)
   const progs = await fetchAll(c, T_PROG);
+
+  // 2a) 旧URLからの移行(プログラムID/権限は維持したまま URLパス だけ付け替え)
+  for (const mig of URL_MIGRATIONS) {
+    const rows = progs.filter((p) => val(p.fields?.["URLパス"]).trim() === mig.from && val(p.fields?.["配置メニューID"]).trim() === mig.menu);
+    for (const row of rows) {
+      const id = val(row.fields?.["プログラムID"]).trim();
+      console.log(`  ~ URL移行 ${id}: ${mig.from} → ${mig.to} (record ${row.record_id})`);
+      await update(T_PROG, row.record_id, { "URLパス": mig.to });
+      // ローカルのキャッシュも更新して後続の冪等判定に反映
+      row.fields["URLパス"] = mig.to;
+    }
+    if (rows.length === 0) console.log(`  ・移行対象なし ${mig.from}`);
+  }
+
   let maxNum = 0;
   for (const p of progs) { const m = val(p.fields?.["プログラムID"]).trim().match(/^PGM(\d+)$/); if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10)); }
   const grantProgramIds: string[] = [];

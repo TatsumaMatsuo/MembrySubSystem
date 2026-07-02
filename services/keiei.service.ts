@@ -752,6 +752,18 @@ export async function upsertMidtermPlan(input: MidtermPlanEdit, operator = ""): 
   const t = getLarkTables();
   const bt = base();
 
+  // KGI指標セットはフィールド型に応じて書き分ける。
+  //  複数選択(type=4)=名称の配列 / テキスト(type=1)=カンマ結合の文字列。
+  //  ※Larkの選択肢はAPIで追加できない(1254302)。任意の指標名を使う場合はLark側でこのフィールドと
+  //    明細「指標」をテキスト型に変更する。テキスト化後も本コードはそのまま動く(型を自動判別)。
+  const indicators = input.kgis.map((k) => k.indicator);
+  let kgiSetValue: any = indicators;
+  try {
+    const hf: any = await getTableFields(t.KEIEI_MIDTERM_PLAN_HEADER, bt);
+    const kgiSetType = (hf.data?.items ?? []).find((x: any) => x.field_name === MH.kgi_set)?.type;
+    if (kgiSetType === 1) kgiSetValue = indicators.join(", ");
+  } catch { /* 型取得失敗時は配列のまま(従来動作) */ }
+
   // --- ヘッダ ---
   const headerFields: Record<string, any> = {
     [MH.plan_id]: input.planId,
@@ -759,7 +771,7 @@ export async function upsertMidtermPlan(input: MidtermPlanEdit, operator = ""): 
     [MH.start_period]: input.startPeriod,
     [MH.end_period]: input.endPeriod,
     [MH.status]: input.status,
-    [MH.kgi_set]: input.kgis.map((k) => k.indicator),
+    [MH.kgi_set]: kgiSetValue,
     [MH.interpolation]: "線形補間",
   };
   const foundH = await getBaseRecords(t.KEIEI_MIDTERM_PLAN_HEADER, {

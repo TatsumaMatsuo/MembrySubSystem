@@ -5,7 +5,13 @@ import {
   createBaseRecord,
   updateBaseRecord,
 } from "@/lib/lark-client";
-import { getLarkTables } from "@/lib/lark-tables";
+import {
+  getLarkTables,
+  SEKKEI_IRAI_BASE,
+  SEKKEI_IRAI_TABLE,
+  SEKKEI_IRAI_YM_FIELD,
+  SEKKEI_IRAI_COUNT_FIELD,
+} from "@/lib/lark-tables";
 import { getServerSession } from "@/lib/auth-server";
 import { getEmployeeByEmail } from "@/lib/menu-permission";
 
@@ -92,6 +98,26 @@ export async function POST(request: Request) {
   }
 }
 
+/**
+ * 設計依頼集計テーブル(別base)から 年月(YYYY-MM)×全体設計依頼数 を取得。
+ * 参考図の利用件数との相関分析に使う。取得失敗はダッシュボード全体を壊さないよう空配列で握りつぶす。
+ */
+async function loadSekkeiIrai(): Promise<{ ym: string; count: number }[]> {
+  const out: { ym: string; count: number }[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res: any = await getBaseRecords(SEKKEI_IRAI_TABLE, { baseToken: SEKKEI_IRAI_BASE, pageSize: 500, pageToken });
+    for (const it of res.data?.items || []) {
+      const f = it.fields || {};
+      const ym = textOf(f[SEKKEI_IRAI_YM_FIELD]).trim().replace(/\//g, "-"); // YYYY/MM → YYYY-MM
+      if (!/^\d{4}-\d{2}$/.test(ym)) continue;
+      out.push({ ym, count: numOf(f[SEKKEI_IRAI_COUNT_FIELD]) });
+    }
+    pageToken = res.data?.has_more ? res.data?.page_token : undefined;
+  } while (pageToken);
+  return out;
+}
+
 export async function GET() {
   const tableId = getLarkTables().SANKOU_USAGE;
   if (!tableId) return NextResponse.json({ success: false, error: "利用状況テーブル未設定" }, { status: 500 });
@@ -114,7 +140,16 @@ export async function GET() {
       pageToken = res.data?.has_more ? res.data?.page_token : undefined;
     } while (pageToken);
     rows.sort((a, b) => (a.ym === b.ym ? a.user.localeCompare(b.user, "ja") : b.ym.localeCompare(a.ym)));
-    return NextResponse.json({ success: true, rows });
+
+    // 設計依頼件数(相関分析用)。別baseのため失敗しても利用状況は返す。
+    let sekkei: { ym: string; count: number }[] = [];
+    try {
+      sekkei = await loadSekkeiIrai();
+    } catch (e: any) {
+      console.error("[sankou-zu/usage] 設計依頼取得失敗:", e?.message || e);
+    }
+
+    return NextResponse.json({ success: true, rows, sekkei });
   } catch (error: any) {
     console.error("[sankou-zu/usage] GET Error:", error);
     return NextResponse.json({ success: false, error: "取得に失敗しました", detail: error?.message }, { status: 500 });

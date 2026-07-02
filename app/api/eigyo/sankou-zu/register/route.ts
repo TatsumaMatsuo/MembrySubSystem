@@ -6,7 +6,7 @@ import {
   createBaseRecord,
   updateBaseRecord,
 } from "@/lib/lark-client";
-import { getLarkTables, SANKOU_DAICHO_FIELDS, SANKOU_DAICHO_KEY } from "@/lib/lark-tables";
+import { getLarkTables, SANKOU_DAICHO_FIELDS, SANKOU_DAICHO_KEY, SANKOU_DAICHO_READONLY_FIELDS } from "@/lib/lark-tables";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -53,11 +53,12 @@ export async function POST(request: Request) {
       (fres.data?.items ?? []).map((f: any) => [f.field_name as string, f.type as number])
     );
 
-    // 許可フィールドのみ・型変換して採用（伝票番号は別途採番/指定）
+    // 許可フィールドのみ・型変換して採用（伝票番号は別途採番/指定、Lookup等の読取専用は除外）
     const allow = new Set<string>(SANKOU_DAICHO_FIELDS);
+    const readonly = new Set<string>(SANKOU_DAICHO_READONLY_FIELDS);
     const fields: Record<string, any> = {};
     for (const [k, raw] of Object.entries(inputFields)) {
-      if (!allow.has(k) || k === SANKOU_DAICHO_KEY) continue;
+      if (!allow.has(k) || k === SANKOU_DAICHO_KEY || readonly.has(k)) continue;
       const isNum = typeByField.get(k) === 2;
       if (isNum) {
         const n = typeof raw === "number" ? raw : Number(textOf(raw).replace(/[, ]/g, ""));

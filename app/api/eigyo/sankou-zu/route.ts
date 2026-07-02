@@ -9,7 +9,10 @@ import {
   SANKOU_BUHIN_FIELDS,
   SANKOU_HANYOU_SYSTEM,
   SANKOU_KENYA_NAME_FIELD,
+  SANKOU_KENYA_CODE_FIELD,
 } from "@/lib/lark-tables";
+
+type KenyaOption = { code: string; name: string };
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -31,7 +34,7 @@ type BuhinRecord = Record<string, string | number>;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1時間
 const NUMERIC = new Set<string>(SANKOU_DAICHO_NUMERIC_FIELDS);
 
-let _cache: { at: number; daicho: DaichoRecord[]; buhin: BuhinRecord[]; hanyou: Record<string, string[]>; kenya: string[] } | null = null;
+let _cache: { at: number; daicho: DaichoRecord[]; buhin: BuhinRecord[]; hanyou: Record<string, string[]>; kenya: KenyaOption[] } | null = null;
 
 function textOf(v: any): string {
   if (v == null) return "";
@@ -98,20 +101,24 @@ async function loadHanyou(tableId: string): Promise<Record<string, string[]>> {
   return out;
 }
 
-/** 建屋区分マスタから 建屋区分名称 の一覧(重複除去・50音順)を取得。絞り込み候補に使う。 */
-async function loadKenya(tableId: string): Promise<string[]> {
+/**
+ * 建屋区分マスタから {建屋区分コード, 建屋区分名称} の一覧(名称50音順)を取得。
+ * 絞り込みは名称で照合、登録はコードを台帳「建屋区分」へ書き込む。
+ */
+async function loadKenya(tableId: string): Promise<KenyaOption[]> {
   const baseToken = getLarkBaseToken();
-  const set = new Set<string>();
+  const byName = new Map<string, KenyaOption>();
   let pageToken: string | undefined;
   do {
     const res: any = await getBaseRecords(tableId, { baseToken, pageSize: 500, pageToken });
     for (const it of res.data?.items || []) {
       const name = textOf(it.fields?.[SANKOU_KENYA_NAME_FIELD]).trim();
-      if (name) set.add(name);
+      const code = textOf(it.fields?.[SANKOU_KENYA_CODE_FIELD]).trim();
+      if (name && !byName.has(name)) byName.set(name, { code, name });
     }
     pageToken = res.data?.has_more ? res.data?.page_token : undefined;
   } while (pageToken);
-  return [...set].sort((a, b) => a.localeCompare(b, "ja", { numeric: true }));
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name, "ja", { numeric: true }));
 }
 
 

@@ -18,6 +18,7 @@ interface ApiResp {
   daicho?: Daicho[];
   buhin?: Daicho[];
   hanyou?: Record<string, string[]>; // 汎用マスタ 項目名→内容[]
+  kenya?: string[]; // 建屋区分マスタ 建屋区分名称[]（建屋区分の絞り込み候補）
 }
 
 // 全体フリーワードの対象列（案件名・各製番）
@@ -26,7 +27,7 @@ const FREE_FIELDS = ["案件名", "管理名", "管理番号", "売約番号"] a
 // 詳細表示・Excel出力に使う全列（Access 参照図面情報2 の順）
 const ALL_COLS = [
   "伝票番号", "管理番号", "管理名", "売約番号", "案件名", "期", "設計ルート", "申請有無",
-  "設計条件(基準風)", "設計条件(基準雪)", "建屋区分", "用途", "計画概要memo",
+  "設計条件(基準風)", "設計条件(基準雪)", "建屋区分", "建屋区分名称", "用途", "計画概要memo",
   "間口", "桁行", "軒高", "柱ピッチ", "勾配",
   "出入口1", "サイズ1", "出入口2", "サイズ2", "庇出巾", "壁面",
   "柱形状", "B-PL形状", "C1", "柱成", "柱ラチ", "T1", "梁成", "梁ラチ", "G1",
@@ -67,7 +68,7 @@ const TABS: Tab[] = [
     name: "設計情報",
     fields: [
       { col: "期", kind: "range" },
-      { col: "建屋区分", kind: "select" },
+      { col: "建屋区分名称", kind: "select", label: "建屋区分" }, // 候補は建屋区分マスタから(台帳の建屋区分名称で照合)
       { col: "用途", kind: "select" },
       { col: "申請有無", kind: "select" },
       { col: "設計ルート", kind: "select" },
@@ -180,6 +181,7 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
   const [all, setAll] = useState<Daicho[]>([]);
   const [buhin, setBuhin] = useState<Daicho[]>([]);
   const [hanyou, setHanyou] = useState<Record<string, string[]>>({});
+  const [kenya, setKenya] = useState<string[]>([]); // 建屋区分マスタの建屋区分名称一覧（絞り込み候補）
   const [pdfEnabled, setPdfEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -220,6 +222,7 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
       setAll(json.daicho || []);
       setBuhin(json.buhin || []);
       setHanyou(json.hanyou || {});
+      setKenya(json.kenya || []);
       setPdfEnabled(Boolean(json.pdfEnabled));
     } catch (e: any) {
       setError(e?.message || "取得に失敗しました");
@@ -237,6 +240,7 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
   }, []);
 
   // 検索ポップアップの候補。優先順:
+  //  建屋区分名称 → 建屋区分マスタ(全件)
   //  部材記号17項目(BUHIN_COLS) → 参考図部品マスタ(分類1→部品名称)
   //  汎用マスタ対象(MASTER_ITEMS) → 汎用マスタ(システム名=参考図面情報, 項目名→内容。複数項目は統合)
   //  どちらでもない★ → 台帳の実値(フォールバック)
@@ -263,7 +267,10 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
     }
 
     for (const c of PICK_COLS) {
-      if (BUHIN_COLS.has(c)) {
+      if (c === "建屋区分名称") {
+        // 建屋区分は建屋区分マスタの名称一覧から選ぶ(台帳に無い区分も候補に出す)
+        out[c] = sort([...kenya]);
+      } else if (BUHIN_COLS.has(c)) {
         out[c] = sort([...(buhinByKigou[c] || new Set())]);
       } else if (MASTER_ITEMS[c]) {
         const set = new Set<string>();
@@ -274,7 +281,7 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
       }
     }
     return out;
-  }, [all, buhin, hanyou]);
+  }, [all, buhin, hanyou, kenya]);
 
   function inRange(val: string | number | undefined, min: string, max: string): boolean {
     if (!min && !max) return true;

@@ -8,6 +8,7 @@ import {
   SANKOU_DAICHO_KEY,
   SANKOU_BUHIN_FIELDS,
   SANKOU_HANYOU_SYSTEM,
+  SANKOU_KENYA_NAME_FIELD,
 } from "@/lib/lark-tables";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ type BuhinRecord = Record<string, string | number>;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1時間
 const NUMERIC = new Set<string>(SANKOU_DAICHO_NUMERIC_FIELDS);
 
-let _cache: { at: number; daicho: DaichoRecord[]; buhin: BuhinRecord[]; hanyou: Record<string, string[]> } | null = null;
+let _cache: { at: number; daicho: DaichoRecord[]; buhin: BuhinRecord[]; hanyou: Record<string, string[]>; kenya: string[] } | null = null;
 
 function textOf(v: any): string {
   if (v == null) return "";
@@ -97,6 +98,22 @@ async function loadHanyou(tableId: string): Promise<Record<string, string[]>> {
   return out;
 }
 
+/** 建屋区分マスタから 建屋区分名称 の一覧(重複除去・50音順)を取得。絞り込み候補に使う。 */
+async function loadKenya(tableId: string): Promise<string[]> {
+  const baseToken = getLarkBaseToken();
+  const set = new Set<string>();
+  let pageToken: string | undefined;
+  do {
+    const res: any = await getBaseRecords(tableId, { baseToken, pageSize: 500, pageToken });
+    for (const it of res.data?.items || []) {
+      const name = textOf(it.fields?.[SANKOU_KENYA_NAME_FIELD]).trim();
+      if (name) set.add(name);
+    }
+    pageToken = res.data?.has_more ? res.data?.page_token : undefined;
+  } while (pageToken);
+  return [...set].sort((a, b) => a.localeCompare(b, "ja", { numeric: true }));
+}
+
 
 export async function GET(request: Request) {
   const tables = getLarkTables();
@@ -113,14 +130,15 @@ export async function GET(request: Request) {
   try {
     const now = Date.now();
     if (force || !_cache || now - _cache.at > CACHE_TTL_MS) {
-      const [daicho, buhin, hanyou] = await Promise.all([
+      const [daicho, buhin, hanyou, kenya] = await Promise.all([
         loadTable(tables.SANKOU_DAICHO, SANKOU_DAICHO_FIELDS, NUMERIC) as Promise<DaichoRecord[]>,
         loadTable(tables.SANKOU_BUHIN, SANKOU_BUHIN_FIELDS, new Set(["ID"])) as Promise<BuhinRecord[]>,
         tables.SANKOU_HANYOU ? loadHanyou(tables.SANKOU_HANYOU) : Promise.resolve({}),
+        tables.SANKOU_KENYA ? loadKenya(tables.SANKOU_KENYA) : Promise.resolve([]),
       ]);
       // 伝票番号(業務PK)の昇順で安定表示
       daicho.sort((a, b) => Number(a[SANKOU_DAICHO_KEY]) - Number(b[SANKOU_DAICHO_KEY]));
-      _cache = { at: now, daicho, buhin, hanyou };
+      _cache = { at: now, daicho, buhin, hanyou, kenya };
     }
     return NextResponse.json({
       success: true,
@@ -130,6 +148,7 @@ export async function GET(request: Request) {
       daicho: _cache.daicho,
       buhin: _cache.buhin,
       hanyou: _cache.hanyou,
+      kenya: _cache.kenya,
     });
   } catch (error: any) {
     console.error("[sankou-zu] Error:", error);

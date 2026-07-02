@@ -49,6 +49,8 @@ export function getLarkTables() {
     SANKOU_BUHIN: process.env.LARK_TABLE_SANKOU_BUHIN || "tbliF60cCLGAP66v",
     // 参考図汎用マスタ（部材以外の★候補。区分/値/表示順/有効フラグ。project base）
     SANKOU_HANYOU: process.env.LARK_TABLE_SANKOU_HANYOU || "tbl9MGRMMHGNXFUU",
+    // 建屋区分マスタ（建屋分類/建屋区分コード/建屋区分名称。参考図の建屋区分絞り込み候補。project base）
+    SANKOU_KENYA: process.env.LARK_TABLE_SANKOU_KENYA || "tblRVvbUrUddNFEb",
     // 参考図台帳 利用状況（年月×担当者で 起動回数/情報取得回数 を集計。project base）
     SANKOU_USAGE: process.env.LARK_TABLE_SANKOU_USAGE || "tblCPZFOU4bBStJw",
 
@@ -567,7 +569,7 @@ export const SANKOU_DAICHO_NUMERIC_FIELDS: readonly string[] = [
 /** 参考図面台帳: 全フィールド（Lark作成順の正・ファイルパスは除外）。突合キー=伝票番号 */
 export const SANKOU_DAICHO_FIELDS: readonly string[] = [
   "伝票番号", "管理番号", "管理名", "売約番号", "案件名", "期", "設計ルート", "申請有無",
-  "設計条件(基準風)", "設計条件(基準雪)", "建屋区分", "用途", "計画概要memo",
+  "設計条件(基準風)", "設計条件(基準雪)", "建屋区分", "建屋区分名称", "用途", "計画概要memo",
   "間口", "桁行", "軒高", "柱ピッチ", "勾配",
   "出入口1", "サイズ1", "出入口2", "サイズ2", "庇出巾", "壁面",
   "柱形状", "B-PL形状", "C1", "柱成", "柱ラチ", "T1", "梁成", "梁ラチ", "G1",
@@ -576,6 +578,9 @@ export const SANKOU_DAICHO_FIELDS: readonly string[] = [
   "形状関連", "出入口関連", "膜関連", "設備関連", "構造関連", "移動建屋関連", "開閉関連", "畜舎関連",
   "ファイル名",
 ];
+
+/** 建屋区分マスタ（建屋区分名称の絞り込み候補ソース） */
+export const SANKOU_KENYA_NAME_FIELD = "建屋区分名称";
 
 /** 参考図面台帳の突合キー（業務PK） */
 export const SANKOU_DAICHO_KEY = "伝票番号";

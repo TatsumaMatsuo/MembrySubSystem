@@ -32,6 +32,10 @@ interface SekkeiRow {
   count: number; // 全体設計依頼数
 }
 
+// 担当者別明細のソート対象列
+type SortKey = "ym" | "user" | "dept" | "launch" | "fetch";
+const NUMERIC_SORT: Record<SortKey, boolean> = { ym: false, user: false, dept: false, launch: true, fetch: true };
+
 /** 相関係数の表示ラベルと色。仮説(利用増→依頼減)を支持する負の相関は緑で示す。 */
 function corrText(r: number | null): { label: string; cls: string } {
   if (r == null) return { label: "データ不足（両方揃う月が3未満）", cls: "bg-gray-100 text-gray-500" };
@@ -168,8 +172,28 @@ export default function SankouUsageDashboard() {
 
   const pieTotal = useMemo(() => pieData.reduce((s, d) => s + d.value, 0), [pieData]);
 
-  // 担当者別 明細（FROM-TO・部署で絞り込み済み）
-  const detail = useMemo(() => [...filtered].sort((a, b) => (a.ym === b.ym ? a.user.localeCompare(b.user, "ja") : b.ym.localeCompare(a.ym))), [filtered]);
+  // 担当者別 明細（FROM-TO・部署で絞り込み済み）。ヘッダクリックでソート。
+  const [sortKey, setSortKey] = useState<SortKey>("ym");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir(NUMERIC_SORT[key] || key === "ym" ? "desc" : "asc"); }
+  };
+  const sortArrow = (key: SortKey) => (sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "");
+  const detail = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      let c = NUMERIC_SORT[sortKey]
+        ? (a[sortKey] as number) - (b[sortKey] as number)
+        : String(a[sortKey]).localeCompare(String(b[sortKey]), "ja", { numeric: true });
+      c *= dir;
+      if (c !== 0) return c;
+      // タイブレーク: 年月の新しい順 → 担当者名
+      return b.ym.localeCompare(a.ym) || a.user.localeCompare(b.user, "ja");
+    });
+    return arr;
+  }, [filtered, sortKey, sortDir]);
 
   return (
     <MainLayout>
@@ -348,11 +372,11 @@ export default function SankouUsageDashboard() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-xs text-gray-500 sticky top-0">
                     <tr>
-                      <th className="px-3 py-2 text-left font-bold">年月</th>
-                      <th className="px-3 py-2 text-left font-bold">担当者</th>
-                      <th className="px-3 py-2 text-left font-bold">所属部署</th>
-                      <th className="px-3 py-2 text-right font-bold">起動回数</th>
-                      <th className="px-3 py-2 text-right font-bold">情報取得回数</th>
+                      <th onClick={() => toggleSort("ym")} className="px-3 py-2 text-left font-bold cursor-pointer select-none hover:text-fuchsia-600 whitespace-nowrap">年月{sortArrow("ym")}</th>
+                      <th onClick={() => toggleSort("user")} className="px-3 py-2 text-left font-bold cursor-pointer select-none hover:text-fuchsia-600 whitespace-nowrap">担当者{sortArrow("user")}</th>
+                      <th onClick={() => toggleSort("dept")} className="px-3 py-2 text-left font-bold cursor-pointer select-none hover:text-fuchsia-600 whitespace-nowrap">所属部署{sortArrow("dept")}</th>
+                      <th onClick={() => toggleSort("launch")} className="px-3 py-2 text-right font-bold cursor-pointer select-none hover:text-fuchsia-600 whitespace-nowrap">起動回数{sortArrow("launch")}</th>
+                      <th onClick={() => toggleSort("fetch")} className="px-3 py-2 text-right font-bold cursor-pointer select-none hover:text-fuchsia-600 whitespace-nowrap">情報取得回数{sortArrow("fetch")}</th>
                     </tr>
                   </thead>
                   <tbody>

@@ -643,39 +643,66 @@ async function getSalesRatiosByPeriod(periods: PeriodInfo[]): Promise<Map<number
 
 export interface SalesUsageBucketRow { label: string; indicator: string; count: number; sales: number; ratio: number }
 export interface SalesUsagePersonRow { name: string; department: string; count: number; sales: number; byUsage: Record<string, number> }
-export interface SalesUsageBreakdown {
+export interface SalesUsageKgi {
+  indicator: string;
+  unit: string;
+  trajectory: { period: number; target: number | null }[];
+  actuals: { period: number; actual: number | null }[];
+  finalTarget: number;
+  finalPeriod: number;
+  currentActual: number | null;
+  attainment: number | null;
+}
+export interface SalesUsageAnalysis {
   period: number;
   start: string;
   end: string;
+  planName: string | null;
+  planPeriods: number[];
+  currentPeriod: number;
   total: { count: number; sales: number };
   byUsage: SalesUsageBucketRow[];
   bySalesperson: SalesUsagePersonRow[];
+  kgis: SalesUsageKgi[];
 }
 
-let _salesUsageCache = new Map<number, { at: number; data: SalesUsageBreakdown }>();
+let _salesUsageCache = new Map<number, { at: number; data: SalesUsageAnalysis }>();
 
 /**
- * 指定期の 用途別売上内訳 を算出。
- *  - byUsage: 用途(製品分類)別の 件数・売上合計・構成比。
- *  - bySalesperson: 担当者別の 件数・売上合計(+用途別売上)。売上高降順。
- * 売上情報テーブルを search API(製品分類Lookupを名称展開)で取得し、売上日で当該期に絞る。期別5分キャッシュ。
+ * 用途別売上分析(売上BIタブ)を1回の売上スキャンで算出。
+ *  - byUsage: 選択期の用途(製品分類)別 件数・売上合計・構成比。
+ *  - bySalesperson: 選択期の担当者別 件数・売上合計(+用途別売上)。売上高降順。
+ *  - kgis: 売上比率KGIの目標(中計明細 tbls3w16SRX4KQRn)× 実績(売上情報 tbl65w6u6J72QFoz の期別構成比)。
+ * 目標は中計明細から、実績は同一スキャンの期別比率から。重い buildMidtermDashboard を使わず高速。期別5分キャッシュ。
  */
-export async function getSalesUsageBreakdown(period: number): Promise<SalesUsageBreakdown> {
+export async function getSalesUsageAnalysis(period: number): Promise<SalesUsageAnalysis> {
   const cached = _salesUsageCache.get(period);
   if (cached && Date.now() - cached.at < SALES_RATIO_TTL) return cached.data;
 
-  const periods = await getPeriods();
+  const [periods, headers] = await Promise.all([getPeriods(), getMidtermHeaders()]);
   const pinfo = periods.find((p) => p.period === period);
-  const empty: SalesUsageBreakdown = { period, start: pinfo?.startDate ?? "", end: pinfo?.endDate ?? "", total: { count: 0, sales: 0 }, byUsage: SALES_USAGE_BUCKETS.map((b) => ({ label: b.label, indicator: b.indicator, count: 0, sales: 0, ratio: 0 })), bySalesperson: [] };
-  if (!pinfo?.startDate || !pinfo?.endDate) return empty;
+  const currentPeriod = periods.find((p) => p.isCurrent)?.period ?? period;
+  // 対象中計: 選択期を含む中計 → 現行 → 先頭
+  const header = headers.find((h) => period >= h.startPeriod && period <= h.endPeriod)
+    ?? headers.find((h) => h.status === "現行") ?? headers[0] ?? null;
+  const planPeriods: number[] = header ? Array.from({ length: header.endPeriod - header.startPeriod + 1 }, (_, i) => header.startPeriod + i) : [];
+  const emptyUsage = SALES_USAGE_BUCKETS.map((b) => ({ label: b.label, indicator: b.indicator, count: 0, sales: 0, ratio: 0 }));
+
+  if (!pinfo?.startDate || !pinfo?.endDate) {
+    return { period, start: pinfo?.startDate ?? "", end: pinfo?.endDate ?? "", planName: header?.name ?? null, planPeriods, currentPeriod, total: { count: 0, sales: 0 }, byUsage: emptyUsage, bySalesperson: [], kgis: [] };
+  }
   const start = pinfo.startDate;
   const end = pinfo.endDate;
 
+  // 期割当(全期) + 用途バケット
+  const ranges = periods.filter((p) => p.startDate && p.endDate).map((p) => ({ period: p.period, start: p.startDate, end: p.endDate }));
+  const assignPeriod = (d: string) => ranges.find((r) => d >= r.start && d <= r.end)?.period ?? null;
   const bucketByCat = new Map<string, typeof SALES_USAGE_BUCKETS[number]>();
   for (const b of SALES_USAGE_BUCKETS) if (b.cat) bucketByCat.set(b.cat, b);
   const otherBucket = SALES_USAGE_BUCKETS.find((b) => b.cat == null)!;
   const bucketOf = (cat: string) => bucketByCat.get(cat) ?? otherBucket;
 
+  // 売上情報を1回だけ全ページ取得
   const rows = await searchBaseRecordsAll(SALES_TABLE, {
     baseToken: base(),
     viewId: SALES_RATIO_VIEW,
@@ -683,6 +710,9 @@ export async function getSalesUsageBreakdown(period: number): Promise<SalesUsage
     pageSize: 500,
   });
 
+  // 全期の指標別売上(KGI実績=構成比用) + 選択期の用途/担当者集計
+  const periodTotals = new Map<number, number>();
+  const periodByIndicator = new Map<number, Map<string, number>>();
   const usageAgg = new Map<string, { count: number; sales: number }>();
   for (const b of SALES_USAGE_BUCKETS) usageAgg.set(b.label, { count: 0, sales: 0 });
   const personAgg = new Map<string, SalesUsagePersonRow>();
@@ -692,25 +722,41 @@ export async function getSalesUsageBreakdown(period: number): Promise<SalesUsage
   for (const r of rows) {
     const f = r.fields ?? {};
     const d = fieldText(f["売上日"]).replace(/\//g, "-").slice(0, 10);
-    if (!d || d < start || d > end) continue;
+    if (!d) continue;
+    const per = assignPeriod(d);
+    if (per == null) continue;
     const amount = asNum(fieldText(f["金額"]));
     const bucket = bucketOf(fieldText(f["製品分類"]));
-    const person = fieldText(f["担当者"]) || "(担当者なし)";
-    const dept = fieldText(f["部課"]);
 
-    totalCount++;
-    totalSales += amount;
-    const u = usageAgg.get(bucket.label)!;
-    u.count++;
-    u.sales += amount;
+    // 全期の指標別売上(実績構成比の分子)
+    periodTotals.set(per, (periodTotals.get(per) ?? 0) + amount);
+    if (!periodByIndicator.has(per)) periodByIndicator.set(per, new Map());
+    const pm = periodByIndicator.get(per)!;
+    pm.set(bucket.indicator, (pm.get(bucket.indicator) ?? 0) + amount);
 
-    let pr = personAgg.get(person);
-    if (!pr) { pr = { name: person, department: dept, count: 0, sales: 0, byUsage: {} }; personAgg.set(person, pr); }
-    if (!pr.department && dept) pr.department = dept;
-    pr.count++;
-    pr.sales += amount;
-    pr.byUsage[bucket.label] = (pr.byUsage[bucket.label] ?? 0) + amount;
+    // 選択期のみ用途/担当者を集計
+    if (d >= start && d <= end) {
+      totalCount++;
+      totalSales += amount;
+      const u = usageAgg.get(bucket.label)!;
+      u.count++;
+      u.sales += amount;
+      const person = fieldText(f["担当者"]) || "(担当者なし)";
+      const dept = fieldText(f["部課"]);
+      let pr = personAgg.get(person);
+      if (!pr) { pr = { name: person, department: dept, count: 0, sales: 0, byUsage: {} }; personAgg.set(person, pr); }
+      if (!pr.department && dept) pr.department = dept;
+      pr.count++;
+      pr.sales += amount;
+      pr.byUsage[bucket.label] = (pr.byUsage[bucket.label] ?? 0) + amount;
+    }
   }
+
+  const ratioAt = (per: number, indicator: string): number | null => {
+    const total = periodTotals.get(per) ?? 0;
+    if (!total) return null;
+    return ((periodByIndicator.get(per)?.get(indicator) ?? 0) / total) * 100;
+  };
 
   const byUsage: SalesUsageBucketRow[] = SALES_USAGE_BUCKETS.map((b) => {
     const a = usageAgg.get(b.label)!;
@@ -718,7 +764,30 @@ export async function getSalesUsageBreakdown(period: number): Promise<SalesUsage
   });
   const bySalesperson = [...personAgg.values()].sort((a, b) => b.sales - a.sales);
 
-  const data: SalesUsageBreakdown = { period, start, end, total: { count: totalCount, sales: totalSales }, byUsage, bySalesperson };
+  // KGI: 中計明細(目標) × 売上比率(実績)。売上比率指標のみを SALES_USAGE_BUCKETS 順に。
+  const kgis: SalesUsageKgi[] = [];
+  if (header) {
+    const details = await getMidtermDetails(header.planId);
+    const byInd = new Map<string, { unit: string; finalTarget: number; points: Map<number, number> }>();
+    for (const dd of details) {
+      if (!SALES_RATIO_INDICATORS.has(dd.indicator)) continue;
+      if (!byInd.has(dd.indicator)) byInd.set(dd.indicator, { unit: dd.unit, finalTarget: dd.finalTarget, points: new Map() });
+      const e = byInd.get(dd.indicator)!;
+      e.points.set(dd.period, dd.target);
+      if (dd.finalTarget) e.finalTarget = dd.finalTarget;
+    }
+    for (const b of SALES_USAGE_BUCKETS) {
+      const e = byInd.get(b.indicator);
+      if (!e) continue;
+      const trajectory = planPeriods.map((p) => ({ period: p, target: e.points.has(p) ? e.points.get(p)! : null }));
+      const actuals = planPeriods.map((p) => ({ period: p, actual: p <= currentPeriod ? ratioAt(p, b.indicator) : null }));
+      const finalTarget = e.finalTarget || (trajectory.length ? trajectory[trajectory.length - 1].target ?? 0 : 0);
+      const currentActual = ratioAt(period, b.indicator);
+      kgis.push({ indicator: b.indicator, unit: e.unit || "%", trajectory, actuals, finalTarget, finalPeriod: header.endPeriod, currentActual, attainment: currentActual != null && finalTarget ? currentActual / finalTarget : null });
+    }
+  }
+
+  const data: SalesUsageAnalysis = { period, start, end, planName: header?.name ?? null, planPeriods, currentPeriod, total: { count: totalCount, sales: totalSales }, byUsage, bySalesperson, kgis };
   _salesUsageCache.set(period, { at: Date.now(), data });
   return data;
 }

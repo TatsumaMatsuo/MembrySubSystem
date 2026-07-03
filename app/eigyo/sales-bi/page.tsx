@@ -66,7 +66,8 @@ interface UsageKgi {
   attainment: number | null;
 }
 interface UsageBucket { label: string; indicator: string; count: number; sales: number; ratio: number }
-interface UsagePerson { name: string; department: string; count: number; sales: number; byUsage: Record<string, number> }
+interface UsagePerson { name: string; department: string; count: number; sales: number; byUsage: Record<string, { count: number; sales: number }> }
+const USAGE_LABELS = ["産業用", "建築用", "商業用", "農業用", "その他"] as const;
 interface UsageData {
   period: number | null;
   planName: string | null;
@@ -5370,25 +5371,35 @@ export default function BIDashboardPage() {
                     </div>
                   </div>
 
-                  {/* 担当者別 件数・売上合計 */}
+                  {/* 担当者用途別 件数・売上合計 */}
                   <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
                     <h3 className="text-base font-bold mb-3 text-gray-800 flex items-center gap-2">
-                      <User className="w-4 h-4 text-blue-500" /> 担当者別 売上合計・件数
-                      <span className="text-xs font-normal text-gray-500">（売上高降順）</span>
+                      <User className="w-4 h-4 text-blue-500" /> 担当者用途別 売上合計・件数
+                      <span className="text-xs font-normal text-gray-500">（売上高降順・各セル: 売上／件数）</span>
                     </h3>
                     {!usageData?.usage || usageData.usage.bySalesperson.length === 0 ? (
                       <div className="text-xs text-gray-500 py-6 text-center">データがありません</div>
                     ) : (
                       <>
-                        {/* 上位10名 売上バー */}
-                        <div className="h-64 mb-4">
+                        {/* 上位10名 用途別 積み上げ売上バー */}
+                        <div className="h-72 mb-2">
                           <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={usageData.usage.bySalesperson.slice(0, 10).map((p) => ({ name: p.name, 売上: p.sales, 件数: p.count }))} margin={{ top: 8, right: 12, bottom: 8, left: 0 }}>
+                            <BarChart
+                              data={usageData.usage.bySalesperson.slice(0, 10).map((p) => {
+                                const row: any = { name: p.name };
+                                USAGE_LABELS.forEach((u) => { row[u] = p.byUsage?.[u]?.sales ?? 0; });
+                                return row;
+                              })}
+                              margin={{ top: 8, right: 12, bottom: 8, left: 0 }}
+                            >
                               <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
                               <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={60} />
                               <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => formatAmount(v)} />
-                              <Tooltip formatter={(v: any, n: any) => (n === "売上" ? formatAmount(Number(v)) : `${Number(v).toLocaleString()}件`)} />
-                              <Bar dataKey="売上" fill={COLORS.primary} radius={[4, 4, 0, 0]} />
+                              <Tooltip formatter={(v: any, n: any) => [formatAmount(Number(v)), n]} />
+                              <Legend wrapperStyle={{ fontSize: 11 }} />
+                              {USAGE_LABELS.map((u, ci) => (
+                                <Bar key={u} dataKey={u} stackId="s" fill={CHART_COLORS[ci % CHART_COLORS.length]} radius={ci === USAGE_LABELS.length - 1 ? [4, 4, 0, 0] : undefined} />
+                              ))}
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -5396,26 +5407,55 @@ export default function BIDashboardPage() {
                           <table className="w-full text-sm">
                             <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                               <tr>
-                                <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">#</th>
-                                <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">担当者</th>
-                                <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">部課</th>
-                                <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">件数</th>
-                                <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">売上合計</th>
-                                <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">構成比</th>
+                                <th className="px-2 py-2 text-left text-xs font-bold text-gray-700">#</th>
+                                <th className="px-2 py-2 text-left text-xs font-bold text-gray-700">担当者</th>
+                                <th className="px-2 py-2 text-left text-xs font-bold text-gray-700">部課</th>
+                                {USAGE_LABELS.map((u, ci) => (
+                                  <th key={u} className="px-2 py-2 text-right text-xs font-bold text-gray-700 whitespace-nowrap">
+                                    <span className="inline-block w-2 h-2 rounded-full mr-1 align-middle" style={{ backgroundColor: CHART_COLORS[ci % CHART_COLORS.length] }} />{u}
+                                  </th>
+                                ))}
+                                <th className="px-2 py-2 text-right text-xs font-bold text-indigo-700 whitespace-nowrap">合計</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                               {usageData.usage.bySalesperson.map((p, i) => (
                                 <tr key={p.name + i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
-                                  <td className="px-3 py-1.5 text-xs text-gray-400">{i + 1}</td>
-                                  <td className="px-3 py-1.5 text-xs font-medium text-gray-800">{p.name}</td>
-                                  <td className="px-3 py-1.5 text-xs text-gray-500">{p.department || "―"}</td>
-                                  <td className="px-3 py-1.5 text-right text-xs text-gray-700">{p.count.toLocaleString()}件</td>
-                                  <td className="px-3 py-1.5 text-right text-xs font-semibold text-gray-900">{formatAmount(p.sales)}</td>
-                                  <td className="px-3 py-1.5 text-right text-xs text-gray-500">{usageData.usage!.total.sales ? ((p.sales / usageData.usage!.total.sales) * 100).toFixed(1) : "0.0"}%</td>
+                                  <td className="px-2 py-1.5 text-xs text-gray-400">{i + 1}</td>
+                                  <td className="px-2 py-1.5 text-xs font-medium text-gray-800 whitespace-nowrap">{p.name}</td>
+                                  <td className="px-2 py-1.5 text-xs text-gray-500 whitespace-nowrap">{p.department || "―"}</td>
+                                  {USAGE_LABELS.map((u) => {
+                                    const c = p.byUsage?.[u];
+                                    return (
+                                      <td key={u} className="px-2 py-1.5 text-right whitespace-nowrap">
+                                        {c && c.sales ? (
+                                          <><span className="text-xs font-semibold text-gray-900">{formatAmount(c.sales)}</span><span className="text-[10px] text-gray-400 ml-1">/{c.count}件</span></>
+                                        ) : <span className="text-xs text-gray-300">―</span>}
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="px-2 py-1.5 text-right whitespace-nowrap bg-indigo-50/40">
+                                    <span className="text-xs font-bold text-indigo-900">{formatAmount(p.sales)}</span><span className="text-[10px] text-indigo-400 ml-1">/{p.count}件</span>
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
+                            <tfoot>
+                              <tr className="bg-indigo-50 border-t-2 border-indigo-100 sticky bottom-0">
+                                <td className="px-2 py-2 text-xs font-bold text-indigo-800" colSpan={3}>合計</td>
+                                {USAGE_LABELS.map((u) => {
+                                  const b = usageData.usage!.byUsage.find((x) => x.label === u);
+                                  return (
+                                    <td key={u} className="px-2 py-2 text-right whitespace-nowrap">
+                                      <span className="text-xs font-bold text-indigo-900">{b ? formatAmount(b.sales) : "―"}</span><span className="text-[10px] text-indigo-400 ml-1">/{b ? b.count : 0}件</span>
+                                    </td>
+                                  );
+                                })}
+                                <td className="px-2 py-2 text-right whitespace-nowrap">
+                                  <span className="text-xs font-bold text-indigo-900">{formatAmount(usageData.usage.total.sales)}</span><span className="text-[10px] text-indigo-400 ml-1">/{usageData.usage.total.count}件</span>
+                                </td>
+                              </tr>
+                            </tfoot>
                           </table>
                         </div>
                       </>

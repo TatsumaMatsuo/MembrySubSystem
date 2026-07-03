@@ -642,7 +642,7 @@ async function getSalesRatiosByPeriod(periods: PeriodInfo[]): Promise<Map<number
 }
 
 export interface SalesUsageBucketRow { label: string; indicator: string; count: number; sales: number; ratio: number }
-export interface SalesUsagePersonRow { name: string; department: string; count: number; sales: number; byUsage: Record<string, number> }
+export interface SalesUsagePersonRow { name: string; department: string; count: number; sales: number; byUsage: Record<string, { count: number; sales: number }> }
 export interface SalesUsageKgi {
   indicator: string;
   unit: string;
@@ -748,7 +748,9 @@ export async function getSalesUsageAnalysis(period: number): Promise<SalesUsageA
       if (!pr.department && dept) pr.department = dept;
       pr.count++;
       pr.sales += amount;
-      pr.byUsage[bucket.label] = (pr.byUsage[bucket.label] ?? 0) + amount;
+      const cell = pr.byUsage[bucket.label] ?? (pr.byUsage[bucket.label] = { count: 0, sales: 0 });
+      cell.count++;
+      cell.sales += amount;
     }
   }
 

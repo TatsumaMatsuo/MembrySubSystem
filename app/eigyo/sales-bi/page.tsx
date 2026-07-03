@@ -51,7 +51,30 @@ import {
   Lightbulb,
   Shield,
   Printer,
+  Layers,
 } from "lucide-react";
+
+// 用途別売上分析タブ用
+interface UsageKgi {
+  indicator: string;
+  unit: string;
+  trajectory: { period: number; target: number | null }[];
+  actuals: { period: number; actual: number | null }[];
+  finalTarget: number;
+  finalPeriod: number;
+  currentActual: number | null;
+  attainment: number | null;
+}
+interface UsageBucket { label: string; indicator: string; count: number; sales: number; ratio: number }
+interface UsagePerson { name: string; department: string; count: number; sales: number; byUsage: Record<string, number> }
+interface UsageData {
+  period: number | null;
+  planName: string | null;
+  basePeriod: number | null;
+  currentPeriod: number | null;
+  kgis: UsageKgi[];
+  usage: { period: number; start: string; end: string; total: { count: number; sales: number }; byUsage: UsageBucket[]; bySalesperson: UsagePerson[] } | null;
+}
 
 // 型定義
 interface DimensionSummary {
@@ -329,7 +352,7 @@ function calcChange(current: number, previous: number): { value: number; trend: 
 }
 
 // タブ定義
-type TabType = "overview" | "orders-combined" | "region" | "office" | "salesperson" | "category" | "budget";
+type TabType = "overview" | "orders-combined" | "region" | "office" | "salesperson" | "category" | "usage" | "budget";
 
 const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: "overview", label: "概要", icon: <BarChart3 className="w-3 h-3" /> },
@@ -338,6 +361,7 @@ const TABS: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: "office", label: "営業所別", icon: <Building2 className="w-3 h-3" /> },
   { id: "salesperson", label: "担当者別", icon: <User className="w-3 h-3" /> },
   { id: "category", label: "集計区分別", icon: <Filter className="w-3 h-3" /> },
+  { id: "usage", label: "用途別", icon: <Layers className="w-3 h-3" /> },
   { id: "budget", label: "予実管理", icon: <Target className="w-3 h-3" /> },
 ];
 
@@ -349,6 +373,7 @@ const TAB_NAMES: Record<TabType, string> = {
   office: "営業所別分析",
   salesperson: "担当者別分析",
   category: "集計区分別分析",
+  usage: "用途別売上分析",
   budget: "予実管理",
 };
 
@@ -706,6 +731,7 @@ export default function BIDashboardPage() {
   const [budget, setBudget] = useState<BudgetData | null>(null);
   const [companyKPI, setCompanyKPI] = useState<CompanyKPIData | null>(null);
   const [ordersCombined, setOrdersCombined] = useState<OrdersCombinedData | null>(null);
+  const [usageData, setUsageData] = useState<UsageData | null>(null);
 
   // 営業担当者フィルター
   const [selectedOffice, setSelectedOffice] = useState<string>("");
@@ -770,17 +796,19 @@ export default function BIDashboardPage() {
         fetch(`/api/sales-dashboard?fromPeriod=${p}&toPeriod=${p}`)
       );
 
-      const [budgetRes, kpiRes, ordersCombinedRes, ...dashboardResponses] = await Promise.all([
+      const [budgetRes, kpiRes, ordersCombinedRes, usageRes, ...dashboardResponses] = await Promise.all([
         fetch(`/api/sales-budget?period=${selectedPeriod}&office=全社`),
         fetch(`/api/company-kpi?period=${selectedPeriod}`),
         fetch(`/api/sales-orders-combined?period=${selectedPeriod}`),
+        fetch(`/api/eigyo/sales-usage-analysis?period=${selectedPeriod}`),
         ...dashboardFetches,
       ]);
 
-      const [budgetData, kpiData, ordersCombinedData, ...dashboardResults] = await Promise.all([
+      const [budgetData, kpiData, ordersCombinedData, usageResult, ...dashboardResults] = await Promise.all([
         safeJson(budgetRes, "sales-budget"),
         safeJson(kpiRes, "company-kpi"),
         safeJson(ordersCombinedRes, "sales-orders-combined"),
+        safeJson(usageRes, "sales-usage-analysis"),
         ...dashboardResponses.map((res, i) => safeJson(res, `sales-dashboard-${dashboardPeriods[i]}`)),
       ]);
 
@@ -844,6 +872,10 @@ export default function BIDashboardPage() {
 
       if (ordersCombinedData.success) {
         setOrdersCombined(ordersCombinedData.data);
+      }
+
+      if (usageResult?.success) {
+        setUsageData(usageResult.data);
       }
 
     } catch (err: any) {
@@ -5192,6 +5224,203 @@ export default function BIDashboardPage() {
                     )}
                   </div>
 
+                </>
+              )}
+
+              {/* 用途別売上分析タブ */}
+              {activeTab === "usage" && (
+                <>
+                  {/* 印刷ボタン */}
+                  <div className="flex justify-end mb-4 no-print">
+                    <PrintButton
+                      tabName={TAB_NAMES.usage}
+                      period={selectedPeriod}
+                      dateRange={currentData?.dateRange}
+                    />
+                  </div>
+
+                  {/* 説明 */}
+                  <div className="mb-4 text-xs text-gray-600 bg-sky-50 border border-sky-100 rounded-lg px-3 py-2">
+                    <Layers className="w-3.5 h-3.5 inline -mt-0.5 mr-1 text-sky-600" />
+                    製品分類（産業用途／建築用途／生活用途→商業用／畜産・陸上養殖用途→農業用／その他）別の売上を集計。
+                    KGIの目標・実績は<b>会計入力値ではなく売上情報の期別集計（構成比）</b>です。金額・構成比は
+                    {usageData?.usage ? <>第{usageData.usage.period}期（{usageData.usage.start}〜{usageData.usage.end}）</> : <>第{selectedPeriod}期</>}の累計。
+                  </div>
+
+                  {/* KGI 目標×実績（製品分類別売上比率） */}
+                  <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100 mb-4">
+                    <h3 className="text-base font-bold mb-1 text-gray-800 flex items-center gap-2">
+                      <Target className="w-4 h-4 text-indigo-500" /> 用途別売上比率 KGI（目標 × 実績）
+                      {usageData?.planName && <span className="text-xs font-normal text-gray-500">中計: {usageData.planName}</span>}
+                    </h3>
+                    {(!usageData || usageData.kgis.length === 0) ? (
+                      <div className="text-xs text-gray-500 py-6 text-center">
+                        売上比率KGIが未登録です。「中計マスタ管理」で各売上比率（産業用/建築用/商業用/農業用/その他）の年度目標を登録すると、ここに目標と実績が表示されます。
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mt-2">
+                        {usageData.kgis.map((k) => {
+                          const periods = k.trajectory.map((t) => t.period);
+                          const chartData = periods.map((p) => ({
+                            period: `${p}期`,
+                            目標: k.trajectory.find((t) => t.period === p)?.target ?? null,
+                            実績: k.actuals?.find((a) => a.period === p)?.actual ?? null,
+                          }));
+                          return (
+                            <div key={k.indicator} className="border border-gray-100 rounded-lg p-3 bg-gray-50/40">
+                              <div className="text-xs font-bold text-gray-700">{k.indicator}</div>
+                              <div className="flex items-end gap-2 mt-1">
+                                <div className="text-2xl font-extrabold text-gray-900">
+                                  {k.currentActual == null ? "―" : `${Math.round(k.currentActual * 10) / 10}${k.unit || "%"}`}
+                                </div>
+                                <div className="text-[11px] text-gray-500 pb-1">
+                                  最終{k.finalPeriod}期目標 <b>{k.finalTarget}{k.unit || "%"}</b>
+                                  {k.attainment != null && <> ／ 到達 {Math.round(k.attainment * 100)}%</>}
+                                </div>
+                              </div>
+                              <div className="h-28 mt-1">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <ComposedChart data={chartData} margin={{ top: 6, right: 6, bottom: 0, left: -18 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
+                                    <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${v}`} />
+                                    <Tooltip formatter={(v: any) => (v == null ? "―" : `${Math.round(Number(v) * 10) / 10}${k.unit || "%"}`)} />
+                                    <Line type="monotone" dataKey="目標" stroke={COLORS.budget} strokeDasharray="5 4" dot={false} strokeWidth={2} connectNulls />
+                                    <Line type="monotone" dataKey="実績" stroke={COLORS.tertiary} dot={{ r: 3 }} strokeWidth={2} connectNulls />
+                                  </ComposedChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 用途別 件数・売上合計 + 構成比 */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                      <h3 className="text-base font-bold mb-3 text-gray-800">用途別 売上合計・件数</h3>
+                      {!usageData?.usage ? (
+                        <div className="text-xs text-gray-500 py-6 text-center">データがありません</div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">用途</th>
+                                <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">件数</th>
+                                <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">売上合計</th>
+                                <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">構成比</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {usageData.usage.byUsage.map((b, i) => (
+                                <tr key={b.label} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                                  <td className="px-3 py-2 text-xs font-medium text-gray-800">
+                                    <span className="inline-block w-2.5 h-2.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                                    {b.label}
+                                  </td>
+                                  <td className="px-3 py-2 text-right text-xs text-gray-700">{b.count.toLocaleString()}件</td>
+                                  <td className="px-3 py-2 text-right text-xs font-semibold text-gray-900">{formatAmount(b.sales)}</td>
+                                  <td className="px-3 py-2 text-right text-xs text-gray-700">{b.ratio.toFixed(1)}%</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr className="bg-indigo-50 border-t-2 border-indigo-100 font-bold">
+                                <td className="px-3 py-2 text-xs text-indigo-800">合計</td>
+                                <td className="px-3 py-2 text-right text-xs text-indigo-800">{usageData.usage.total.count.toLocaleString()}件</td>
+                                <td className="px-3 py-2 text-right text-xs text-indigo-900">{formatAmount(usageData.usage.total.sales)}</td>
+                                <td className="px-3 py-2 text-right text-xs text-indigo-800">100.0%</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                      <h3 className="text-base font-bold mb-3 text-gray-800">用途別 売上構成比</h3>
+                      {!usageData?.usage || usageData.usage.total.sales <= 0 ? (
+                        <div className="text-xs text-gray-500 py-6 text-center">データがありません</div>
+                      ) : (
+                        <div className="h-72">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={usageData.usage.byUsage.filter((b) => b.sales > 0).map((b) => ({ name: b.label, value: b.sales, ratio: b.ratio, count: b.count }))}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={95}
+                                label={(e: any) => `${e.name} ${e.ratio.toFixed(0)}%`}
+                                labelLine={false}
+                              >
+                                {usageData.usage.byUsage.filter((b) => b.sales > 0).map((_, i) => (
+                                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip formatter={(v: any, _n: any, p: any) => [`${formatAmount(Number(v))}（${p.payload.count}件・${p.payload.ratio.toFixed(1)}%）`, p.payload.name]} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 担当者別 件数・売上合計 */}
+                  <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+                    <h3 className="text-base font-bold mb-3 text-gray-800 flex items-center gap-2">
+                      <User className="w-4 h-4 text-blue-500" /> 担当者別 売上合計・件数
+                      <span className="text-xs font-normal text-gray-500">（売上高降順）</span>
+                    </h3>
+                    {!usageData?.usage || usageData.usage.bySalesperson.length === 0 ? (
+                      <div className="text-xs text-gray-500 py-6 text-center">データがありません</div>
+                    ) : (
+                      <>
+                        {/* 上位10名 売上バー */}
+                        <div className="h-64 mb-4">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={usageData.usage.bySalesperson.slice(0, 10).map((p) => ({ name: p.name, 売上: p.sales, 件数: p.count }))} margin={{ top: 8, right: 12, bottom: 8, left: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
+                              <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={60} />
+                              <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => formatAmount(v)} />
+                              <Tooltip formatter={(v: any, n: any) => (n === "売上" ? formatAmount(Number(v)) : `${Number(v).toLocaleString()}件`)} />
+                              <Bar dataKey="売上" fill={COLORS.primary} radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">#</th>
+                                <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">担当者</th>
+                                <th className="px-3 py-2 text-left text-xs font-bold text-gray-700">部課</th>
+                                <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">件数</th>
+                                <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">売上合計</th>
+                                <th className="px-3 py-2 text-right text-xs font-bold text-gray-700">構成比</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {usageData.usage.bySalesperson.map((p, i) => (
+                                <tr key={p.name + i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/50"}>
+                                  <td className="px-3 py-1.5 text-xs text-gray-400">{i + 1}</td>
+                                  <td className="px-3 py-1.5 text-xs font-medium text-gray-800">{p.name}</td>
+                                  <td className="px-3 py-1.5 text-xs text-gray-500">{p.department || "―"}</td>
+                                  <td className="px-3 py-1.5 text-right text-xs text-gray-700">{p.count.toLocaleString()}件</td>
+                                  <td className="px-3 py-1.5 text-right text-xs font-semibold text-gray-900">{formatAmount(p.sales)}</td>
+                                  <td className="px-3 py-1.5 text-right text-xs text-gray-500">{usageData.usage!.total.sales ? ((p.sales / usageData.usage!.total.sales) * 100).toFixed(1) : "0.0"}%</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </>
               )}
 

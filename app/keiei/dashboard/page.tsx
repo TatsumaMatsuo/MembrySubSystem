@@ -25,6 +25,10 @@ type Judgment = "緑" | "黄" | "赤";
 interface CompanyRow { name: string; target: number; actual: number | null; pace: number | null; judgment: Judgment | null; major: boolean; }
 interface InputStatus { account: string; unit: string; granularity: string; label: string; ok: boolean; }
 
+// 実績を「会計データ入力」ではなく「売上情報の製品分類別集計」から算出する売上比率KGI。
+// services/keiei.service.ts の SALES_RATIO_INDICATORS と対応。
+const SALES_RATIO_INDICATORS = new Set(["産業用売上比率", "建築用売上比率", "商業用売上比率", "農業用売上比率", "その他売上比率"]);
+
 const oku = (v: number | null) => (v == null ? "―" : `${(Math.round(v * 10) / 10).toFixed(1)}億`);
 const pctv = (v: number | null) => (v == null ? "―" : `${Math.round(v * 100)}%`);
 
@@ -160,7 +164,12 @@ export default function KeieiDashboardPage() {
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: 16 }}>
               {kgis.map((k) => (
                 <div key={k.indicator} style={card}>
-                  <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>{k.indicator}</div>
+                  <div style={{ fontSize: 13, color: "#64748b", fontWeight: 600 }}>
+                    {k.indicator}
+                    {SALES_RATIO_INDICATORS.has(k.indicator) && (
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#0369a1", background: "#e0f2fe", borderRadius: 6, padding: "1px 6px", marginLeft: 6, verticalAlign: "1px" }}>売上情報集計</span>
+                    )}
+                  </div>
                   <div style={{ fontSize: 28, fontWeight: 800, margin: "6px 0 2px" }}>
                     {fmt(k.currentActual, k.unit)}
                     {k.currentActual == null && <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 400 }}> （実績未入力）</span>}
@@ -169,6 +178,11 @@ export default function KeieiDashboardPage() {
                     最終{k.finalPeriod}期目標 <b>{k.finalTarget}{k.unit}</b>
                     {k.attainment != null && <> ／ 到達度 {Math.round(k.attainment * 100)}%</>}
                   </div>
+                  {SALES_RATIO_INDICATORS.has(k.indicator) && (
+                    <div style={{ fontSize: 10.5, color: "#0369a1", marginTop: 2 }}>
+                      ※実績は会計入力値ではなく、売上情報の製品分類別×期集計（構成比）
+                    </div>
+                  )}
                   <Trajectory kgi={k} basePeriod={basePeriod} prevPlanName={prevPlanName} />
                 </div>
               ))}
@@ -227,7 +241,8 @@ export default function KeieiDashboardPage() {
         )}
 
         <div style={{ fontSize: 11, color: "#64748b", marginTop: 16, lineHeight: 1.7 }}>
-          実績は会計データ（KAIKEI_ACTUAL）から年換算で算出。売上＝売上高、ROA＝経常利益÷総資産、労働生産性＝控除法付加価値÷人員。会計実績が未入力の指標は「実績未入力」と表示されます。
+          実績は会計データ（KAIKEI_ACTUAL）から年換算で算出。売上＝売上高、ROA＝経常利益÷総資産、労働生産性＝控除法付加価値÷人員。会計実績が未入力の指標は「実績未入力」と表示されます。<br />
+          ただし<b style={{ color: "#0369a1" }}>「売上情報集計」バッジの付いた各売上比率（産業用／建築用／商業用／農業用／その他）</b>は、会計データ入力値ではなく<b>売上情報の製品分類別×期売上を集計した構成比（％）</b>を実績としています。
         </div>
       </div>
       </div>

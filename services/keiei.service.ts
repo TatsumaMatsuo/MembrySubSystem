@@ -571,7 +571,16 @@ const SALES_CAT_TO_INDICATOR: Record<string, string> = {
 };
 const SALES_RATIO_OTHER = "その他売上比率";
 /** ダッシュボード実績を売上比率から算出する指標名の集合 */
-const SALES_RATIO_INDICATORS = new Set<string>([...Object.values(SALES_CAT_TO_INDICATOR), SALES_RATIO_OTHER]);
+export const SALES_RATIO_INDICATORS = new Set<string>([...Object.values(SALES_CAT_TO_INDICATOR), SALES_RATIO_OTHER]);
+
+/** 用途バケット定義(表示順)。label=表示用途名 / indicator=対応KGI指標 / cat=製品分類名(その他はnull=上記以外) */
+export const SALES_USAGE_BUCKETS: { label: string; indicator: string; cat: string | null }[] = [
+  { label: "産業用", indicator: "産業用売上比率", cat: "産業用途売上" },
+  { label: "建築用", indicator: "建築用売上比率", cat: "建築用途売上" },
+  { label: "商業用", indicator: "商業用売上比率", cat: "生活用途売上" },
+  { label: "農業用", indicator: "農業用売上比率", cat: "畜産・陸上養殖用途売上" },
+  { label: "その他", indicator: SALES_RATIO_OTHER, cat: null },
+];
 
 let _salesRatioCache: { at: number; data: Map<number, Map<string, number>> } | null = null;
 const SALES_RATIO_TTL = 5 * 60 * 1000; // 5分(sales-dashboard と同等)
@@ -630,6 +639,88 @@ async function getSalesRatiosByPeriod(periods: PeriodInfo[]): Promise<Map<number
   }
   _salesRatioCache = { at: Date.now(), data: result };
   return result;
+}
+
+export interface SalesUsageBucketRow { label: string; indicator: string; count: number; sales: number; ratio: number }
+export interface SalesUsagePersonRow { name: string; department: string; count: number; sales: number; byUsage: Record<string, number> }
+export interface SalesUsageBreakdown {
+  period: number;
+  start: string;
+  end: string;
+  total: { count: number; sales: number };
+  byUsage: SalesUsageBucketRow[];
+  bySalesperson: SalesUsagePersonRow[];
+}
+
+let _salesUsageCache = new Map<number, { at: number; data: SalesUsageBreakdown }>();
+
+/**
+ * 指定期の 用途別売上内訳 を算出。
+ *  - byUsage: 用途(製品分類)別の 件数・売上合計・構成比。
+ *  - bySalesperson: 担当者別の 件数・売上合計(+用途別売上)。売上高降順。
+ * 売上情報テーブルを search API(製品分類Lookupを名称展開)で取得し、売上日で当該期に絞る。期別5分キャッシュ。
+ */
+export async function getSalesUsageBreakdown(period: number): Promise<SalesUsageBreakdown> {
+  const cached = _salesUsageCache.get(period);
+  if (cached && Date.now() - cached.at < SALES_RATIO_TTL) return cached.data;
+
+  const periods = await getPeriods();
+  const pinfo = periods.find((p) => p.period === period);
+  const empty: SalesUsageBreakdown = { period, start: pinfo?.startDate ?? "", end: pinfo?.endDate ?? "", total: { count: 0, sales: 0 }, byUsage: SALES_USAGE_BUCKETS.map((b) => ({ label: b.label, indicator: b.indicator, count: 0, sales: 0, ratio: 0 })), bySalesperson: [] };
+  if (!pinfo?.startDate || !pinfo?.endDate) return empty;
+  const start = pinfo.startDate;
+  const end = pinfo.endDate;
+
+  const bucketByCat = new Map<string, typeof SALES_USAGE_BUCKETS[number]>();
+  for (const b of SALES_USAGE_BUCKETS) if (b.cat) bucketByCat.set(b.cat, b);
+  const otherBucket = SALES_USAGE_BUCKETS.find((b) => b.cat == null)!;
+  const bucketOf = (cat: string) => bucketByCat.get(cat) ?? otherBucket;
+
+  const rows = await searchBaseRecordsAll(SALES_TABLE, {
+    baseToken: base(),
+    viewId: SALES_RATIO_VIEW,
+    fieldNames: ["製品分類", "金額", "売上日", "担当者", "部課"],
+    pageSize: 500,
+  });
+
+  const usageAgg = new Map<string, { count: number; sales: number }>();
+  for (const b of SALES_USAGE_BUCKETS) usageAgg.set(b.label, { count: 0, sales: 0 });
+  const personAgg = new Map<string, SalesUsagePersonRow>();
+  let totalCount = 0;
+  let totalSales = 0;
+
+  for (const r of rows) {
+    const f = r.fields ?? {};
+    const d = fieldText(f["売上日"]).replace(/\//g, "-").slice(0, 10);
+    if (!d || d < start || d > end) continue;
+    const amount = asNum(fieldText(f["金額"]));
+    const bucket = bucketOf(fieldText(f["製品分類"]));
+    const person = fieldText(f["担当者"]) || "(担当者なし)";
+    const dept = fieldText(f["部課"]);
+
+    totalCount++;
+    totalSales += amount;
+    const u = usageAgg.get(bucket.label)!;
+    u.count++;
+    u.sales += amount;
+
+    let pr = personAgg.get(person);
+    if (!pr) { pr = { name: person, department: dept, count: 0, sales: 0, byUsage: {} }; personAgg.set(person, pr); }
+    if (!pr.department && dept) pr.department = dept;
+    pr.count++;
+    pr.sales += amount;
+    pr.byUsage[bucket.label] = (pr.byUsage[bucket.label] ?? 0) + amount;
+  }
+
+  const byUsage: SalesUsageBucketRow[] = SALES_USAGE_BUCKETS.map((b) => {
+    const a = usageAgg.get(b.label)!;
+    return { label: b.label, indicator: b.indicator, count: a.count, sales: a.sales, ratio: totalSales ? (a.sales / totalSales) * 100 : 0 };
+  });
+  const bySalesperson = [...personAgg.values()].sort((a, b) => b.sales - a.sales);
+
+  const data: SalesUsageBreakdown = { period, start, end, total: { count: totalCount, sales: totalSales }, byUsage, bySalesperson };
+  _salesUsageCache.set(period, { at: Date.now(), data });
+  return data;
 }
 
 /** 中計セレクタ用の中計サマリ */

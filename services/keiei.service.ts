@@ -13,6 +13,7 @@ import {
   updateBaseRecord,
   batchCreateBaseRecords,
   batchUpdateBaseRecords,
+  searchBaseRecordsAll,
 } from "@/lib/lark-client";
 import { midtermTrajectory } from "@/lib/kpi";
 import {
@@ -32,7 +33,7 @@ import {
   type Granularity,
   type KaikeiRow,
 } from "@/lib/kpi";
-import { getPeriods } from "@/services/seisan-kpi.service";
+import { getPeriods, type PeriodInfo } from "@/services/seisan-kpi.service";
 import { writeKpiAudit, writeKpiAuditBatch, type KpiAuditEntry } from "@/lib/kpi-audit";
 
 const base = () => getLarkBaseToken();
@@ -553,6 +554,84 @@ async function currentKgiActual(indicator: string, period: number, elapsed: numb
   return kgiActualFromKaikei(indicator, await getKaikeiCumByAccount(period), elapsed);
 }
 
+/* -------------------------------------------------------------------------
+ * 製品分類別 売上比率(KGI実績)
+ *  売上情報テーブルを 製品分類(Lookup) × 売上日 で期別集計し、期売上合計に対する
+ *  各用途カテゴリの構成比(%)を実績として返す。集計用ビュー vewItkYmRF を search API で
+ *  取得(Lookupを名称展開)。値はダッシュボードで各期の実績点として使用。
+ * ---------------------------------------------------------------------- */
+const SALES_TABLE = "tbl65w6u6J72QFoz";     // 売上情報
+const SALES_RATIO_VIEW = "vewItkYmRF";       // 集計用ビュー(製品分類・金額・売上日)
+/** 製品分類名 → KGI指標名。未マッピング(その他売上/空/上記以外)は「その他売上比率」に集約。 */
+const SALES_CAT_TO_INDICATOR: Record<string, string> = {
+  "産業用途売上": "産業用売上比率",
+  "建築用途売上": "建築用売上比率",
+  "生活用途売上": "商業用売上比率",
+  "畜産・陸上養殖用途売上": "農業用売上比率",
+};
+const SALES_RATIO_OTHER = "その他売上比率";
+/** ダッシュボード実績を売上比率から算出する指標名の集合 */
+const SALES_RATIO_INDICATORS = new Set<string>([...Object.values(SALES_CAT_TO_INDICATOR), SALES_RATIO_OTHER]);
+
+let _salesRatioCache: { at: number; data: Map<number, Map<string, number>> } | null = null;
+const SALES_RATIO_TTL = 5 * 60 * 1000; // 5分(sales-dashboard と同等)
+
+/** search結果のフィールド値をテキスト化(text配列/lookup value配列/素値に対応) */
+function fieldText(v: any): string {
+  if (v == null) return "";
+  if (Array.isArray(v)) return String(v[0]?.text ?? v[0] ?? "");
+  if (Array.isArray(v?.value)) return String(v.value[0]?.text ?? v.value[0] ?? "");
+  if (v?.text != null) return String(v.text);
+  return String(v);
+}
+
+/**
+ * 全期の 製品分類別売上比率(%) を算出。返り値: 期 → (指標名 → 比率%)。
+ * 期の割当は売上日(YYYY/MM/DD or YYYY-MM-DD)が期マスタ[開始日,終了日]に入るかで判定。
+ * 5分キャッシュ。売上比率KGIを含む中計を開いたときのみ呼ばれる。
+ */
+async function getSalesRatiosByPeriod(periods: PeriodInfo[]): Promise<Map<number, Map<string, number>>> {
+  if (_salesRatioCache && Date.now() - _salesRatioCache.at < SALES_RATIO_TTL) return _salesRatioCache.data;
+
+  const ranges = periods
+    .filter((p) => p.startDate && p.endDate)
+    .map((p) => ({ period: p.period, start: p.startDate, end: p.endDate }));
+  const assign = (d: string) => ranges.find((r) => d >= r.start && d <= r.end)?.period ?? null;
+
+  const rows = await searchBaseRecordsAll(SALES_TABLE, {
+    baseToken: base(),
+    viewId: SALES_RATIO_VIEW,
+    fieldNames: ["製品分類", "金額", "売上日"],
+    pageSize: 500,
+  });
+
+  const totals = new Map<number, number>();          // 期 → 期売上合計
+  const byIndicator = new Map<number, Map<string, number>>(); // 期 → 指標 → 売上
+  for (const r of rows) {
+    const f = r.fields ?? {};
+    const d = fieldText(f["売上日"]).replace(/\//g, "-").slice(0, 10);
+    const period = d ? assign(d) : null;
+    if (period == null) continue;
+    const amount = asNum(fieldText(f["金額"]));
+    const cat = fieldText(f["製品分類"]);
+    const indicator = SALES_CAT_TO_INDICATOR[cat] ?? SALES_RATIO_OTHER;
+    totals.set(period, (totals.get(period) ?? 0) + amount);
+    if (!byIndicator.has(period)) byIndicator.set(period, new Map());
+    const m = byIndicator.get(period)!;
+    m.set(indicator, (m.get(indicator) ?? 0) + amount);
+  }
+
+  const result = new Map<number, Map<string, number>>();
+  for (const [period, m] of byIndicator) {
+    const total = totals.get(period) ?? 0;
+    const ratios = new Map<string, number>();
+    for (const ind of SALES_RATIO_INDICATORS) ratios.set(ind, total ? ((m.get(ind) ?? 0) / total) * 100 : 0);
+    result.set(period, ratios);
+  }
+  _salesRatioCache = { at: Date.now(), data: result };
+  return result;
+}
+
 /** 中計セレクタ用の中計サマリ */
 export interface MidtermPlanOption {
   planId: string;
@@ -634,6 +713,12 @@ export async function buildMidtermDashboard(planId?: string, basePeriodArg?: num
     if (d.finalTarget) e.finalTarget = d.finalTarget;
   }
 
+  // 売上比率KGI(製品分類別)が中計に含まれる場合のみ、売上情報から期別比率を取得(5分キャッシュ)
+  const hasSalesRatio = [...byIndicator.keys()].some((ind) => SALES_RATIO_INDICATORS.has(ind));
+  const salesRatioByPeriod = hasSalesRatio
+    ? await getSalesRatiosByPeriod(periods).catch(() => null)
+    : null;
+
   const kgis: MidtermKgi[] = [];
   for (const [indicator, e] of byIndicator) {
     e.points.sort((a, b) => a.period - b.period);
@@ -646,12 +731,15 @@ export async function buildMidtermDashboard(planId?: string, basePeriodArg?: num
       ? planPeriods.map((p) => ({ period: p, target: prevMap.has(p) ? prevMap.get(p)! : null }))
       : [];
     // 実績: プラン各期で基準期以前(かつ当期以前)のみ算出、それ以外は null
-    const actuals = planPeriods.map((p) => ({
-      period: p,
-      actual: (p <= basePeriod && p <= currentPeriod)
-        ? kgiActualFromKaikei(indicator, kaikeiByPeriod.get(p) ?? new Map(), elapsedFor(p))
-        : null,
-    }));
+    //  売上比率KGI(製品分類別)は売上情報の期別集計から、それ以外は会計データから年換算。
+    const isSalesRatio = SALES_RATIO_INDICATORS.has(indicator);
+    const actuals = planPeriods.map((p) => {
+      if (!(p <= basePeriod && p <= currentPeriod)) return { period: p, actual: null };
+      const actual = isSalesRatio
+        ? (salesRatioByPeriod?.get(p)?.get(indicator) ?? null)
+        : kgiActualFromKaikei(indicator, kaikeiByPeriod.get(p) ?? new Map(), elapsedFor(p));
+      return { period: p, actual };
+    });
     const currentActual = actuals.find((a) => a.period === basePeriod)?.actual ?? null;
     const finalTarget = e.finalTarget || (e.points.length ? e.points[e.points.length - 1].target ?? 0 : 0);
     kgis.push({

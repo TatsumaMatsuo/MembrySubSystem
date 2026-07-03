@@ -130,6 +130,59 @@ export async function getBaseRecords(tableId: string, params?: {
   throw lastError;
 }
 
+/**
+ * search API で全ページ取得(ビュー/フィールド絞り込み対応)。
+ * list と違い Lookup/参照フィールドを**テキスト展開**して返すため、参照値の名称が必要な集計で使う。
+ * 返り値は全ページ結合済みの items 配列。読み取りのみのため一過性エラーは短い待機で最大3回リトライ。
+ */
+export async function searchBaseRecordsAll(tableId: string, opts?: {
+  baseToken?: string;
+  viewId?: string;
+  fieldNames?: string[];
+  filter?: any;
+  sort?: any;
+  pageSize?: number;
+}): Promise<any[]> {
+  const appToken = opts?.baseToken || getLarkBaseToken();
+  const items: any[] = [];
+  let pageToken: string | undefined;
+  do {
+    let response: any;
+    let lastError: any;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        response = await larkClient.bitable.appTableRecord.search({
+          path: { app_token: appToken, table_id: tableId },
+          params: { page_size: opts?.pageSize || 500, page_token: pageToken },
+          data: {
+            view_id: opts?.viewId,
+            field_names: opts?.fieldNames,
+            filter: opts?.filter,
+            sort: opts?.sort,
+          },
+        });
+        lastError = null;
+        break;
+      } catch (error: any) {
+        lastError = error;
+        const status = error?.status ?? error?.response?.status;
+        const transient = status === 429 || (typeof status === "number" && status >= 500 && status < 600) ||
+          error?.code === "ECONNRESET" || error?.code === "ETIMEDOUT" || error?.code === "ENOTFOUND";
+        if (transient && attempt < 2) { await new Promise((r) => setTimeout(r, 500 * (attempt + 1))); continue; }
+        break;
+      }
+    }
+    if (lastError) {
+      const detail = lastError?.response?.data ?? lastError?.data;
+      const status = lastError?.status ?? lastError?.response?.status;
+      throw new Error(`Lark検索失敗 table=${tableId} status=${status ?? "?"} code=${detail?.code ?? "?"} msg=${detail?.msg ?? "?"}`);
+    }
+    for (const it of response.data?.items ?? []) items.push(it);
+    pageToken = response.data?.has_more ? response.data.page_token : undefined;
+  } while (pageToken);
+  return items;
+}
+
 export async function createBaseRecord(
   tableId: string,
   fields: Record<string, any>,

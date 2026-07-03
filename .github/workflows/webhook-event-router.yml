@@ -43,6 +43,10 @@ jobs:
           ISSUE_LABELS: ${{ toJSON(github.event.issue.labels) }}
         run: |
           echo "📥 Issue Event: $EVENT_TYPE for #$ISSUE_NUMBER"
+          if [ ! -f scripts/webhook-router.ts ]; then
+            echo "⏭️ scripts/webhook-router.ts が存在しないためルーティングをスキップ (Issue #65)"
+            exit 0
+          fi
           npx tsx scripts/webhook-router.ts issue "$EVENT_TYPE" "$ISSUE_NUMBER"
 
       - name: Route PR Event
@@ -54,6 +58,10 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           echo "📥 PR Event: $EVENT_TYPE for #$PR_NUMBER"
+          if [ ! -f scripts/webhook-router.ts ]; then
+            echo "⏭️ scripts/webhook-router.ts が存在しないためルーティングをスキップ (Issue #65)"
+            exit 0
+          fi
           npx tsx scripts/webhook-router.ts pr "$EVENT_TYPE" "$PR_NUMBER"
 
       - name: Route Push Event
@@ -65,6 +73,10 @@ jobs:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           echo "📥 Push Event: $BRANCH_NAME @ $COMMIT_SHA"
+          if [ ! -f scripts/webhook-router.ts ]; then
+            echo "⏭️ scripts/webhook-router.ts が存在しないためルーティングをスキップ (Issue #65)"
+            exit 0
+          fi
           npx tsx scripts/webhook-router.ts push "$BRANCH_NAME" "$COMMIT_SHA"
 
       - name: Route Comment Event
@@ -76,4 +88,8 @@ jobs:
           COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
         run: |
           echo "📥 Comment Event: #$ISSUE_NUMBER by $COMMENT_AUTHOR"
+          if [ ! -f scripts/webhook-router.ts ]; then
+            echo "⏭️ scripts/webhook-router.ts が存在しないためルーティングをスキップ (Issue #65)"
+            exit 0
+          fi
           npx tsx scripts/webhook-router.ts comment "$ISSUE_NUMBER" "$COMMENT_AUTHOR"

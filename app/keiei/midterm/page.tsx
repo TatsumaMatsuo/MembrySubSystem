@@ -36,7 +36,6 @@ export default function MidtermAdminPage() {
   const [endPeriod, setEndPeriod] = useState(52);
   const [status, setStatus] = useState("現行");
   const [kgis, setKgis] = useState<KgiEdit[]>([]);
-  const [kgiOptions, setKgiOptions] = useState<string[]>([]); // 指標の選択肢(Lark登録オプション)
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -55,7 +54,6 @@ export default function MidtermAdminPage() {
     const json = await res.json();
     const hs: HeaderLite[] = json.data?.headers ?? [];
     setHeaders(hs);
-    setKgiOptions(json.data?.kgiOptions ?? []);
     return hs;
   };
 
@@ -176,10 +174,6 @@ export default function MidtermAdminPage() {
           <div style={{ fontSize: 14, fontWeight: 700, color: "#4f46e5" }}>KGI と 年度目標（起点・最終を入れて「線形補間」）</div>
           <button onClick={recalcAll} style={ghostBtn}><Calculator size={13} style={{ verticalAlign: "-2px" }} /> 全行を線形補間</button>
         </div>
-        {/* 指標のサジェスト候補(既存指標)。自由入力可。 */}
-        <datalist id="kgi-indicator-suggest">
-          {kgiOptions.map((o) => <option key={o} value={o} />)}
-        </datalist>
         <div style={{ ...card, overflowX: "auto", padding: 6 }}>
           {loading ? <div style={{ padding: 30, textAlign: "center", color: "#64748b" }}>読み込み中…</div> : (
             <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 12.5, whiteSpace: "nowrap" }}>
@@ -194,10 +188,10 @@ export default function MidtermAdminPage() {
                 {kgis.map((k, idx) => (
                   <tr key={idx}>
                     <td style={td}>
-                      {/* 指標は自由入力。既存の指標(kgiOptions)はサジェスト表示。
+                      {/* 指標は自由入力(候補サジェストなし)。
                           ※Lark側で「指標」「KGI指標セット」をテキスト型にすれば任意名を保存可能。
                             選択型のままだと未登録値は保存で拒否される(1254302)。 */}
-                      <input list="kgi-indicator-suggest" value={k.indicator} onChange={(e) => setKgiField(idx, "indicator", e.target.value)} placeholder="指標名" style={{ ...inpS, width: 130, textAlign: "left" }} />
+                      <input value={k.indicator} onChange={(e) => setKgiField(idx, "indicator", e.target.value)} placeholder="指標名" style={{ ...inpS, width: 130, textAlign: "left" }} />
                     </td>
                     <td style={td}><input value={k.unit} onChange={(e) => setKgiField(idx, "unit", e.target.value)} style={{ ...inpS, width: 80 }} /></td>
                     <td style={td}><input type="number" value={k.startValue} onChange={(e) => setKgiField(idx, "startValue", Number(e.target.value))} style={{ ...inpS, width: 64 }} /></td>

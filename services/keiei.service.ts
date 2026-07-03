@@ -752,16 +752,23 @@ export async function upsertMidtermPlan(input: MidtermPlanEdit, operator = ""): 
   const t = getLarkTables();
   const bt = base();
 
-  // KGI指標セットはフィールド型に応じて書き分ける。
-  //  複数選択(type=4)=名称の配列 / テキスト(type=1)=カンマ結合の文字列。
-  //  ※Larkの選択肢はAPIで追加できない(1254302)。任意の指標名を使う場合はLark側でこのフィールドと
-  //    明細「指標」をテキスト型に変更する。テキスト化後も本コードはそのまま動く(型を自動判別)。
+  // KGI指標セット(要約列。読み取り用途なし)をフィールド型に応じて書き分ける。
+  //  テキスト(type=1)=カンマ結合の文字列(全指標を保持)。
+  //  選択肢型(単一=3/複数=4)=登録済みオプションのみ書く。Larkの選択肢はAPIで追加できない(1254302)ため、
+  //    未登録の新指標を書くと403になる。この列は誰も参照しないので登録済みに絞れば安全に保存できる。
+  //    ※新指標もこの要約列に載せたい場合は、Lark側でこのフィールドをテキスト型に変更する(任意)。
+  //  明細「指標」はテキスト型化済みなら任意の指標名が保存可能(このコードは型変更前後どちらでも動く)。
   const indicators = input.kgis.map((k) => k.indicator);
   let kgiSetValue: any = indicators;
   try {
     const hf: any = await getTableFields(t.KEIEI_MIDTERM_PLAN_HEADER, bt);
-    const kgiSetType = (hf.data?.items ?? []).find((x: any) => x.field_name === MH.kgi_set)?.type;
-    if (kgiSetType === 1) kgiSetValue = indicators.join(", ");
+    const field = (hf.data?.items ?? []).find((x: any) => x.field_name === MH.kgi_set);
+    if (field?.type === 1) {
+      kgiSetValue = indicators.join(", ");
+    } else if (field?.type === 3 || field?.type === 4) {
+      const opts = new Set((field?.property?.options ?? []).map((o: any) => o?.name));
+      kgiSetValue = indicators.filter((n) => opts.has(n)); // 未登録値は除外(403回避)
+    }
   } catch { /* 型取得失敗時は配列のまま(従来動作) */ }
 
   // --- ヘッダ ---

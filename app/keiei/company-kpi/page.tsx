@@ -23,6 +23,9 @@ interface PlRow {
 }
 interface OtherRow { name: string; target: string; actual: string; judgment: Judgment | null; }
 
+type DisplayUnit = "累計" | "月次" | "四半期" | "半期";
+const UNIT_OPTIONS: DisplayUnit[] = ["累計", "月次", "四半期", "半期"];
+
 const oku = (v: number | null) => (v == null ? "―" : `${(Math.round(v * 10) / 10).toFixed(1)}億`);
 const pct = (v: number | null) => (v == null ? "―" : `${Math.round(v * 100)}%`);
 
@@ -44,6 +47,8 @@ export default function CompanyKpiPage() {
   const [period, setPeriod] = useState(50);
   const [selectablePeriods, setSelectablePeriods] = useState<number[]>([]);
   const [elapsed, setElapsed] = useState(0);
+  const [unit, setUnit] = useState<DisplayUnit>("累計");
+  const [unitLabel, setUnitLabel] = useState("");
   const [hasActuals, setHasActuals] = useState(true);
   const [plRows, setPlRows] = useState<PlRow[]>([]);
   const [otherRows, setOtherRows] = useState<OtherRow[]>([]);
@@ -51,17 +56,23 @@ export default function CompanyKpiPage() {
   const [error, setError] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
-  const load = async (p?: number) => {
+  const load = async (p?: number, u?: DisplayUnit) => {
     setLoading(true);
     setError(null);
+    const nextUnit = u ?? unit;
     try {
-      const res = await fetch(`/api/keiei/company-kpi${p ? `?period=${p}` : ""}`);
+      const qs = new URLSearchParams();
+      if (p) qs.set("period", String(p));
+      if (nextUnit !== "累計") qs.set("unit", nextUnit);
+      const res = await fetch(`/api/keiei/company-kpi${qs.toString() ? `?${qs}` : ""}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       const d = json.data;
       setPeriod(d.period);
       setSelectablePeriods(d.selectablePeriods ?? []);
       setElapsed(d.elapsedMonths);
+      setUnit(d.unit ?? nextUnit);
+      setUnitLabel(d.unitLabel ?? "");
       setHasActuals(d.hasActuals);
       setPlRows(d.plRows ?? []);
       setOtherRows(d.otherRows ?? []);
@@ -75,6 +86,8 @@ export default function CompanyKpiPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const isCum = unit === "累計";
 
   const summary = plRows.filter((r) => ["売上高", "営業利益", "経常利益"].includes(r.name));
 
@@ -90,7 +103,10 @@ export default function CompanyKpiPage() {
                 {selectablePeriods.map((p) => <option key={p} value={p}>{p}期</option>)}
               </select>
             )}
-            <span style={{ background: "#4f46e5", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>経過 {elapsed}ヶ月</span>
+            <select value={unit} onChange={(e) => { const u = e.target.value as DisplayUnit; setUnit(u); load(period || undefined, u); }} title="表示単位" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", fontSize: 13, fontWeight: 600, color: "#4f46e5", background: "#fff", cursor: "pointer" }}>
+              {UNIT_OPTIONS.map((u) => <option key={u} value={u}>表示: {u}</option>)}
+            </select>
+            <span style={{ background: "#4f46e5", color: "#fff", borderRadius: 8, padding: "6px 12px" }}>{isCum ? `経過 ${elapsed}ヶ月` : unitLabel ? `${unitLabel} 実績` : "未確定"}</span>
             <button onClick={() => load(period || undefined)} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "6px 10px", background: "#fff", cursor: "pointer" }}>
               <RefreshCw size={14} style={{ verticalAlign: "-2px" }} /> 再読込
             </button>
@@ -111,14 +127,19 @@ export default function CompanyKpiPage() {
               <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>{r.name}{r.name === "経常利益" ? "（ROA分子）" : ""}</div>
               <div style={{ fontSize: 26, fontWeight: 800, margin: "4px 0 2px" }}>{oku(r.actual)}</div>
               <div style={{ fontSize: 11, color: "#64748b" }}>
-                年度目標 {oku(r.target)} ／ 着地見込 {oku(r.landing)} {r.judgment && <span style={{ marginLeft: 4 }}><JudgmentBadge judgment={r.judgment} size="sm" /></span>}
+                {isCum ? "年度目標" : `${unitLabel || unit}目標`} {oku(r.target)} ／ {isCum ? "着地見込" : "年換算"} {oku(r.landing)} {r.judgment && <span style={{ marginLeft: 4 }}><JudgmentBadge judgment={r.judgment} size="sm" /></span>}
               </div>
             </div>
           ))}
         </div>
 
         {/* PL */}
-        <div style={sectionTitle}>損益計算書ベース（年度計画 vs 実績累計）</div>
+        <div style={sectionTitle}>{isCum ? "損益計算書ベース（年度計画 vs 実績累計）" : `損益計算書ベース（${unitLabel || "―"} 実績）`}</div>
+        {!isCum && !unitLabel && !loading && (
+          <div style={{ fontSize: 13, padding: "9px 14px", borderRadius: 10, marginBottom: 14, background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e" }}>
+            <AlertCircle size={14} style={{ verticalAlign: "-2px" }} /> {unit}で確定したスパンがありません（会計データがこの粒度で未入力）。「会計データ入力」で該当期間を入れると表示されます。
+          </div>
+        )}
         <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflowX: "auto" }}>
           {loading ? (
             <div style={{ padding: 40, textAlign: "center", color: "#64748b" }}>読み込み中…</div>
@@ -126,8 +147,13 @@ export default function CompanyKpiPage() {
             <table style={table}>
               <thead>
                 <tr style={{ background: "#f1f5f9", color: "#64748b" }}>
-                  <th style={thLeft}>科目</th><th style={th}>年度目標</th><th style={th}>月次目標</th>
-                  <th style={th}>実績累計</th><th style={th}>進捗(ペース)</th><th style={th}>着地見込</th><th style={th}>判定</th>
+                  <th style={thLeft}>科目</th>
+                  <th style={th}>{isCum ? "年度目標" : `${unitLabel || unit}目標`}</th>
+                  {isCum && <th style={th}>月次目標</th>}
+                  <th style={th}>{isCum ? "実績累計" : `${unitLabel || unit}実績`}</th>
+                  <th style={th}>{isCum ? "進捗(ペース)" : "達成率"}</th>
+                  <th style={th}>{isCum ? "着地見込" : "着地見込(年換算)"}</th>
+                  <th style={th}>判定</th>
                 </tr>
               </thead>
               <tbody>
@@ -135,7 +161,7 @@ export default function CompanyKpiPage() {
                   <tr key={r.name} style={r.major ? { background: "#f8fafc" } : undefined}>
                     <td style={{ ...tdLeft, fontWeight: r.major ? 800 : 600, color: r.major ? "#4f46e5" : undefined }}>{r.name}</td>
                     <td style={td}>{oku(r.target)}</td>
-                    <td style={td}>{r.monthlyTarget ? oku(r.monthlyTarget) : "―"}</td>
+                    {isCum && <td style={td}>{r.monthlyTarget ? oku(r.monthlyTarget) : "―"}</td>}
                     <td style={td}>{oku(r.actual)}</td>
                     <td style={td}><PaceBar p={r.pace} judgment={r.judgment} /></td>
                     <td style={td}>{oku(r.landing)}</td>
@@ -147,12 +173,14 @@ export default function CompanyKpiPage() {
           )}
         </div>
         <div style={{ fontSize: 11, color: "#64748b", margin: "8px 4px" }}>
-          進捗(ペース)=実績累計 ÷ (年度目標×経過月/12)。着地見込=実績累計 ÷ 経過月 ×12。判定 緑≥95%/黄≥80%/赤。
+          {isCum
+            ? "進捗(ペース)=実績累計 ÷ (年度目標×経過月/12)。着地見込=実績累計 ÷ 経過月 ×12。判定 緑≥95%/黄≥80%/赤。"
+            : `達成率=${unitLabel || unit}実績 ÷ ${unitLabel || unit}目標(年度目標を月数按分)。着地見込=当スパン実績を年換算。フロー科目=期間合算/総資産=期末/人員=期中平均。判定 緑≥95%/黄≥80%/赤。`}
         </div>
         <a href="/seisan-kpi/dashboard" style={{ display: "inline-block", fontSize: 12, color: "#2563eb", margin: "4px 4px 0", textDecoration: "none" }}>▶ 生産本部KPI（Lv2 粗利率/総資産回転率/材料金額比率）へ ― 同一の会計データを参照</a>
 
         {/* 率・その他 */}
-        <div style={sectionTitle}>限界利益・率・その他計画（年度計画 vs 実績）</div>
+        <div style={sectionTitle}>限界利益・率・その他計画（{isCum ? "年度計画 vs 実績" : `${unitLabel || unit} 実績`}）</div>
         <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, overflowX: "auto" }}>
           <table style={table}>
             <thead><tr style={{ background: "#f1f5f9", color: "#64748b" }}><th style={thLeft}>指標</th><th style={th}>目標</th><th style={th}>実績</th><th style={th}>判定</th></tr></thead>
@@ -168,7 +196,7 @@ export default function CompanyKpiPage() {
         </div>
 
         <div style={{ fontSize: 11, color: "#64748b", marginTop: 14, lineHeight: 1.7 }}>
-          年度目標＝既存「全社KPI（COMPANY_KPI）」。実績＝会計データ（KAIKEI_ACTUAL／月・四半期・半期を年度累計に正規化）。ROA分子＝経常利益。
+          年度目標＝既存「全社KPI（COMPANY_KPI）」。実績＝会計データ（KAIKEI_ACTUAL）。{isCum ? "累計は月・四半期・半期を年度累計に正規化。" : `${unit}は最新の確定スパンを表示し、目標は年度目標を月数按分。`}ROA分子＝経常利益。
           粗利・売上原価は会計実績の製造原価から算出。
         </div>
       </div>

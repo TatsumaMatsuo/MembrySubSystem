@@ -106,8 +106,8 @@ function averageKaikeiValue(rows: KaikeiRow[]): number {
   return months > 0 ? weighted / months : 0;
 }
 
-/** KAIKEI_ACTUAL を勘定科目ごとに年度累計へ正規化(百万円)。人員数=期中平均/総資産=直近。 */
-export async function getKaikeiCumByAccount(period: number): Promise<Map<string, number>> {
+/** KAIKEI_ACTUAL を勘定科目ごとの生スパン行(百万円)へ整理。 */
+export async function getKaikeiRawByAccount(period: number): Promise<Map<string, KaikeiRow[]>> {
   const t = getLarkTables();
   const r = await getBaseRecords(t.KAIKEI_ACTUAL, {
     baseToken: base(),
@@ -127,6 +127,11 @@ export async function getKaikeiCumByAccount(period: number): Promise<Map<string,
     if (!byAccount.has(account)) byAccount.set(account, []);
     byAccount.get(account)!.push(row);
   }
+  return byAccount;
+}
+
+/** 科目ごとの生スパン行 → 年度累計へ正規化(百万円)。人員数=期中平均/総資産=直近。 */
+function cumFromRaw(byAccount: Map<string, KaikeiRow[]>): Map<string, number> {
   const cum = new Map<string, number>();
   for (const [account, rows] of byAccount) {
     const v = AVERAGE_ACCOUNTS.has(account)
@@ -137,6 +142,63 @@ export async function getKaikeiCumByAccount(period: number): Promise<Map<string,
     cum.set(account, v);
   }
   return cum;
+}
+
+/** KAIKEI_ACTUAL を勘定科目ごとに年度累計へ正規化(百万円)。人員数=期中平均/総資産=直近。 */
+export async function getKaikeiCumByAccount(period: number): Promise<Map<string, number>> {
+  return cumFromRaw(await getKaikeiRawByAccount(period));
+}
+
+/* ----- #66 表示単位(累計/月次/四半期/半期) ----- */
+export type DisplayUnit = "累計" | "月次" | "四半期" | "半期";
+const UNIT_MONTHS: Record<Exclude<DisplayUnit, "累計">, number> = { 月次: 1, 四半期: 3, 半期: 6 };
+interface UnitSpan { label: string; startM: number; endM: number }
+
+/** 表示単位を会計月レンジ([1..12], 8月=1)のスパン配列へ展開 */
+function unitSpans(unit: Exclude<DisplayUnit, "累計">): UnitSpan[] {
+  if (unit === "月次") return FISCAL_MONTH_LABELS.map((label, i) => ({ label, startM: i + 1, endM: i + 1 }));
+  if (unit === "四半期")
+    return [
+      { label: "第1四半期", startM: 1, endM: 3 },
+      { label: "第2四半期", startM: 4, endM: 6 },
+      { label: "第3四半期", startM: 7, endM: 9 },
+      { label: "第4四半期", startM: 10, endM: 12 },
+    ];
+  return [
+    { label: "上期", startM: 1, endM: 6 },
+    { label: "下期", startM: 7, endM: 12 },
+  ];
+}
+
+/** スパン[startM..endM]の全会計月が、含まれる行で隙間なく埋まっているか */
+function spanCovered(rows: KaikeiRow[], span: UnitSpan): boolean {
+  const covered = new Set<number>();
+  for (const r of rows) {
+    const s = spanToFiscalMonth(r.granularity, r.period);
+    const e = endFiscalMonth(r.granularity, r.period);
+    if (s >= span.startM && e <= span.endM) for (let m = s; m <= e; m++) covered.add(m);
+  }
+  for (let m = span.startM; m <= span.endM; m++) if (!covered.has(m)) return false;
+  return true;
+}
+
+/**
+ * 指定スパンに完全に含まれる生行を集計して単位実績(百万円)を返す。
+ * フロー科目=合算(スパン未充足なら null=過少表示回避) / 総資産=期末(直近) / 人員数=月数加重平均。
+ * 格納粒度がスパンより粗く1行も収まらない場合も null(その粒度では算出不可)。
+ */
+function spanValueForUnit(rows: KaikeiRow[], span: UnitSpan, account: string): number | null {
+  const contained = rows.filter((r) => {
+    const s = spanToFiscalMonth(r.granularity, r.period);
+    const e = endFiscalMonth(r.granularity, r.period);
+    return s >= span.startM && e <= span.endM;
+  });
+  if (contained.length === 0) return null;
+  if (AVERAGE_ACCOUNTS.has(account)) return averageKaikeiValue(contained);
+  if (LATEST_ACCOUNTS.has(account)) return latestKaikeiValue(contained);
+  // フロー科目はスパンが月単位で完全に埋まっている時のみ合算(部分月の過少表示を防ぐ)
+  if (!spanCovered(contained, span)) return null;
+  return contained.reduce((a, r) => a + r.value, 0);
 }
 
 export type Dir = "高" | "少";
@@ -163,20 +225,23 @@ const senToOku = (v: number) => v / 100000;
 const millionToOku = (v: number) => v / 100;
 
 /** #45 全社KPI: PL行を構築 */
-export async function buildCompanyKpi(period: number): Promise<{
+export async function buildCompanyKpi(period: number, unit: DisplayUnit = "累計"): Promise<{
   period: number;
   currentPeriod: number;
   selectablePeriods: number[];
   elapsedMonths: number;
+  unit: DisplayUnit;
+  unitLabel: string;
   hasActuals: boolean;
   plRows: CompanyKpiRow[];
   otherRows: { name: string; target: string; actual: string; judgment: Judgment | null }[];
 }> {
-  const [periods, targets, kaikei] = await Promise.all([
+  const [periods, targets, raw] = await Promise.all([
     getPeriods(),
     getCompanyTargets(period),
-    getKaikeiCumByAccount(period),
+    getKaikeiRawByAccount(period),
   ]);
+  const kaikei = cumFromRaw(raw);
   const cur = periods.find((p) => p.isCurrent) ?? periods[0];
   const currentPeriod = cur?.period ?? period;
   // 過去期は満了(12ヶ月)で年換算(期マスタに値があれば優先)。当期は走行中の経過月数。
@@ -186,9 +251,26 @@ export async function buildCompanyKpi(period: number): Promise<{
   const selectablePeriods = periods.map((p) => p.period).filter((p) => p <= currentPeriod).sort((a, b) => a - b);
   const hasActuals = kaikei.size > 0;
 
-  // 会計実績(億)を勘定科目で引く
-  const actOku = (account: string): number | null =>
-    kaikei.has(account) ? millionToOku(kaikei.get(account)!) : null;
+  // ---- #66 表示単位: 累計以外は「最新の確定スパン」を1つ選び、そのスパンで表示 ----
+  const isCum = unit === "累計";
+  const spans = isCum ? [] : unitSpans(unit);
+  // 売上高がデータを持つ最新スパンを採用(なければ null=未確定)
+  let selSpan: UnitSpan | null = null;
+  if (!isCum) {
+    const salesRows = raw.get("売上高") ?? [];
+    for (const sp of spans) if (spanValueForUnit(salesRows, sp, "売上高") != null) selSpan = sp;
+  }
+  const unitLabel = isCum ? "" : selSpan?.label ?? "";
+  const unitMonths = isCum ? 1 : UNIT_MONTHS[unit];
+  const factor = isCum ? 1 : unitMonths / 12; // 金額目標のスパン按分係数
+
+  // 実績(億)を勘定科目で引く。累計=正規化値 / スパン=選択スパンの合算(フロー)・期末(総資産)・平均(人員)。
+  const actOku = (account: string): number | null => {
+    if (isCum) return kaikei.has(account) ? millionToOku(kaikei.get(account)!) : null;
+    if (!selSpan) return null;
+    const v = spanValueForUnit(raw.get(account) ?? [], selSpan, account);
+    return v == null ? null : millionToOku(v);
+  };
 
   type Def = {
     name: string;
@@ -214,22 +296,27 @@ export async function buildCompanyKpi(period: number): Promise<{
   ];
 
   const plRows: CompanyKpiRow[] = defs.map((d) => {
+    const dispTarget = d.target * factor; // 累計は factor=1、スパンは年度目標×(単位月数/12)
+    const dir2 = d.dir === "高" ? "高い方が良い" : "少ない方が良い";
     let pace: number | null = null;
     let judgment: Judgment | null = null;
     let landing: number | null = null;
-    if (d.actual != null && elapsed > 0) {
-      pace = attainmentRate(
-        { aggType: "累計", direction: d.dir === "高" ? "高い方が良い" : "少ない方が良い", annualTarget: d.target },
-        d.actual,
-        elapsed
-      );
-      judgment = judgeByRate(pace);
-      landing = (d.actual / elapsed) * 12;
+    if (d.actual != null) {
+      if (isCum && elapsed > 0) {
+        // 累計: 月割合算目標に対する進捗ペース / 着地=経過月から年換算
+        pace = attainmentRate({ aggType: "累計", direction: dir2, annualTarget: d.target }, d.actual, elapsed);
+        landing = (d.actual / elapsed) * 12;
+      } else if (!isCum) {
+        // スパン: 単位目標に対する達成率(按分なし) / 着地=当スパンを年換算
+        pace = attainmentRate({ aggType: "直近月値", direction: dir2, annualTarget: dispTarget }, d.actual, 0);
+        landing = (d.actual / unitMonths) * 12;
+      }
+      if (pace != null) judgment = judgeByRate(pace);
     }
     return {
       name: d.name,
-      target: d.target,
-      monthlyTarget: d.monthlyTarget ?? null,
+      target: dispTarget,
+      monthlyTarget: isCum ? d.monthlyTarget ?? null : null,
       actual: d.actual,
       pace,
       landing,
@@ -249,20 +336,25 @@ export async function buildCompanyKpi(period: number): Promise<{
   const fixedA = marginalA != null && opIncomeA != null ? marginalA - opIncomeA : null;
   const mfgRateA = salesA != null && salesA !== 0 && costA != null ? (costA / salesA) * 100 : null;
   const outsourceRateA = costA != null && costA !== 0 && outsourcingA != null ? (outsourcingA / costA) * 100 : null;
-  const headcountA = kaikei.has("人員数") ? kaikei.get("人員数")! : null;
+  const headcountA = isCum
+    ? kaikei.has("人員数") ? kaikei.get("人員数")! : null
+    : selSpan ? spanValueForUnit(raw.get("人員数") ?? [], selSpan, "人員数") : null;
 
-  // 判定: 金額(累計)は PL と同じ達成率、率(目標との直接比)は直近月値型で評価
-  const judgeAmt = (actualOku: number | null, targetOku: number, dir: Dir): Judgment | null =>
-    actualOku == null || elapsed <= 0 || !targetOku
-      ? null
-      : judgeByRate(attainmentRate({ aggType: "累計", direction: dir === "高" ? "高い方が良い" : "少ない方が良い", annualTarget: targetOku }, actualOku, elapsed));
+  // 判定: 金額は達成率(累計=月割ペース / スパン=単位目標比)、率(目標との直接比)は直近月値型で評価
+  const judgeAmt = (actualOku: number | null, targetOku: number, dir: Dir): Judgment | null => {
+    if (actualOku == null || !targetOku) return null;
+    const dir2 = dir === "高" ? "高い方が良い" : "少ない方が良い";
+    if (isCum) return elapsed <= 0 ? null : judgeByRate(attainmentRate({ aggType: "累計", direction: dir2, annualTarget: targetOku }, actualOku, elapsed));
+    return judgeByRate(attainmentRate({ aggType: "直近月値", direction: dir2, annualTarget: targetOku }, actualOku, 0));
+  };
   const judgeRate = (actualPct: number | null, targetPct: number, dir: Dir): Judgment | null =>
     actualPct == null || !targetPct
       ? null
       : judgeByRate(attainmentRate({ aggType: "直近月値", direction: dir === "高" ? "高い方が良い" : "少ない方が良い", annualTarget: targetPct }, actualPct, elapsed));
 
-  const marginalT = senToOku(targets.marginal_profit ?? 0);
-  const fixedT = senToOku(targets.fixed_cost ?? 0);
+  // 金額目標はスパン按分(factor)。率・人員は按分しない。
+  const marginalT = senToOku(targets.marginal_profit ?? 0) * factor;
+  const fixedT = senToOku(targets.fixed_cost ?? 0) * factor;
   const mfgRateT = targets.manufacturing_cost_rate ?? 0;
   const outsourceRateT = targets.outsourcing_rate ?? 0;
   const headcountT = targets.headcount_plan ?? 0;
@@ -277,7 +369,7 @@ export async function buildCompanyKpi(period: number): Promise<{
   ];
 
   void proratedTarget; // (将来: 月割合算表示で使用)
-  return { period, currentPeriod, selectablePeriods, elapsedMonths: elapsed, hasActuals, plRows, otherRows };
+  return { period, currentPeriod, selectablePeriods, elapsedMonths: elapsed, unit, unitLabel, hasActuals, plRows, otherRows };
 }
 
 /* =========================================================================

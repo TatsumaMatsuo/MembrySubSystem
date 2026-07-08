@@ -32,6 +32,7 @@ interface Employee {
 interface DocumentData {
   id?: string;
   approval_status?: string;
+  rejection_reason?: string;
 }
 
 interface MyDocuments {
@@ -460,6 +461,11 @@ function ProxyApplicationContent() {
   const vehicleSummary = getStatusSummary(documents.vehicles);
   const insuranceSummary = getStatusSummary(documents.insurances);
 
+  // 免許証は1:1。未申請、または前回が却下の場合のみ（再）申請フォームを開ける。
+  // 却下レコードが残っていても代理で再申請できるようにする。
+  const canApplyLicense =
+    !documents.license || documents.license.approval_status === "rejected";
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 成功メッセージ */}
@@ -577,8 +583,8 @@ function ProxyApplicationContent() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* 免許証（1:1） */}
               <div
-                onClick={() => !documents.license && setActiveForm("license")}
-                className={`bg-white rounded-lg shadow p-6 ${!documents.license ? "hover:shadow-lg cursor-pointer" : ""} transition-shadow`}
+                onClick={() => canApplyLicense && setActiveForm("license")}
+                className={`bg-white rounded-lg shadow p-6 ${canApplyLicense ? "hover:shadow-lg cursor-pointer" : ""} transition-shadow`}
               >
                 <div className="flex items-center justify-between mb-4">
                   <FileText className="h-12 w-12 text-blue-600" />
@@ -589,9 +595,14 @@ function ProxyApplicationContent() {
                 <p className="text-sm text-gray-600">
                   運転免許証の情報を登録してください
                 </p>
-                {!documents.license && (
+                {documents.license?.approval_status === "rejected" && documents.license?.rejection_reason && (
+                  <p className="mt-2 text-xs text-red-600">
+                    却下理由: {documents.license.rejection_reason}
+                  </p>
+                )}
+                {canApplyLicense && (
                   <div className="mt-4 text-blue-600 text-sm font-medium">
-                    申請する →
+                    {documents.license ? "却下 - 再申請する →" : "申請する →"}
                   </div>
                 )}
               </div>

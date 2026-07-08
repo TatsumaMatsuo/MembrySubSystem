@@ -249,7 +249,11 @@ export default function Dashboard() {
                 運転免許証の情報を登録してください
               </p>
               <div className="mt-4 text-blue-600 text-sm font-medium">
-                {documents.license ? "詳細を見る →" : "申請する →"}
+                {!documents.license
+                  ? "申請する →"
+                  : documents.license.approval_status === "rejected"
+                  ? "却下 - 再申請する →"
+                  : "詳細を見る →"}
               </div>
             </div>
           </Link>

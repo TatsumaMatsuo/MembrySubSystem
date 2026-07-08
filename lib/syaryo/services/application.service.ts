@@ -46,23 +46,29 @@ export async function getApplicationOverview(
       ?.filter((item: any) => item.fields.deleted_flag !== true)
       ?.forEach((item: any) => {
         const empId = item.fields.employee_id;
-        // 1:1なので最初の1件だけ保存
-        if (!licensesMap.has(empId)) {
-          licensesMap.set(empId, {
-            id: item.record_id,
-            employee_id: item.fields.employee_id,
-            license_number: item.fields.license_number,
-            license_type: item.fields.license_type,
-            issue_date: item.fields.issue_date ? new Date(item.fields.issue_date) : undefined,
-            expiration_date: item.fields.expiration_date ? new Date(item.fields.expiration_date) : undefined,
-            image_attachment: item.fields.image_attachment,
-            status: item.fields.status,
-            approval_status: item.fields.approval_status,
-            rejection_reason: item.fields.rejection_reason,
-            created_at: item.fields.created_at ? new Date(item.fields.created_at) : undefined,
-            updated_at: item.fields.updated_at ? new Date(item.fields.updated_at) : undefined,
-            deleted_flag: false,
-          } as DriversLicense);
+        const license = {
+          id: item.record_id,
+          employee_id: item.fields.employee_id,
+          license_number: item.fields.license_number,
+          license_type: item.fields.license_type,
+          issue_date: item.fields.issue_date ? new Date(item.fields.issue_date) : undefined,
+          expiration_date: item.fields.expiration_date ? new Date(item.fields.expiration_date) : undefined,
+          image_attachment: item.fields.image_attachment,
+          status: item.fields.status,
+          approval_status: item.fields.approval_status,
+          rejection_reason: item.fields.rejection_reason,
+          created_at: item.fields.created_at ? new Date(item.fields.created_at) : undefined,
+          updated_at: item.fields.updated_at ? new Date(item.fields.updated_at) : undefined,
+          deleted_flag: false,
+        } as DriversLicense;
+
+        // 1:1だが却下後の再申請で複数レコードが残る場合がある。
+        // 却下レコードより後続のアクティブ(pending/approved)な再申請を優先し、
+        // 同区分では後勝ち(最新)を採用する。
+        const existing = licensesMap.get(empId);
+        const isRejected = (s?: string) => s === "rejected";
+        if (!existing || !isRejected(license.approval_status) || isRejected(existing.approval_status)) {
+          licensesMap.set(empId, license);
         }
       });
 

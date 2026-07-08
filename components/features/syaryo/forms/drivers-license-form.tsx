@@ -26,12 +26,13 @@ export function DriversLicenseForm({ onSubmit, isLoading = false }: DriversLicen
 
   const handleFileChange = (file: File | null) => {
     setUploadedFile(file);
-    setValue("image_file", file);
+    // 必須項目。null(未選択/削除)の場合も値を反映し、バリデーションで弾く。
+    setValue("image_file", file as File, { shouldValidate: true });
   };
 
   const handleFileChangeUra = (file: File | null) => {
     setUploadedFileUra(file);
-    setValue("image_file_ura", file);
+    setValue("image_file_ura", file as File, { shouldValidate: true });
   };
 
   const onFormSubmit = async (data: DriversLicenseFormData) => {
@@ -64,7 +65,7 @@ export function DriversLicenseForm({ onSubmit, isLoading = false }: DriversLicen
           {/* 裏面 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              免許証画像（裏面）
+              免許証画像（裏面） <span className="text-red-500">*</span>
             </label>
             <FileUpload onFileChange={handleFileChangeUra} />
             {errors.image_file_ura && (

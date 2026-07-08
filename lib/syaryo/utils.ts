@@ -14,3 +14,20 @@ export function toApiDateString(date: Date): string {
   }
   return date.toISOString()
 }
+
+/**
+ * 1:1書類（免許証など）で、複数レコードが残っている場合に「表示すべき1件」を選ぶ。
+ * 却下後の再申請では却下レコードが残ったまま新しい pending が追加されるため、
+ * 却下より pending/approved（アクティブ）を優先し、同区分では後勝ち（配列の後方＝最新）を採用する。
+ */
+export function pickLatestActive<T extends { approval_status?: string }>(
+  docs: T[]
+): T | null {
+  return docs.reduce<T | null>((best, cur) => {
+    if (!best) return cur
+    const curActive = cur.approval_status !== "rejected"
+    const bestRejected = best.approval_status === "rejected"
+    // curがアクティブ、またはbestが却下なら cur を採用（後勝ち）
+    return curActive || bestRejected ? cur : best
+  }, null)
+}

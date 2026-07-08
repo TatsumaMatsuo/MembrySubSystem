@@ -3,6 +3,7 @@ import { requireAuth, getCurrentEmployeeInfo } from "@/lib/syaryo/auth-utils";
 import { getDriversLicenses } from "@/lib/syaryo/services/drivers-license.service";
 import { getVehicleRegistrations } from "@/lib/syaryo/services/vehicle-registration.service";
 import { getInsurancePolicies } from "@/lib/syaryo/services/insurance-policy.service";
+import { pickLatestActive } from "@/lib/syaryo/utils";
 
 /**
  * GET /api/my-documents
@@ -49,8 +50,9 @@ export async function GET(request: NextRequest) {
     console.log(`[my-documents] insurances count: ${insurances.length}, employee_ids: ${insurances.map(i => i.employee_id).join(', ')}`);
 
     // ユーザーの書類をフィルタリング
-    // 免許証は1:1なのでfind（最初の1件）
-    const myLicense = licenses.find((l) => l.employee_id === userId);
+    // 免許証は1:1だが、却下後の再申請で複数レコードが残る場合がある。
+    // 却下より最新アクティブ(pending/approved)を優先する共通ロジックで選択。
+    const myLicense = pickLatestActive(licenses.filter((l) => l.employee_id === userId));
     // 車検証・保険証は1:多なのでfilter（全件）
     const myVehicles = vehicles.filter((v) => v.employee_id === userId);
     const myInsurances = insurances.filter((i) => i.employee_id === userId);

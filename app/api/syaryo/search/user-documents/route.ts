@@ -3,6 +3,7 @@ import { requireViewPermission } from "@/lib/syaryo/auth-utils";
 import { getDriversLicenses } from "@/lib/syaryo/services/drivers-license.service";
 import { getVehicleRegistrations } from "@/lib/syaryo/services/vehicle-registration.service";
 import { getInsurancePolicies } from "@/lib/syaryo/services/insurance-policy.service";
+import { pickLatestActive } from "@/lib/syaryo/utils";
 
 /**
  * GET /api/search/user-documents
@@ -36,18 +37,12 @@ export async function GET(request: NextRequest) {
       getInsurancePolicies(employeeId),
     ]);
 
-    // 最新の書類のみ取得（created_atでソート）
-    const latestLicense = licenses.sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )[0] || null;
-
-    const latestVehicle = vehicles.sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )[0] || null;
-
-    const latestInsurance = insurances.sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )[0] || null;
+    // 表示すべき1件を選択。
+    // 注: このテーブルには created_at 列が無く、取得時に既定値(new Date())が入るため
+    // created_at ソートは実質無効。却下より最新アクティブを優先するロジックに統一する。
+    const latestLicense = pickLatestActive(licenses);
+    const latestVehicle = pickLatestActive(vehicles);
+    const latestInsurance = pickLatestActive(insurances);
 
     return NextResponse.json({
       success: true,

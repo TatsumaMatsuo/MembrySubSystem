@@ -23,13 +23,9 @@ export const driversLicenseSchema = z.object({
       message: "有効期限を正しく入力してください",
     }),
   image_file: z
-    .instanceof(File, { message: "免許証（表面）の画像をアップロードしてください" })
-    .optional()
-    .nullable(),
+    .instanceof(File, { message: "免許証（表面）の画像をアップロードしてください" }),
   image_file_ura: z
-    .instanceof(File, { message: "免許証（裏面）の画像をアップロードしてください" })
-    .optional()
-    .nullable(),
+    .instanceof(File, { message: "免許証（裏面）の画像をアップロードしてください" }),
 });
 
 export type DriversLicenseFormData = z.infer<typeof driversLicenseSchema>;

@@ -34,6 +34,7 @@ import {
   CheckSquare,
   Square,
   MinusSquare,
+  UploadCloud,
 } from "lucide-react";
 import {
   PieChart,
@@ -106,6 +107,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [collapsedDepts, setCollapsedDepts] = useState<Set<DepartmentName>>(new Set());
   const [uploadTarget, setUploadTarget] = useState<{ dept: DepartmentName; docType: string; replace: boolean; targetFileToken?: string } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false); // アップロードモーダルのドラッグ中フラグ
   const [deleting, setDeleting] = useState<string | null>(null); // 削除中のファイルトークン
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [detailMenuOpen, setDetailMenuOpen] = useState(false);
@@ -248,10 +250,27 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     fetchHistory(docType);
   };
 
-  // ファイルアップロードダイアログを開く
+  // ファイルアップロードモーダル（ドラッグ&ドロップ対応）を開く
   const handleOpenUpload = (dept: DepartmentName, docType: string, replace: boolean = false, targetFileToken?: string) => {
     setUploadTarget({ dept, docType, replace, targetFileToken });
-    fileInputRef.current?.click();
+    setDragOver(false);
+  };
+
+  // モーダルを閉じる（アップロード中は閉じない）
+  const handleCloseUpload = () => {
+    if (uploading) return;
+    setUploadTarget(null);
+    setDragOver(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // ドロップされたファイルをアップロード
+  const handleDropFile = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (uploading) return;
+    const file = e.dataTransfer.files?.[0];
+    if (file) uploadSelectedFile(file);
   };
 
   // ファイル削除処理
@@ -335,10 +354,15 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     });
   };
 
-  // ファイル選択時の処理
+  // ファイル選択（<input>）時の処理
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !uploadTarget) return;
+    if (file) await uploadSelectedFile(file);
+  };
+
+  // 選択/ドロップされたファイルをアップロード（共通処理）
+  const uploadSelectedFile = async (file: File) => {
+    if (!uploadTarget) return;
 
     // ファイルサイズチェック
     if (file.size > MAX_FILE_SIZE) {
@@ -3391,6 +3415,63 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                 className="hidden"
                 accept=".pdf,.jpg,.jpeg,.png,.gif,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
               />
+
+              {/* アップロードモーダル（ドラッグ&ドロップ / クリックでファイル選択） */}
+              {uploadTarget && (
+                <div
+                  className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+                  onClick={handleCloseUpload}
+                >
+                  <div
+                    className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
+                      <h3 className="font-bold text-gray-800 truncate">
+                        {uploadTarget.replace ? "ファイルを差し替え" : "ファイルを追加"} - {uploadTarget.docType}
+                      </h3>
+                      <button
+                        onClick={handleCloseUpload}
+                        disabled={uploading}
+                        className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                      >
+                        閉じる
+                      </button>
+                    </div>
+                    <div className="p-6">
+                      <div
+                        onClick={() => { if (!uploading) fileInputRef.current?.click(); }}
+                        onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOver(true); }}
+                        onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+                        onDrop={handleDropFile}
+                        className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-xl px-6 py-12 text-center transition-colors ${
+                          uploading
+                            ? "pointer-events-none opacity-70 border-gray-300 bg-gray-50"
+                            : dragOver
+                              ? "border-green-500 bg-green-50 cursor-pointer"
+                              : "border-gray-300 bg-gray-50 hover:border-green-400 hover:bg-green-50/60 cursor-pointer"
+                        }`}
+                      >
+                        {uploading ? (
+                          <>
+                            <Loader2 className="w-10 h-10 text-green-600 animate-spin" />
+                            <p className="text-sm font-medium text-gray-700">アップロード中...</p>
+                          </>
+                        ) : (
+                          <>
+                            <UploadCloud className={`w-12 h-12 ${dragOver ? "text-green-600" : "text-gray-400"}`} />
+                            <p className="text-sm font-semibold text-gray-700">ここにファイルをドラッグ＆ドロップ</p>
+                            <p className="text-xs text-gray-500">またはクリックしてファイルを選択</p>
+                          </>
+                        )}
+                      </div>
+                      <p className="mt-3 text-xs text-gray-400 text-center">
+                        対応形式: PDF / 画像 / Word / Excel / PowerPoint（上限 {MAX_FILE_SIZE / 1024 / 1024}MB）
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* ファイルビューアーモーダル */}
               {viewingFile && (

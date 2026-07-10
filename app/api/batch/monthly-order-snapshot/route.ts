@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 import { isUriagezumi } from "@/lib/lark-tables";
+import { batchUnauthorized } from "@/lib/batch-auth";
 
 // tenant_access_tokenを直接取得
 async function getTenantAccessToken(): Promise<string> {
@@ -120,6 +121,9 @@ function parseLarkDate(value: any): Date | null {
 }
 
 export async function POST(request: NextRequest) {
+  const unauth = batchUnauthorized(request);
+  if (unauth) return unauth;
+
   const client = getLarkClient();
   if (!client) {
     return NextResponse.json({ error: "Lark client not initialized" }, { status: 500 });
@@ -280,6 +284,9 @@ export async function POST(request: NextRequest) {
 
 // GETで現在の状態を確認
 export async function GET(request: NextRequest) {
+  const unauth = batchUnauthorized(request);
+  if (unauth) return unauth;
+
   const client = getLarkClient();
   if (!client) {
     return NextResponse.json({ error: "Lark client not initialized" }, { status: 500 });

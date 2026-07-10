@@ -9,14 +9,13 @@ export const runtime = "nodejs";
 // AWS Amplify SSR では環境変数にアクセスできないバグがあるため、フォールバック値を設定
 // 本番環境では環境変数から取得することを推奨
 const FALLBACK_APP_ID = "cli_a9d79d0bbf389e1c";
-const FALLBACK_APP_SECRET = "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE";
 const FALLBACK_JWT_SECRET = "baiyaku_info_secret_key_12345";
 
 // 環境変数を取得するヘルパー関数（ランタイムで評価）
 function getEnvVars() {
   return {
     appId: process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID || FALLBACK_APP_ID,
-    appSecret: process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET || FALLBACK_APP_SECRET,
+    appSecret: process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET,
     jwtSecret: process.env.NEXTAUTH_SECRET || FALLBACK_JWT_SECRET,
   };
 }

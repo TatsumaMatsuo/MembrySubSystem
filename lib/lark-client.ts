@@ -1,8 +1,8 @@
 import * as lark from "@larksuiteoapi/node-sdk";
 
-// AWS Amplify SSR では環境変数にアクセスできない場合があるため、フォールバック値を設定
+// app_id / base_token は機密ではないため amplify env 未設定時のフォールバックを許容。
+// ただし app_secret は機密のためソースに埋め込まず、必ず環境変数(LARK_APP_SECRET)から読む。
 const FALLBACK_APP_ID = "cli_a9d79d0bbf389e1c";
-const FALLBACK_APP_SECRET = "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE";
 const FALLBACK_BASE_TOKEN = "NvWsbaVP2aVT99sJUFxjhOLGpPs";
 const FALLBACK_BASE_TOKEN_MASTER = "J09zbrPDxa5QR8sEgU9jqLlxpxg";
 
@@ -10,10 +10,10 @@ let _larkClient: lark.Client | null = null;
 
 export function getLarkClient(): lark.Client | null {
   const appId = process.env.LARK_APP_ID || FALLBACK_APP_ID;
-  const appSecret = process.env.LARK_APP_SECRET || FALLBACK_APP_SECRET;
+  const appSecret = process.env.LARK_APP_SECRET;
 
   if (!appId || !appSecret) {
-    console.error("[lark-client] Missing LARK_APP_ID or LARK_APP_SECRET");
+    console.error("[lark-client] Missing LARK_APP_ID or LARK_APP_SECRET (env必須)");
     return null;
   }
 

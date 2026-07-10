@@ -12,7 +12,7 @@ const MAPPING_TABLE_ID = "tbl9Vuq1DizM400V";
 // tenant_access_tokenを直接取得（バッチAPI用）
 async function getTenantAccessToken(): Promise<string> {
   const appId = process.env.LARK_APP_ID || "cli_a9d79d0bbf389e1c";
-  const appSecret = process.env.LARK_APP_SECRET || "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE";
+  const appSecret = process.env.LARK_APP_SECRET;
   const larkDomain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
   const response = await fetch(`${larkDomain}/open-apis/auth/v3/tenant_access_token/internal`, {
     method: "POST",

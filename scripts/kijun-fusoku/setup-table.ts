@@ -38,7 +38,7 @@ const FIELDS: { name: string; type: number }[] = [
 function client() {
   return new lark.Client({
     appId: process.env.LARK_APP_ID || "cli_a9d79d0bbf389e1c",
-    appSecret: process.env.LARK_APP_SECRET || "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE",
+    appSecret: process.env.LARK_APP_SECRET || "",
     appType: lark.AppType.SelfBuild,
     domain: process.env.LARK_DOMAIN || "https://open.larksuite.com",
   });

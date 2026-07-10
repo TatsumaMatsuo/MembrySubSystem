@@ -15,7 +15,8 @@ interface AlertRow { kpiId: string; name: string; department: string; level: str
 interface Trend { kpiId: string; name: string; unit: string; target: number; monthly: (number | null)[]; }
 interface Rank { department: string; stars: number; }
 const FY_MONTHS = ["8", "9", "10", "11", "12", "1", "2", "3", "4", "5", "6", "7"];
-const fmtNum = (v: number) => (Math.abs(v) >= 100000 ? `${(v / 100000000).toFixed(1)}億` : v.toLocaleString());
+// 1億以上のみ「◯.◯億」に短縮。しきい値と除数の桁を揃える(旧: 10万以上で1億除算→29万㎡等が0.0億と誤表示)
+const fmtNum = (v: number) => (Math.abs(v) >= 100000000 ? `${(v / 100000000).toFixed(1)}億` : v.toLocaleString());
 
 export default function SeisanDashboardPage() {
   const [period, setPeriod] = useState(50);

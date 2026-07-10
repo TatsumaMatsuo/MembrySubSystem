@@ -1,8 +1,7 @@
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
-// AWS Amplify SSR では環境変数にアクセスできないため、lark-auth と同じフォールバック値を使用
-const FALLBACK_JWT_SECRET = "baiyaku_info_secret_key_12345";
+// JWT署名鍵は環境変数(NEXTAUTH_SECRET)必須。既知のフォールバック鍵はセッション偽造を招くため撤去。
 
 export interface ServerSession {
   user: {
@@ -29,7 +28,11 @@ export async function getServerSession(): Promise<ServerSession> {
       return { user: null };
     }
 
-    const jwtSecret = process.env.NEXTAUTH_SECRET || FALLBACK_JWT_SECRET;
+    const jwtSecret = process.env.NEXTAUTH_SECRET;
+    if (!jwtSecret) {
+      console.error("[auth-server] NEXTAUTH_SECRET 未設定のためセッションを無効化します");
+      return { user: null };
+    }
     const SECRET = new TextEncoder().encode(jwtSecret);
     const { payload } = await jwtVerify(token, SECRET);
 

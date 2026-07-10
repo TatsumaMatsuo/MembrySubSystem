@@ -2,6 +2,7 @@
  * メニュー権限システム ライブラリ
  */
 import { getBaseRecords, getLarkBaseTokenForMaster, larkClient } from "./lark-client";
+import { escapeLarkFilterValue } from "./lark-filter";
 import {
   MenuDisplayMaster,
   FunctionPlacementMaster,
@@ -158,7 +159,7 @@ export async function getEmployeeByEmail(email: string): Promise<EmployeeInfo | 
     // メールアドレスでフィルタ
     const response = await getBaseRecords(tables.EMPLOYEES, {
       baseToken,
-      filter: `CurrentValue.[${EMPLOYEE_FIELDS.email}] = "${email}"`,
+      filter: `CurrentValue.[${EMPLOYEE_FIELDS.email}] = "${escapeLarkFilterValue(email)}"`,
       pageSize: 1,
     });
 
@@ -362,7 +363,7 @@ export async function getUserPermissions(employeeId: string): Promise<UserPermis
   const baseToken = getLarkBaseTokenForMaster();
   const response = await getBaseRecords(TABLE_USER_PERMISSION, {
     baseToken,
-    filter: `CurrentValue.[社員ID] = "${employeeId}"`,
+    filter: `CurrentValue.[社員ID] = "${escapeLarkFilterValue(employeeId)}"`,
     pageSize: 500,
   });
 

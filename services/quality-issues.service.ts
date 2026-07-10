@@ -1,5 +1,6 @@
 import { getBaseRecords } from "@/lib/lark-client";
 import { getLarkTables, QUALITY_ISSUE_FIELDS } from "@/lib/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import type { QualityIssue } from "@/types";
 
 /**
@@ -7,7 +8,7 @@ import type { QualityIssue } from "@/types";
  */
 export async function getQualityIssuesBySeiban(seiban: string): Promise<QualityIssue[]> {
   const tables = getLarkTables();
-  const filter = `CurrentValue.[${QUALITY_ISSUE_FIELDS.seiban}] = "${seiban}"`;
+  const filter = `CurrentValue.[${QUALITY_ISSUE_FIELDS.seiban}] = "${escapeLarkFilterValue(seiban)}"`;
 
   const response = await getBaseRecords(tables.QUALITY_ISSUES, {
     filter,

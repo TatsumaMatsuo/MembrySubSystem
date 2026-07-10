@@ -1,4 +1,5 @@
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import type { CostAnalysisData, CostCategory } from "@/types";
 
 // テーブルID（製番原価データ）
@@ -102,7 +103,7 @@ export async function getCostAnalysisBySeiban(seiban: string): Promise<CostAnaly
         table_id: TABLE_ID,
       },
       params: {
-        filter: `CurrentValue.[製番] = "${seiban}"`,
+        filter: `CurrentValue.[製番] = "${escapeLarkFilterValue(seiban)}"`,
         page_size: 100,
       },
     });

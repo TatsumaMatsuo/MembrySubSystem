@@ -1,5 +1,6 @@
 import { getBaseRecords } from "@/lib/lark-client";
 import { getLarkTables, CUSTOMER_REQUEST_FIELDS } from "@/lib/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import type { CustomerRequest } from "@/types";
 
 /**
@@ -7,7 +8,7 @@ import type { CustomerRequest } from "@/types";
  */
 export async function getCustomerRequestsBySeiban(seiban: string): Promise<CustomerRequest[]> {
   const tables = getLarkTables();
-  const filter = `CurrentValue.[${CUSTOMER_REQUEST_FIELDS.seiban}] = "${seiban}"`;
+  const filter = `CurrentValue.[${CUSTOMER_REQUEST_FIELDS.seiban}] = "${escapeLarkFilterValue(seiban)}"`;
 
   const response = await getBaseRecords(tables.CUSTOMER_REQUESTS, {
     filter,

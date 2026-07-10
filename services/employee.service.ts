@@ -1,5 +1,6 @@
 import { getBaseRecords, getLarkBaseTokenForEmployees } from "@/lib/lark-client";
 import { getLarkTables, EMPLOYEE_FIELDS } from "@/lib/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import type { Employee } from "@/types";
 
 /**
@@ -79,7 +80,7 @@ export async function getEmployees(searchTerm?: string): Promise<Employee[]> {
  */
 export async function getEmployeeByEmail(email: string): Promise<Employee | null> {
   const tables = getLarkTables();
-  const filter = `CurrentValue.[${EMPLOYEE_FIELDS.email}] = "${email}"`;
+  const filter = `CurrentValue.[${EMPLOYEE_FIELDS.email}] = "${escapeLarkFilterValue(email)}"`;
 
   const response = await getBaseRecords(tables.EMPLOYEES, {
     filter,

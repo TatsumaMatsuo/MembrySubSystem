@@ -1,5 +1,6 @@
 import { getBaseRecords, createBaseRecord, updateBaseRecord } from "@/lib/lark-client";
 import { getLarkTables, PROJECT_DOCUMENT_FIELDS, DOCUMENT_CATEGORIES } from "@/lib/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import type { ProjectDocument, DepartmentName, LarkAttachment } from "@/types";
 
 /**
@@ -9,7 +10,7 @@ import type { ProjectDocument, DepartmentName, LarkAttachment } from "@/types";
  */
 export async function getDocumentsBySeiban(seiban: string): Promise<ProjectDocument[]> {
   const tables = getLarkTables();
-  const filter = `CurrentValue.[${PROJECT_DOCUMENT_FIELDS.seiban}] = "${seiban}"`;
+  const filter = `CurrentValue.[${PROJECT_DOCUMENT_FIELDS.seiban}] = "${escapeLarkFilterValue(seiban)}"`;
 
   const response = await getBaseRecords(tables.PROJECT_DOCUMENTS, {
     filter,

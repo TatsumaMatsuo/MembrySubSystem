@@ -1,5 +1,6 @@
 import { getBaseRecords } from "@/lib/lark-client";
 import { getLarkTables, BAIYAKU_FIELDS } from "@/lib/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import type { BaiyakuInfo, SearchParams } from "@/types";
 
 /**
@@ -148,7 +149,7 @@ export async function searchBaiyakuInfo(params: SearchParams): Promise<BaiyakuIn
  */
 export async function getBaiyakuBySeiban(seiban: string): Promise<BaiyakuInfo | null> {
   const tables = getLarkTables();
-  const filter = `CurrentValue.[${BAIYAKU_FIELDS.seiban}] = "${seiban}"`;
+  const filter = `CurrentValue.[${BAIYAKU_FIELDS.seiban}] = "${escapeLarkFilterValue(seiban)}"`;
 
   const response = await getBaseRecords(tables.BAIYAKU, { filter, pageSize: 1 });
 

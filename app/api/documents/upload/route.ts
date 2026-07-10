@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Readable } from "stream";
 import { getLarkClient, getLarkBaseToken, getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import { getLarkTables } from "@/lib/lark-tables";
 
 export const dynamic = 'force-dynamic';
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
     console.log("[upload] Target field:", { field_id: targetField.field_id, field_name: targetField.field_name });
 
     // 1. 製番でレコードを検索
-    const filter = `CurrentValue.[製番] = "${seiban}"`;
+    const filter = `CurrentValue.[製番] = "${escapeLarkFilterValue(seiban)}"`;
     console.log("[upload] Searching for existing record with filter:", filter);
 
     const existingRecords = await getBaseRecords(tables.PROJECT_DOCUMENTS, { filter });

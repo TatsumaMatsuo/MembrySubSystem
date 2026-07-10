@@ -18,7 +18,7 @@ const DESIRED_ORDER = ["M001", "M014", "M002", "M003", "M004", "M005", "M006", "
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
-  const c = new lark.Client({ appId: process.env.LARK_APP_ID || "cli_a9d79d0bbf389e1c", appSecret: process.env.LARK_APP_SECRET || "3sr6zsUWFw8LFl3tWNY26gwBB1WJOSnE", appType: lark.AppType.SelfBuild, domain: process.env.LARK_DOMAIN || "https://open.larksuite.com" });
+  const c = new lark.Client({ appId: process.env.LARK_APP_ID || "cli_a9d79d0bbf389e1c", appSecret: process.env.LARK_APP_SECRET || "", appType: lark.AppType.SelfBuild, domain: process.env.LARK_DOMAIN || "https://open.larksuite.com" });
 
   const items: any[] = []; let pt: string | undefined;
   do { const r: any = await c.bitable.appTableRecord.list({ path: { app_token: BASE, table_id: TABLE }, params: { page_size: 200, page_token: pt } }); items.push(...(r.data?.items || [])); pt = r.data?.has_more ? r.data?.page_token : undefined; } while (pt);

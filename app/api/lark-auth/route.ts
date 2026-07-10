@@ -119,21 +119,8 @@ export async function POST(request: NextRequest) {
     const tenantData = await getTenantAccessToken();
     if (tenantData.code !== 0) {
       console.error("[Lark Auth] Tenant token error:", tenantData);
-      // デバッグ: 詳細なエラー情報を返す
-      return NextResponse.json({
-        error: `Tenant token error: ${tenantData.msg}`,
-        debug: {
-          tenantResponse: tenantData,
-          runtimeEnvCheck: {
-            LARK_APP_ID_len: appId?.length,
-            LARK_APP_SECRET_len: appSecret?.length,
-          },
-          processEnvCheck: {
-            LARK_APP_ID_len: process.env.LARK_APP_ID?.length,
-            LARK_APP_SECRET_len: process.env.LARK_APP_SECRET?.length,
-          },
-        },
-      }, { status: 500 });
+      // 応答には環境情報を含めない(情報露出防止)。詳細はサーバログのみ。
+      return NextResponse.json({ error: "認証に失敗しました" }, { status: 500 });
     }
 
     // Lark ユーザートークン取得
@@ -205,11 +192,7 @@ export async function GET(request: NextRequest) {
       if (tenantData.code !== 0) {
         console.error("[Lark Auth GET] Tenant token error:", tenantData);
         const errorUrl = new URL("/auth/signin", baseUrl);
-        errorUrl.searchParams.set("error", `Tenant token error: ${tenantData.msg}`);
-        errorUrl.searchParams.set("debug", JSON.stringify({
-          appIdLen: appId?.length,
-          appSecretLen: appSecret?.length,
-        }));
+        errorUrl.searchParams.set("error", "認証に失敗しました");
         return NextResponse.redirect(errorUrl);
       }
 

@@ -9,14 +9,13 @@ export const runtime = "nodejs";
 // AWS Amplify SSR では環境変数にアクセスできないバグがあるため、フォールバック値を設定
 // 本番環境では環境変数から取得することを推奨
 const FALLBACK_APP_ID = "cli_a9d79d0bbf389e1c";
-const FALLBACK_JWT_SECRET = "baiyaku_info_secret_key_12345";
 
 // 環境変数を取得するヘルパー関数（ランタイムで評価）
 function getEnvVars() {
   return {
     appId: process.env.LARK_APP_ID || process.env.LARK_OAUTH_CLIENT_ID || FALLBACK_APP_ID,
     appSecret: process.env.LARK_APP_SECRET || process.env.LARK_OAUTH_CLIENT_SECRET,
-    jwtSecret: process.env.NEXTAUTH_SECRET || FALLBACK_JWT_SECRET,
+    jwtSecret: process.env.NEXTAUTH_SECRET,
   };
 }
 
@@ -88,6 +87,7 @@ async function getLarkUserInfo(accessToken: string) {
 // JWT トークン作成
 async function createToken(payload: any) {
   const { jwtSecret } = getEnvVars();
+  if (!jwtSecret) throw new Error("NEXTAUTH_SECRET が未設定です");
   const SECRET = new TextEncoder().encode(jwtSecret);
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
@@ -281,6 +281,10 @@ export async function GET(request: NextRequest) {
     }
 
     const { jwtSecret } = getEnvVars();
+    if (!jwtSecret) {
+      console.error("[Lark Auth] NEXTAUTH_SECRET 未設定のためセッションを無効化します");
+      return NextResponse.json({ user: null });
+    }
     const SECRET = new TextEncoder().encode(jwtSecret);
     const { payload } = await jwtVerify(token, SECRET);
 

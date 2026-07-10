@@ -6,9 +6,8 @@ import { cookies } from "next/headers";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// フォールバック値（AWS Amplify SSR で環境変数が取得できない問題の回避）
+// フォールバック値（app_idは非機密のため許容。JWT鍵の既知フォールバックはセキュリティ上撤去）
 const FALLBACK_APP_ID = "cli_a9d79d0bbf389e1c";
-const FALLBACK_JWT_SECRET = "baiyaku_info_secret_key_12345";
 
 // GET: 環境変数テスト（Lark国際版 API）
 export async function GET() {
@@ -62,7 +61,10 @@ export async function GET() {
 
 // POST: auth-token検証テスト
 export async function POST(request: NextRequest) {
-  const jwtSecret = process.env.NEXTAUTH_SECRET || FALLBACK_JWT_SECRET;
+  const jwtSecret = process.env.NEXTAUTH_SECRET;
+  if (!jwtSecret) {
+    return NextResponse.json({ success: false, error: "NEXTAUTH_SECRET 未設定" }, { status: 500 });
+  }
   const SECRET = new TextEncoder().encode(jwtSecret);
 
   try {
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: false,
         error: "auth-token cookie not found",
-        jwtSecretUsed: jwtSecret.substring(0, 10) + "...",
+        jwtSecretSet: true,
       });
     }
 
@@ -83,7 +85,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: "Token verified successfully",
-      jwtSecretUsed: jwtSecret.substring(0, 10) + "...",
+      jwtSecretSet: true,
       payload: {
         id: payload.id,
         name: payload.name,

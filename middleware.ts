@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-// AWS Amplify SSR では環境変数にアクセスできないため、lark-auth と同じフォールバック値を使用
-const SECRET = new TextEncoder().encode(
-  process.env.NEXTAUTH_SECRET || "baiyaku_info_secret_key_12345"
-);
+// NEXTAUTH_SECRET はビルド時に amplify.yml 経由で .env.production に書き出され、Edgeにもインラインされる。
+// 既知のフォールバック鍵は撤去(セキュリティ: 公開鍵だとセッション偽造が可能なため)。未設定時は検証不能=fail-closed。
+const SECRET_STR = process.env.NEXTAUTH_SECRET;
 
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get("auth-token")?.value;
@@ -30,9 +29,15 @@ export async function middleware(request: NextRequest) {
   // トークンがない場合
   if (!token) return unauthorized();
 
+  // NEXTAUTH_SECRET 未設定(設定不備)は検証できないため fail-closed
+  if (!SECRET_STR) {
+    console.error("[middleware] NEXTAUTH_SECRET 未設定のため認証を拒否します");
+    return unauthorized();
+  }
+
   try {
     // JWT検証
-    await jwtVerify(token, SECRET);
+    await jwtVerify(token, new TextEncoder().encode(SECRET_STR));
     return NextResponse.next();
   } catch {
     // トークンが無効な場合

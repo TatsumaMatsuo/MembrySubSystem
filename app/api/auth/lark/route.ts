@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 
-const SECRET = new TextEncoder().encode(
-  process.env.NEXTAUTH_SECRET || "fallback-secret-key-for-development"
-);
+// JWT署名鍵は NEXTAUTH_SECRET 必須。既知フォールバック鍵は撤去(セッション偽造対策)。未設定は例外=fail-closed。
+function secretKey(): Uint8Array {
+  const s = process.env.NEXTAUTH_SECRET;
+  if (!s) throw new Error("NEXTAUTH_SECRET が未設定です");
+  return new TextEncoder().encode(s);
+}
 
 // Tenant Access Token 取得
 async function getTenantAccessToken() {
@@ -66,7 +69,7 @@ async function createToken(payload: any) {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("4h")
-    .sign(SECRET);
+    .sign(secretKey());
 }
 
 // POST: Lark認証コードでログイン
@@ -159,7 +162,7 @@ export async function GET() {
       return NextResponse.json({ user: null });
     }
 
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, secretKey());
     return NextResponse.json({ user: payload });
   } catch (error) {
     return NextResponse.json({ user: null });

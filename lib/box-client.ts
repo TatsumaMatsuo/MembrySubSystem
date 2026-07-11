@@ -6,23 +6,17 @@
  * キャッシュで保持する。Boxの認証情報はサーバ側のみ（クライアントに出さない）。
  *
  * 環境変数: BOX_CLIENT_ID / BOX_CLIENT_SECRET / BOX_ENTERPRISE_ID / BOX_FOLDER_ID
- * ※ AWS Amplify SSR では実行時に process.env を参照できない場合があるため、lark-client.ts と
- *    同様にフォールバック値を持つ（private リポジトリ前提。Secret 再生成時は下記も更新）。
+ * ※ 認証情報は env 必須(ハードコード撤去)。amplify.yml が .env.production へ書き出し
+ *    ビルド時インライン → SSR実行時に参照可能。未設定時は isBoxConfigured() が false を返す。
  */
 
 const BOX_TOKEN_URL = "https://api.box.com/oauth2/token";
 const BOX_API = "https://api.box.com/2.0";
 
-// Amplify SSR 実行時フォールバック（lib/lark-client.ts と同方針）
-const FALLBACK_BOX_CLIENT_ID = "apw266xosaz7letz0qoxgxfldmmowfj4";
-const FALLBACK_BOX_CLIENT_SECRET = "m2HvMJ4FrNFpsL2qRijp3yYegoy2Uyau";
-const FALLBACK_BOX_ENTERPRISE_ID = "315653928";
-const FALLBACK_BOX_FOLDER_ID = "213472048879";
-
-function boxClientId() { return process.env.BOX_CLIENT_ID || FALLBACK_BOX_CLIENT_ID; }
-function boxClientSecret() { return process.env.BOX_CLIENT_SECRET || FALLBACK_BOX_CLIENT_SECRET; }
-function boxEnterpriseId() { return process.env.BOX_ENTERPRISE_ID || FALLBACK_BOX_ENTERPRISE_ID; }
-function boxFolderId() { return process.env.BOX_FOLDER_ID || FALLBACK_BOX_FOLDER_ID; }
+function boxClientId() { return process.env.BOX_CLIENT_ID || ""; }
+function boxClientSecret() { return process.env.BOX_CLIENT_SECRET || ""; }
+function boxEnterpriseId() { return process.env.BOX_ENTERPRISE_ID || ""; }
+function boxFolderId() { return process.env.BOX_FOLDER_ID || ""; }
 
 export function isBoxConfigured(): boolean {
   return Boolean(boxClientId() && boxClientSecret() && boxEnterpriseId() && boxFolderId());

@@ -26,6 +26,10 @@ frontend:
         - echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> .env.production
         - echo "NEXTAUTH_URL=$NEXTAUTH_URL" >> .env.production
         - echo "BATCH_SECRET=$BATCH_SECRET" >> .env.production
+        - echo "BOX_CLIENT_ID=$BOX_CLIENT_ID" >> .env.production
+        - echo "BOX_CLIENT_SECRET=$BOX_CLIENT_SECRET" >> .env.production
+        - echo "BOX_ENTERPRISE_ID=$BOX_ENTERPRISE_ID" >> .env.production
+        - echo "BOX_FOLDER_ID=$BOX_FOLDER_ID" >> .env.production
         - npm run build
   artifacts:
     baseDirectory: .next

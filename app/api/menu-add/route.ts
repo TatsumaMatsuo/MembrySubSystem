@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseTokenForMaster } from "@/lib/lark-client";
+import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
 
 // テーブルID
 const TABLE_MENU_DISPLAY = process.env.LARK_TABLE_MENU_DISPLAY || "";
 const TABLE_FUNCTION_PLACEMENT = process.env.LARK_TABLE_FUNCTION_PLACEMENT || "";
 
 export async function POST(request: NextRequest) {
+  // メニュー/機能配置マスタの改変はマスタ管理(PGM040)権限を必須化
+  const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+  if (!gate.authorized) return gate.response;
+
   const client = getLarkClient();
   if (!client) {
     return NextResponse.json({ error: "Lark client not initialized" }, { status: 500 });

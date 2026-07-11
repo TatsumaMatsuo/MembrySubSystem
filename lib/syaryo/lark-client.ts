@@ -311,6 +311,34 @@ export async function uploadAttachmentToBase(
 }
 
 /**
+ * downloadUrl が Lark/Feishu の正規ホストかを検証する（SSRF対策）。
+ *
+ * 添付DLではLarkのtenant_access_tokenをAuthorizationヘッダに載せてfetchするため、
+ * 送信先ホストを許可リストに限定しないと、任意URL(?url=)へトークンが流出しLark基盤全体の
+ * 侵害や内部SSRFに直結する。https かつ Lark/Feishu ドメインのみ許可する。
+ */
+function isAllowedLarkDownloadHost(rawUrl: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:") return false;
+  const host = u.hostname.toLowerCase();
+  const allowedSuffixes = [
+    ".larksuite.com",
+    ".feishu.cn",
+    ".larksuitecdn.com",
+    ".feishucdn.com",
+    ".larkoffice.com",
+    ".feishu-boe.cn",
+  ];
+  const allowedExact = ["larksuite.com", "feishu.cn"];
+  return allowedExact.includes(host) || allowedSuffixes.some((s) => host.endsWith(s));
+}
+
+/**
  * Lark Base 添付ファイルをダウンロード
  * @param fileToken 添付ファイルのfile_token
  * @param downloadUrl 添付ファイルのダウンロードURL（オプション、Larkレコードから取得）
@@ -349,7 +377,11 @@ export async function downloadAttachmentFromBase(fileToken: string, downloadUrl?
     console.log(`[lark-client] accessToken available: ${!!accessToken}`);
 
     // 方法1: downloadUrl が提供されている場合はそれを使用
-    if (downloadUrl && accessToken) {
+    // SSRF対策: Lark/Feishu 正規ホストのURLのみ許可（非許可なら方法2の構築URLへフォールバック）
+    if (downloadUrl && !isAllowedLarkDownloadHost(downloadUrl)) {
+      console.warn(`[lark-client] 非許可ホストのdownloadUrlを拒否しfileTokenから再構築します`);
+    }
+    if (downloadUrl && accessToken && isAllowedLarkDownloadHost(downloadUrl)) {
       try {
         console.log(`[lark-client] Downloading from provided URL with auth...`);
         const response = await fetch(downloadUrl, {

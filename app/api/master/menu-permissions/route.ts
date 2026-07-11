@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBaseRecords, createBaseRecord, updateBaseRecord, deleteBaseRecord, getLarkBaseTokenForMaster } from "@/lib/lark-client";
+import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,9 @@ function getTableId(type: TableType): string {
  * マスタデータ取得
  */
 export async function GET(request: NextRequest) {
+  // 権限マスタは認可の土台。マスタ管理(PGM040)権限を必須化(権限昇格対策)
+  const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+  if (!gate.authorized) return gate.response;
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") as TableType;
@@ -97,6 +101,8 @@ export async function GET(request: NextRequest) {
  * レコード新規作成
  */
 export async function POST(request: NextRequest) {
+  const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+  if (!gate.authorized) return gate.response;
   try {
     const body = await request.json();
     const { type, fields } = body;
@@ -138,6 +144,8 @@ export async function POST(request: NextRequest) {
  * レコード更新
  */
 export async function PUT(request: NextRequest) {
+  const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+  if (!gate.authorized) return gate.response;
   try {
     const body = await request.json();
     const { type, record_id, fields } = body;
@@ -179,6 +187,8 @@ export async function PUT(request: NextRequest) {
  * レコード削除
  */
 export async function DELETE(request: NextRequest) {
+  const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+  if (!gate.authorized) return gate.response;
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") as TableType;

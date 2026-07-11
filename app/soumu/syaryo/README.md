@@ -35,7 +35,7 @@ scripts/syaryo/            # セットアップ・検証スクリプト
 ```bash
 # ==== 車両管理専用 (syaryo) ====
 # 車両用 Lark Base トークン (URL: /base/<ここ>)
-LARK_SYARYO_BASE_TOKEN=NNLCbCdohajZpYsHCrkjy1adpNX
+LARK_SYARYO_BASE_TOKEN=<車両用BaseのトークンをLark Base URLから取得して設定>
 
 # 車両関連テーブル ID (Lark Base から取得)
 LARK_TABLE_DRIVERS_LICENSES=

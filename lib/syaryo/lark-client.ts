@@ -52,13 +52,22 @@ export const larkClient = {
 
 /**
  * Lark Base トークンを取得（ランタイム時に環境変数から取得）
+ * base token 実値の埋め込み(fallback)は情報露出になるため撤去(env必須化)。
+ * amplify.yml 経由で .env.production に書き出され SSR ランタイムへ渡る。
+ * 未設定は設定不備=fail-loud(実行時throw)で早期検知する。
  */
 export function getLarkBaseToken(): string {
-  return process.env.LARK_SYARYO_BASE_TOKEN || "NNLCbCdohajZpYsHCrkjy1adpNX";
+  const v = process.env.LARK_SYARYO_BASE_TOKEN;
+  if (!v) {
+    throw new Error("[syaryo/lark-client] 環境変数 LARK_SYARYO_BASE_TOKEN が未設定です(env必須化)");
+  }
+  return v;
 }
 
-// 後方互換性のためのエクスポート（非推奨）
-export const LARK_BASE_TOKEN = process.env.LARK_SYARYO_BASE_TOKEN || "NNLCbCdohajZpYsHCrkjy1adpNX";
+// 後方互換性のためのエクスポート（非推奨）。
+// module-level const のためimport/build時のthrowは避け、未設定時は空文字。
+// 実利用は getLarkBaseToken() 経由(env必須・fail-loud)を推奨。
+export const LARK_BASE_TOKEN = process.env.LARK_SYARYO_BASE_TOKEN || "";
 
 /**
  * Lark Baseからレコードを取得

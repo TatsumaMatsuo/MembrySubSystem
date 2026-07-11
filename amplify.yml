@@ -25,6 +25,7 @@ frontend:
         - echo "LARK_TABLE_TOP_CUSTOM_LINKS=$LARK_TABLE_TOP_CUSTOM_LINKS" >> .env.production
         - echo "NEXTAUTH_SECRET=$NEXTAUTH_SECRET" >> .env.production
         - echo "NEXTAUTH_URL=$NEXTAUTH_URL" >> .env.production
+        - echo "BATCH_SECRET=$BATCH_SECRET" >> .env.production
         - npm run build
   artifacts:
     baseDirectory: .next

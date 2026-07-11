@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient } from "@/lib/lark-client";
 import { syncLarkContacts, checkContactScopes } from "@/lib/lark-contact-sync";
+import { batchUnauthorized } from "@/lib/batch-auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -11,19 +12,12 @@ export const maxDuration = 60;
  * 起動: GitHub Actions cron → POST（Authorization: Bearer ${BATCH_SECRET}）
  *   body: { dryRun?: boolean, force?: boolean }
  *
- * BATCH_SECRET が設定されていればヘッダ検証を行う（未設定の環境では検証スキップ）。
+ * BATCH_SECRET による Bearer 認証を必須とする（未設定/不一致は401=fail-closed）。
  */
-function isAuthorized(request: NextRequest): boolean {
-  const secret = process.env.BATCH_SECRET;
-  if (!secret) return true; // 未設定環境では検証しない（既存バッチと同挙動）
-  const auth = request.headers.get("authorization") || "";
-  return auth === `Bearer ${secret}`;
-}
-
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const unauth = batchUnauthorized(request);
+  if (unauth) return unauth;
+
   const client = getLarkClient();
   if (!client) {
     return NextResponse.json({ error: "Lark client not initialized" }, { status: 500 });
@@ -61,9 +55,9 @@ export async function POST(request: NextRequest) {
 
 /** 現状確認用（スコープ状態 + dry-run 差分） */
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const unauth = batchUnauthorized(request);
+  if (unauth) return unauth;
+
   const client = getLarkClient();
   if (!client) {
     return NextResponse.json({ error: "Lark client not initialized" }, { status: 500 });

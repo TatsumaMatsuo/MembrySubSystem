@@ -1,10 +1,17 @@
 import * as lark from "@larksuiteoapi/node-sdk";
 
-// app_id / base_token は機密ではないため amplify env 未設定時のフォールバックを許容。
-// ただし app_secret は機密のためソースに埋め込まず、必ず環境変数(LARK_APP_SECRET)から読む。
+// app_id は識別子のため未設定時フォールバックを許容。app_secret は機密のためソース非埋め込み。
+// base_token 実値の埋め込み(fallback)は情報露出になるため撤去(env必須化。amplify.yml 経由で
+// .env.production に書き出され SSR ランタイムへ渡る)。未設定は fail-loud(実行時throw)。
 const FALLBACK_APP_ID = "cli_a9d79d0bbf389e1c";
-const FALLBACK_BASE_TOKEN = "NvWsbaVP2aVT99sJUFxjhOLGpPs";
-const FALLBACK_BASE_TOKEN_MASTER = "J09zbrPDxa5QR8sEgU9jqLlxpxg";
+
+function requireBaseToken(name: "LARK_BASE_TOKEN" | "LARK_BASE_TOKEN_MASTER"): string {
+  const v = process.env[name];
+  if (!v) {
+    throw new Error(`[lark-client] 環境変数 ${name} が未設定です(env必須化)`);
+  }
+  return v;
+}
 
 let _larkClient: lark.Client | null = null;
 
@@ -47,15 +54,15 @@ export const larkClient = {
 };
 
 export function getLarkBaseToken(): string {
-  return process.env.LARK_BASE_TOKEN || FALLBACK_BASE_TOKEN;
+  return requireBaseToken("LARK_BASE_TOKEN");
 }
 
 export function getLarkBaseTokenForEmployees(): string {
-  return process.env.LARK_BASE_TOKEN_MASTER || FALLBACK_BASE_TOKEN_MASTER;
+  return requireBaseToken("LARK_BASE_TOKEN_MASTER");
 }
 
 export function getLarkBaseTokenForMaster(): string {
-  return process.env.LARK_BASE_TOKEN_MASTER || FALLBACK_BASE_TOKEN_MASTER;
+  return requireBaseToken("LARK_BASE_TOKEN_MASTER");
 }
 
 export async function getBaseRecords(tableId: string, params?: {

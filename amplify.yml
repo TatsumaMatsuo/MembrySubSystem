@@ -12,6 +12,8 @@ frontend:
         - echo "LARK_APP_SECRET=$LARK_APP_SECRET" >> .env.production
         - echo "LARK_BASE_TOKEN=$LARK_BASE_TOKEN" >> .env.production
         - echo "LARK_BASE_TOKEN_MASTER=$LARK_BASE_TOKEN_MASTER" >> .env.production
+        - echo "LARK_BASE_TOKEN_SEKKEI_IRAI=$LARK_BASE_TOKEN_SEKKEI_IRAI" >> .env.production
+        - echo "LARK_SYARYO_BASE_TOKEN=$LARK_SYARYO_BASE_TOKEN" >> .env.production
         - echo "LARK_OAUTH_CLIENT_ID=$LARK_OAUTH_CLIENT_ID" >> .env.production
         - echo "LARK_OAUTH_CLIENT_SECRET=$LARK_OAUTH_CLIENT_SECRET" >> .env.production
         - echo "LARK_OAUTH_REDIRECT_URI=$LARK_OAUTH_REDIRECT_URI" >> .env.production

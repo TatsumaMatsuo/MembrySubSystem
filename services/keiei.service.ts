@@ -5,6 +5,7 @@
  * #45 全社KPI: 年度目標(既存 COMPANY_KPI) × 会計実績(KAIKEI_ACTUAL) を突合。
  * 会計実績は粒度(月/四半期/半期)を年度累計に正規化(lib/kpi normalizeKaikei)。
  */
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import {
   getBaseRecords,
   getLarkBaseToken,
@@ -598,7 +599,7 @@ async function getMidtermDetails(planId: string): Promise<{ indicator: string; u
   const t = getLarkTables();
   const r = await getBaseRecords(t.KEIEI_MIDTERM_PLAN, {
     baseToken: base(),
-    filter: `CurrentValue.[${MD.plan_id}] = "${planId}"`,
+    filter: `CurrentValue.[${MD.plan_id}] = "${escapeLarkFilterValue(planId)}"`,
     pageSize: 500,
   });
   const items = (r.data?.items ?? []) as any[];
@@ -1125,7 +1126,7 @@ export async function upsertMidtermPlan(input: MidtermPlanEdit, operator = ""): 
   };
   const foundH = await getBaseRecords(t.KEIEI_MIDTERM_PLAN_HEADER, {
     baseToken: bt,
-    filter: `CurrentValue.[${MH.plan_id}] = "${input.planId}"`,
+    filter: `CurrentValue.[${MH.plan_id}] = "${escapeLarkFilterValue(input.planId)}"`,
     pageSize: 1,
   });
   const existH = (foundH.data?.items ?? [])[0] as any;
@@ -1143,7 +1144,7 @@ export async function upsertMidtermPlan(input: MidtermPlanEdit, operator = ""): 
   //  件数に比例して時間が伸び 28秒の関数タイムアウトに達していた #midterm-save-timeout)
   const existingDetails = await getBaseRecords(t.KEIEI_MIDTERM_PLAN, {
     baseToken: bt,
-    filter: `CurrentValue.[${MD.plan_id}] = "${input.planId}"`,
+    filter: `CurrentValue.[${MD.plan_id}] = "${escapeLarkFilterValue(input.planId)}"`,
     pageSize: 500,
   });
   const recordIdByDetailId = new Map<string, string>();

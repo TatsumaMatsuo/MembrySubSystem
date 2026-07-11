@@ -1,4 +1,5 @@
 import { DriversLicense, LarkAttachment } from "@/types/syaryo";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import {
   getBaseRecords,
   createBaseRecord,
@@ -32,7 +33,7 @@ function extractAttachment(attachmentField: any): LarkAttachment | null {
 export async function getDriversLicenses(employeeId?: string): Promise<DriversLicense[]> {
   try {
     const filter = employeeId
-      ? `CurrentValue.[employee_id]="${employeeId}"`
+      ? `CurrentValue.[employee_id]="${escapeLarkFilterValue(employeeId)}"`
       : undefined;
 
     const response = await getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {

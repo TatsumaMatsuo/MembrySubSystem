@@ -14,6 +14,7 @@ import {
 } from "@/lib/lark-tables";
 import { getServerSession } from "@/lib/auth-server";
 import { getEmployeeByEmail } from "@/lib/menu-permission";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
     const incField = type === "fetch" ? F.fetch : F.launch;
 
     // 年月×担当者 で既存検索
-    const filter = `AND(CurrentValue.[${F.ym}] = "${ym}", CurrentValue.[${F.user}] = "${name.replace(/"/g, '\\"')}")`;
+    const filter = `AND(CurrentValue.[${F.ym}] = "${escapeLarkFilterValue(ym)}", CurrentValue.[${F.user}] = "${escapeLarkFilterValue(name)}")`;
     const res: any = await getBaseRecords(tableId, { baseToken, filter, pageSize: 1 });
     const rec = (res.data?.items || [])[0];
 

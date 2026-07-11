@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBaseRecords, getLarkBaseToken } from "@/lib/lark-client";
 import { getLarkTables, KIJUN_FUSOKU_FIELDS as F, KIJUN_FUSOKU_CONST_FIELDS as CFIELDS } from "@/lib/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -53,7 +54,7 @@ function numOf(v: any): number | null {
 async function loadByPrefecture(tableId: string, ken: string): Promise<KijunFusokuRecord[]> {
   const baseToken = getLarkBaseToken();
   // 県名でサーバ側フィルタ（" を含む県名は無いがエスケープしておく）
-  const filter = `CurrentValue.[${F.ken}] = "${ken.replace(/"/g, '\\"')}"`;
+  const filter = `CurrentValue.[${F.ken}] = "${escapeLarkFilterValue(ken)}"`;
   const out: KijunFusokuRecord[] = [];
   let pageToken: string | undefined;
   do {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 import { isUriagezumi } from "@/lib/lark-tables";
 import { batchUnauthorized } from "@/lib/batch-auth";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 // tenant_access_tokenを直接取得
 async function getTenantAccessToken(): Promise<string> {
@@ -225,7 +226,7 @@ export async function POST(request: NextRequest) {
           params: {
             page_size: 500,
             page_token: checkPageToken,
-            filter: `CurrentValue.[年月] = "${targetMonth}"`,
+            filter: `CurrentValue.[年月] = "${escapeLarkFilterValue(targetMonth)}"`,
           },
         });
         if (checkResponse.data?.items) {

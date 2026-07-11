@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth-server";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 export const dynamic = "force-dynamic";
 import { getBaseRecords, createBaseRecord } from "@/lib/lark-client";
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     // 既に今日回答済みかチェック（全履歴を取得してJSでフィルタリング）
     const existingResponse = await getBaseRecords(tables.QUIZ_ANSWER_HISTORY, {
-      filter: `CurrentValue.[${QUIZ_ANSWER_HISTORY_FIELDS.user_email}] = "${userId}"`,
+      filter: `CurrentValue.[${QUIZ_ANSWER_HISTORY_FIELDS.user_email}] = "${escapeLarkFilterValue(userId)}"`,
       baseToken,
     });
 
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     // クイズマスタから正解を取得
     const quizResponse = await getBaseRecords(tables.QUIZ_MASTER, {
-      filter: `CurrentValue.[${QUIZ_MASTER_FIELDS.quiz_id}] = "${quiz_id}"`,
+      filter: `CurrentValue.[${QUIZ_MASTER_FIELDS.quiz_id}] = "${escapeLarkFilterValue(quiz_id)}"`,
       baseToken,
     });
 
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
 
     // 新しいポイント合計を計算
     const userPointsResponse = await getBaseRecords(tables.QUIZ_ANSWER_HISTORY, {
-      filter: `AND(CurrentValue.[${QUIZ_ANSWER_HISTORY_FIELDS.user_email}] = "${userId}", CurrentValue.[${QUIZ_ANSWER_HISTORY_FIELDS.fiscal_period}] = ${currentPeriod})`,
+      filter: `AND(CurrentValue.[${QUIZ_ANSWER_HISTORY_FIELDS.user_email}] = "${escapeLarkFilterValue(userId)}", CurrentValue.[${QUIZ_ANSWER_HISTORY_FIELDS.fiscal_period}] = ${currentPeriod})`,
       baseToken,
     });
 

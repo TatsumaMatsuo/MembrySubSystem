@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBaseRecords } from "@/lib/lark-client";
 import { getLarkTables, BAIYAKU_FIELDS } from "@/lib/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import type { ConstructionSpec } from "@/types";
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
     const tables = getLarkTables();
 
     // 売約情報テーブルから製番でフィルタリング
-    const filter = `CurrentValue.[${BAIYAKU_FIELDS.seiban}] = "${seiban}"`;
+    const filter = `CurrentValue.[${BAIYAKU_FIELDS.seiban}] = "${escapeLarkFilterValue(seiban)}"`;
     const response = await getBaseRecords(tables.BAIYAKU, { filter, pageSize: 1 });
 
     if (!response.data?.items || response.data.items.length === 0) {

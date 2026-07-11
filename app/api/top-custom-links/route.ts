@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth-server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 // テーブルID (AWS Amplify SSR用フォールバック値付き)
 const CUSTOM_LINKS_TABLE_ID = process.env.LARK_TABLE_TOP_CUSTOM_LINKS || "tblup7d4meehzX92";
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
     let pageToken: string | undefined;
 
     // 共通(ALL=全ユーザー表示)と本人個別の両方を取得
-    const userIdEsc = userId.replace(/"/g, '\\"');
+    const userIdEsc = escapeLarkFilterValue(userId);
     do {
       const response = await client.bitable.appTableRecord.list({
         path: {

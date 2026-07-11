@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBaseRecords, createBaseRecord } from "@/lib/lark-client";
 import { getLarkTables, DOCUMENT_HISTORY_FIELDS, getBaseTokenForTable } from "@/lib/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import type { DocumentHistory, OperationType, LarkAttachment } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -24,9 +25,9 @@ export async function GET(request: NextRequest) {
     const tables = getLarkTables();
 
     // フィルター条件を構築
-    let filter = `CurrentValue.[${DOCUMENT_HISTORY_FIELDS.seiban}] = "${seiban}"`;
+    let filter = `CurrentValue.[${DOCUMENT_HISTORY_FIELDS.seiban}] = "${escapeLarkFilterValue(seiban)}"`;
     if (documentType) {
-      filter += ` && CurrentValue.[${DOCUMENT_HISTORY_FIELDS.document_type}] = "${documentType}"`;
+      filter += ` && CurrentValue.[${DOCUMENT_HISTORY_FIELDS.document_type}] = "${escapeLarkFilterValue(documentType)}"`;
     }
 
     const baseToken = getBaseTokenForTable("DOCUMENT_HISTORY");

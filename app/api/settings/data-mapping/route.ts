@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 import { DataMappingConfig, FieldMapping } from "@/types/data-mapping";
 import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 // マッピング設定テーブルID
 const MAPPING_TABLE_ID = "tbl9Vuq1DizM400V";
@@ -201,7 +202,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
         params: {
           page_size: 100,
           page_token: pageToken,
-          filter: `CurrentValue.[設定ID] = "${id}"`,
+          filter: `CurrentValue.[設定ID] = "${escapeLarkFilterValue(id)}"`,
         },
       });
 
@@ -291,7 +292,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
         params: {
           page_size: 100,
           page_token: pageToken,
-          filter: `CurrentValue.[設定ID] = "${id}"`,
+          filter: `CurrentValue.[設定ID] = "${escapeLarkFilterValue(id)}"`,
         },
       });
 

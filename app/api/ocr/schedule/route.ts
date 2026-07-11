@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
 import { getLarkTables, SCHEDULE_FIELDS } from "@/lib/lark-tables";
 import { AI_MODEL_CHAINS, createMessageWithFallback } from "@/lib/ai-models";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -235,7 +236,7 @@ async function handleClear(body: { seiban: string }) {
 }
 
 async function findScheduleRecord(seiban: string, tableId: string) {
-  const filter = `CurrentValue.[製番2] = "${seiban}"`;
+  const filter = `CurrentValue.[製番2] = "${escapeLarkFilterValue(seiban)}"`;
   const records = await getBaseRecords(tableId, { filter });
   return records.data?.items?.[0] || null;
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 export const dynamic = 'force-dynamic';
 
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
         table_id: TABLE_ID,
       },
       params: {
-        filter: `CurrentValue.[製番] = "${seiban}"`,
+        filter: `CurrentValue.[製番] = "${escapeLarkFilterValue(seiban)}"`,
         page_size: 1,
       },
     });

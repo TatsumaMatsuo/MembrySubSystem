@@ -1,4 +1,5 @@
 import { InsurancePolicy, LarkAttachment } from "@/types/syaryo";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import {
   getBaseRecords,
   createBaseRecord,
@@ -31,7 +32,7 @@ function extractAttachment(attachmentField: any): LarkAttachment | null {
 export async function getInsurancePolicies(employeeId?: string): Promise<InsurancePolicy[]> {
   try {
     const filter = employeeId
-      ? `CurrentValue.[employee_id]="${employeeId}"`
+      ? `CurrentValue.[employee_id]="${escapeLarkFilterValue(employeeId)}"`
       : undefined;
 
     const tableId = LARK_TABLES.INSURANCE_POLICIES;
@@ -283,7 +284,7 @@ export async function getExpiringInsurancePolicies(warningDays: number = 30): Pr
 export async function getDeletedInsurancePolicies(employeeId?: string): Promise<InsurancePolicy[]> {
   try {
     const filter = employeeId
-      ? `CurrentValue.[employee_id]="${employeeId}"`
+      ? `CurrentValue.[employee_id]="${escapeLarkFilterValue(employeeId)}"`
       : undefined;
 
     const response = await getBaseRecords(LARK_TABLES.INSURANCE_POLICIES, {

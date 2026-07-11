@@ -1,5 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
+
+/**
+ * 動的フィールド名(config.keyField)は `CurrentValue.[<名>]` に直接展開されるため、
+ * 式を破壊する文字(] [ " \ 改行)を含む名前を拒否する(フィルタ式インジェクション対策)。
+ * Larkのフィールド名にこれらは通常含まれない。
+ */
+function assertSafeFieldName(name: string): string {
+  if (!name || /[\[\]"\\\r\n]/.test(name)) {
+    throw new Error(`不正なフィールド名です: ${name}`);
+  }
+  return name;
+}
 import { DataMappingConfig, FieldMapping } from "@/types/data-mapping";
 import * as XLSX from "xlsx";
 
@@ -100,7 +113,7 @@ async function getMappingConfig(client: any, configId: string): Promise<DataMapp
         params: {
           page_size: 100,
           page_token: pageToken,
-          filter: `CurrentValue.[設定ID] = "${configId}"`,
+          filter: `CurrentValue.[設定ID] = "${escapeLarkFilterValue(configId)}"`,
         },
       });
 
@@ -414,13 +427,16 @@ export async function POST(request: NextRequest): Promise<Response> {
       // キー項目の型を特定（filter構文の値クォートに使用）
       const keyFieldType = keyMapping?.fieldType || "text";
 
+      // 動的フィールド名はホワイトリスト(不正文字拒否)で検証
+      const safeKeyField = assertSafeFieldName(config.keyField);
+
       // Lark filter用の値フォーマット
       const formatKeyForFilter = (k: string): string => {
         if (keyFieldType === "number") {
           const n = parseFloat(k);
-          return isNaN(n) ? `"${k.replace(/"/g, '\\"')}"` : String(n);
+          return isNaN(n) ? `"${escapeLarkFilterValue(k)}"` : String(n);
         }
-        return `"${k.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+        return `"${escapeLarkFilterValue(k)}"`;
       };
 
       const existingRecords = new Map<string, string>();
@@ -429,7 +445,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       for (let i = 0; i < keyArray.length; i += CHUNK_SIZE) {
         const chunk = keyArray.slice(i, i + CHUNK_SIZE);
         const filterParts = chunk.map(
-          (k) => `CurrentValue.[${config.keyField}]=${formatKeyForFilter(k)}`
+          (k) => `CurrentValue.[${safeKeyField}]=${formatKeyForFilter(k)}`
         );
         const filter =
           filterParts.length === 1 ? filterParts[0] : `OR(${filterParts.join(",")})`;

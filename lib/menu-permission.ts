@@ -328,7 +328,7 @@ export async function getGroupPermissions(groupNames: string[]): Promise<GroupPe
   // グループ名でフィルタ（社員マスタから取得する部署名と一致させる）。
   // 注意: Lark Bitable では boolean の "A OR B" は InvalidFilter になるため
   // 関数形式 OR(A, B) で記述する必要がある。
-  const conditions = groupNames.map((name) => `CurrentValue.[グループ名] = "${name}"`);
+  const conditions = groupNames.map((name) => `CurrentValue.[グループ名] = "${escapeLarkFilterValue(name)}"`);
   const filterConditions =
     conditions.length === 1 ? conditions[0] : `OR(${conditions.join(", ")})`;
 

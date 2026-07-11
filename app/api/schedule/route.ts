@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
 import { getLarkTables, SCHEDULE_FIELDS } from "@/lib/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
   }
 
   const tables = getLarkTables();
-  const filter = `CurrentValue.[製番2] = "${seiban}"`;
+  const filter = `CurrentValue.[製番2] = "${escapeLarkFilterValue(seiban)}"`;
   const records = await getBaseRecords(tables.SCHEDULE, { filter });
   const record = records.data?.items?.[0];
 
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
   }
 
   const tables = getLarkTables();
-  const filter = `CurrentValue.[製番2] = "${seiban}"`;
+  const filter = `CurrentValue.[製番2] = "${escapeLarkFilterValue(seiban)}"`;
   const records = await getBaseRecords(tables.SCHEDULE, { filter });
   const record = records.data?.items?.[0];
   if (!record) {

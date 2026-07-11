@@ -1,4 +1,5 @@
 import { ApplicationOverview, DriversLicense, VehicleRegistration, InsurancePolicy, MembershipType } from "@/types/syaryo";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import { getBaseRecords } from "@/lib/syaryo/lark-client";
 import { LARK_TABLES, EMPLOYEE_FIELDS, USER_SEARCH_TABLE_ID, EMPLOYEE_MASTER_FIELDS } from "@/lib/syaryo/lark-tables";
 
@@ -15,22 +16,22 @@ export async function getApplicationOverview(
       await Promise.all([
         getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {
           filter: employeeId
-            ? `CurrentValue.[employee_id]="${employeeId}"`
+            ? `CurrentValue.[employee_id]="${escapeLarkFilterValue(employeeId)}"`
             : undefined,
         }),
         getBaseRecords(LARK_TABLES.VEHICLE_REGISTRATIONS, {
           filter: employeeId
-            ? `CurrentValue.[employee_id]="${employeeId}"`
+            ? `CurrentValue.[employee_id]="${escapeLarkFilterValue(employeeId)}"`
             : undefined,
         }),
         getBaseRecords(LARK_TABLES.INSURANCE_POLICIES, {
           filter: employeeId
-            ? `CurrentValue.[employee_id]="${employeeId}"`
+            ? `CurrentValue.[employee_id]="${escapeLarkFilterValue(employeeId)}"`
             : undefined,
         }),
         getBaseRecords(USER_SEARCH_TABLE_ID, {
           filter: employeeId
-            ? `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}]="${employeeId}"`
+            ? `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}]="${escapeLarkFilterValue(employeeId)}"`
             : undefined,
           pageSize: 500,
         }),

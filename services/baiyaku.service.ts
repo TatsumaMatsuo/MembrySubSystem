@@ -25,36 +25,36 @@ export async function searchBaiyakuInfo(params: SearchParams): Promise<BaiyakuIn
 
   // 製番での部分一致検索 (FIND関数を使用)
   if (params.seiban) {
-    filters.push(`FIND("${params.seiban}", CurrentValue.[${BAIYAKU_FIELDS.seiban}]) > 0`);
+    filters.push(`FIND("${escapeLarkFilterValue(params.seiban)}", CurrentValue.[${BAIYAKU_FIELDS.seiban}]) > 0`);
   }
 
   // 担当者での部分一致検索
   if (params.tantousha) {
-    filters.push(`FIND("${params.tantousha}", CurrentValue.[${BAIYAKU_FIELDS.tantousha}]) > 0`);
+    filters.push(`FIND("${escapeLarkFilterValue(params.tantousha)}", CurrentValue.[${BAIYAKU_FIELDS.tantousha}]) > 0`);
   }
 
   // 案件名（品名+品名2）での部分一致検索
   if (params.anken_name) {
     filters.push(
-      `OR(FIND("${params.anken_name}", CurrentValue.[${BAIYAKU_FIELDS.hinmei}]) > 0, FIND("${params.anken_name}", CurrentValue.[${BAIYAKU_FIELDS.hinmei2}]) > 0)`
+      `OR(FIND("${escapeLarkFilterValue(params.anken_name)}", CurrentValue.[${BAIYAKU_FIELDS.hinmei}]) > 0, FIND("${escapeLarkFilterValue(params.anken_name)}", CurrentValue.[${BAIYAKU_FIELDS.hinmei2}]) > 0)`
     );
   }
 
   // 得意先名（得意先宛名1+得意先宛名2）での部分一致検索
   if (params.tokuisaki) {
     filters.push(
-      `OR(FIND("${params.tokuisaki}", CurrentValue.[${BAIYAKU_FIELDS.tokuisaki_atena1}]) > 0, FIND("${params.tokuisaki}", CurrentValue.[${BAIYAKU_FIELDS.tokuisaki_atena2}]) > 0)`
+      `OR(FIND("${escapeLarkFilterValue(params.tokuisaki)}", CurrentValue.[${BAIYAKU_FIELDS.tokuisaki_atena1}]) > 0, FIND("${escapeLarkFilterValue(params.tokuisaki)}", CurrentValue.[${BAIYAKU_FIELDS.tokuisaki_atena2}]) > 0)`
     );
   }
 
   // 受注日From（テキスト型なので文字列比較）
   if (params.juchu_date_from) {
-    filters.push(`CurrentValue.[${BAIYAKU_FIELDS.juchu_date}] >= "${params.juchu_date_from}"`);
+    filters.push(`CurrentValue.[${BAIYAKU_FIELDS.juchu_date}] >= "${escapeLarkFilterValue(params.juchu_date_from)}"`);
   }
 
   // 受注日To（テキスト型なので文字列比較）
   if (params.juchu_date_to) {
-    filters.push(`CurrentValue.[${BAIYAKU_FIELDS.juchu_date}] <= "${params.juchu_date_to}"`);
+    filters.push(`CurrentValue.[${BAIYAKU_FIELDS.juchu_date}] <= "${escapeLarkFilterValue(params.juchu_date_to)}"`);
   }
 
   // 売上日FROM/TO フィルタ（ステータスによって対象フィールドが異なる）
@@ -62,18 +62,18 @@ export async function searchBaiyakuInfo(params: SearchParams): Promise<BaiyakuIn
     if (params.sales_status === "juchu_zan") {
       // 受注残: 売上見込日で検索
       if (params.uriage_date_from) {
-        filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriage_mikomi_date}] >= "${params.uriage_date_from}"`);
+        filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriage_mikomi_date}] >= "${escapeLarkFilterValue(params.uriage_date_from)}"`);
       }
       if (params.uriage_date_to) {
-        filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriage_mikomi_date}] <= "${params.uriage_date_to}"`);
+        filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriage_mikomi_date}] <= "${escapeLarkFilterValue(params.uriage_date_to)}"`);
       }
     } else if (params.sales_status === "uriagezumi") {
       // 売上済: リンクフィールドの売上日で検索
       if (params.uriage_date_from) {
-        filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriage_date}] >= "${params.uriage_date_from}"`);
+        filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriage_date}] >= "${escapeLarkFilterValue(params.uriage_date_from)}"`);
       }
       if (params.uriage_date_to) {
-        filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriage_date}] <= "${params.uriage_date_to}"`);
+        filters.push(`CurrentValue.[${BAIYAKU_FIELDS.uriage_date}] <= "${escapeLarkFilterValue(params.uriage_date_to)}"`);
       }
     }
     // 全て: サーバーサイドでフィルタ不可（売上日有無で分岐が必要）→ 後処理でフィルタ

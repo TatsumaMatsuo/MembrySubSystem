@@ -1,4 +1,5 @@
 import * as lark from "@larksuiteoapi/node-sdk";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import { Readable } from "stream";
 
 // Larkクライアント（遅延初期化）
@@ -555,23 +556,23 @@ export async function getApprovalHistory(params?: {
     const filters: string[] = [];
 
     if (params?.employee_id) {
-      filters.push(`CurrentValue.[employee_id] = "${params.employee_id}"`);
+      filters.push(`CurrentValue.[employee_id] = "${escapeLarkFilterValue(params.employee_id)}"`);
     }
 
     if (params?.approver_id) {
-      filters.push(`CurrentValue.[approver_id] = "${params.approver_id}"`);
+      filters.push(`CurrentValue.[approver_id] = "${escapeLarkFilterValue(params.approver_id)}"`);
     }
 
     if (params?.action) {
-      filters.push(`CurrentValue.[action] = "${params.action}"`);
+      filters.push(`CurrentValue.[action] = "${escapeLarkFilterValue(params.action)}"`);
     }
 
     if (params?.start_date) {
-      filters.push(`CurrentValue.[timestamp] >= ${params.start_date}`);
+      filters.push(`CurrentValue.[timestamp] >= ${Number(params.start_date)}`);
     }
 
     if (params?.end_date) {
-      filters.push(`CurrentValue.[timestamp] <= ${params.end_date}`);
+      filters.push(`CurrentValue.[timestamp] <= ${Number(params.end_date)}`);
     }
 
     const filter = filters.length > 0 ? filters.join(" AND ") : undefined;

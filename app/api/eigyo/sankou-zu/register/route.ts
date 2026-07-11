@@ -7,6 +7,7 @@ import {
   updateBaseRecord,
 } from "@/lib/lark-client";
 import { getLarkTables, SANKOU_DAICHO_FIELDS, SANKOU_DAICHO_KEY, SANKOU_DAICHO_READONLY_FIELDS } from "@/lib/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -75,8 +76,8 @@ export async function POST(request: Request) {
     if (denpyoIn != null && String(denpyoIn).trim() !== "") {
       const denpyo = keyIsNum ? Number(denpyoIn) : String(denpyoIn);
       const filter = keyIsNum
-        ? `CurrentValue.[${SANKOU_DAICHO_KEY}] = ${denpyo}`
-        : `CurrentValue.[${SANKOU_DAICHO_KEY}] = "${String(denpyo).replace(/"/g, '\\"')}"`;
+        ? `CurrentValue.[${SANKOU_DAICHO_KEY}] = ${Number(denpyo)}`
+        : `CurrentValue.[${SANKOU_DAICHO_KEY}] = "${escapeLarkFilterValue(denpyo)}"`;
       const res: any = await getBaseRecords(tableId, { baseToken, filter, pageSize: 1 });
       const rec = (res.data?.items || [])[0];
       if (!rec) {

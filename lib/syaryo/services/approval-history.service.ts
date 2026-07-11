@@ -1,4 +1,5 @@
 import { createBaseRecord, getBaseRecords } from "@/lib/syaryo/lark-client";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import { LARK_TABLES, APPROVAL_HISTORY_FIELDS } from "@/lib/syaryo/lark-tables";
 
 /**
@@ -86,25 +87,25 @@ export async function getApprovalHistory(
 
     if (filter?.application_type) {
       filterConditions.push(
-        `CurrentValue.[${APPROVAL_HISTORY_FIELDS.application_type}] = "${filter.application_type}"`
+        `CurrentValue.[${APPROVAL_HISTORY_FIELDS.application_type}] = "${escapeLarkFilterValue(filter.application_type)}"`
       );
     }
 
     if (filter?.employee_id) {
       filterConditions.push(
-        `CurrentValue.[${APPROVAL_HISTORY_FIELDS.employee_id}] = "${filter.employee_id}"`
+        `CurrentValue.[${APPROVAL_HISTORY_FIELDS.employee_id}] = "${escapeLarkFilterValue(filter.employee_id)}"`
       );
     }
 
     if (filter?.approver_id) {
       filterConditions.push(
-        `CurrentValue.[${APPROVAL_HISTORY_FIELDS.approver_id}] = "${filter.approver_id}"`
+        `CurrentValue.[${APPROVAL_HISTORY_FIELDS.approver_id}] = "${escapeLarkFilterValue(filter.approver_id)}"`
       );
     }
 
     if (filter?.action) {
       filterConditions.push(
-        `CurrentValue.[${APPROVAL_HISTORY_FIELDS.action}] = "${filter.action}"`
+        `CurrentValue.[${APPROVAL_HISTORY_FIELDS.action}] = "${escapeLarkFilterValue(filter.action)}"`
       );
     }
 

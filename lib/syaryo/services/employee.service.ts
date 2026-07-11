@@ -5,6 +5,7 @@ import {
 } from "@/lib/syaryo/lark-client";
 import { LARK_TABLES, EMPLOYEE_FIELDS, USER_SEARCH_TABLE_ID, EMPLOYEE_MASTER_FIELDS } from "@/lib/syaryo/lark-tables";
 import { Employee, EmploymentStatus, MembershipType } from "@/types/syaryo";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 /**
  * Peopleフィールドから名前を抽出
@@ -159,7 +160,7 @@ export async function getEmployeeByEmail(email: string): Promise<Employee | null
  */
 export async function getEmployee(employeeId: string): Promise<Employee | null> {
   try {
-    const filter = `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}] = "${employeeId}"`;
+    const filter = `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}] = "${escapeLarkFilterValue(employeeId)}"`;
 
     const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
       filter,
@@ -216,7 +217,7 @@ export async function retireEmployee(
   resignationDate?: Date
 ): Promise<void> {
   try {
-    const filter = `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}] = "${employeeId}"`;
+    const filter = `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}] = "${escapeLarkFilterValue(employeeId)}"`;
 
     const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
       filter,
@@ -252,7 +253,7 @@ export async function softDeleteEmployeeDocuments(
 }> {
   try {
     const deleteFilter = `AND(
-      CurrentValue.[employee_id] = "${employeeId}",
+      CurrentValue.[employee_id] = "${escapeLarkFilterValue(employeeId)}",
       CurrentValue.[deleted_flag] = false
     )`;
 
@@ -352,7 +353,7 @@ export async function retireEmployeeWithDocuments(
  */
 export async function reactivateEmployee(employeeId: string): Promise<void> {
   try {
-    const filter = `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}] = "${employeeId}"`;
+    const filter = `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}] = "${escapeLarkFilterValue(employeeId)}"`;
 
     const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
       filter,

@@ -1,4 +1,5 @@
 import { larkClient, getBaseRecords } from "@/lib/syaryo/lark-client";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import { LARK_TABLES, EMPLOYEE_FIELDS, USER_SEARCH_TABLE_ID, EMPLOYEE_MASTER_FIELDS } from "@/lib/syaryo/lark-tables";
 import { LarkUser } from "@/types/syaryo";
 
@@ -192,7 +193,7 @@ export async function getLarkNotificationTargetByEmployeeId(
 ): Promise<{ openId: string | null; email: string | null } | null> {
   try {
     const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
-      filter: `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}]="${employeeId}"`,
+      filter: `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}]="${escapeLarkFilterValue(employeeId)}"`,
     });
 
     const employee = response.data?.items?.[0];

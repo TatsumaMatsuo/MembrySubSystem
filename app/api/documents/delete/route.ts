@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken, getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
 import { getLarkTables } from "@/lib/lark-tables";
 import { getServerSession } from "@/lib/auth-server";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     const tables = getLarkTables();
 
     // 1. 製番でレコードを検索
-    const filter = `CurrentValue.[製番] = "${seiban}"`;
+    const filter = `CurrentValue.[製番] = "${escapeLarkFilterValue(seiban)}"`;
     console.log("[delete] Searching for record with filter:", filter);
 
     const existingRecords = await getBaseRecords(tables.PROJECT_DOCUMENTS, { filter });

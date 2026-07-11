@@ -6,6 +6,7 @@ import {
   LARK_TABLES,
   NOTIFICATION_HISTORY_FIELDS,
 } from "@/lib/syaryo/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import {
   NotificationHistory,
   NotificationType,
@@ -20,7 +21,7 @@ export async function getNotificationHistory(
 ): Promise<NotificationHistory[]> {
   try {
     const filter = recipientId
-      ? `CurrentValue.[${NOTIFICATION_HISTORY_FIELDS.recipient_id}] = "${recipientId}"`
+      ? `CurrentValue.[${NOTIFICATION_HISTORY_FIELDS.recipient_id}] = "${escapeLarkFilterValue(recipientId)}"`
       : undefined;
 
     const response = await getBaseRecords(LARK_TABLES.NOTIFICATION_HISTORY, {
@@ -152,9 +153,9 @@ export async function isDuplicateNotification(
     const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
 
     const filter = `AND(
-      CurrentValue.[${NOTIFICATION_HISTORY_FIELDS.recipient_id}] = "${recipientId}",
-      CurrentValue.[${NOTIFICATION_HISTORY_FIELDS.document_id}] = "${documentId}",
-      CurrentValue.[${NOTIFICATION_HISTORY_FIELDS.notification_type}] = "${notificationType}",
+      CurrentValue.[${NOTIFICATION_HISTORY_FIELDS.recipient_id}] = "${escapeLarkFilterValue(recipientId)}",
+      CurrentValue.[${NOTIFICATION_HISTORY_FIELDS.document_id}] = "${escapeLarkFilterValue(documentId)}",
+      CurrentValue.[${NOTIFICATION_HISTORY_FIELDS.notification_type}] = "${escapeLarkFilterValue(notificationType)}",
       CurrentValue.[${NOTIFICATION_HISTORY_FIELDS.sent_at}] > ${twentyFourHoursAgo}
     )`;
 

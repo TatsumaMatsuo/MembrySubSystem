@@ -35,7 +35,7 @@ function extractName(field: any): string {
 export async function getPermits(employeeId?: string): Promise<Permit[]> {
   try {
     const filter = employeeId
-      ? `CurrentValue.[employee_id]="${employeeId}"`
+      ? `CurrentValue.[employee_id]="${escapeLarkFilterValue(employeeId)}"`
       : undefined;
 
     const response = await getBaseRecords(LARK_TABLES.PERMITS, {
@@ -326,7 +326,7 @@ export async function getValidPermitByVehicleId(
   vehicleId: string
 ): Promise<Permit | null> {
   try {
-    const filter = `AND(CurrentValue.[vehicle_id]="${vehicleId}",CurrentValue.[status]="valid")`;
+    const filter = `AND(CurrentValue.[vehicle_id]="${escapeLarkFilterValue(vehicleId)}",CurrentValue.[status]="valid")`;
 
     const response = await getBaseRecords(LARK_TABLES.PERMITS, {
       filter,

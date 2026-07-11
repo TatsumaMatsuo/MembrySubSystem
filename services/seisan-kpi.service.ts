@@ -9,6 +9,7 @@ import {
   deleteBaseRecord,
   getLarkBaseToken,
 } from "@/lib/lark-client";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import {
   getLarkTables,
   SEISAN_KPI_MASTER_FIELDS as MF,
@@ -516,7 +517,7 @@ export async function upsertActual(input: {
   // 既存検索(実績コードで一意)
   const found = await getBaseRecords(t.SEISAN_KPI_ACTUAL, {
     baseToken: base(),
-    filter: `CurrentValue.[${AF.actual_id}] = "${actualId}"`,
+    filter: `CurrentValue.[${AF.actual_id}] = "${escapeLarkFilterValue(actualId)}"`,
     pageSize: 1,
   });
   const existing = (found.data?.items ?? [])[0] as any;
@@ -811,7 +812,7 @@ export async function getMeasuresScreen(
   if (selected) {
     const measureItems = await getAllRecords(
       t.SEISAN_KPI_MEASURE,
-      `AND(CurrentValue.[${XF.period}] = ${period}, CurrentValue.[${XF.group_id}] = "${selected.groupId}")`
+      `AND(CurrentValue.[${XF.period}] = ${period}, CurrentValue.[${XF.group_id}] = "${escapeLarkFilterValue(selected.groupId)}")`
     );
     const measureIds = measureItems.map((it) => asText(it.fields[XF.measure_id]));
     // PDCA は期で一括取得し、施策IDで突合(OR フィルタ制約回避)
@@ -926,7 +927,7 @@ export async function upsertMeasure(input: {
   if (!measureId) {
     const existing = await getAllRecords(
       t.SEISAN_KPI_MEASURE,
-      `AND(CurrentValue.[${XF.period}] = ${input.period}, CurrentValue.[${XF.group_id}] = "${input.groupId}")`
+      `AND(CurrentValue.[${XF.period}] = ${input.period}, CurrentValue.[${XF.group_id}] = "${escapeLarkFilterValue(input.groupId)}")`
     );
     no = input.no ?? existing.length + 1;
     measureId = `${input.period}-${input.groupId}-${no}`;
@@ -950,7 +951,7 @@ export async function upsertMeasure(input: {
 
   const found = await getBaseRecords(t.SEISAN_KPI_MEASURE, {
     baseToken: base(),
-    filter: `CurrentValue.[${XF.measure_id}] = "${measureId}"`,
+    filter: `CurrentValue.[${XF.measure_id}] = "${escapeLarkFilterValue(measureId)}"`,
     pageSize: 1,
   });
   const existingRec = (found.data?.items ?? [])[0] as any;
@@ -1007,7 +1008,7 @@ export async function upsertPdca(input: {
 
   const found = await getBaseRecords(t.SEISAN_KPI_PDCA, {
     baseToken: base(),
-    filter: `CurrentValue.[${DF.pdca_id}] = "${pdcaId}"`,
+    filter: `CurrentValue.[${DF.pdca_id}] = "${escapeLarkFilterValue(pdcaId)}"`,
     pageSize: 1,
   });
   const existingRec = (found.data?.items ?? [])[0] as any;
@@ -1234,7 +1235,7 @@ export async function upsertStarAdj(input: {
 
   const found = await getBaseRecords(t.SEISAN_KPI_STAR_ADJ, {
     baseToken: base(),
-    filter: `CurrentValue.[${SF.adj_id}] = "${adjId}"`,
+    filter: `CurrentValue.[${SF.adj_id}] = "${escapeLarkFilterValue(adjId)}"`,
     pageSize: 1,
   });
   const existingRec = (found.data?.items ?? [])[0] as any;
@@ -1279,7 +1280,7 @@ export async function setStarExclusion(input: {
 
   const found = await getBaseRecords(t.SEISAN_KPI_STAR_ADJ, {
     baseToken: base(),
-    filter: `CurrentValue.[${SF.adj_id}] = "${adjId}"`,
+    filter: `CurrentValue.[${SF.adj_id}] = "${escapeLarkFilterValue(adjId)}"`,
     pageSize: 1,
   });
   const existing = (found.data?.items ?? [])[0] as any;
@@ -1404,7 +1405,7 @@ export async function upsertKpiMaster(input: Partial<KpiMasterFullRow> & {
   // 既存検索(同一期×KPIコード)
   const found = await getBaseRecords(t.SEISAN_KPI_MASTER, {
     baseToken: base(),
-    filter: `AND(CurrentValue.[${MF.period}] = ${input.period}, CurrentValue.[${MF.kpi_id}] = "${input.kpiId}")`,
+    filter: `AND(CurrentValue.[${MF.period}] = ${input.period}, CurrentValue.[${MF.kpi_id}] = "${escapeLarkFilterValue(input.kpiId)}")`,
     pageSize: 1,
   });
   const existingRec = (found.data?.items ?? [])[0] as any;
@@ -1529,7 +1530,7 @@ export async function upsertGroup(input: {
 
   const found = await getBaseRecords(t.SEISAN_KPI_GROUP, {
     baseToken: base(),
-    filter: `AND(CurrentValue.[${GF.period}] = ${input.period}, CurrentValue.[${GF.group_id}] = "${groupId}")`,
+    filter: `AND(CurrentValue.[${GF.period}] = ${input.period}, CurrentValue.[${GF.group_id}] = "${escapeLarkFilterValue(groupId)}")`,
     pageSize: 1,
   });
   const existingRec = (found.data?.items ?? [])[0] as any;
@@ -1557,7 +1558,7 @@ export async function setGroupMember(input: {
   const memberId = `${input.groupId}-${input.department}`;
   const found = await getBaseRecords(t.SEISAN_KPI_GROUP_MEMBER, {
     baseToken: base(),
-    filter: `CurrentValue.[${GMF.member_id}] = "${memberId}"`,
+    filter: `CurrentValue.[${GMF.member_id}] = "${escapeLarkFilterValue(memberId)}"`,
     pageSize: 1,
   });
   const existingRec = (found.data?.items ?? [])[0] as any;
@@ -1840,7 +1841,7 @@ async function getHistoryBusho(period: number, department: string): Promise<Dept
   const t = getLarkTables();
   const [{ rows }, masterItems] = await Promise.all([
     getInputRows(period, department),
-    getAllRecords(t.SEISAN_KPI_MASTER, `AND(CurrentValue.[${MF.period}] = ${period}, CurrentValue.[${MF.department}] = "${department}")`),
+    getAllRecords(t.SEISAN_KPI_MASTER, `AND(CurrentValue.[${MF.period}] = ${period}, CurrentValue.[${MF.department}] = "${escapeLarkFilterValue(department)}")`),
   ]);
   // 49期実績(prev_actual)を kpiId で引く
   const prevByKpi = new Map<string, number | null>();

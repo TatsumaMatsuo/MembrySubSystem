@@ -5,6 +5,7 @@ import {
   hardDeleteBaseRecord,
 } from "@/lib/syaryo/lark-client";
 import { LARK_TABLES, USER_PERMISSION_FIELDS } from "@/lib/syaryo/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import { UserPermission, PermissionRole } from "@/types/syaryo";
 
 /**
@@ -59,13 +60,13 @@ export async function getUserPermission(
   try {
     // まずopen_idで検索
     let response = await getBaseRecords(LARK_TABLES.USER_PERMISSIONS, {
-      filter: `CurrentValue.[${USER_PERMISSION_FIELDS.lark_user_id}] = "${userIdentifier}"`,
+      filter: `CurrentValue.[${USER_PERMISSION_FIELDS.lark_user_id}] = "${escapeLarkFilterValue(userIdentifier)}"`,
     });
 
     // open_idで見つからない場合はメールアドレスで検索
     if (!response.data?.items || response.data.items.length === 0) {
       response = await getBaseRecords(LARK_TABLES.USER_PERMISSIONS, {
-        filter: `CurrentValue.[${USER_PERMISSION_FIELDS.user_email}] = "${userIdentifier}"`,
+        filter: `CurrentValue.[${USER_PERMISSION_FIELDS.user_email}] = "${escapeLarkFilterValue(userIdentifier)}"`,
       });
     }
 

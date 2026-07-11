@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth-server";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 export const dynamic = "force-dynamic";
 import { getBaseRecords } from "@/lib/lark-client";
@@ -115,7 +116,7 @@ export async function GET() {
 
     // ユーザーの全回答履歴を取得
     const allUserHistoryResponse = await getBaseRecords(tables.QUIZ_ANSWER_HISTORY, {
-      filter: `CurrentValue.[${QUIZ_ANSWER_HISTORY_FIELDS.user_email}] = "${userId}"`,
+      filter: `CurrentValue.[${QUIZ_ANSWER_HISTORY_FIELDS.user_email}] = "${escapeLarkFilterValue(userId)}"`,
       baseToken,
     });
 
@@ -158,7 +159,7 @@ export async function GET() {
 
     // ユーザーの今期ポイント集計
     const userPointsResponse = await getBaseRecords(tables.QUIZ_ANSWER_HISTORY, {
-      filter: `AND(CurrentValue.[${QUIZ_ANSWER_HISTORY_FIELDS.user_email}] = "${userId}", CurrentValue.[${QUIZ_ANSWER_HISTORY_FIELDS.fiscal_period}] = ${currentPeriod})`,
+      filter: `AND(CurrentValue.[${QUIZ_ANSWER_HISTORY_FIELDS.user_email}] = "${escapeLarkFilterValue(userId)}", CurrentValue.[${QUIZ_ANSWER_HISTORY_FIELDS.fiscal_period}] = ${currentPeriod})`,
       baseToken,
     });
 

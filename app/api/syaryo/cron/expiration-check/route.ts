@@ -7,12 +7,21 @@ import { runExpirationMonitor } from "@/lib/syaryo/services/expiration-monitor.j
  * Vercel Cronまたは外部サービスから呼び出される
  */
 export async function GET(request: NextRequest) {
-  // Cron認証チェック
+  // Cron認証チェック(fail-closed)
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
-  // CRON_SECRETが設定されている場合は認証をチェック
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // CRON_SECRET未設定は「検証不能」= fail-closed(未設定時に検証スキップすると
+  // 誰でもこのエンドポイントを叩けるオープンなCronになるため拒否する)。
+  if (!cronSecret) {
+    console.error("[Cron] CRON_SECRET 未設定のため認証を拒否します");
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
+  if (authHeader !== `Bearer ${cronSecret}`) {
     console.log("[Cron] Unauthorized access attempt");
     return NextResponse.json(
       { success: false, error: "Unauthorized" },

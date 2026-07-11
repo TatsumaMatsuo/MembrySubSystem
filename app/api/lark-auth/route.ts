@@ -229,7 +229,15 @@ export async function GET(request: NextRequest) {
       const token = await createToken(user);
 
       // Cookie に設定してリダイレクト
-      const redirectUrl = callbackUrl.startsWith("/") ? `${baseUrl}${callbackUrl}` : callbackUrl;
+      // オープンリダイレクト対策: 自サイト内の相対パスのみ許可する。
+      //  - "/" 始まりであること(絶対URL "https://evil" を排除)
+      //  - "//" や "/\" で始まらないこと(プロトコル相対URL "//evil.com" を排除)
+      // 上記を満たさない場合はトップ("/")へフォールバック。
+      const isSafeCallback =
+        callbackUrl.startsWith("/") &&
+        !callbackUrl.startsWith("//") &&
+        !callbackUrl.startsWith("/\\");
+      const redirectUrl = isSafeCallback ? `${baseUrl}${callbackUrl}` : `${baseUrl}/`;
       const response = NextResponse.redirect(redirectUrl);
       response.cookies.set("auth-token", token, {
         httpOnly: true,

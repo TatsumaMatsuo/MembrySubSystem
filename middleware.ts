@@ -54,9 +54,13 @@ export const config = {
      * - auth (認証関連ページ: signin, error, lark-callback)
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico, public assets
+     * - favicon.ico
+     * ※ 拡張子(.png/.jpg/.svg)ワイルドカード除外は撤去。
+     *   任意パスに拡張子を付与すると動的ルートへ無認証到達できるバイパスになるため。
+     *   未認証で必要な静的アセットは _next/static・favicon.ico のみ(サインイン系ページは
+     *   public画像を参照しないことを確認済み)。認証後ページ用のpublic画像は認証済みなので影響なし。
      * ※ デバッグAPI(debug-env/auth/lark 等)はセキュリティ上削除済み
      */
-    "/((?!api/auth|api/lark-auth|api/batch|auth|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
+    "/((?!api/auth|api/lark-auth|api/batch|auth|_next/static|_next/image|favicon.ico).*)",
   ],
 };

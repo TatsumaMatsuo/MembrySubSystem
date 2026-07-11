@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth-server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
+import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
 
 // テーブルID (AWS Amplify SSR用フォールバック値付き)
 const CUSTOM_LINKS_TABLE_ID = process.env.LARK_TABLE_TOP_CUSTOM_LINKS || "tblup7d4meehzX92";
@@ -11,6 +12,25 @@ const COMMON_USER_ID = "ALL";
 /** scope("common"=共通/"personal"=個人) と セッションユーザーID から保存先ユーザーIDを決定。既定=共通(ALL)。 */
 function resolveOwnerId(scope: unknown, sessionUserId: string): string {
   return scope === "personal" ? sessionUserId : COMMON_USER_ID;
+}
+
+/** 指定レコードの所有者(ユーザーID)を取得。存在しなければ null。 */
+async function getLinkOwnerId(
+  client: NonNullable<ReturnType<typeof getLarkClient>>,
+  baseToken: string,
+  recordId: string
+): Promise<string | null> {
+  try {
+    const res = await client.bitable.appTableRecord.get({
+      path: { app_token: baseToken, table_id: CUSTOM_LINKS_TABLE_ID, record_id: recordId },
+    });
+    const uid = (res.data?.record?.fields as any)?.[FIELDS.USER_ID];
+    if (typeof uid === "string") return uid;
+    if (uid && typeof uid === "object") return uid.text ?? null;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 // フィールド名
@@ -146,9 +166,12 @@ export async function POST(request: NextRequest) {
   const baseToken = getLarkBaseToken();
 
   try {
-    // セッションからユーザーIDを取得（社員コード → Lark ID → default）
+    // セッションからユーザーIDを取得（未ログインは拒否）
     const session = await getServerSession();
-    const userId = session?.user?.id || "default";
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+    const userId = session.user.id;
 
     const body = await request.json();
     const { display_name, url, icon_url, sort_order, scope } = body;
@@ -162,6 +185,14 @@ export async function POST(request: NextRequest) {
 
     // 公開範囲: 既定=共通(ALL=全ユーザー表示)。scope="personal" のときのみ本人専用。
     const ownerId = resolveOwnerId(scope, userId);
+
+    // 共通(全員表示)リンクの作成は管理者のみ。誰でも全員向けリンクを作れると
+    // フィッシング(全ユーザーに悪意あるリンク表示)が可能になるため。
+    if (ownerId === COMMON_USER_ID) {
+      const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+      if (!gate.authorized) return gate.response;
+    }
+
     const now = Date.now();
 
     const response = await client.bitable.appTableRecord.create({
@@ -220,6 +251,13 @@ export async function PUT(request: NextRequest) {
   const baseToken = getLarkBaseToken();
 
   try {
+    // 未ログインは拒否
+    const session = await getServerSession();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+    const userId = session.user.id;
+
     const body = await request.json();
     const { record_id, display_name, url, icon_url, sort_order, is_active, scope } = body;
 
@@ -228,6 +266,20 @@ export async function PUT(request: NextRequest) {
         { error: "record_idは必須です" },
         { status: 400 }
       );
+    }
+
+    // 所有権チェック: 対象が共通リンク、または共通へ昇格する場合は管理者のみ。
+    // 個人リンクは本人のみ更新可。IDOR(他人/共通リンクの改変)対策。
+    const currentOwner = await getLinkOwnerId(client, baseToken, record_id);
+    if (currentOwner === null) {
+      return NextResponse.json({ error: "対象のリンクが見つかりません" }, { status: 404 });
+    }
+    const promotingToCommon = scope !== undefined && resolveOwnerId(scope, userId) === COMMON_USER_ID;
+    if (currentOwner === COMMON_USER_ID || promotingToCommon) {
+      const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+      if (!gate.authorized) return gate.response;
+    } else if (currentOwner !== userId) {
+      return NextResponse.json({ error: "このリンクを更新する権限がありません" }, { status: 403 });
     }
 
     const updateFields: any = {
@@ -241,8 +293,7 @@ export async function PUT(request: NextRequest) {
     if (is_active !== undefined) updateFields[FIELDS.IS_ACTIVE] = is_active;
     // 公開範囲(共通/個人)の切替。personal は本人IDを保存先にする。
     if (scope !== undefined) {
-      const session = await getServerSession();
-      updateFields[FIELDS.USER_ID] = resolveOwnerId(scope, session?.user?.id || "default");
+      updateFields[FIELDS.USER_ID] = resolveOwnerId(scope, userId);
     }
 
     const response = await client.bitable.appTableRecord.update({
@@ -292,6 +343,13 @@ export async function DELETE(request: NextRequest) {
   const baseToken = getLarkBaseToken();
 
   try {
+    // 未ログインは拒否
+    const session = await getServerSession();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+    }
+    const userId = session.user.id;
+
     const { searchParams } = new URL(request.url);
     const recordId = searchParams.get("record_id");
 
@@ -300,6 +358,18 @@ export async function DELETE(request: NextRequest) {
         { error: "record_idは必須です" },
         { status: 400 }
       );
+    }
+
+    // 所有権チェック: 共通リンクの削除は管理者のみ、個人リンクは本人のみ。IDOR対策。
+    const currentOwner = await getLinkOwnerId(client, baseToken, recordId);
+    if (currentOwner === null) {
+      return NextResponse.json({ error: "対象のリンクが見つかりません" }, { status: 404 });
+    }
+    if (currentOwner === COMMON_USER_ID) {
+      const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+      if (!gate.authorized) return gate.response;
+    } else if (currentOwner !== userId) {
+      return NextResponse.json({ error: "このリンクを削除する権限がありません" }, { status: 403 });
     }
 
     const response = await client.bitable.appTableRecord.delete({

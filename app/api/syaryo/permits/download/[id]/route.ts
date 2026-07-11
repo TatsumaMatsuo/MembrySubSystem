@@ -43,6 +43,13 @@ export async function GET(
       );
     }
 
+    // 本人の許可証以外は管理者(閲覧権限)のみDL可。任意IDで他人の許可証PDFをDLできたIDOR対策。
+    const me = await getCurrentEmployeeInfo();
+    if (permit.employee_id !== me?.employeeId) {
+      const view = await requireViewPermission();
+      if (!view.authorized) return view.response;
+    }
+
     console.log(`[permit-download] Permit: ${permit.id}, employee: ${permit.employee_name}`);
 
     // PDFファイルを読み込む（まずローカルファイルを試す）

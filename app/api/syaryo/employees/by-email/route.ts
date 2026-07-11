@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEmployeeByEmail } from "@/lib/syaryo/services/employee.service";
 import { getServerSession } from "@/lib/auth-server";
+import { requireViewPermission } from "@/lib/syaryo/auth-utils";
 
 /**
  * GET /api/employees/by-email?email=xxx
@@ -25,6 +26,14 @@ export async function GET(request: NextRequest) {
         { success: false, error: "Email is required" },
         { status: 400 }
       );
+    }
+
+    // 自分のメール以外での照会は管理者(閲覧権限)のみ。
+    // 任意メールで他人の社員情報(社員番号・部署等PII)を取得できたIDOR対策。
+    const ownEmail = session.user.email || null;
+    if (!ownEmail || email.toLowerCase() !== ownEmail.toLowerCase()) {
+      const view = await requireViewPermission();
+      if (!view.authorized) return view.response;
     }
 
     const employee = await getEmployeeByEmail(email);

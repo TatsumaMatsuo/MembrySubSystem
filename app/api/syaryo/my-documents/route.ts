@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, getCurrentEmployeeInfo } from "@/lib/syaryo/auth-utils";
+import { requireAuth, requireAdmin, getCurrentEmployeeInfo } from "@/lib/syaryo/auth-utils";
 import { getDriversLicenses } from "@/lib/syaryo/services/drivers-license.service";
 import { getVehicleRegistrations } from "@/lib/syaryo/services/vehicle-registration.service";
 import { getInsurancePolicies } from "@/lib/syaryo/services/insurance-policy.service";
@@ -22,16 +22,27 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // クエリパラメータから employee_id を取得（代理申請用）
+    // クエリパラメータから employee_id を取得（代理閲覧用）
     const { searchParams } = new URL(request.url);
     const employeeIdParam = searchParams.get("employee_id");
 
-    // 代理申請の場合はパラメータのIDを使用、それ以外はセッションから社員コードを取得
-    // (email無しユーザーでもLark Open IDで解決できるよう getCurrentEmployeeInfo を使用)
-    let userId = employeeIdParam;
+    // 本人の社員コードを解決（email無しユーザーでもLark Open IDで解決）
+    const me = await getCurrentEmployeeInfo();
+    let userId = me?.employeeId || null;
+
+    // 他人の employee_id を指定した閲覧（代理）は管理者権限を要求。
+    // これが無いと任意の employee_id で他人の免許証画像・番号・保険(PII)を取得できた(IDOR)。
+    if (employeeIdParam && employeeIdParam !== me?.employeeId) {
+      const admin = await requireAdmin();
+      if (!admin.authorized) return admin.response;
+      userId = employeeIdParam;
+    }
+
     if (!userId) {
-      const employee = await getCurrentEmployeeInfo();
-      userId = employee?.employeeId || null;
+      return NextResponse.json(
+        { success: false, error: "社員情報が解決できませんでした" },
+        { status: 403 }
+      );
     }
 
     console.log(`[my-documents] userId: ${userId} (param: ${employeeIdParam}, auth: ${authCheck.userId})`);

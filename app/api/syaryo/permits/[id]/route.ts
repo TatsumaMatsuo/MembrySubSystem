@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/syaryo/auth-utils";
+import { requireAuth, requireViewPermission, getCurrentEmployeeInfo } from "@/lib/syaryo/auth-utils";
 import { getPermitById } from "@/lib/syaryo/services/permit.service";
 import { getCompanyInfo } from "@/lib/syaryo/services/system-settings.service";
 import { getVehicleRegistrations } from "@/lib/syaryo/services/vehicle-registration.service";
@@ -22,6 +22,13 @@ export async function GET(
   ]);
   if (!permit) {
     return NextResponse.json({ success: false, error: "許可証が見つかりません" }, { status: 404 });
+  }
+
+  // 本人の許可証以外は管理者(閲覧権限)のみ。任意IDで他人の許可証PDFを参照できたIDOR対策。
+  const me = await getCurrentEmployeeInfo();
+  if (permit.employee_id !== me?.employeeId) {
+    const view = await requireViewPermission();
+    if (!view.authorized) return view.response;
   }
 
   // 車検証・保険・免許証情報を並列取得

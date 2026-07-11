@@ -4,6 +4,7 @@ import {
   createVehicleRegistration,
 } from "@/lib/syaryo/services/vehicle-registration.service";
 import { notifyAdminsOfNewApplication } from "@/lib/syaryo/services/notify-admins";
+import { requireAdmin, getCurrentEmployeeInfo } from "@/lib/syaryo/auth-utils";
 
 /**
  * GET /api/applications/vehicles
@@ -11,8 +12,21 @@ import { notifyAdminsOfNewApplication } from "@/lib/syaryo/services/notify-admin
  */
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const employeeId = searchParams.get("employeeId") || undefined;
+    // 自分の車検証のみ閲覧可。他人分は管理者のみ。
+    const me = await getCurrentEmployeeInfo();
+    const param = request.nextUrl.searchParams.get("employeeId") || undefined;
+    let employeeId = me?.employeeId;
+    if (param && param !== me?.employeeId) {
+      const admin = await requireAdmin();
+      if (!admin.authorized) return admin.response;
+      employeeId = param;
+    }
+    if (!employeeId) {
+      return NextResponse.json(
+        { success: false, error: "社員情報が解決できませんでした" },
+        { status: 403 }
+      );
+    }
 
     const vehicles = await getVehicleRegistrations(employeeId);
 
@@ -40,10 +54,25 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    console.log(`[vehicles API] Creating vehicle with employee_id: ${body.employee_id}`);
+    // 申請名義は本人に強制。他人名義(代理申請)は管理者のみ。IDOR対策。
+    const me = await getCurrentEmployeeInfo();
+    if (!me?.employeeId) {
+      return NextResponse.json(
+        { success: false, error: "社員情報が解決できませんでした" },
+        { status: 403 }
+      );
+    }
+    let employeeId = me.employeeId;
+    if (body.employee_id && body.employee_id !== me.employeeId) {
+      const admin = await requireAdmin();
+      if (!admin.authorized) return admin.response;
+      employeeId = body.employee_id;
+    }
+
+    console.log(`[vehicles API] Creating vehicle with employee_id: ${employeeId}`);
 
     const vehicle = await createVehicleRegistration({
-      employee_id: body.employee_id,
+      employee_id: employeeId,
       vehicle_number: body.vehicle_number,
       vehicle_type: body.vehicle_type,
       manufacturer: body.manufacturer,
@@ -58,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     // 管理者に Bot 通知
     const adminNotification = await notifyAdminsOfNewApplication(
-      body.employee_id,
+      employeeId,
       "vehicle",
       body.vehicle_number || ""
     );

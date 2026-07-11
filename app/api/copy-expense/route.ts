@@ -480,15 +480,11 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("[copy-expense] Error:", error);
-    const details = error?.message || error?.msg || String(error);
-    const stack = error?.stack?.split("\n").slice(0, 5).join("\n");
+    // クライアントには汎用文言のみ返す(エラー詳細/スタック/tableId/baseTokenは
+    // 情報露出になるためサーバログのみに留める)。
     return NextResponse.json(
       {
         error: "コピー経費データの取得に失敗しました",
-        details,
-        stack: process.env.NODE_ENV === "development" ? stack : undefined,
-        tableId,
-        baseToken: baseToken.substring(0, 8) + "...",
       },
       { status: 500 }
     );

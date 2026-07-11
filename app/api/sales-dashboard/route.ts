@@ -1412,13 +1412,11 @@ export async function GET(request: NextRequest) {
       console.error("[sales-dashboard] Response data:", JSON.stringify(responseData).substring(0, 500));
     }
     console.error("[sales-dashboard] Stack:", errorStack);
-    const detail = responseData
-      ? `HTTP ${responseStatus}: ${JSON.stringify(responseData).substring(0, 200)}`
-      : errorMessage;
+    // クライアントには汎用文言のみ返す(Lark APIのレスポンス本文やHTTP詳細は
+    // 情報露出になるためサーバログのみに留める)。
     return NextResponse.json(
       {
         error: "売上ダッシュボードデータの取得に失敗しました",
-        details: detail,
       },
       { status: 500 }
     );

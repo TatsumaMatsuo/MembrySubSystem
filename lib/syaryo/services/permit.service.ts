@@ -5,6 +5,7 @@ import {
   updateBaseRecord,
 } from "@/lib/syaryo/lark-client";
 import { LARK_TABLES, PERMIT_FIELDS } from "@/lib/syaryo/lark-tables";
+import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
 /**
  * UUIDを生成（verification_token用）
@@ -166,7 +167,7 @@ export async function getPermitById(id: string): Promise<Permit | null> {
  */
 export async function getPermitByToken(token: string): Promise<Permit | null> {
   try {
-    const filter = `CurrentValue.[verification_token]="${token}"`;
+    const filter = `CurrentValue.[verification_token]="${escapeLarkFilterValue(token)}"`;
 
     const response = await getBaseRecords(LARK_TABLES.PERMITS, {
       filter,

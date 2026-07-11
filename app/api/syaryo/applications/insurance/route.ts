@@ -4,6 +4,7 @@ import {
   createInsurancePolicy,
 } from "@/lib/syaryo/services/insurance-policy.service";
 import { notifyAdminsOfNewApplication } from "@/lib/syaryo/services/notify-admins";
+import { requireAdmin, getCurrentEmployeeInfo } from "@/lib/syaryo/auth-utils";
 
 /**
  * GET /api/applications/insurance
@@ -11,8 +12,21 @@ import { notifyAdminsOfNewApplication } from "@/lib/syaryo/services/notify-admin
  */
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const employeeId = searchParams.get("employeeId") || undefined;
+    // 自分の保険証のみ閲覧可。他人分は管理者のみ。
+    const me = await getCurrentEmployeeInfo();
+    const param = request.nextUrl.searchParams.get("employeeId") || undefined;
+    let employeeId = me?.employeeId;
+    if (param && param !== me?.employeeId) {
+      const admin = await requireAdmin();
+      if (!admin.authorized) return admin.response;
+      employeeId = param;
+    }
+    if (!employeeId) {
+      return NextResponse.json(
+        { success: false, error: "社員情報が解決できませんでした" },
+        { status: 403 }
+      );
+    }
 
     const policies = await getInsurancePolicies(employeeId);
 
@@ -40,8 +54,23 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    // 申請名義は本人に強制。他人名義(代理申請)は管理者のみ。IDOR対策。
+    const me = await getCurrentEmployeeInfo();
+    if (!me?.employeeId) {
+      return NextResponse.json(
+        { success: false, error: "社員情報が解決できませんでした" },
+        { status: 403 }
+      );
+    }
+    let employeeId = me.employeeId;
+    if (body.employee_id && body.employee_id !== me.employeeId) {
+      const admin = await requireAdmin();
+      if (!admin.authorized) return admin.response;
+      employeeId = body.employee_id;
+    }
+
     const policy = await createInsurancePolicy({
-      employee_id: body.employee_id,
+      employee_id: employeeId,
       policy_number: body.policy_number,
       insurance_company: body.insurance_company,
       policy_type: body.policy_type,
@@ -60,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     // 管理者に Bot 通知
     const adminNotification = await notifyAdminsOfNewApplication(
-      body.employee_id,
+      employeeId,
       "insurance",
       body.policy_number || ""
     );

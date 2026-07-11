@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken, getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
 import { getLarkTables } from "@/lib/lark-tables";
+import { getServerSession } from "@/lib/auth-server";
 
 export async function POST(request: NextRequest) {
   try {
+    // ログイン必須(fail-closed)。案件書庫は本人所有の概念が無いため、
+    // 認証済みユーザーのみ削除可とし、ハンドラ側でも明示的に検証する(middleware依存にしない)。
+    const session = await getServerSession();
+    if (!session?.user) {
+      return NextResponse.json(
+        { success: false, error: "認証が必要です" },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { seiban, documentType, fileToken } = body;
 

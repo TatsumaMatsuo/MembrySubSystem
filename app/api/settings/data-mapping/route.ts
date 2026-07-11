@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 import { DataMappingConfig, FieldMapping } from "@/types/data-mapping";
+import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
 
 // マッピング設定テーブルID
 const MAPPING_TABLE_ID = "tbl9Vuq1DizM400V";
@@ -98,6 +99,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 // POST: 新規マッピング設定を作成
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // マッピング設定(書込先baseToken含む)の作成は管理者(マスタ管理)のみ。
+  const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+  if (!gate.authorized) return gate.response;
+
   const client = getLarkClient();
   if (!client) {
     return NextResponse.json({ error: "Lark client not initialized" }, { status: 500 });
@@ -166,6 +171,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 // PUT: マッピング設定を更新
 export async function PUT(request: NextRequest): Promise<NextResponse> {
+  // マッピング設定の更新は管理者(マスタ管理)のみ。
+  const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+  if (!gate.authorized) return gate.response;
+
   const client = getLarkClient();
   if (!client) {
     return NextResponse.json({ error: "Lark client not initialized" }, { status: 500 });
@@ -252,6 +261,10 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
 // DELETE: マッピング設定を削除（論理削除：有効フラグをfalseに）
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  // マッピング設定の削除は管理者(マスタ管理)のみ。
+  const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+  if (!gate.authorized) return gate.response;
+
   const client = getLarkClient();
   if (!client) {
     return NextResponse.json({ error: "Lark client not initialized" }, { status: 500 });

@@ -109,7 +109,7 @@ export async function createBaseRecord(tableId: string, fields: Record<string, a
     const cleanTableId = tableId.trim().replace(/\\n/g, '').replace(/\n/g, '');
     const cleanAppToken = getLarkBaseToken().trim().replace(/\\n/g, '').replace(/\n/g, '');
 
-    console.log(`[lark-client] createBaseRecord - tableId: "${cleanTableId}", appToken: "${cleanAppToken.substring(0, 10)}...", fields:`, JSON.stringify(fields, null, 2));
+    console.log(`[lark-client] createBaseRecord - tableId: "${cleanTableId}", appToken: [redacted], fields:`, JSON.stringify(fields, null, 2));
 
     if (!cleanTableId) {
       throw new Error("Table ID is empty or not configured");

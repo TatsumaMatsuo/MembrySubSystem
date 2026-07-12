@@ -42,7 +42,7 @@ export function getLarkTables() {
     // クイズ回答履歴テーブル
     QUIZ_ANSWER_HISTORY: process.env.LARK_TABLE_QUIZ_ANSWER_HISTORY || "tblBuHepIBi5YlfT",
     // 営業部KPIテーブル
-    SALES_KPI: process.env.LARK_TABLE_SALES_KPI || "",
+    SALES_KPI: process.env.LARK_TABLE_SALES_KPI || "tblnTpa3k7yrMTPt",
     // コピー経費テーブル
     COPY_EXPENSE: process.env.LARK_TABLE_COPY_EXPENSE || "tblAewkgMf7ZmEUv",
     // 事業所マスタテーブル

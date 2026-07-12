@@ -393,13 +393,15 @@ function PrintButton({
     const printHeader = document.createElement('div');
     printHeader.id = 'print-header-dynamic';
     printHeader.className = 'print-header hidden print:block';
-    printHeader.innerHTML = `
-      <h1>売上BIダッシュボード - ${tabName}</h1>
-      <div class="print-date">
-        第${period}期 ${dateRange ? `(${dateRange.start} 〜 ${dateRange.end})` : ''} |
-        印刷日: ${new Date().toLocaleDateString('ja-JP')}
-      </div>
-    `;
+    // innerHTML は使わず textContent で組み立てる(将来 URL 由来値が混入してもXSSにならないように)
+    const h1 = document.createElement('h1');
+    h1.textContent = `売上BIダッシュボード - ${tabName}`;
+    const dateDiv = document.createElement('div');
+    dateDiv.className = 'print-date';
+    const rangeStr = dateRange ? ` (${dateRange.start} 〜 ${dateRange.end})` : '';
+    dateDiv.textContent = `第${period}期${rangeStr} | 印刷日: ${new Date().toLocaleDateString('ja-JP')}`;
+    printHeader.appendChild(h1);
+    printHeader.appendChild(dateDiv);
 
     // 既存のヘッダーを削除して新しいものを追加
     const existing = document.getElementById('print-header-dynamic');

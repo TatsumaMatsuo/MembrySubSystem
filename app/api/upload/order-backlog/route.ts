@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireMenuAccess } from "@/lib/menu-access";
+import { MAX_IMPORT_SIZE } from "@/lib/upload-validation";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 import * as XLSX from "xlsx";
 
@@ -93,6 +94,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!file) {
       return NextResponse.json({ error: "ファイルが選択されていません" }, { status: 400 });
+    }
+    if (file.size > MAX_IMPORT_SIZE) {
+      return NextResponse.json({ error: `ファイルサイズが上限（${MAX_IMPORT_SIZE / 1024 / 1024}MB）を超えています` }, { status: 400 });
     }
 
     // Excelファイルを読み込み

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isBoxConfigured, uploadFile } from "@/lib/box-client";
+import { isDangerousUploadName, MAX_IMPORT_SIZE } from "@/lib/upload-validation";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -28,6 +29,13 @@ export async function POST(request: Request) {
     const name = ((form.get("name") as string) || file.name || "").trim();
     if (!name) {
       return NextResponse.json({ success: false, error: "ファイル名が不正です" }, { status: 400 });
+    }
+    // 危険な拡張子(html/svg/js等)を拒否 + サイズ上限(DoS対策)。name/元ファイル名の双方を検査。
+    if (isDangerousUploadName(name) || isDangerousUploadName(file.name)) {
+      return NextResponse.json({ success: false, error: "この形式のファイルはアップロードできません" }, { status: 400 });
+    }
+    if (file.size > MAX_IMPORT_SIZE) {
+      return NextResponse.json({ success: false, error: `ファイルサイズが上限（${MAX_IMPORT_SIZE / 1024 / 1024}MB）を超えています` }, { status: 400 });
     }
 
     const buf = await file.arrayBuffer();

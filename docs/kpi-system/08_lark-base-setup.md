@@ -4,7 +4,7 @@ Lark Base に**手動で作成**するためのテーブル仕様。`docs/kpi-sy
 
 ## 0. 事前情報
 
-- **作成先 Base**: **project base**(既存の売約情報などと同じ。env `LARK_BASE_TOKEN` / フォールバック `NvWsbaVP2aVT99sJUFxjhOLGpPs`)
+- **作成先 Base**: **project base**(既存の売約情報などと同じ。env `LARK_BASE_TOKEN` / フォールバック `<project base app_token(env LARK_BASE_TOKEN で設定)>`)
   - ※ 既存 `COMPANY_KPI` もこの project base にあり、**全社年度KPIは流用**(新規作成不要)
 - **作成テーブル数**: 13本(経営3 + 生産本部10)
 - **Lark フィールド型の対応**

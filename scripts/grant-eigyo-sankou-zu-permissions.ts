@@ -13,7 +13,7 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const BASE_TOKEN = process.env.LARK_BASE_TOKEN_MASTER || "J09zbrPDxa5QR8sEgU9jqLlxpxg";
+const BASE_TOKEN = process.env.LARK_BASE_TOKEN_MASTER || "";
 const TABLE_GROUP_PERMISSION = process.env.LARK_TABLE_GROUP_PERMISSION || "tbldL8lBsCnhCJQx";
 
 interface Grant { group: string; menus: string[]; programs: string[] }

@@ -14,7 +14,7 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const BASE_TOKEN = process.env.LARK_BASE_TOKEN || "NvWsbaVP2aVT99sJUFxjhOLGpPs";
+const BASE_TOKEN = process.env.LARK_BASE_TOKEN || "";
 const T_MASTER = process.env.LARK_TABLE_SEISAN_KPI_MASTER || "tblCiDxUsOEM05Tc";
 const T_PERIOD = process.env.LARK_TABLE_SEISAN_KPI_PERIOD || "tblseheBISHZKGnh";
 const T_ACTUAL = process.env.LARK_TABLE_SEISAN_KPI_ACTUAL || "tbl3X8Xe8r1BoXnU";

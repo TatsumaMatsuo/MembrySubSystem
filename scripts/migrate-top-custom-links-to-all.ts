@@ -11,7 +11,7 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 dotenv.config();
 
-const BASE = process.env.LARK_BASE_TOKEN || "NvWsbaVP2aVT99sJUFxjhOLGpPs";
+const BASE = process.env.LARK_BASE_TOKEN || "";
 const TABLE = process.env.LARK_TABLE_TOP_CUSTOM_LINKS || "tblup7d4meehzX92";
 const USER_ID_FIELD = "ユーザーID";
 const COMMON = "ALL";

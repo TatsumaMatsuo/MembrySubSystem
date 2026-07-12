@@ -13,7 +13,7 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const BASE = process.env.LARK_BASE_TOKEN_MASTER || "J09zbrPDxa5QR8sEgU9jqLlxpxg";
+const BASE = process.env.LARK_BASE_TOKEN_MASTER || "";
 const T_PROG = process.env.LARK_TABLE_FUNCTION_PLACEMENT || "tblmFd1WLLegSKPO";
 const T_GPERM = process.env.LARK_TABLE_GROUP_PERMISSION || "tbldL8lBsCnhCJQx";
 

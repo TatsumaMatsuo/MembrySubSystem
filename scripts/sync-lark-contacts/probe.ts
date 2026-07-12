@@ -9,7 +9,7 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const MASTER_BASE = process.env.LARK_BASE_TOKEN_MASTER || "J09zbrPDxa5QR8sEgU9jqLlxpxg";
+const MASTER_BASE = process.env.LARK_BASE_TOKEN_MASTER || "";
 const EMP_TABLE = "tblXpm1d05ovRf1y"; // 社員マスタ
 
 const c = new lark.Client({

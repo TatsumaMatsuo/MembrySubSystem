@@ -19,15 +19,18 @@ function getEnvVars() {
   };
 }
 
-// リクエストから正しいベースURLを取得（AWS Amplify SSR対応）
+// リダイレクト基点となるベースURLを取得。
+// オープンリダイレクト/ホストヘッダ汚染対策: クライアント制御の x-forwarded-host を信頼せず、
+// 信頼できる env(NEXTAUTH_URL)を優先する。NEXTAUTH_URL は各ブランチに正しいホストが設定済みで
+// amplify.yml 経由で .env.production に書き出される。未設定(ローカル等)時のみヘッダへフォールバック。
 function getBaseUrl(request: NextRequest): string {
-  // x-forwarded-host または host ヘッダーから取得
+  const configured = process.env.NEXTAUTH_URL;
+  if (configured) return configured.replace(/\/+$/, "");
+
   const forwardedHost = request.headers.get("x-forwarded-host");
   const host = request.headers.get("host");
   const protocol = request.headers.get("x-forwarded-proto") || "https";
-
-  const actualHost = forwardedHost || host || "feat-sales-analysis.d4a0s1k3z8dqc.amplifyapp.com";
-
+  const actualHost = forwardedHost || host || "localhost:4000";
   return `${protocol}://${actualHost}`;
 }
 

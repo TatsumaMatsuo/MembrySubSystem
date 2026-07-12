@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
   const period = searchParams.get("period");
 
   try {
-    const filter = period ? `CurrentValue.[${COMPANY_KPI_FIELDS.period}] = ${period}` : undefined;
+    const filter = period ? `CurrentValue.[${COMPANY_KPI_FIELDS.period}] = ${Number(period)}` : undefined;
 
     const response = await getBaseRecords(tableId, {
       filter,
@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
 
     // 同じ期のレコードが存在するか確認
     const existingResponse = await getBaseRecords(tableId, {
-      filter: `CurrentValue.[${COMPANY_KPI_FIELDS.period}] = ${data.period}`,
+      filter: `CurrentValue.[${COMPANY_KPI_FIELDS.period}] = ${Number(data.period)}`,
       pageSize: 1,
       baseToken: getLarkBaseToken(),
     });

@@ -24,10 +24,10 @@ export async function GET(request: NextRequest) {
   try {
     const tables = getLarkTables();
 
-    // フィルター条件を構築
+    // フィルター条件を構築。Lark Bitable の複合条件は AND(...) 構文(&& は無効=条件が効かない)。
     let filter = `CurrentValue.[${DOCUMENT_HISTORY_FIELDS.seiban}] = "${escapeLarkFilterValue(seiban)}"`;
     if (documentType) {
-      filter += ` && CurrentValue.[${DOCUMENT_HISTORY_FIELDS.document_type}] = "${escapeLarkFilterValue(documentType)}"`;
+      filter = `AND(${filter}, CurrentValue.[${DOCUMENT_HISTORY_FIELDS.document_type}] = "${escapeLarkFilterValue(documentType)}")`;
     }
 
     const baseToken = getBaseTokenForTable("DOCUMENT_HISTORY");

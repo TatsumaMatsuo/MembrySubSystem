@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 import { LarkTableField, LARK_FIELD_TYPE_MAP } from "@/types/data-mapping";
+import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
 
 // GET: Larkテーブルのフィールド一覧を取得
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  // 任意 tableId/baseToken のスキーマ列挙を許すため管理者(マスタ管理)限定。
+  // マッピング設定編集画面(管理者)からのみ使用。
+  const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+  if (!gate.authorized) return gate.response;
+
   const { searchParams } = new URL(request.url);
   const tableId = searchParams.get("tableId");
   const baseToken = searchParams.get("baseToken");

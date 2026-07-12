@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth-server";
+import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
 import {
   buildUserPermissions,
   buildPermittedMenuStructure,
@@ -25,6 +26,13 @@ export async function GET(request: NextRequest) {
     // クエリパラメータ
     const { searchParams } = new URL(request.url);
     const mode = searchParams.get("mode"); // "all" で全メニュー取得（管理者用）
+
+    // mode=all / masters は全メニュー構造・権限マスタ(認可体系の全容)を返すため管理者限定。
+    // no-mode(ユーザー自身の権限メニュー)は各ユーザーが使うため制限しない。
+    if (mode === "all" || mode === "masters") {
+      const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+      if (!gate.authorized) return gate.response;
+    }
 
     if (mode === "all") {
       // 全メニュー構造を取得（権限設定画面用）

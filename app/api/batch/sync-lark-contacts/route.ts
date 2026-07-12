@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("[sync-lark-contacts] Error:", error);
     return NextResponse.json(
-      { error: "Lark Contact 同期に失敗しました", details: error?.message },
+      { error: "Lark Contact 同期に失敗しました"},
       { status: 500 }
     );
   }

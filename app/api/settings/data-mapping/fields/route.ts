@@ -71,7 +71,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     return NextResponse.json(
-      { error: "フィールド情報の取得に失敗しました", details: error.message },
+      { error: "フィールド情報の取得に失敗しました"},
       { status: 500 }
     );
   }

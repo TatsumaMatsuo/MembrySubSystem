@@ -547,7 +547,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[deficit-analysis] Error:", error);
     return NextResponse.json(
-      { error: "赤字案件データの取得に失敗しました", details: String(error) },
+      { error: "赤字案件データの取得に失敗しました"},
       { status: 500 }
     );
   }

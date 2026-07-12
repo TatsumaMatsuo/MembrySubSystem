@@ -59,7 +59,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error: any) {
     console.error("[excel-headers] Error:", error);
     return NextResponse.json(
-      { error: "Excelファイルの解析に失敗しました", details: error.message },
+      { error: "Excelファイルの解析に失敗しました"},
       { status: 500 }
     );
   }

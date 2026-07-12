@@ -133,7 +133,7 @@ ${JSON.stringify(contextData, null, 2)}
   } catch (error) {
     console.error("AI analysis error:", error);
     return NextResponse.json(
-      { success: false, error: "AI分析の生成に失敗しました", details: String(error) },
+      { success: false, error: "AI分析の生成に失敗しました"},
       { status: 500 }
     );
   }

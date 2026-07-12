@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("[monthly-order-snapshot] Error:", error);
     return NextResponse.json(
-      { error: "月次スナップショット作成に失敗しました", details: error.message },
+      { error: "月次スナップショット作成に失敗しました"},
       { status: 500 }
     );
   }
@@ -383,7 +383,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("[monthly-order-snapshot] Error:", error);
     return NextResponse.json(
-      { error: "スナップショット情報の取得に失敗しました", details: error.message },
+      { error: "スナップショット情報の取得に失敗しました"},
       { status: 500 }
     );
   }

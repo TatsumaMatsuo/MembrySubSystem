@@ -220,7 +220,7 @@ export async function GET() {
   } catch (error) {
     console.error("[quiz] Error:", error);
     return NextResponse.json(
-      { error: "クイズの取得に失敗しました", details: String(error) },
+      { error: "クイズの取得に失敗しました"},
       { status: 500 }
     );
   }

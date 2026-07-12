@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("[top-custom-links] POST Error:", error);
     return NextResponse.json(
-      { error: "カスタムリンクの作成に失敗しました", details: error.message },
+      { error: "カスタムリンクの作成に失敗しました"},
       { status: 500 }
     );
   }
@@ -311,7 +311,7 @@ export async function PUT(request: NextRequest) {
   } catch (error: any) {
     console.error("[top-custom-links] PUT Error:", error);
     return NextResponse.json(
-      { error: "カスタムリンクの更新に失敗しました", details: error.message },
+      { error: "カスタムリンクの更新に失敗しました"},
       { status: 500 }
     );
   }
@@ -384,7 +384,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error: any) {
     console.error("[top-custom-links] DELETE Error:", error);
     return NextResponse.json(
-      { error: "カスタムリンクの削除に失敗しました", details: error.message },
+      { error: "カスタムリンクの削除に失敗しました"},
       { status: 500 }
     );
   }

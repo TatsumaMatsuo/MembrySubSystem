@@ -697,14 +697,6 @@ export async function POST(request: NextRequest) {
       deletedCount,
       successCount,
       errorCount,
-      // デバッグ: バッチ処理結果
-      debug: allFailed ? {
-        baseToken: baseToken.substring(0, 10) + "...",
-        tableId,
-        batchError,
-        batchDetail,
-        tokenLength: tenantToken.length,
-      } : undefined,
     });
   } catch (error: any) {
     console.error("[copy-expense POST] Error:", error);

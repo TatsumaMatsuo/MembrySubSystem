@@ -13,7 +13,14 @@ function PdfViewerContent() {
   const source = searchParams.get("source") || "";
   // src: 任意の中継エンドポイントを直接指定（例: 参考図台帳の /api/eigyo/sankou-zu/file?name=...）。
   // 指定時はそれを inline 取得元として使う。未指定時は従来の Lark file_token 経由。
-  const src = searchParams.get("src") || "";
+  // src は自サイト内の中継エンドポイント相対パスのみ許可する。
+  //  - "/" 始まり かつ "//"・"/\" 始まりでない(外部URL/プロトコル相対を排除)
+  //  - javascript: 等のスキームや外部ホストを弾き、反射型XSS/オープンリダイレクトを防ぐ
+  const rawSrc = searchParams.get("src") || "";
+  const src =
+    rawSrc.startsWith("/") && !rawSrc.startsWith("//") && !rawSrc.startsWith("/\\")
+      ? rawSrc
+      : "";
 
   const proxyUrl = src || `/api/file/proxy?file_token=${encodeURIComponent(fileToken)}&name=${encodeURIComponent(fileName)}${source ? `&source=${source}` : ""}`;
   const downloadUrl = `${proxyUrl}${proxyUrl.includes("?") ? "&" : "?"}disposition=attachment`;

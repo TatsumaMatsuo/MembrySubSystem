@@ -77,16 +77,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const contentType = fileResponse.headers.get("content-type") || "application/octet-stream";
+    const rawContentType = fileResponse.headers.get("content-type") || "application/octet-stream";
     const arrayBuffer = await fileResponse.arrayBuffer();
 
-    // disposition: "inline" でブラウザ内表示、"attachment" でダウンロード
-    const disposition = searchParams.get("disposition") || "inline";
+    // disposition: "inline" でブラウザ内表示、"attachment" でダウンロード。
+    // インライン表示は script 実行の恐れが無い型(PDF/画像。svg/htmlは除外)のみ許可し、
+    // それ以外は attachment 強制 + Content-Type を octet-stream 化して保存型XSSを遮断する。
+    const requested = searchParams.get("disposition") || "inline";
     const fileName = searchParams.get("name") || "file";
     const encodedFileName = encodeURIComponent(fileName);
-    const contentDisposition = disposition === "attachment"
-      ? `attachment; filename*=UTF-8''${encodedFileName}`
-      : `inline; filename*=UTF-8''${encodedFileName}`;
+    const INLINE_SAFE = /^(application\/pdf|image\/(png|jpe?g|gif|webp|bmp))\b/i;
+    const inlineAllowed = requested === "inline" && INLINE_SAFE.test(rawContentType);
+    const disposition = inlineAllowed ? "inline" : "attachment";
+    const contentType = inlineAllowed ? rawContentType : "application/octet-stream";
+    const contentDisposition = `${disposition}; filename*=UTF-8''${encodedFileName}`;
 
     return new NextResponse(arrayBuffer, {
       status: 200,
@@ -95,6 +99,7 @@ export async function GET(request: NextRequest) {
         "Content-Length": String(arrayBuffer.byteLength),
         "Content-Disposition": contentDisposition,
         "Cache-Control": "private, max-age=300",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (error) {

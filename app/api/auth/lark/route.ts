@@ -151,7 +151,7 @@ export async function GET() {
       return NextResponse.json({ user: null });
     }
 
-    const { payload } = await jwtVerify(token, secretKey());
+    const { payload } = await jwtVerify(token, secretKey(), { algorithms: ["HS256"] });
     return NextResponse.json({ user: payload });
   } catch (error) {
     return NextResponse.json({ user: null });

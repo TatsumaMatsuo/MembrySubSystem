@@ -1,4 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
+
+/**
+ * 文字列の定数時間比較。長さが異なれば即 false(長さはタイミングで漏れうるが実害は軽微)。
+ * シークレット照合のタイミング側チャネルを避けるために使う。
+ */
+export function safeStrEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
 
 /**
  * cron用バッチAPIのBearer認証(fail-closed)。
@@ -13,7 +25,7 @@ import { NextRequest, NextResponse } from "next/server";
 export function batchUnauthorized(request: NextRequest): NextResponse | null {
   const secret = process.env.BATCH_SECRET;
   const auth = request.headers.get("authorization") || "";
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!secret || !safeStrEqual(auth, `Bearer ${secret}`)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return null;

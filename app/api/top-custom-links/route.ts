@@ -128,22 +128,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       links,
-      debug: {
-        userId,
-        tableId: CUSTOM_LINKS_TABLE_ID,
-        baseTokenPrefix: baseToken.substring(0, 10),
-      },
     });
   } catch (error: any) {
     console.error("[top-custom-links] GET Error:", error);
     return NextResponse.json(
       {
         error: "カスタムリンクの取得に失敗しました",
-        details: error.message,
-        debug: {
-          tableId: CUSTOM_LINKS_TABLE_ID,
-          baseTokenPrefix: baseToken.substring(0, 10),
-        },
       },
       { status: 500 }
     );

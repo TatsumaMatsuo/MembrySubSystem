@@ -49,11 +49,18 @@ export async function GET(request: Request) {
     const buf = await res.arrayBuffer();
 
     const lower = name.toLowerCase();
-    const contentType = lower.endsWith(".pdf")
+    const rawContentType = lower.endsWith(".pdf")
       ? "application/pdf"
       : res.headers.get("content-type") || "application/octet-stream";
-    const disposition = url.searchParams.get("disposition") === "attachment" ? "attachment" : "inline";
     const enc = encodeURIComponent(name);
+
+    // インライン表示は script 実行の恐れが無い型(PDF/画像。svg/html除外)のみ許可し、
+    // それ以外は attachment 強制 + octet-stream 化して保存型XSSを遮断する。
+    const requested = url.searchParams.get("disposition") === "attachment" ? "attachment" : "inline";
+    const INLINE_SAFE = /^(application\/pdf|image\/(png|jpe?g|gif|webp|bmp))\b/i;
+    const inlineAllowed = requested === "inline" && INLINE_SAFE.test(rawContentType);
+    const disposition = inlineAllowed ? "inline" : "attachment";
+    const contentType = inlineAllowed ? rawContentType : "application/octet-stream";
 
     return new NextResponse(buf, {
       status: 200,
@@ -62,6 +69,7 @@ export async function GET(request: Request) {
         "Content-Length": String(buf.byteLength),
         "Content-Disposition": `${disposition}; filename*=UTF-8''${enc}`,
         "Cache-Control": "private, max-age=300",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (error: any) {

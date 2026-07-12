@@ -588,11 +588,10 @@ export async function GET(request: NextRequest) {
     if (responseData) {
       console.error("[sales-orders-combined] Response data:", JSON.stringify(responseData).substring(0, 500));
     }
-    const detail = responseData
-      ? `HTTP ${responseStatus}: ${JSON.stringify(responseData).substring(0, 200)}`
-      : (error?.message || String(error));
+    // クライアントには汎用文言のみ返す(Lark APIのレスポンス本文/HTTP詳細は
+    // 情報露出になるためサーバログのみに留める)。
     return NextResponse.json(
-      { error: "受注込データの取得に失敗しました", details: detail },
+      { error: "受注込データの取得に失敗しました" },
       { status: 500 }
     );
   }

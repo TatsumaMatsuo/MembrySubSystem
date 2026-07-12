@@ -44,6 +44,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Lark client not initialized" }, { status: 500 });
   }
 
+  // baseToken は書込先 base の app token(機密相当)。管理者(マスタ管理)以外へは返さない。
+  // 一覧取得自体は取込画面(非管理者)も使うため GET はブロックせず、baseToken のみ落とす。
+  const adminGate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+  const isAdmin = adminGate.authorized;
+  const redact = (c: DataMappingConfig): DataMappingConfig =>
+    isAdmin ? c : { ...c, baseToken: undefined };
+
   try {
     const { searchParams } = new URL(request.url);
     const configId = searchParams.get("id");
@@ -70,13 +77,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           // 特定のIDが指定されている場合はそれだけ返す
           if (configId) {
             if (config.id === configId) {
-              return NextResponse.json({ config });
+              return NextResponse.json({ config: redact(config) });
             }
           } else {
             // 有効フラグがfalseでないものを追加
             const isEnabled = (item.fields as any)?.["有効フラグ"];
             if (isEnabled !== false) {
-              configs.push(config);
+              configs.push(redact(config));
             }
           }
         }

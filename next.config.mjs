@@ -23,6 +23,20 @@ const nextConfig = {
     }
     return config;
   },
+  // 基本セキュリティヘッダ(全レスポンス)。
+  // nosniff: Content-Type スニッフィングを抑止(誤/悪意あるContent-Typeでの実行を防ぐ)。
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
 };
 
 // Sentry 設定が無ければ Sentry wrap をスキップ

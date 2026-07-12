@@ -3,6 +3,7 @@ import { Readable } from "stream";
 import { getLarkClient, getLarkBaseToken, getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
 import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import { getLarkTables } from "@/lib/lark-tables";
+import { isDangerousUploadName } from "@/lib/upload-validation";
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // アップロードには時間がかかる場合があるため
@@ -67,6 +68,20 @@ export async function POST(request: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ success: false, error: "ファイルが指定されていません" }, { status: 400 });
+    }
+    // サイズ上限(両経路共通。FormData経路は従来未チェックだった=メモリ枯渇DoS対策)
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({
+        success: false,
+        error: `ファイルサイズが上限（${MAX_FILE_SIZE / 1024 / 1024}MB）を超えています`,
+      }, { status: 400 });
+    }
+    // 危険な拡張子(html/svg/js等)は業務文書に不要のため拒否(保存型XSSの多層防御)
+    if (isDangerousUploadName(file.name)) {
+      return NextResponse.json({
+        success: false,
+        error: "この形式のファイルはアップロードできません",
+      }, { status: 400 });
     }
     if (!seiban || !documentType) {
       return NextResponse.json({ success: false, error: "必須パラメータが不足しています" }, { status: 400 });

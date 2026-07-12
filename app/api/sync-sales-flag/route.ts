@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("[sync-sales-flag] Error:", error);
     return NextResponse.json(
-      { error: "売上済フラグの同期に失敗しました", details: error.message },
+      { error: "売上済フラグの同期に失敗しました"},
       { status: 500 }
     );
   }
@@ -276,7 +276,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("[sync-sales-flag] Error:", error);
     return NextResponse.json(
-      { error: "状態の取得に失敗しました", details: error.message },
+      { error: "状態の取得に失敗しました"},
       { status: 500 }
     );
   }

@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[quiz/ranking] Error:", error);
     return NextResponse.json(
-      { error: "ランキングの取得に失敗しました", details: String(error) },
+      { error: "ランキングの取得に失敗しました"},
       { status: 500 }
     );
   }

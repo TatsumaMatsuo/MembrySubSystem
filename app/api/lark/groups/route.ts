@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[lark/groups] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Larkグループの取得に失敗しました", details: String(error) },
+      { success: false, error: "Larkグループの取得に失敗しました"},
       { status: 500 }
     );
   }

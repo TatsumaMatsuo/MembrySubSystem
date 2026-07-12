@@ -99,7 +99,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   } catch (error: any) {
     console.error("[data-mapping] GET error:", error);
     return NextResponse.json(
-      { error: "設定の取得に失敗しました", details: error.message },
+      { error: "設定の取得に失敗しました"},
       { status: 500 }
     );
   }
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error: any) {
     console.error("[data-mapping] POST error:", error);
     return NextResponse.json(
-      { error: "設定の作成に失敗しました", details: error.message },
+      { error: "設定の作成に失敗しました"},
       { status: 500 }
     );
   }
@@ -261,7 +261,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
   } catch (error: any) {
     console.error("[data-mapping] PUT error:", error);
     return NextResponse.json(
-      { error: "設定の更新に失敗しました", details: error.message },
+      { error: "設定の更新に失敗しました"},
       { status: 500 }
     );
   }
@@ -333,7 +333,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
   } catch (error: any) {
     console.error("[data-mapping] DELETE error:", error);
     return NextResponse.json(
-      { error: "設定の削除に失敗しました", details: error.message },
+      { error: "設定の削除に失敗しました"},
       { status: 500 }
     );
   }

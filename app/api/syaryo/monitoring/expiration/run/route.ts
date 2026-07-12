@@ -32,7 +32,6 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: "有効期限チェックに失敗しました",
-        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

@@ -399,7 +399,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[calendar] Error:", error);
     return NextResponse.json(
-      { error: "カレンダーの取得に失敗しました", details: String(error) },
+      { error: "カレンダーの取得に失敗しました"},
       { status: 500 }
     );
   }

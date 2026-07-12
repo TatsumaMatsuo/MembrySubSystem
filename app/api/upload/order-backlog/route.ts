@@ -222,7 +222,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error: any) {
     console.error("[upload] Error:", error);
     return NextResponse.json(
-      { error: "アップロード処理に失敗しました", details: error.message || String(error) },
+      { error: "アップロード処理に失敗しました"},
       { status: 500 }
     );
   }

@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("[menu-add] Error:", error);
     return NextResponse.json(
-      { error: "メニュー追加に失敗しました", details: error.message },
+      { error: "メニュー追加に失敗しました"},
       { status: 500 }
     );
   }

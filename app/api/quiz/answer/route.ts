@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[quiz/answer] Error:", error);
     return NextResponse.json(
-      { error: "回答の送信に失敗しました", details: String(error) },
+      { error: "回答の送信に失敗しました"},
       { status: 500 }
     );
   }

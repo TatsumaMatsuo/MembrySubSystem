@@ -49,7 +49,6 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error: "Expiration check failed",
-        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

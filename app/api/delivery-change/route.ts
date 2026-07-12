@@ -756,7 +756,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[delivery-change] Error:", error);
     return NextResponse.json(
-      { error: "納期変更データの取得に失敗しました", details: String(error) },
+      { error: "納期変更データの取得に失敗しました"},
       { status: 500 }
     );
   }

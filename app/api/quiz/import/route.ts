@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[quiz-import] Error:", error);
     return NextResponse.json(
-      { error: "インポートに失敗しました", details: String(error) },
+      { error: "インポートに失敗しました"},
       { status: 500 }
     );
   }

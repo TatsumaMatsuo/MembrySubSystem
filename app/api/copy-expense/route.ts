@@ -709,7 +709,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: "コピー経費の登録に失敗しました",
-        details: error?.message || String(error),
       },
       { status: 500 }
     );

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireKpiProgram, KPI_PROGRAMS } from "@/lib/kpi-permission";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 import { isUriagezumi } from "@/lib/lark-tables";
 
@@ -13,6 +14,11 @@ const URIAGE_FLAG_FIELD = "売上済フラグ";
 const URIAGE_FLAG_ON = "1";
 
 export async function POST(request: NextRequest) {
+  // 画面/メニュー未登録の孤立EP。案件一覧の売上済フラグを一括更新する破壊的操作のため
+  // 管理者(マスタ管理 PGM040)のみ許可(fail-closed)。
+  const gate = await requireKpiProgram(KPI_PROGRAMS.SEISAN_MASTER);
+  if (!gate.authorized) return gate.response;
+
   const client = getLarkClient();
   if (!client) {
     return NextResponse.json({ error: "Lark client not initialized" }, { status: 500 });

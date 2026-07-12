@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireMenuAccess } from "@/lib/menu-access";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 import * as XLSX from "xlsx";
 
@@ -77,6 +78,10 @@ interface UploadResult {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // 「表示できる＝編集可能」をサーバ側で強制(/upload/order-backlog のメニュー権限)。
+  const gate = await requireMenuAccess("/upload/order-backlog");
+  if (!gate.authorized) return gate.response;
+
   const client = getLarkClient();
   if (!client) {
     return NextResponse.json({ error: "Lark client not initialized" }, { status: 500 });

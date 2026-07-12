@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireMenuAccess } from "@/lib/menu-access";
 import { getLarkClient, getLarkBaseToken, getTableFields } from "@/lib/lark-client";
 import { getLarkTables } from "@/lib/lark-tables";
 
@@ -575,6 +576,11 @@ async function batchDeleteRecords(
 
 // POST: コピー経費レコードを一括登録（既存データは置換）
 export async function POST(request: NextRequest) {
+  // 「表示できる＝編集可能」をサーバ側で強制(/soumu/expense-input のメニュー権限)。
+  // 破壊的(対象月を全削除→再作成)なため特に重要。
+  const gate = await requireMenuAccess("/soumu/expense-input");
+  if (!gate.authorized) return gate.response;
+
   try {
     const body = await request.json();
     const { yearMonth, records } = body as {

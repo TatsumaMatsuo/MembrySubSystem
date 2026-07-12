@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireMenuAccess } from "@/lib/menu-access";
 import {
   getBaseRecords,
   createBaseRecord,
@@ -167,6 +168,10 @@ export async function GET(request: NextRequest) {
 
 // POST: KPIデータ作成
 export async function POST(request: NextRequest) {
+  // 「表示できる＝編集可能」をサーバ側で強制(/eigyo/company-kpi のメニュー権限)
+  const gate = await requireMenuAccess("/eigyo/company-kpi");
+  if (!gate.authorized) return gate.response;
+
   const tables = getLarkTables();
   const tableId = tables.COMPANY_KPI;
 
@@ -223,6 +228,10 @@ export async function POST(request: NextRequest) {
 
 // PUT: KPIデータ更新
 export async function PUT(request: NextRequest) {
+  // 「表示できる＝編集可能」をサーバ側で強制(/eigyo/company-kpi のメニュー権限)
+  const gate = await requireMenuAccess("/eigyo/company-kpi");
+  if (!gate.authorized) return gate.response;
+
   const tables = getLarkTables();
   const tableId = tables.COMPANY_KPI;
 

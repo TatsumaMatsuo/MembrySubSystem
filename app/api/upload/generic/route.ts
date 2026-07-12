@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireMenuAccess } from "@/lib/menu-access";
 import { getLarkClient, getLarkBaseToken } from "@/lib/lark-client";
 import { escapeLarkFilterValue } from "@/lib/lark-filter";
 
@@ -247,6 +248,11 @@ interface ProgressEvent {
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
+  // 「表示できる＝編集可能」をサーバ側で強制(/upload/order-backlog のメニュー権限)。
+  // 既存マッピング設定を悪用した任意テーブルへの一括書込を防ぐ。
+  const gate = await requireMenuAccess("/upload/order-backlog");
+  if (!gate.authorized) return gate.response;
+
   // --- 最小限のバリデーションだけ行い、即座にSSEレスポンスを返す ---
   let formData: FormData;
   try {

@@ -37,7 +37,7 @@ export async function middleware(request: NextRequest) {
 
   try {
     // JWT検証
-    await jwtVerify(token, new TextEncoder().encode(SECRET_STR));
+    await jwtVerify(token, new TextEncoder().encode(SECRET_STR), { algorithms: ["HS256"] });
     return NextResponse.next();
   } catch {
     // トークンが無効な場合
@@ -61,6 +61,6 @@ export const config = {
      *   public画像を参照しないことを確認済み)。認証後ページ用のpublic画像は認証済みなので影響なし。
      * ※ デバッグAPI(debug-env/auth/lark 等)はセキュリティ上削除済み
      */
-    "/((?!api/auth|api/lark-auth|api/batch|auth|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api/auth(?:/|$)|api/lark-auth(?:/|$)|api/batch(?:/|$)|auth(?:/|$)|_next/static|_next/image|favicon.ico).*)",
   ],
 };

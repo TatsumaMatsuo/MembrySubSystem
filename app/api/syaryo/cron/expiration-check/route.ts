@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runExpirationMonitor } from "@/lib/syaryo/services/expiration-monitor.job";
+import { safeStrEqual } from "@/lib/batch-auth";
 
 /**
  * GET /api/cron/expiration-check
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  if (!safeStrEqual(authHeader || "", `Bearer ${cronSecret}`)) {
     console.log("[Cron] Unauthorized access attempt");
     return NextResponse.json(
       { success: false, error: "Unauthorized" },

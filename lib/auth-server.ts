@@ -34,7 +34,7 @@ export async function getServerSession(): Promise<ServerSession> {
       return { user: null };
     }
     const SECRET = new TextEncoder().encode(jwtSecret);
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, SECRET, { algorithms: ["HS256"] });
 
     const user = {
       id: payload.id as string,

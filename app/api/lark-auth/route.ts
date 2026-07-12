@@ -277,14 +277,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ user: null });
     }
     const SECRET = new TextEncoder().encode(jwtSecret);
-    const { payload } = await jwtVerify(token, SECRET);
+    const { payload } = await jwtVerify(token, SECRET, { algorithms: ["HS256"] });
 
     console.log("[Lark Auth] Session verified:", {
       userId: payload.id,
       userName: payload.name,
     });
 
-    return NextResponse.json({ user: payload });
+    // クライアントへは非機密の識別情報のみ返す。
+    // JWTペイロード全体(Lark access_token/refresh_token 含む)を返すと httpOnly の
+    // 隔離が無効化され XSS 被害が拡大するため、明示的に許可フィールドのみに絞る。
+    // ※サーバルートは従来通り getServerSession() 経由でトークンを利用できる。
+    return NextResponse.json({
+      user: {
+        id: payload.id,
+        name: payload.name,
+        email: payload.email,
+        image: payload.image,
+      },
+    });
   } catch (error) {
     console.error("[Lark Auth] Session check error:", error);
     return NextResponse.json({ user: null });

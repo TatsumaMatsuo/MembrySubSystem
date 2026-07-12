@@ -9,7 +9,7 @@ import * as lark from "@larksuiteoapi/node-sdk";
 import * as dotenv from "dotenv";
 dotenv.config();
 
-const BASE = process.env.LARK_BASE_TOKEN_MASTER || "J09zbrPDxa5QR8sEgU9jqLlxpxg";
+const BASE = process.env.LARK_BASE_TOKEN_MASTER || "";
 const TABLE = process.env.LARK_TABLE_MENU_DISPLAY || "tblQUDXmR38J6KWh";
 const T = (v: any) => (v == null ? "" : typeof v === "string" ? v : Array.isArray(v) ? v.map((x: any) => x?.text ?? x).join("") : v.text ?? String(v));
 

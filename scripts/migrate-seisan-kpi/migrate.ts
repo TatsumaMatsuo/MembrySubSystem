@@ -21,7 +21,7 @@ dotenv.config();
 
 const APPLY = process.argv.includes("--apply");
 const ONLY = (process.argv.find((a) => a.startsWith("--only=")) || "").replace("--only=", "");
-const BASE = process.env.LARK_BASE_TOKEN || "NvWsbaVP2aVT99sJUFxjhOLGpPs";
+const BASE = process.env.LARK_BASE_TOKEN || "";
 const DATA = path.join(__dirname, "data");
 
 const TBL = {

@@ -16,7 +16,7 @@ dotenv.config();
 // ⚠️ アプリにテーブル作成権限が無いため、テーブルは Lark UI で手動作成する。
 //    本スクリプトは「既存テーブルの table_id を探して表示する」用途で使う。
 //    作成先は project base（社員マスタ等の master base ではない）。
-const BASE = process.env.LARK_BASE_TOKEN || "NvWsbaVP2aVT99sJUFxjhOLGpPs";
+const BASE = process.env.LARK_BASE_TOKEN || "";
 const TABLE_NAME = "基準風速・積雪量マスタ";
 
 // Lark Bitable フィールド型: 1=テキスト 2=数値 7=チェックボックス

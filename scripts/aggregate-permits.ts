@@ -3,7 +3,7 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const SYARYO_BASE = process.env.LARK_SYARYO_BASE_TOKEN || "NNLCbCdohajZpYsHCrkjy1adpNX";
+const SYARYO_BASE = process.env.LARK_SYARYO_BASE_TOKEN || "";
 const PERMITS_TABLE = process.env.LARK_TABLE_PERMITS || "tblQ3QSv261nYwJt";
 
 (async () => {

@@ -154,17 +154,62 @@ export async function getLarkUser(openId: string): Promise<LarkUser | null> {
 }
 
 /**
- * 現在のユーザー情報を取得（アクセストークンから）
- * @param accessToken ユーザーアクセストークン
- * @returns ユーザー情報
+ * 現在のユーザー情報を取得（ユーザーアクセストークンから）
+ *
+ * Lark `authen/v1/user_info` を user_access_token で呼び出し「自分の情報」を得る。
+ * app/tenant トークンではなくログイン本人のトークンを Bearer で送る点が getLarkUser() と異なる。
+ * エンドポイント/ドメインは OAuth ログイン経路（lib/auth-options.ts）と統一。
+ *
+ * @param accessToken ユーザーアクセストークン（Bearer）
+ * @returns ユーザー情報。トークン無効(401/403)・API失敗時は null（呼び出し側で再ログイン誘導可能）
  */
 export async function getCurrentLarkUser(
   accessToken: string
 ): Promise<LarkUser | null> {
+  if (!accessToken) return null;
   try {
-    // TODO: アクセストークンを使用してユーザー情報を取得
-    // 現在はモック実装
-    return null;
+    const domain = process.env.LARK_DOMAIN || "https://open.larksuite.com";
+    const response = await fetch(`${domain}/open-apis/authen/v1/user_info`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      // 401/403 等: トークン失効・権限不足。例外にせず null を返し呼び出し側へ委ねる
+      console.error(`[lark-user] getCurrentLarkUser HTTP ${response.status}`);
+      return null;
+    }
+
+    const body = await response.json();
+    if (body.code !== 0 || !body.data) {
+      console.error(`[lark-user] getCurrentLarkUser API error: code=${body.code} msg=${body.msg}`);
+      return null;
+    }
+
+    const u = body.data;
+    return {
+      open_id: u.open_id || "",
+      union_id: u.union_id,
+      user_id: u.user_id,
+      name: u.name || "",
+      en_name: u.en_name,
+      // enterprise_email へフォールバック（auth-options.ts と同一方針）
+      email: u.email || u.enterprise_email || "",
+      mobile: u.mobile,
+      // user_info はアバターを平坦な url 群で返す（contact.user.get の入れ子 avatar とは別形）。
+      // LarkUser.avatar 形へマッピングする。
+      avatar:
+        u.avatar_url || u.avatar_thumb || u.avatar_middle || u.avatar_big
+          ? {
+              avatar_72: u.avatar_thumb,
+              avatar_240: u.avatar_middle,
+              avatar_640: u.avatar_big,
+              avatar_origin: u.avatar_url,
+            }
+          : undefined,
+      department_ids: undefined,
+    };
   } catch (error) {
     console.error("Failed to get current Lark user:", error);
     return null;

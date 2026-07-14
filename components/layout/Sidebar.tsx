@@ -26,6 +26,7 @@ import {
   FileSpreadsheet,
   Cog,
   Link2,
+  Bot,
   Loader2,
   LucideIcon,
 } from "lucide-react";
@@ -52,6 +53,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   FileSpreadsheet,
   Cog,
   Link2,
+  Bot,
 };
 
 // アイコン色マッピング（第1階層用）
@@ -74,6 +76,7 @@ const ICON_COLORS: Record<string, string> = {
   FileSpreadsheet: "text-teal-400",
   Users: "text-gray-500",
   Link2: "text-slate-500",
+  Bot: "text-indigo-500",
 };
 
 // アイコンを取得

@@ -38,6 +38,7 @@ import {
   Camera,
   QrCode,
   Copy,
+  Mail,
 } from "lucide-react";
 import { generateQRCodeDataUrl } from "@/lib/syaryo/services/qrcode.service";
 import {
@@ -117,6 +118,27 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [nippouPhotoUrls, setNippouPhotoUrls] = useState<Record<string, string>>({});
   const [loadingNippou, setLoadingNippou] = useState(false);
   const [nippouQr, setNippouQr] = useState<{ dataUrl: string; url: string } | null>(null);
+  const [sendingMail, setSendingMail] = useState(false);
+
+  // F2-09: 案件別URLを外注業者へ Lark Mail で送信。宛先=案件マスタ「業者メールアドレス」。
+  const sendNippouMail = async () => {
+    if (!nippouAnken?.contractorEmail || sendingMail) return;
+    if (!window.confirm(`業者(${nippouAnken.contractorEmail})に案件別URLをメール送信しますか?`)) return;
+    setSendingMail(true);
+    try {
+      const res = await fetch("/api/nippou/send-mail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seiban }),
+      });
+      const data = await res.json();
+      window.alert(data.success ? `送信しました: ${data.to}` : `送信できませんでした: ${data.error}`);
+    } catch {
+      window.alert("送信に失敗しました。ネットワークをご確認ください。");
+    } finally {
+      setSendingMail(false);
+    }
+  };
 
   // F2-08: 案件別URL(外注配布用)のQRを生成して表示。URLは製番+受付コードから都度生成。
   const showNippouQr = async () => {
@@ -1619,13 +1641,26 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                       <Camera className="w-5 h-5 text-rose-500" /> 作業日報
                     </h2>
                     {nippouAnken.uketsukeCode && nippouAnken.status !== "完了" && (
-                      <button
-                        onClick={showNippouQr}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-100"
-                        title="外注業者へ配布する案件別URLのQRコードを表示"
-                      >
-                        <QrCode className="w-4 h-4" /> 案件別URL(QR)
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={showNippouQr}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-100"
+                          title="外注業者へ配布する案件別URLのQRコードを表示"
+                        >
+                          <QrCode className="w-4 h-4" /> 案件別URL(QR)
+                        </button>
+                        {nippouAnken.contractorEmail && (
+                          <button
+                            onClick={sendNippouMail}
+                            disabled={sendingMail}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-100 disabled:opacity-50"
+                            title={`業者(${nippouAnken.contractorEmail})へ案件別URLをメール送信`}
+                          >
+                            {sendingMail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                            メール送信
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                   <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">

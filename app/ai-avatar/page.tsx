@@ -21,6 +21,12 @@ const Avatar3D = dynamicImport(() => import("@/components/ai-avatar/Avatar3D"), 
   ssr: false,
   loading: () => <div className="h-52 w-52 md:h-64 md:w-64" />,
 });
+// Ready Player Me の人型モデル。URLが設定されていればこちらを優先。
+const AvatarRPM = dynamicImport(() => import("@/components/ai-avatar/AvatarRPM"), {
+  ssr: false,
+  loading: () => <div className="h-56 w-56 md:h-72 md:w-72" />,
+});
+const RPM_AVATAR_URL = process.env.NEXT_PUBLIC_RPM_AVATAR_URL || "";
 
 type RouteKind = "internal" | "general";
 interface Citation {
@@ -217,7 +223,11 @@ export default function AiAvatarPrototypePage() {
           プロトタイプ（音声=ブラウザ内蔵 / 回答=モック）。実バックエンド接続は shainai 公開の承認後。
         </div>
 
-        <Avatar3D talking={speaking} thinking={loading} />
+        {RPM_AVATAR_URL ? (
+          <AvatarRPM url={RPM_AVATAR_URL} talking={speaking} thinking={loading} />
+        ) : (
+          <Avatar3D talking={speaking} thinking={loading} />
+        )}
 
         {/* 声の選択 */}
         {ttsAvailable && voices.length > 0 && (

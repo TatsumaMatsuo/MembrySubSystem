@@ -36,7 +36,10 @@ import {
   MinusSquare,
   UploadCloud,
   Camera,
+  QrCode,
+  Copy,
 } from "lucide-react";
+import { generateQRCodeDataUrl } from "@/lib/syaryo/services/qrcode.service";
 import {
   PieChart,
   Pie,
@@ -113,6 +116,20 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [nippouAnken, setNippouAnken] = useState<NippouAnkenUI | null>(null);
   const [nippouPhotoUrls, setNippouPhotoUrls] = useState<Record<string, string>>({});
   const [loadingNippou, setLoadingNippou] = useState(false);
+  const [nippouQr, setNippouQr] = useState<{ dataUrl: string; url: string } | null>(null);
+
+  // F2-08: 案件別URL(外注配布用)のQRを生成して表示。URLは製番+受付コードから都度生成。
+  const showNippouQr = async () => {
+    const code = nippouAnken?.uketsukeCode;
+    if (!code) return;
+    const url = `${window.location.origin}/genba/${encodeURIComponent(seiban)}?code=${encodeURIComponent(code)}`;
+    try {
+      const dataUrl = await generateQRCodeDataUrl(url, { width: 240 });
+      setNippouQr({ dataUrl, url });
+    } catch (e) {
+      console.error("QR生成に失敗:", e);
+    }
+  };
   const [customerRequests, setCustomerRequests] = useState<CustomerRequest[]>([]);
   const [qualityIssues, setQualityIssues] = useState<QualityIssue[]>([]);
   const [documents, setDocuments] = useState<Record<DepartmentName, Record<string, ProjectDocument | null>> | null>(null);
@@ -1597,9 +1614,20 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
               {/* 案件情報(売約情報からのLookup。閲覧のみ) */}
               {nippouAnken && (
                 <div className="bg-white rounded-lg shadow px-6 py-4">
-                  <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                    <Camera className="w-5 h-5 text-rose-500" /> 作業日報
-                  </h2>
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <Camera className="w-5 h-5 text-rose-500" /> 作業日報
+                    </h2>
+                    {nippouAnken.uketsukeCode && nippouAnken.status !== "完了" && (
+                      <button
+                        onClick={showNippouQr}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-100"
+                        title="外注業者へ配布する案件別URLのQRコードを表示"
+                      >
+                        <QrCode className="w-4 h-4" /> 案件別URL(QR)
+                      </button>
+                    )}
+                  </div>
                   <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
                     <div className="flex gap-2"><dt className="text-gray-500 w-24 flex-none">物件名</dt><dd className="font-medium">{nippouAnken.bukken || "-"}</dd></div>
                     <div className="flex gap-2"><dt className="text-gray-500 w-24 flex-none">施工場所</dt><dd className="font-medium">{nippouAnken.location || "-"}</dd></div>
@@ -1693,6 +1721,43 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* F2-08 案件別URL QRモーダル */}
+          {nippouQr && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+              onClick={() => setNippouQr(null)}
+            >
+              <div
+                className="w-full max-w-sm rounded-2xl bg-white p-6 text-center"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="mb-1 text-lg font-semibold text-gray-800">案件別URL(外注配布用)</h3>
+                <p className="mb-4 text-xs text-gray-500">
+                  業者にこのQR / URLを配布してください。受付コード入りの専用URLです。
+                </p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={nippouQr.dataUrl} alt="案件別URL QRコード" className="mx-auto mb-4 h-56 w-56" />
+                <div className="mb-4 break-all rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                  {nippouQr.url}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => navigator.clipboard?.writeText(nippouQr.url)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <Copy className="w-4 h-4" /> URLをコピー
+                  </button>
+                  <button
+                    onClick={() => setNippouQr(null)}
+                    className="flex-1 rounded-lg bg-rose-500 py-2 text-sm font-medium text-white hover:bg-rose-600"
+                  >
+                    閉じる
+                  </button>
+                </div>
               </div>
             </div>
           )}

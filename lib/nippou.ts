@@ -12,6 +12,27 @@ export const NIPPOU_FORM_SHARE_URL =
   process.env.NEXT_PUBLIC_NIPPOU_FORM_URL ||
   "https://osvn246ak4c.jp.larksuite.com/share/base/form/shrjplIkC6vaaTTRQFc0f4jXOOg";
 
+/**
+ * 案件別のフォームURL(F2-07)。共通フォームURLに 売約番号・受付コード を prefill する。
+ * ※ Larkフォームの prefill パラメータ書式は要検証。効かない場合でも F2-10 画面に
+ *   売約番号・受付コードを表示するため、業者は手入力で投稿できる(フォールバック)。
+ */
+export function buildNippouFormUrl(seiban: string, code: string): string {
+  const params = new URLSearchParams();
+  params.set("prefill_売約番号", seiban);
+  params.set("prefill_受付コード", code);
+  return `${NIPPOU_FORM_SHARE_URL}?${params.toString()}`;
+}
+
+/**
+ * 外注業者へ配布する案件別URL(F2-10ページ)。製番+受付コードから都度生成(テーブルには保存しない)。
+ * QR表示(F2-08)・メール(F2-09)の配布導線に使う。origin は呼び出し側(リクエスト)から渡す。
+ */
+export function buildContractorPageUrl(origin: string, seiban: string, code: string): string {
+  const base = origin.replace(/\/$/, "");
+  return `${base}/genba/${encodeURIComponent(seiban)}?code=${encodeURIComponent(code)}`;
+}
+
 /** Lark の Lookup/テキスト/選択等の値を文字列へ正規化(配列/オブジェクトを吸収) */
 export function extractText(value: unknown): string {
   if (value == null) return "";
@@ -63,7 +84,6 @@ export interface NippouAnken {
   contractorEmail: string; // 業者メールアドレス
   chatId: string; // 現場chat_id(Lookup)
   uketsukeCode: string; // 受付コード
-  caseUrl: string; // 案件別URL
   status: string; // 状態(有効/完了)
   contractor: string; // 業者
 }
@@ -90,7 +110,6 @@ export async function getNippouAnken(seiban: string): Promise<NippouAnken | null
     contractorEmail: extractText(f["業者メールアドレス"]),
     chatId: extractText(f["現場chat_id"]),
     uketsukeCode: extractText(f["受付コード"]),
-    caseUrl: extractText(f["案件別URL"]),
     status: extractText(f["状態"]),
     contractor: extractText(f["業者"]),
   };

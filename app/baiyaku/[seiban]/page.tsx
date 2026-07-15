@@ -95,7 +95,6 @@ interface NippouAnkenUI {
   contractorEmail: string;
   chatId: string;
   uketsukeCode: string;
-  caseUrl: string;
   status: string;
   contractor: string;
 }

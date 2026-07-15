@@ -1,0 +1,141 @@
+// 現場作業日報システム データ層(F2-06 社内閲覧 / F2-07 案件別URL)
+//
+// - 現場作業日報(NIPPOU): フォーム投稿の蓄積先。売約番号で該当案件の有効日報を取得。
+// - 現場作業日報_案件マスタ(NIPPOU_ANKEN): 案件別の配布情報。物件名/施工場所/営業担当者名/
+//   現場chat_id は 売約情報(製番)からの Lookup(配列オブジェクト)なので値抽出する。
+import { getBaseRecords } from "./lark-client";
+import { getLarkTables, getBaseTokenForTable } from "./lark-tables";
+import { escapeLarkFilterValue } from "./lark-filter";
+
+// 現場作業日報 テーブルのフォーム外部共有URL(F2-07 で売約番号・受付コードを prefill する土台)
+export const NIPPOU_FORM_SHARE_URL =
+  process.env.NEXT_PUBLIC_NIPPOU_FORM_URL ||
+  "https://osvn246ak4c.jp.larksuite.com/share/base/form/shrjplIkC6vaaTTRQFc0f4jXOOg";
+
+/** Lark の Lookup/テキスト/選択等の値を文字列へ正規化(配列/オブジェクトを吸収) */
+export function extractText(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value.map((v) => extractText(v)).filter(Boolean).join(", ");
+  }
+  if (typeof value === "object") {
+    const o = value as Record<string, unknown>;
+    return String(o.text ?? o.name ?? o.value ?? o.en_name ?? "");
+  }
+  return String(value);
+}
+
+export interface NippouAttachment {
+  file_token?: string;
+  name?: string;
+  type?: string;
+  size?: number;
+  url?: string;
+  tmp_url?: string;
+}
+
+export interface NippouReport {
+  record_id: string;
+  seiban: string; // 売約番号
+  bukken: string; // 物件名
+  company: string; // 会社名
+  reporter: string; // 報告者氏名
+  reportDate: string; // 作業報告日
+  workers: number | null; // 作業人数
+  content: string; // 作業内容
+  notes: string; // 特記事項・連絡事項
+  tomorrow: string; // 翌日の作業予定
+  photos: NippouAttachment[]; // 現場写真
+  uketsukeCode: string; // 受付コード
+  matchResult: string; // 受付コード照合結果(有効/無効)
+  isValid: boolean; // 有効フラグ
+  postedAt: string | number; // 投稿日時(作成日時)
+}
+
+export interface NippouAnken {
+  record_id: string;
+  seiban: string;
+  bukken: string; // 物件名(Lookup)
+  location: string; // 施工場所(Lookup=納入先住所)
+  salesPerson: string; // 営業担当者名(Lookup=売約情報「担当者」)
+  contractorEmail: string; // 業者メールアドレス
+  chatId: string; // 現場chat_id(Lookup)
+  uketsukeCode: string; // 受付コード
+  caseUrl: string; // 案件別URL
+  status: string; // 状態(有効/完了)
+  contractor: string; // 業者
+}
+
+/** 案件マスタから売約番号(製番)で1件取得 */
+export async function getNippouAnken(seiban: string): Promise<NippouAnken | null> {
+  if (!seiban) return null;
+  const tables = getLarkTables();
+  const baseToken = getBaseTokenForTable("NIPPOU_ANKEN");
+  const res = await getBaseRecords(tables.NIPPOU_ANKEN, {
+    baseToken,
+    filter: `CurrentValue.[売約番号] = "${escapeLarkFilterValue(seiban)}"`,
+    pageSize: 1,
+  });
+  const item = res.data?.items?.[0] as { record_id: string; fields: Record<string, any> } | undefined;
+  if (!item) return null;
+  const f = item.fields;
+  return {
+    record_id: item.record_id,
+    seiban: extractText(f["売約番号"]),
+    bukken: extractText(f["物件名"]),
+    location: extractText(f["施工場所"]),
+    salesPerson: extractText(f["営業担当者名"]),
+    contractorEmail: extractText(f["業者メールアドレス"]),
+    chatId: extractText(f["現場chat_id"]),
+    uketsukeCode: extractText(f["受付コード"]),
+    caseUrl: extractText(f["案件別URL"]),
+    status: extractText(f["状態"]),
+    contractor: extractText(f["業者"]),
+  };
+}
+
+/**
+ * 現場作業日報を売約番号で取得(既定は有効投稿のみ)。作業報告日の新しい順。
+ */
+export async function getNippouReports(
+  seiban: string,
+  opts: { onlyValid?: boolean } = {}
+): Promise<NippouReport[]> {
+  if (!seiban) return [];
+  const onlyValid = opts.onlyValid ?? true;
+  const tables = getLarkTables();
+  const baseToken = getBaseTokenForTable("NIPPOU");
+  const res = await getBaseRecords(tables.NIPPOU, {
+    baseToken,
+    filter: `CurrentValue.[売約番号] = "${escapeLarkFilterValue(seiban)}"`,
+    pageSize: 200,
+  });
+  const items = (res.data?.items || []) as Array<{ record_id: string; fields: Record<string, any> }>;
+  const reports: NippouReport[] = items.map((item) => {
+    const f = item.fields;
+    const workersRaw = f["作業人数"];
+    return {
+      record_id: item.record_id,
+      seiban: extractText(f["売約番号"]),
+      bukken: extractText(f["物件名"]),
+      company: extractText(f["会社名"]),
+      reporter: extractText(f["報告者氏名"]),
+      reportDate: extractText(f["作業報告日"]),
+      workers: typeof workersRaw === "number" ? workersRaw : workersRaw ? Number(workersRaw) : null,
+      content: extractText(f["作業内容"]),
+      notes: extractText(f["特記事項・連絡事項"]),
+      tomorrow: extractText(f["翌日の作業予定"]),
+      photos: Array.isArray(f["現場写真"]) ? (f["現場写真"] as NippouAttachment[]) : [],
+      uketsukeCode: extractText(f["受付コード"]),
+      matchResult: extractText(f["受付コード照合結果"]),
+      isValid: f["有効フラグ"] === true || f["有効フラグ"] === 1,
+      postedAt: (f["投稿日時"] as number) ?? "",
+    };
+  });
+  const filtered = onlyValid ? reports.filter((r) => r.isValid) : reports;
+  // 作業報告日の新しい順(空は末尾)
+  filtered.sort((a, b) => (b.reportDate || "").localeCompare(a.reportDate || ""));
+  return filtered;
+}

@@ -33,6 +33,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@larksuiteoapi/node-sdk": "^1.56.0",
     "@napi-rs/canvas": "^1.0.0",
+    "@pixiv/three-vrm": "^3.5.5",
     "@radix-ui/react-slot": "^1.2.4",
     "@react-pdf/renderer": "^3.4.5",
     "@react-three/drei": "^9.122.0",

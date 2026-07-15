@@ -15,18 +15,34 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamicImport from "next/dynamic";
 import { MainLayout } from "@/components/layout";
 import { Send, Volume2, Loader2, Square, Mic, MicOff } from "lucide-react";
+import {
+  synthesizeVoicevox,
+  fetchVoicevoxSpeakers,
+  type VoicevoxSpeakerStyle,
+} from "@/lib/voicevox";
 
 // 3Dアバターは WebGL(window)依存のためクライアントのみで描画(SSR無効)
 const Avatar3D = dynamicImport(() => import("@/components/ai-avatar/Avatar3D"), {
   ssr: false,
   loading: () => <div className="h-52 w-52 md:h-64 md:w-64" />,
 });
-// Ready Player Me の人型モデル。URLが設定されていればこちらを優先。
+// Ready Player Me の人型モデル(社内NWからRPM CDNへ到達できる場合のみ)。
 const AvatarRPM = dynamicImport(() => import("@/components/ai-avatar/AvatarRPM"), {
   ssr: false,
   loading: () => <div className="h-56 w-56 md:h-72 md:w-72" />,
 });
 const RPM_AVATAR_URL = process.env.NEXT_PUBLIC_RPM_AVATAR_URL || "";
+
+// VRM(VRoid)人型モデル。既定はアプリ同梱のCC0女性モデル(same-origin=社内NWでも読める)。
+const AvatarVRM = dynamicImport(() => import("@/components/ai-avatar/AvatarVRM"), {
+  ssr: false,
+  loading: () => <div className="h-60 w-60 md:h-80 md:w-80" />,
+});
+const VRM_AVATAR_URL = process.env.NEXT_PUBLIC_VRM_AVATAR_URL || "/avatars/assistant.vrm";
+
+// VOICEVOX(日本語ニューラルTTS)。プロトタイプはローカルエンジン、本番は社内ホスト。
+const VOICEVOX_URL = process.env.NEXT_PUBLIC_VOICEVOX_URL || "http://localhost:50021";
+const VOICEVOX_DEFAULT_SPEAKER = Number(process.env.NEXT_PUBLIC_VOICEVOX_SPEAKER || 10); // 雨晴はう ノーマル(やさしい女性)
 
 type RouteKind = "internal" | "general";
 interface Citation {
@@ -89,6 +105,30 @@ export default function AiAvatarPrototypePage() {
   const [ttsAvailable, setTtsAvailable] = useState(true);
   const [sttAvailable, setSttAvailable] = useState(false);
   const recognitionRef = useRef<any>(null);
+  // VOICEVOX
+  const [engine, setEngine] = useState<"voicevox" | "webspeech">("voicevox");
+  const [vvSpeakers, setVvSpeakers] = useState<VoicevoxSpeakerStyle[]>([]);
+  const [vvSpeaker, setVvSpeaker] = useState<number>(VOICEVOX_DEFAULT_SPEAKER);
+  const [vvError, setVvError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // ---- VOICEVOX 到達確認 & 話者一覧ロード ----
+  useEffect(() => {
+    let cancelled = false;
+    fetchVoicevoxSpeakers(VOICEVOX_URL)
+      .then((sp) => {
+        if (cancelled) return;
+        setVvSpeakers(sp);
+        setVvError(null);
+        setVvSpeaker((cur) => (sp.some((s) => s.id === cur) ? cur : sp[0]?.id ?? cur));
+      })
+      .catch(() => {
+        if (!cancelled) setVvError("VOICEVOXエンジンに接続できません(起動すると流暢な音声になります)");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ---- TTS(音声出力)voices ロード ----
   useEffect(() => {
@@ -96,9 +136,18 @@ export default function AiAvatarPrototypePage() {
       setTtsAvailable(false);
       return;
     }
+    // 自然な音声ほど上位に来るよう並べ替え(ニューラル/クラウド系を優先)
+    const rank = (v: SpeechSynthesisVoice) => {
+      const n = v.name.toLowerCase();
+      let s = 0;
+      if (/natural|neural|online/.test(n)) s += 5;
+      if (/nanami|ayumi|keita|sayaka|mayu|google/.test(n)) s += 3;
+      if (!v.localService) s += 1; // クラウド音声は概ね自然(※テキストが音声ベンダへ送られる)
+      return s;
+    };
     const load = () => {
       const all = window.speechSynthesis.getVoices();
-      const ja = all.filter((v) => v.lang?.startsWith("ja"));
+      const ja = all.filter((v) => v.lang?.startsWith("ja")).sort((a, b) => rank(b) - rank(a));
       const list = ja.length ? ja : all;
       setVoices(list);
       setVoiceURI((cur) => cur || list[0]?.voiceURI || "");
@@ -111,7 +160,7 @@ export default function AiAvatarPrototypePage() {
     };
   }, []);
 
-  const speak = useCallback(
+  const speakWebSpeech = useCallback(
     (text: string) => {
       if (typeof window === "undefined" || !window.speechSynthesis) return;
       window.speechSynthesis.cancel();
@@ -119,7 +168,8 @@ export default function AiAvatarPrototypePage() {
       const v = voices.find((x) => x.voiceURI === voiceURI);
       u.lang = v?.lang || "ja-JP";
       if (v) u.voice = v;
-      u.rate = 1.05;
+      u.rate = 1.0;
+      u.pitch = 1.0;
       u.onstart = () => setSpeaking(true);
       u.onend = () => setSpeaking(false);
       u.onerror = () => setSpeaking(false);
@@ -128,10 +178,57 @@ export default function AiAvatarPrototypePage() {
     [voices, voiceURI]
   );
 
-  const stopSpeak = () => {
+  const stopSpeak = useCallback(() => {
     window.speechSynthesis?.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current = null;
+    }
     setSpeaking(false);
-  };
+  }, []);
+
+  // VOICEVOX で合成して再生(口パクは audio の再生状態に同期)
+  const speakVoicevox = useCallback(
+    async (text: string) => {
+      const buf = await synthesizeVoicevox(text, {
+        baseUrl: VOICEVOX_URL,
+        speaker: vvSpeaker,
+        speedScale: 1.0,
+      });
+      const url = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onplay = () => setSpeaking(true);
+      const done = () => {
+        setSpeaking(false);
+        URL.revokeObjectURL(url);
+      };
+      audio.onended = done;
+      audio.onerror = done;
+      await audio.play();
+    },
+    [vvSpeaker]
+  );
+
+  // 音声エンジンを選んで発話(VOICEVOX失敗時はブラウザ音声にフォールバック)
+  const speak = useCallback(
+    async (text: string) => {
+      if (engine === "voicevox") {
+        try {
+          setVvError(null);
+          await speakVoicevox(text);
+          return;
+        } catch {
+          setVvError(
+            "VOICEVOXに接続できません。エンジンを起動してください(localhost:50021)。ブラウザ音声で代替します。"
+          );
+        }
+      }
+      speakWebSpeech(text);
+    },
+    [engine, speakVoicevox, speakWebSpeech]
+  );
 
   const handleSend = useCallback(
     async (raw: string) => {
@@ -223,29 +320,63 @@ export default function AiAvatarPrototypePage() {
           プロトタイプ（音声=ブラウザ内蔵 / 回答=モック）。実バックエンド接続は shainai 公開の承認後。
         </div>
 
-        {RPM_AVATAR_URL ? (
+        {/* 優先度: 同梱VRM(既定・社内NW可) > RPM(要CDN到達) > 簡易3Dヘッド */}
+        {VRM_AVATAR_URL ? (
+          <AvatarVRM url={VRM_AVATAR_URL} talking={speaking} thinking={loading} />
+        ) : RPM_AVATAR_URL ? (
           <AvatarRPM url={RPM_AVATAR_URL} talking={speaking} thinking={loading} />
         ) : (
           <Avatar3D talking={speaking} thinking={loading} />
         )}
 
-        {/* 声の選択 */}
-        {ttsAvailable && voices.length > 0 && (
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+        {/* 音声エンジン & 声の選択 */}
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-gray-500">
             <Volume2 className="h-3.5 w-3.5" />
+            {/* エンジン切替 */}
             <select
-              value={voiceURI}
-              onChange={(e) => setVoiceURI(e.target.value)}
+              value={engine}
+              onChange={(e) => setEngine(e.target.value as "voicevox" | "webspeech")}
               className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs"
             >
-              {voices.map((v) => (
-                <option key={v.voiceURI} value={v.voiceURI}>
-                  {v.name}（{v.lang}）
-                </option>
-              ))}
+              <option value="voicevox">VOICEVOX（流暢）</option>
+              <option value="webspeech">ブラウザ音声</option>
             </select>
+
+            {/* VOICEVOX 話者 */}
+            {engine === "voicevox" && vvSpeakers.length > 0 && (
+              <select
+                value={vvSpeaker}
+                onChange={(e) => setVvSpeaker(Number(e.target.value))}
+                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs"
+              >
+                {vvSpeakers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}／{s.styleName}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* ブラウザ音声の声 */}
+            {engine === "webspeech" && ttsAvailable && voices.length > 0 && (
+              <select
+                value={voiceURI}
+                onChange={(e) => setVoiceURI(e.target.value)}
+                className="rounded-md border border-gray-200 bg-white px-2 py-1 text-xs"
+              >
+                {voices.map((v) => (
+                  <option key={v.voiceURI} value={v.voiceURI}>
+                    {v.name}（{v.lang}）
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-        )}
+          {engine === "voicevox" && vvError && (
+            <p className="text-center text-[11px] text-amber-600">{vvError}</p>
+          )}
+        </div>
 
         {/* 現在の回答 */}
         <div className="min-h-[92px] w-full rounded-2xl bg-white p-5 shadow-sm">

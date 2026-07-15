@@ -3,9 +3,19 @@
 // - 現場作業日報(NIPPOU): フォーム投稿の蓄積先。売約番号で該当案件の有効日報を取得。
 // - 現場作業日報_案件マスタ(NIPPOU_ANKEN): 案件別の配布情報。物件名/施工場所/営業担当者名/
 //   現場chat_id は 売約情報(製番)からの Lookup(配列オブジェクト)なので値抽出する。
-import { getBaseRecords } from "./lark-client";
+import { getBaseRecords, createBaseRecord, updateBaseRecord } from "./lark-client";
 import { getLarkTables, getBaseTokenForTable } from "./lark-tables";
 import { escapeLarkFilterValue } from "./lark-filter";
+
+// 受付コード生成: 8桁英数字(紛らわしい 0/O/1/I/L を除外)。SEC-04 の推測困難な値。
+const UKETSUKE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+export function generateUketsukeCode(): string {
+  let s = "";
+  for (let i = 0; i < 8; i++) {
+    s += UKETSUKE_ALPHABET[Math.floor(Math.random() * UKETSUKE_ALPHABET.length)];
+  }
+  return s;
+}
 
 // 現場作業日報 テーブルのフォーム外部共有URL(F2-07 で売約番号・受付コードを prefill する土台)
 export const NIPPOU_FORM_SHARE_URL =
@@ -157,4 +167,36 @@ export async function getNippouReports(
   // 作業報告日の新しい順(空は末尾)
   filtered.sort((a, b) => (b.reportDate || "").localeCompare(a.reportDate || ""));
   return filtered;
+}
+
+/**
+ * 案件マスタの「配布設定」を売約詳細から登録/更新(F2-07)。無ければ作成、有れば更新。
+ * 書込むのは書込可能項目のみ(業者メールアドレス/受付コード/業者/状態)。
+ * 物件名/施工場所/営業担当者名/現場chat_id は 売約情報からの Lookup のため書込まない。
+ */
+export async function upsertNippouAnken(
+  seiban: string,
+  input: {
+    contractorEmail?: string;
+    uketsukeCode?: string;
+    contractor?: string;
+    status?: string;
+  }
+): Promise<NippouAnken | null> {
+  const tables = getLarkTables();
+  const baseToken = getBaseTokenForTable("NIPPOU_ANKEN");
+  const existing = await getNippouAnken(seiban);
+
+  const fields: Record<string, any> = { 売約番号: seiban };
+  if (input.contractorEmail !== undefined) fields["業者メールアドレス"] = input.contractorEmail;
+  if (input.uketsukeCode !== undefined) fields["受付コード"] = input.uketsukeCode;
+  if (input.contractor !== undefined) fields["業者"] = input.contractor;
+  if (input.status !== undefined) fields["状態"] = input.status; // 単一選択(既存の選択肢: 有効/完了)
+
+  if (existing) {
+    await updateBaseRecord(tables.NIPPOU_ANKEN, existing.record_id, fields, { baseToken });
+  } else {
+    await createBaseRecord(tables.NIPPOU_ANKEN, fields, { baseToken });
+  }
+  return getNippouAnken(seiban);
 }

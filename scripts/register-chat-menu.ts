@@ -2,7 +2,8 @@
  * 社内AIチャット(#32 / Epic #30 段階1) メニュー投入 + 全社員への権限付与
  *
  * 配置(決定): 「共通」トップメニュー(L1)配下に L2「AIアシスタント」を作り、
- *   その下に プログラム「社内AIチャット」(URLパス=/chat) を置く。
+ *   その下に プログラム「社内AIチャット」を置く。
+ *   URLパス = 既存 Lark Bot(shainai)への applink ディープリンク(方式C: 新規公開口を作らず最安全)。
  * 公開範囲(決定): 全社員。グループ権限マスタに「トップレベル部署ごと」の許可行を作る
  *   (社員の部署チェーンは expandDepartmentChain でトップ部署まで展開されるため、
  *    トップ部署を許可すれば配下の全社員に効く)。
@@ -30,7 +31,11 @@ const L1_NAME = "共通";
 const L2_NAME = "AIアシスタント";
 const L2_ICON = "Bot"; // Sidebar ICON_MAP に無い場合は既定アイコンにフォールバック
 const PROGRAM_NAME = "社内AIチャット";
-const PROGRAM_URL = "/chat";
+// 方式C: 埋め込みWebチャットは使わず、既存 Lark Bot(shainai)へのディープリンクにする。
+// セキュリティ上、新規インバウンド/新規公開エンドポイントを作らず既存の認可済みLarkチャネルへ誘導する。
+// applink(国際版=larksuite): Bot を開く。appId は shainai Bot(Membry認証アプリとは別)。
+const SHAINAI_BOT_APP_ID = "cli_aac2ce0c2778de18";
+const PROGRAM_URL = `https://applink.larksuite.com/client/bot/open?appId=${SHAINAI_BOT_APP_ID}`;
 
 function getField(rec: any, name: string): string {
   const v = rec?.fields?.[name];
@@ -138,9 +143,10 @@ async function main() {
     console.log(`  ✓ L2 ${l2Id}「${L2_NAME}」 既存 → スキップ`);
   }
 
-  // === 3. プログラム(社内AIチャット)を用意(なければ作成・PGM自動採番) ===
+  // === 3. プログラム(社内AIチャット)を用意 ===
+  //   名称で検索し、無ければPGM自動採番で作成、有ればURLパスの差分のみ更新(方式変更の移行に対応)。
   const programs = await fetchAll(client, TABLE_FUNCTION_PLACEMENT);
-  let prog = programs.find((p) => getField(p, "URLパス").trim() === PROGRAM_URL);
+  const prog = programs.find((p) => getField(p, "プログラム名称").trim() === PROGRAM_NAME);
   let progId = prog ? getField(prog, "プログラムID").trim() : "";
   if (!prog) {
     const maxNum = programs.reduce((mx, p) => {
@@ -160,7 +166,19 @@ async function main() {
       });
     }
   } else {
-    console.log(`  ✓ プログラム ${progId}「${PROGRAM_NAME}」 既存(URL=${PROGRAM_URL}) → スキップ`);
+    const curUrl = getField(prog, "URLパス").trim();
+    if (curUrl !== PROGRAM_URL) {
+      console.log(`  ~ プログラム ${progId}「${PROGRAM_NAME}」URLパス更新: ${curUrl} → ${PROGRAM_URL}${tag}`);
+      if (!dryRun) {
+        const up: any = await client.bitable.appTableRecord.update({
+          path: { app_token: BASE_TOKEN, table_id: TABLE_FUNCTION_PLACEMENT, record_id: prog.record_id },
+          data: { fields: { "URLパス": PROGRAM_URL } },
+        });
+        if (up.code !== 0) throw new Error(`Program update failed (${progId}): ${up.msg}`);
+      }
+    } else {
+      console.log(`  ✓ プログラム ${progId}「${PROGRAM_NAME}」 既存(URL一致) → スキップ`);
+    }
   }
 
   // === 4. 全社員へ権限付与(トップ部署ごとに L1 + L2 + program を許可) ===

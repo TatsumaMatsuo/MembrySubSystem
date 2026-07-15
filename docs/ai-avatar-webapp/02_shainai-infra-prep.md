@@ -109,12 +109,67 @@ curl -sS https://ai-chat.内部ドメイン/api/chat \
 # 無トークン→401 / 鍵不一致→401 / 未設定→503(fail-closed)
 ```
 
+## 7. VOICEVOX 音声合成サーバー(常時稼働)
+
+アバターの音声(日本語ニューラルTTS)。**利用者PCでの起動は不要**にするため、社内サーバーで
+**常時稼働のサービス**として立てる(プロトタイプのローカル localhost:50021 はあくまで検証用)。
+外部送信なし=SEC-01維持。VOICEVOX は**クレジット表記**が利用条件(例: 画面フッターに「VOICEVOX:雨晴はう」)。
+
+### 7-1. Docker で常時起動(推奨)
+
+```bash
+# CPU版(GPU不要)。engine は 50021 で HTTP API を公開。
+docker run -d --name voicevox --restart always \
+  -p 127.0.0.1:50021:50021 \
+  voicevox/voicevox_engine:cpu-latest
+# GPUがあるなら voicevox/voicevox_engine:nvidia-latest + --gpus all で高速化
+```
+- `--restart always` で再起動後も自動復帰(=常時ON、誰も起動不要)。
+- `127.0.0.1:50021` にバインドし、外部公開は nginx 経由に限定(直接露出させない)。
+- モデル更新や話者追加はイメージ更新で対応。
+
+### 7-2. nginx で HTTPS 公開(/api/chat と同じ内部ドメイン配下)
+
+```nginx
+# server { listen 443 ssl; server_name ai-chat.内部ドメイン; ... } 内に追記
+location /voicevox/ {
+    proxy_pass http://127.0.0.1:50021/;   # 末尾スラッシュでプレフィックス除去
+    proxy_set_header Host $host;
+    proxy_read_timeout 60s;               # 合成の待ち
+    client_max_body_size 1m;
+}
+```
+- CORS: VOICEVOX engine 既定 `--cors_policy_mode=localapps` はローカル以外を弾く。ブラウザ直叩きするため
+  **`--cors_policy_mode=all` にはせず**、nginx 側で Membry オリジンのみ許可するか、
+  engine 起動に `--allow_origin https://main....amplifyapp.com https://feat-sales-analysis....amplifyapp.com` を付ける。
+- SG 443 は §4 と同じ社内NW/VPN 限定。`/voicevox/` も同じ制限下に入る。
+
+### 7-3. Membry 側の設定
+
+```bash
+# Amplify env(両ブランチ)。ブラウザから直接叩くフルURL。
+NEXT_PUBLIC_VOICEVOX_URL=https://ai-chat.内部ドメイン/voicevox
+NEXT_PUBLIC_VOICEVOX_SPEAKER=10   # 既定話者(雨晴はう)。UIのドロップダウンで変更可
+```
+- `app/ai-avatar` は `NEXT_PUBLIC_VOICEVOX_URL` を叩くだけ(未設定/不通ならブラウザ音声へフォールバック)。
+- **クレジット表記**を画面に常設すること(利用条件)。
+
+### 7-4. 疎通確認
+
+```bash
+curl -s https://ai-chat.内部ドメイン/voicevox/version
+curl -s -X POST "https://ai-chat.内部ドメイン/voicevox/audio_query?speaker=10&text=こんにちは" -o /dev/null -w "%{http_code}\n"
+```
+
 ## チェックリスト
 
 - [ ] `npm run build` → `dist/server.js` 常駐(pm2 or systemd)
+- [ ] shainai .env: `WEBCHAT_JWT_SECRET`(=Membry NEXTAUTH_SECRET), `WEBCHAT_ALLOWED_ORIGINS`
 - [ ] shainai .env: `WEBCHAT_JWT_SECRET`(=Membry NEXTAUTH_SECRET), `WEBCHAT_ALLOWED_ORIGINS`
 - [ ] nginx TLS + `/api/chat` のみ proxy、証明書発行
 - [ ] SG 443 を社内NW/VPN CIDR 限定、DNS 内部レコード
 - [ ] per-user レート制限/コスト上限を実装
 - [ ] curl 疎通 → Membry `NEXT_PUBLIC_SHAINAI_CHAT_URL` 設定(両ブランチ再デプロイ)
+- [ ] VOICEVOX を Docker 常時稼働(`--restart always`)+ nginx `/voicevox/` 公開 + CORS許可
+- [ ] Membry `NEXT_PUBLIC_VOICEVOX_URL` / `NEXT_PUBLIC_VOICEVOX_SPEAKER` 設定、画面にVOICEVOXクレジット表記
 - [ ] Membry: commit 1974042 の `app/chat` + `app/api/chat/token` を復元し、アバター試作(`app/ai-avatar`)と統合

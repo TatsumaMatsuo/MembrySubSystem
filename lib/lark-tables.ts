@@ -100,6 +100,9 @@ export function getLarkTables() {
       process.env.LARK_TABLE_SEISAN_KPI_HISTORY || "tblWjZkAUGXaZVH0",
     // 生産KPI_変更履歴
     SEISAN_KPI_AUDIT: process.env.LARK_TABLE_SEISAN_KPI_AUDIT || "tblEgJOw2uxKOVUf",
+    // 現場作業日報システム（project base）
+    NIPPOU: process.env.LARK_TABLE_NIPPOU || "tbl428UNr7jZbN5D",
+    NIPPOU_ANKEN: process.env.LARK_TABLE_NIPPOU_ANKEN || "tblH486vHdn7mixz",
   };
 }
 
@@ -154,6 +157,9 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   SEISAN_KPI_STAR_ADJ: "project",
   SEISAN_KPI_HISTORY: "project",
   SEISAN_KPI_AUDIT: "project",
+  // 現場作業日報システム
+  NIPPOU: "project",
+  NIPPOU_ANKEN: "project",
 };
 
 /**

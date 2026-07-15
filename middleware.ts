@@ -51,6 +51,8 @@ export const config = {
      * 以下を除外してすべてのパスで認証を要求:
      * - api/auth (認証API routes)
      * - api/batch (cron用バッチAPI: セッション無しで叩かれるため自前のBearer BATCH_SECRET認証に委ねる)
+     * - api/genba / genba (F2-10 外注業者向け 認証不要ページ+API: 受付コード照合で自前ゲート。
+     *   Larkアカウントを持たない外注が案件別URLから日報投稿するための公開導線。最小情報のみ返す)
      * - auth (認証関連ページ: signin, error, lark-callback)
      * - _next/static (static files)
      * - _next/image (image optimization files)
@@ -61,6 +63,6 @@ export const config = {
      *   public画像を参照しないことを確認済み)。認証後ページ用のpublic画像は認証済みなので影響なし。
      * ※ デバッグAPI(debug-env/auth/lark 等)はセキュリティ上削除済み
      */
-    "/((?!api/auth(?:/|$)|api/lark-auth(?:/|$)|api/batch(?:/|$)|auth(?:/|$)|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api/auth(?:/|$)|api/lark-auth(?:/|$)|api/batch(?:/|$)|api/genba(?:/|$)|genba(?:/|$)|auth(?:/|$)|_next/static|_next/image|favicon.ico).*)",
   ],
 };

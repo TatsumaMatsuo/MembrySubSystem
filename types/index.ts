@@ -127,7 +127,8 @@ export type MenuItemType =
   | "cost-analysis"
   | "construction-detail"
   | "documents"
-  | "bulk-download";
+  | "bulk-download"
+  | "nippou";
 
 /**
  * 売約詳細情報の型定義

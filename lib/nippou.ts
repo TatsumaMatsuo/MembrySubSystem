@@ -214,7 +214,13 @@ export async function getNippouReports(
       photos: Array.isArray(f["現場写真"]) ? (f["現場写真"] as NippouAttachment[]) : [],
       uketsukeCode: extractText(f["受付コード"]),
       matchResult: extractText(f["受付コード照合結果"]),
-      isValid: f["有効フラグ"] === true || f["有効フラグ"] === 1,
+      // 明示的に無効(有効フラグ=false or 照合結果=無効)のときだけ isValid=false。
+      // 受付コード照合オートメーション未設定だと有効フラグは null のまま → 未分類は表示する。
+      isValid: !(
+        f["有効フラグ"] === false ||
+        f["有効フラグ"] === 0 ||
+        extractText(f["受付コード照合結果"]) === "無効"
+      ),
       postedAt: (f["投稿日時"] as number) ?? "",
     };
   });

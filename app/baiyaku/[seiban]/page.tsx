@@ -161,15 +161,14 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     const bodyLines = [
       `${a.contractor || "ご担当者"} 様`,
       "",
-      "いつもお世話になっております。下記案件の作業日報を、以下の専用ページからご投稿ください。",
-      "",
-      `物件名: ${a.bukken || "-"}`,
-      `施工場所: ${a.location || "-"}`,
+      "いつもお世話になっております。山口産業株式会社です。",
+      "作業日報についてのご報告です。",
+      "下記案件の作業日報を、以下の専用ページからご投稿ください。",
+      "写真なども添付できます。",
       "",
       url,
       "",
-      "※このURLは本案件専用です。SNS等での転送はお控えください。",
-      `※フォームで受付コードを求められた場合は「${a.uketsukeCode}」をご入力ください。`,
+      "以上、よろしくお願いいたします",
     ];
     const href = `mailto:${a.contractorEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
     window.location.href = href;

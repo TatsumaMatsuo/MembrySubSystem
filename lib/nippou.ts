@@ -31,13 +31,21 @@ export const NIPPOU_FORM_SHARE_URL =
  *    ⚠ 設計側で非表示にすると prefill が効かないため、売約番号は hide_ で隠す。
  * 売約番号: 要件上「非表示/初期値」→ prefill + hide_ で自動付与かつ回答者に見せない。
  * 受付コード: 要件上は表示のまま初期値設定(SEC-04照合の正)→ prefill のみ。
+ * 物件名: 作業員が現場を取り違えないよう、表示のまま prefill(hide しない)。フォームに
+ *   「物件名」質問が存在する(visible)前提。※ 値に空白を含むと + 化され Lark で不整合の
+ *   可能性があるため実機確認する。
  * prefill が効かない場合も F2-10 画面に受付コードを表示し手入力で投稿できる(フォールバック)。
  */
-export function buildNippouFormUrl(seiban: string, code: string): string {
+export function buildNippouFormUrl(
+  seiban: string,
+  code: string,
+  opts: { bukken?: string } = {}
+): string {
   const params = new URLSearchParams();
   params.set("prefill_売約番号", seiban);
   params.set("hide_売約番号", "1");
   params.set("prefill_受付コード", code);
+  if (opts.bukken) params.set("prefill_物件名", opts.bukken);
   return `${NIPPOU_FORM_SHARE_URL}?${params.toString()}`;
 }
 

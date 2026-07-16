@@ -145,7 +145,37 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const editAnkenRow = (a: NippouAnkenUI) =>
     setAnkenForm({ recordId: a.record_id, contractorEmail: a.contractorEmail || "", contractor: a.contractor || "" });
 
-  // 保存＆メール送信(新規=作成/受付コードはサーバ自動生成, 既存=更新。保存後に当該業者へ送信)
+  // 案件別URL(外注配布)を組立
+  const buildGenbaUrl = (code: string) =>
+    `${window.location.origin}/genba/${encodeURIComponent(seiban)}?code=${encodeURIComponent(code)}`;
+
+  // mailto: 操作者のメールソフトを宛先・本文入りで起動(Lark Botはメール送信不可のためクライアント送信)
+  const openContractorMailto = (a: { contractorEmail: string; contractor?: string; uketsukeCode: string; bukken?: string; location?: string }) => {
+    if (!a.contractorEmail) {
+      window.alert("業者メールアドレスが未登録です。先にメールアドレスを入力・保存してください。");
+      return;
+    }
+    const url = buildGenbaUrl(a.uketsukeCode);
+    const bukken = a.bukken || seiban;
+    const subject = `【現場作業日報】${bukken} 日報投稿のご案内`;
+    const bodyLines = [
+      `${a.contractor || "ご担当者"} 様`,
+      "",
+      "いつもお世話になっております。下記案件の作業日報を、以下の専用ページからご投稿ください。",
+      "",
+      `物件名: ${a.bukken || "-"}`,
+      `施工場所: ${a.location || "-"}`,
+      "",
+      url,
+      "",
+      "※このURLは本案件専用です。SNS等での転送はお控えください。",
+      `※フォームで受付コードを求められた場合は「${a.uketsukeCode}」をご入力ください。`,
+    ];
+    const href = `mailto:${a.contractorEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+    window.location.href = href;
+  };
+
+  // 保存＆メール送信(新規=作成/受付コードはサーバ自動生成, 既存=更新。保存後に mailto 起動)
   const saveAndSendAnken = async () => {
     if (savingAnken) return;
     if (!ankenForm.contractor.trim()) {
@@ -162,17 +192,15 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
           recordId: ankenForm.recordId || undefined,
           contractorEmail: ankenForm.contractorEmail,
           contractor: ankenForm.contractor,
-          sendMail: true,
         }),
       });
       const data = await res.json();
       if (data.success) {
         await reloadNippouAnken();
         resetAnkenForm();
-        const mail = data.mail;
-        if (mail?.sent) window.alert(`保存し、メール送信しました: ${mail.to}`);
-        else if (mail) window.alert(`保存しました。メールは送信できませんでした: ${mail.error}`);
-        else window.alert("保存しました");
+        // 保存後、操作者のメールソフトを起動(宛先・本文入り)
+        if (data.anken?.contractorEmail) openContractorMailto(data.anken);
+        else window.alert("保存しました(メールアドレス未登録のためメールは開きません)。");
       } else {
         window.alert(`保存できませんでした: ${data.error}`);
       }
@@ -183,26 +211,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     }
   };
 
-  // F2-09: 明細行から単独で再送信(受付コードで業者特定)
-  const [sendingCode, setSendingCode] = useState<string | null>(null);
-  const resendNippouMail = async (a: NippouAnkenUI) => {
-    if (!a.contractorEmail || sendingCode) return;
-    if (!window.confirm(`業者(${a.contractorEmail})に案件別URLをメール送信しますか?`)) return;
-    setSendingCode(a.uketsukeCode);
-    try {
-      const res = await fetch("/api/nippou/send-mail", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: a.uketsukeCode }),
-      });
-      const data = await res.json();
-      window.alert(data.success ? `送信しました: ${data.to}` : `送信できませんでした: ${data.error}`);
-    } catch {
-      window.alert("送信に失敗しました。ネットワークをご確認ください。");
-    } finally {
-      setSendingCode(null);
-    }
-  };
+  // 明細行から再送信: mailto を起動(保存済みの内容で)
+  const resendNippouMail = (a: NippouAnkenUI) => openContractorMailto(a);
 
   // F2-08: 案件別URL(外注配布用)のQRを生成して表示。URLは製番+受付コードから都度生成。
   const showNippouQr = async (code: string) => {
@@ -1742,12 +1752,12 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); resendNippouMail(a); }}
-                            disabled={!a.contractorEmail || sendingCode === a.uketsukeCode}
+                            disabled={!a.contractorEmail}
                             className="flex-none inline-flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100 disabled:opacity-40"
-                            title="この業者へ案件別URLを再送信"
+                            title="この業者宛のメールをメールソフトで作成"
                           >
-                            {sendingCode === a.uketsukeCode ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
-                            再送信
+                            <Mail className="w-3.5 h-3.5" />
+                            メール作成
                           </button>
                         </div>
                       ))}
@@ -1802,7 +1812,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                     </button>
                   </div>
                   <p className="mt-2 text-[11px] text-gray-400">
-                    受付コードは保存時に自動生成されます。物件名 / 施工場所 / 営業担当者は売約情報から自動反映(フォームに埋込)されます。
+                    「保存＆メール送信」で保存後、お使いのメールソフトが宛先・本文入りで開きます(そのまま送信してください)。
+                    受付コードは保存時に自動生成。物件名 / 施工場所 / 営業担当者は売約情報から自動反映されます。
                   </p>
                 </div>
               </div>

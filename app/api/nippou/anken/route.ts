@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   createNippouAnken,
   updateNippouAnken,
-  sendContractorMail,
+  getBaiyakuInfoForNippou,
   type NippouAnken,
 } from "@/lib/nippou";
 
 // F2-07 案件マスタ「配布設定」の登録/更新(売約詳細の編集フォームから)。
 // 施工業者単位に複数行を持てる: recordId ありは更新、無しは新規作成(受付コードはサーバ自動生成)。
-// sendMail:true のとき保存後に当該業者へ案件別URLをメール送信(F2-09)。認証は middleware が担保。
+// メール送信はクライアント側 mailto(操作者のメールソフト)で行うため、ここは保存のみ。
+// 返却 anken の物件名/施工場所は売約情報から補完(mailto本文用。Lookupは作成直後に未計算のことがある)。
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
@@ -22,7 +23,6 @@ export async function POST(request: NextRequest) {
 
     const contractorEmail = typeof body.contractorEmail === "string" ? body.contractorEmail.trim() : undefined;
     const contractor = typeof body.contractor === "string" ? body.contractor.trim() : undefined;
-    const sendMail = body.sendMail === true;
 
     if (contractorEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contractorEmail)) {
       return NextResponse.json({ success: false, error: "メールアドレスの形式が正しくありません。" }, { status: 400 });
@@ -41,14 +41,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "保存後の案件情報を取得できませんでした。" }, { status: 500 });
     }
 
-    // 保存＆メール送信: 保存成否とメール成否は分離して返す(保存は成功扱い)。
-    let mail: { sent: boolean; to?: string; error?: string } | undefined;
-    if (sendMail) {
-      const origin = (process.env.NEXTAUTH_URL || "").replace(/\/$/, "");
-      mail = await sendContractorMail(anken, origin);
+    // mailto 本文用に 物件名/施工場所 を売約情報から補完(Lookup未計算対策)。
+    if (!anken.bukken || !anken.location) {
+      const info = await getBaiyakuInfoForNippou(seiban);
+      if (info) {
+        anken = { ...anken, bukken: anken.bukken || info.bukken, location: anken.location || info.location };
+      }
     }
 
-    return NextResponse.json({ success: true, anken, mail });
+    return NextResponse.json({ success: true, anken });
   } catch (error) {
     console.error("[nippou/anken] Error:", error);
     return NextResponse.json({ success: false, error: "保存中にエラーが発生しました。" }, { status: 500 });

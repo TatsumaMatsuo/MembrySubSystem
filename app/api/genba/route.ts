@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getNippouAnken, buildNippouFormUrl } from "@/lib/nippou";
+import { getNippouAnkenByCode, buildNippouFormUrl } from "@/lib/nippou";
 
 // F2-10 外注業者向け(認証不要)API。案件別URL `/genba/<製番>?code=<受付コード>` の裏側。
 //
@@ -20,10 +20,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, message: "URLが正しくありません。" }, { status: 400 });
     }
 
-    const anken = await getNippouAnken(seiban);
+    // 受付コードで業者行を一意特定(1製番=複数業者)。URLの製番と不一致も無効扱い。
+    const anken = await getNippouAnkenByCode(code);
 
-    // 不存在 or 受付コード不一致 → 汎用エラー(存在有無を漏らさない)
-    if (!anken || !anken.uketsukeCode || anken.uketsukeCode !== code) {
+    // 不存在 or 製番不一致 → 汎用エラー(存在有無を漏らさない)
+    if (!anken || anken.seiban !== seiban) {
       return NextResponse.json(
         { ok: false, message: "URLが無効か、有効期限が切れています。担当者にご確認ください。" },
         { status: 200 }

@@ -225,6 +225,32 @@ export async function getNippouReports(
 }
 
 /**
+ * 売約情報(製番)から 物件名(受注件名)/施工場所(納入先住所)/営業担当者名(担当者) を直接取得。
+ * 案件マスタの同名はこれらの filter型Lookup(売約番号突合)で、レコード作成直後は未計算のことがある。
+ * メール本文・/genba 表示・フォーム prefill の空欄防止に、売約情報から直に引くために使う。
+ */
+export async function getBaiyakuInfoForNippou(
+  seiban: string
+): Promise<{ bukken: string; location: string; salesPerson: string } | null> {
+  if (!seiban) return null;
+  const tables = getLarkTables();
+  const baseToken = getBaseTokenForTable("BAIYAKU");
+  const res = await getBaseRecords(tables.BAIYAKU, {
+    baseToken,
+    filter: `CurrentValue.[製番] = "${escapeLarkFilterValue(seiban)}"`,
+    pageSize: 1,
+  });
+  const item = res.data?.items?.[0] as { fields: Record<string, any> } | undefined;
+  if (!item) return null;
+  const f = item.fields;
+  return {
+    bukken: extractText(f["受注件名"]),
+    location: extractText(f["納入先住所"]),
+    salesPerson: extractText(f["担当者"]),
+  };
+}
+
+/**
  * 案件マスタに施工業者行を新規作成(F2-07)。受付コードはサーバで自動生成。
  * 書込むのは書込可能項目のみ(業者メールアドレス/業者/受付コード/状態)。
  * 物件名/施工場所/営業担当者名/現場chat_id は売約情報からの Lookup(売約番号突合)のため書込まない。
@@ -282,19 +308,31 @@ export async function sendContractorMail(
   const base = (origin || "").replace(/\/$/, "");
   if (!base) return { sent: false, error: "アプリURL(NEXTAUTH_URL)が未設定です。" };
 
+  // 案件マスタのLookup(物件名/施工場所)は作成直後に未計算のことがあるため、
+  // 空なら売約情報から直接取得してフォールバック(メール本文の空欄防止)。
+  let bukken = anken.bukken;
+  let location = anken.location;
+  if (!bukken || !location) {
+    const info = await getBaiyakuInfoForNippou(anken.seiban);
+    if (info) {
+      bukken = bukken || info.bukken;
+      location = location || info.location;
+    }
+  }
+
   const url = buildContractorPageUrl(base, anken.seiban, anken.uketsukeCode);
-  const subject = `【現場作業日報】${anken.bukken || anken.seiban} 日報投稿のご案内`;
+  const subject = `【現場作業日報】${bukken || anken.seiban} 日報投稿のご案内`;
   const bodyHtml =
     `<p>${anken.contractor || "ご担当者"} 様</p>` +
     `<p>いつもお世話になっております。<br>下記案件の作業日報を、以下の専用ページからご投稿ください。</p>` +
-    `<p>■ 物件名: ${anken.bukken || "-"}<br>■ 施工場所: ${anken.location || "-"}</p>` +
+    `<p>■ 物件名: ${bukken || "-"}<br>■ 施工場所: ${location || "-"}</p>` +
     `<p><a href="${url}">${url}</a></p>` +
     `<p>※このURLは本案件専用です。SNS等での転送はお控えください。<br>` +
     `※フォームで受付コードを求められた場合は「${anken.uketsukeCode}」をご入力ください。</p>`;
   const bodyText =
     `${anken.contractor || "ご担当者"} 様\n\n` +
     `いつもお世話になっております。下記案件の作業日報を、以下の専用ページからご投稿ください。\n\n` +
-    `物件名: ${anken.bukken || "-"}\n施工場所: ${anken.location || "-"}\n\n${url}\n\n` +
+    `物件名: ${bukken || "-"}\n施工場所: ${location || "-"}\n\n${url}\n\n` +
     `※このURLは本案件専用です。SNS等での転送はお控えください。\n` +
     `※フォームで受付コードを求められた場合は「${anken.uketsukeCode}」をご入力ください。`;
 

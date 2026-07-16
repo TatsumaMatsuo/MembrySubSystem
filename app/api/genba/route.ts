@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getNippouAnkenByCode, buildNippouFormUrl } from "@/lib/nippou";
+import { getNippouAnkenByCode, buildNippouFormUrl, getBaiyakuInfoForNippou } from "@/lib/nippou";
 
 // F2-10 外注業者向け(認証不要)API。案件別URL `/genba/<製番>?code=<受付コード>` の裏側。
 //
@@ -39,18 +39,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Lookup(物件名/施工場所/営業担当者)は作成直後に未計算のことがあるため、
+    // 空なら売約情報から直接取得(業者ページ表示・フォーム prefill の空欄防止)。
+    let bukken = anken.bukken;
+    let location = anken.location;
+    let salesPerson = anken.salesPerson;
+    if (!bukken || !location || !salesPerson) {
+      const info = await getBaiyakuInfoForNippou(seiban);
+      if (info) {
+        bukken = bukken || info.bukken;
+        location = location || info.location;
+        salesPerson = salesPerson || info.salesPerson;
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       seiban,
       code,
-      bukken: anken.bukken,
-      location: anken.location,
-      salesPerson: anken.salesPerson,
+      bukken,
+      location,
+      salesPerson,
       contractor: anken.contractor,
-      formUrl: buildNippouFormUrl(seiban, code, {
-        bukken: anken.bukken,
-        salesPerson: anken.salesPerson,
-      }),
+      formUrl: buildNippouFormUrl(seiban, code, { bukken, salesPerson }),
     });
   } catch (error) {
     console.error("Error in /api/genba:", error);

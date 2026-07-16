@@ -34,8 +34,10 @@ export const NIPPOU_FORM_SHARE_URL =
  * 物件名: 作業員が現場を取り違えないよう、表示のまま prefill(hide しない)。フォームに
  *   「物件名」質問が存在する(visible)前提。※ 値に空白を含むと + 化され Lark で不整合の
  *   可能性があるため実機確認する。
- * 営業担当者名: 作業員が山口産業側の担当を把握できるよう、表示のまま prefill。フォームに
- *   「営業担当者名」質問が存在する場合のみ有効(無ければ Lark 側で無視される)。
+ * 営業担当者名: 作業員が山口産業側の担当を把握できるよう、表示のまま prefill。
+ *   ⚠ 当該フォームはフィールド名="営業担当者名" だが質問ラベル(title)="営業担当者" と不一致。
+ *     prefill がどちらで照合されても当たるよう両名で送る(不一致側は Lark が無視)。
+ *     記録先フィールドは"営業担当者名"なので F2-06 閲覧に影響なし。
  * prefill が効かない場合も F2-10 画面に受付コードを表示し手入力で投稿できる(フォールバック)。
  */
 export function buildNippouFormUrl(
@@ -48,7 +50,10 @@ export function buildNippouFormUrl(
   params.set("hide_売約番号", "1");
   params.set("prefill_受付コード", code);
   if (opts.bukken) params.set("prefill_物件名", opts.bukken);
-  if (opts.salesPerson) params.set("prefill_営業担当者名", opts.salesPerson);
+  if (opts.salesPerson) {
+    params.set("prefill_営業担当者名", opts.salesPerson);
+    params.set("prefill_営業担当者", opts.salesPerson);
+  }
   return `${NIPPOU_FORM_SHARE_URL}?${params.toString()}`;
 }
 

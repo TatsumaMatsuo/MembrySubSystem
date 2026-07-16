@@ -93,6 +93,7 @@ interface NippouReportUI {
   isValid: boolean;
 }
 interface NippouAnkenUI {
+  record_id: string;
   bukken: string;
   location: string;
   salesPerson: string;
@@ -114,49 +115,64 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [activeMenu, setActiveMenu] = useState<MenuItemType>("baiyaku-detail");
   // F2-06 現場作業日報
   const [nippouReports, setNippouReports] = useState<NippouReportUI[]>([]);
-  const [nippouAnken, setNippouAnken] = useState<NippouAnkenUI | null>(null);
+  const [nippouAnkenList, setNippouAnkenList] = useState<NippouAnkenUI[]>([]);
   const [nippouPhotoUrls, setNippouPhotoUrls] = useState<Record<string, string>>({});
   const [loadingNippou, setLoadingNippou] = useState(false);
   const [nippouQr, setNippouQr] = useState<{ dataUrl: string; url: string } | null>(null);
-  const [sendingMail, setSendingMail] = useState(false);
-  // F2-07 案件マスタ配布設定(編集フォーム)
-  const [ankenForm, setAnkenForm] = useState<{ contractorEmail: string; uketsukeCode: string; contractor: string; status: string }>({
+  // F2-07 案件マスタ配布設定(施工業者単位。record_id=編集中の行, 空=新規)
+  const [ankenForm, setAnkenForm] = useState<{ recordId: string; contractorEmail: string; contractor: string }>({
+    recordId: "",
     contractorEmail: "",
-    uketsukeCode: "",
     contractor: "",
-    status: "有効",
   });
   const [savingAnken, setSavingAnken] = useState(false);
 
-  // 受付コード生成(8桁英数字・紛らわしい文字除外)
-  const genUketsukeCode = () => {
-    const A = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-    let s = "";
-    for (let i = 0; i < 8; i++) s += A[Math.floor(Math.random() * A.length)];
-    setAnkenForm((f) => ({ ...f, uketsukeCode: s }));
+  // 案件マスタの業者行一覧を再取得
+  const reloadNippouAnken = async () => {
+    try {
+      const res = await fetch(`/api/nippou?seiban=${encodeURIComponent(seiban)}`);
+      const data = await res.json();
+      if (data.success) setNippouAnkenList(data.ankenList || []);
+    } catch {
+      /* noop: 一覧再取得の失敗は握りつぶし(保存自体は成功) */
+    }
   };
 
-  // 配布設定を保存(案件マスタ upsert)
-  const saveAnken = async () => {
+  // フォームを新規入力状態へ
+  const resetAnkenForm = () => setAnkenForm({ recordId: "", contractorEmail: "", contractor: "" });
+
+  // 明細クリック: 内容を入力欄へ転記(訂正・再送信用)
+  const editAnkenRow = (a: NippouAnkenUI) =>
+    setAnkenForm({ recordId: a.record_id, contractorEmail: a.contractorEmail || "", contractor: a.contractor || "" });
+
+  // 保存＆メール送信(新規=作成/受付コードはサーバ自動生成, 既存=更新。保存後に当該業者へ送信)
+  const saveAndSendAnken = async () => {
     if (savingAnken) return;
+    if (!ankenForm.contractor.trim()) {
+      window.alert("施工業者を入力してください。");
+      return;
+    }
     setSavingAnken(true);
     try {
       const res = await fetch("/api/nippou/anken", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seiban, ...ankenForm }),
+        body: JSON.stringify({
+          seiban,
+          recordId: ankenForm.recordId || undefined,
+          contractorEmail: ankenForm.contractorEmail,
+          contractor: ankenForm.contractor,
+          sendMail: true,
+        }),
       });
       const data = await res.json();
       if (data.success) {
-        setNippouAnken(data.anken || null);
-        const a = data.anken;
-        setAnkenForm({
-          contractorEmail: a?.contractorEmail || "",
-          uketsukeCode: a?.uketsukeCode || "",
-          contractor: a?.contractor || "",
-          status: a?.status || "有効",
-        });
-        window.alert("保存しました");
+        await reloadNippouAnken();
+        resetAnkenForm();
+        const mail = data.mail;
+        if (mail?.sent) window.alert(`保存し、メール送信しました: ${mail.to}`);
+        else if (mail) window.alert(`保存しました。メールは送信できませんでした: ${mail.error}`);
+        else window.alert("保存しました");
       } else {
         window.alert(`保存できませんでした: ${data.error}`);
       }
@@ -167,29 +183,29 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     }
   };
 
-  // F2-09: 案件別URLを外注業者へ Lark Mail で送信。宛先=案件マスタ「業者メールアドレス」。
-  const sendNippouMail = async () => {
-    if (!nippouAnken?.contractorEmail || sendingMail) return;
-    if (!window.confirm(`業者(${nippouAnken.contractorEmail})に案件別URLをメール送信しますか?`)) return;
-    setSendingMail(true);
+  // F2-09: 明細行から単独で再送信(受付コードで業者特定)
+  const [sendingCode, setSendingCode] = useState<string | null>(null);
+  const resendNippouMail = async (a: NippouAnkenUI) => {
+    if (!a.contractorEmail || sendingCode) return;
+    if (!window.confirm(`業者(${a.contractorEmail})に案件別URLをメール送信しますか?`)) return;
+    setSendingCode(a.uketsukeCode);
     try {
       const res = await fetch("/api/nippou/send-mail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seiban }),
+        body: JSON.stringify({ code: a.uketsukeCode }),
       });
       const data = await res.json();
       window.alert(data.success ? `送信しました: ${data.to}` : `送信できませんでした: ${data.error}`);
     } catch {
       window.alert("送信に失敗しました。ネットワークをご確認ください。");
     } finally {
-      setSendingMail(false);
+      setSendingCode(null);
     }
   };
 
   // F2-08: 案件別URL(外注配布用)のQRを生成して表示。URLは製番+受付コードから都度生成。
-  const showNippouQr = async () => {
-    const code = nippouAnken?.uketsukeCode;
+  const showNippouQr = async (code: string) => {
     if (!code) return;
     const url = `${window.location.origin}/genba/${encodeURIComponent(seiban)}?code=${encodeURIComponent(code)}`;
     try {
@@ -744,14 +760,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
             if (data.success) {
               const reports: NippouReportUI[] = data.reports || [];
               setNippouReports(reports);
-              setNippouAnken(data.anken || null);
-              const a = data.anken;
-              setAnkenForm({
-                contractorEmail: a?.contractorEmail || "",
-                uketsukeCode: a?.uketsukeCode || "",
-                contractor: a?.contractor || "",
-                status: a?.status || "有効",
-              });
+              setNippouAnkenList(data.ankenList || []);
+              setAnkenForm({ recordId: "", contractorEmail: "", contractor: "" });
               // 現場写真の一時URLを取得(添付元テーブルIDを付与)
               const tokens: string[] = [];
               for (const r of reports) {
@@ -1687,57 +1697,81 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
 
           {activeMenu === "nippou" && (
             <div className="space-y-4">
-              {/* 案件情報(Lookup=閲覧のみ) + 配布設定(F2-07=編集可) */}
+              {/* 配布設定(F2-07): 施工業者は複数登録可。明細クリックで編集・再送信 */}
               <div className="bg-white rounded-lg shadow px-6 py-4">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <h2 className="text-lg font-semibold flex items-center gap-2">
                     <Camera className="w-5 h-5 text-rose-500" /> 作業日報
                   </h2>
-                  {nippouAnken?.uketsukeCode && nippouAnken.status !== "完了" && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        onClick={showNippouQr}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-100"
-                        title="外注業者へ配布する案件別URLのQRコードを表示"
-                      >
-                        <QrCode className="w-4 h-4" /> 案件別URL(QR)
-                      </button>
-                      {nippouAnken.contractorEmail && (
-                        <button
-                          onClick={sendNippouMail}
-                          disabled={sendingMail}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-100 disabled:opacity-50"
-                          title={`業者(${nippouAnken.contractorEmail})へ案件別URLをメール送信`}
+                </div>
+
+                {/* 登録済み施工業者の明細(製番キー・約3行・縦スクロール) */}
+                <div className="mb-4">
+                  <p className="text-xs font-semibold text-gray-500 mb-2">登録済み施工業者</p>
+                  {nippouAnkenList.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-gray-200 px-3 py-4 text-center text-xs text-gray-400">
+                      まだ登録がありません。下の入力欄から業者を追加してください。
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-gray-200 divide-y max-h-40 overflow-y-auto">
+                      {nippouAnkenList.map((a) => (
+                        <div
+                          key={a.record_id}
+                          onClick={() => editAnkenRow(a)}
+                          className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-rose-50 ${
+                            ankenForm.recordId === a.record_id ? "bg-rose-50" : ""
+                          }`}
+                          title="クリックで内容を下の入力欄へ転記(訂正・再送信)"
                         >
-                          {sendingMail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-                          メール送信
-                        </button>
-                      )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-800 truncate">{a.contractor || "(業者名未設定)"}</p>
+                            <p className="text-xs text-gray-500 truncate">{a.contractorEmail || "メール未登録"}</p>
+                          </div>
+                          {a.status === "完了" && (
+                            <span className="flex-none rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">完了</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); showNippouQr(a.uketsukeCode); }}
+                            disabled={!a.uketsukeCode}
+                            className="flex-none inline-flex items-center gap-1 rounded border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-600 hover:bg-rose-100 disabled:opacity-40"
+                            title="この業者の案件別URLのQRを表示"
+                          >
+                            <QrCode className="w-3.5 h-3.5" /> QR
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); resendNippouMail(a); }}
+                            disabled={!a.contractorEmail || sendingCode === a.uketsukeCode}
+                            className="flex-none inline-flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100 disabled:opacity-40"
+                            title="この業者へ案件別URLを再送信"
+                          >
+                            {sendingCode === a.uketsukeCode ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                            再送信
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
 
-                {/* 売約情報からの自動反映(閲覧のみ) */}
-                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm mb-4">
-                  <div className="flex gap-2"><dt className="text-gray-500 w-24 flex-none">物件名</dt><dd className="font-medium">{nippouAnken?.bukken || "-"}</dd></div>
-                  <div className="flex gap-2"><dt className="text-gray-500 w-24 flex-none">施工場所</dt><dd className="font-medium">{nippouAnken?.location || "-"}</dd></div>
-                  <div className="flex gap-2"><dt className="text-gray-500 w-24 flex-none">営業担当者</dt><dd className="font-medium">{nippouAnken?.salesPerson || "-"}</dd></div>
-                </dl>
-
-                {/* 配布設定(編集可) */}
+                {/* 入力欄(新規追加 or 明細編集)。受付コードは裏で自動生成 */}
                 <div className="border-t border-gray-100 pt-3">
-                  <p className="text-xs font-semibold text-gray-500 mb-2">配布設定(外注業者向け)</p>
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-semibold text-gray-500">
+                      {ankenForm.recordId ? "施工業者を編集" : "施工業者を追加"}
+                    </p>
+                    {ankenForm.recordId && (
+                      <button
+                        type="button"
+                        onClick={resetAnkenForm}
+                        className="text-xs text-gray-500 underline hover:text-gray-700"
+                      >
+                        新規追加に切替
+                      </button>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className="block">
-                      <span className="text-xs text-gray-500">業者メールアドレス</span>
-                      <input
-                        type="email"
-                        value={ankenForm.contractorEmail}
-                        onChange={(e) => setAnkenForm((f) => ({ ...f, contractorEmail: e.target.value }))}
-                        placeholder="gyosha@example.com"
-                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
-                      />
-                    </label>
                     <label className="block">
                       <span className="text-xs text-gray-500">施工業者</span>
                       <input
@@ -1748,47 +1782,27 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                       />
                     </label>
                     <label className="block">
-                      <span className="text-xs text-gray-500">受付コード</span>
-                      <div className="mt-1 flex gap-2">
-                        <input
-                          type="text"
-                          value={ankenForm.uketsukeCode}
-                          onChange={(e) => setAnkenForm((f) => ({ ...f, uketsukeCode: e.target.value }))}
-                          placeholder="8桁英数字"
-                          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
-                        />
-                        <button
-                          type="button"
-                          onClick={genUketsukeCode}
-                          className="rounded-lg border border-gray-200 px-3 text-sm text-gray-600 hover:bg-gray-50"
-                        >
-                          生成
-                        </button>
-                      </div>
-                    </label>
-                    <label className="block">
-                      <span className="text-xs text-gray-500">状態</span>
-                      <select
-                        value={ankenForm.status}
-                        onChange={(e) => setAnkenForm((f) => ({ ...f, status: e.target.value }))}
-                        className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
-                      >
-                        <option value="有効">有効</option>
-                        <option value="完了">完了</option>
-                      </select>
+                      <span className="text-xs text-gray-500">業者メールアドレス</span>
+                      <input
+                        type="email"
+                        value={ankenForm.contractorEmail}
+                        onChange={(e) => setAnkenForm((f) => ({ ...f, contractorEmail: e.target.value }))}
+                        placeholder="gyosha@example.com"
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
+                      />
                     </label>
                   </div>
                   <div className="mt-3 flex justify-end">
                     <button
-                      onClick={saveAnken}
+                      onClick={saveAndSendAnken}
                       disabled={savingAnken}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600 disabled:opacity-50"
                     >
-                      {savingAnken ? <Loader2 className="w-4 h-4 animate-spin" /> : null} 保存
+                      {savingAnken ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />} 保存＆メール送信
                     </button>
                   </div>
                   <p className="mt-2 text-[11px] text-gray-400">
-                    保存すると案件別URLのQR / メール配布ができます。物件名 / 施工場所 / 営業担当者は売約情報から自動反映です。
+                    受付コードは保存時に自動生成されます。物件名 / 施工場所 / 営業担当者は売約情報から自動反映(フォームに埋込)されます。
                   </p>
                 </div>
               </div>

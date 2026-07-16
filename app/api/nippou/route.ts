@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getNippouReports, getNippouAnken } from "@/lib/nippou";
+import { getNippouReports, getNippouAnkenList } from "@/lib/nippou";
 import { getLarkTables } from "@/lib/lark-tables";
 
 // F2-06 社内閲覧: 売約詳細画面に出す当該案件の作業日報+案件マスタ情報。
@@ -14,15 +14,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "製番は必須です" }, { status: 400 });
     }
 
-    const [reports, anken] = await Promise.all([
+    const [reports, ankenList] = await Promise.all([
       getNippouReports(seiban, { onlyValid: true }),
-      getNippouAnken(seiban),
+      getNippouAnkenList(seiban),
     ]);
 
     return NextResponse.json({
       success: true,
       reports,
-      anken,
+      ankenList,
       total: reports.length,
       // 写真の一時URL取得(/api/file?table_id=)に使う添付元テーブルID
       tableId: getLarkTables().NIPPOU,

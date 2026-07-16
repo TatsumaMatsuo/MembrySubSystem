@@ -24,12 +24,19 @@ export const NIPPOU_FORM_SHARE_URL =
 
 /**
  * 案件別のフォームURL(F2-07)。共通フォームURLに 売約番号・受付コード を prefill する。
- * ※ Larkフォームの prefill パラメータ書式は要検証。効かない場合でも F2-10 画面に
- *   売約番号・受付コードを表示するため、業者は手入力で投稿できる(フォールバック)。
+ *
+ * Lark Base フォームの prefill 書式(公式): `?prefill_<項目名>=<値>&hide_<項目名>=1`。
+ *  - <項目名> はフォームの質問名と完全一致必須。
+ *  - 非表示にしたい項目はフォーム設計側では「表示」にしたまま URL の hide_ で隠す。
+ *    ⚠ 設計側で非表示にすると prefill が効かないため、売約番号は hide_ で隠す。
+ * 売約番号: 要件上「非表示/初期値」→ prefill + hide_ で自動付与かつ回答者に見せない。
+ * 受付コード: 要件上は表示のまま初期値設定(SEC-04照合の正)→ prefill のみ。
+ * prefill が効かない場合も F2-10 画面に受付コードを表示し手入力で投稿できる(フォールバック)。
  */
 export function buildNippouFormUrl(seiban: string, code: string): string {
   const params = new URLSearchParams();
   params.set("prefill_売約番号", seiban);
+  params.set("hide_売約番号", "1");
   params.set("prefill_受付コード", code);
   return `${NIPPOU_FORM_SHARE_URL}?${params.toString()}`;
 }

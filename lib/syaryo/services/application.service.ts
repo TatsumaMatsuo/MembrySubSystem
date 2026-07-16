@@ -55,6 +55,7 @@ export async function getApplicationOverview(
           issue_date: item.fields.issue_date ? new Date(item.fields.issue_date) : undefined,
           expiration_date: item.fields.expiration_date ? new Date(item.fields.expiration_date) : undefined,
           image_attachment: item.fields.image_attachment,
+          image_attachment_ura: item.fields.image_attachment_ura,
           status: item.fields.status,
           approval_status: item.fields.approval_status,
           rejection_reason: item.fields.rejection_reason,

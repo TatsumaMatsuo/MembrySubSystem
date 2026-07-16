@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [reports, ankenList, info] = await Promise.all([
-      getNippouReports(seiban, { onlyValid: true }),
+      getNippouReports(seiban),
       getNippouAnkenList(seiban),
       getBaiyakuInfoForNippou(seiban),
     ]);

@@ -96,16 +96,27 @@ export interface NippouReport {
   bukken: string; // 物件名
   company: string; // 会社名
   reporter: string; // 報告者氏名
-  reportDate: string; // 作業報告日
+  reportDate: string; // 作業報告日(表示用 YYYY/MM/DD)
+  reportDateTs: number; // 作業報告日(ソート用タイムスタンプ)
   workers: number | null; // 作業人数
   content: string; // 作業内容
   notes: string; // 特記事項・連絡事項
   tomorrow: string; // 翌日の作業予定
   photos: NippouAttachment[]; // 現場写真
-  uketsukeCode: string; // 受付コード
-  matchResult: string; // 受付コード照合結果(有効/無効)
-  isValid: boolean; // 有効フラグ
+  uketsukeCode: string; // 受付コード(業者グルーピングのキー)
   postedAt: string | number; // 投稿日時(作成日時)
+}
+
+/** 作業報告日(日付フィールド=UTC0時のタイムスタンプ)を YYYY/MM/DD 表示とソート用tsに整形 */
+function formatReportDate(v: unknown): { text: string; ts: number } {
+  if (typeof v === "number" && v > 0) {
+    const d = new Date(v);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    return { text: `${y}/${m}/${day}`, ts: v };
+  }
+  return { text: extractText(v), ts: 0 };
 }
 
 export interface NippouAnken {
@@ -181,14 +192,11 @@ export async function getNippouAnkenByCode(code: string): Promise<NippouAnken | 
 }
 
 /**
- * 現場作業日報を売約番号で取得(既定は有効投稿のみ)。作業報告日の新しい順。
+ * 現場作業日報を売約番号で取得。作業報告日の昇順(古い順)。
+ * ※ 受付コード照合結果/有効フラグは廃止したため、全投稿を返す(除外なし)。
  */
-export async function getNippouReports(
-  seiban: string,
-  opts: { onlyValid?: boolean } = {}
-): Promise<NippouReport[]> {
+export async function getNippouReports(seiban: string): Promise<NippouReport[]> {
   if (!seiban) return [];
-  const onlyValid = opts.onlyValid ?? true;
   const tables = getLarkTables();
   const baseToken = getBaseTokenForTable("NIPPOU");
   const res = await getBaseRecords(tables.NIPPOU, {
@@ -200,34 +208,27 @@ export async function getNippouReports(
   const reports: NippouReport[] = items.map((item) => {
     const f = item.fields;
     const workersRaw = f["作業人数"];
+    const d = formatReportDate(f["作業報告日"]);
     return {
       record_id: item.record_id,
       seiban: extractText(f["売約番号"]),
       bukken: extractText(f["物件名"]),
       company: extractText(f["会社名"]),
       reporter: extractText(f["報告者氏名"]),
-      reportDate: extractText(f["作業報告日"]),
+      reportDate: d.text,
+      reportDateTs: d.ts,
       workers: typeof workersRaw === "number" ? workersRaw : workersRaw ? Number(workersRaw) : null,
       content: extractText(f["作業内容"]),
       notes: extractText(f["特記事項・連絡事項"]),
       tomorrow: extractText(f["翌日の作業予定"]),
       photos: Array.isArray(f["現場写真"]) ? (f["現場写真"] as NippouAttachment[]) : [],
       uketsukeCode: extractText(f["受付コード"]),
-      matchResult: extractText(f["受付コード照合結果"]),
-      // 明示的に無効(有効フラグ=false or 照合結果=無効)のときだけ isValid=false。
-      // 受付コード照合オートメーション未設定だと有効フラグは null のまま → 未分類は表示する。
-      isValid: !(
-        f["有効フラグ"] === false ||
-        f["有効フラグ"] === 0 ||
-        extractText(f["受付コード照合結果"]) === "無効"
-      ),
       postedAt: (f["投稿日時"] as number) ?? "",
     };
   });
-  const filtered = onlyValid ? reports.filter((r) => r.isValid) : reports;
-  // 作業報告日の新しい順(空は末尾)
-  filtered.sort((a, b) => (b.reportDate || "").localeCompare(a.reportDate || ""));
-  return filtered;
+  // 作業報告日の昇順(古い順)。ts優先、無ければ表示文字列で比較。
+  reports.sort((a, b) => a.reportDateTs - b.reportDateTs || a.reportDate.localeCompare(b.reportDate));
+  return reports;
 }
 
 /**

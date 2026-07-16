@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import {
@@ -84,13 +84,13 @@ interface NippouReportUI {
   reporter: string;
   company: string;
   reportDate: string;
+  reportDateTs: number;
   workers: number | null;
   content: string;
   notes: string;
   tomorrow: string;
   photos: { file_token?: string; name?: string }[];
-  matchResult: string;
-  isValid: boolean;
+  uketsukeCode: string;
 }
 interface NippouAnkenUI {
   record_id: string;
@@ -224,6 +224,24 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       console.error("QR生成に失敗:", e);
     }
   };
+
+  // 日報を施工業者(受付コード)ごとにグループ化。各グループ内は作業報告日の昇順。
+  const nippouGroups = useMemo(() => {
+    const codeToContractor = new Map(nippouAnkenList.map((a) => [a.uketsukeCode, a.contractor]));
+    const map = new Map<string, { key: string; label: string; code: string; reports: NippouReportUI[] }>();
+    for (const r of nippouReports) {
+      const code = r.uketsukeCode || "";
+      const key = code || r.company || "(業者不明)";
+      if (!map.has(key)) {
+        map.set(key, { key, label: codeToContractor.get(code) || r.company || "(業者不明)", code, reports: [] });
+      }
+      map.get(key)!.reports.push(r);
+    }
+    const groups = Array.from(map.values());
+    for (const g of groups) g.reports.sort((a, b) => a.reportDateTs - b.reportDateTs || a.reportDate.localeCompare(b.reportDate));
+    return groups;
+  }, [nippouReports, nippouAnkenList]);
+
   const [customerRequests, setCustomerRequests] = useState<CustomerRequest[]>([]);
   const [qualityIssues, setQualityIssues] = useState<QualityIssue[]>([]);
   const [documents, setDocuments] = useState<Record<DepartmentName, Record<string, ProjectDocument | null>> | null>(null);
@@ -1836,68 +1854,73 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                 ) : nippouReports.length === 0 ? (
                   <div className="px-6 py-10 text-center text-gray-500">日報がまだありません</div>
                 ) : (
-                  <div className="divide-y">
-                    {nippouReports.map((r) => (
-                      <div key={r.record_id} className="px-6 py-4">
-                        <div className="flex flex-wrap items-center gap-3 mb-2">
-                          <span className="text-sm font-semibold text-gray-800">{r.reportDate || "-"}</span>
-                          <span className="text-xs text-gray-600">
-                            {r.company}
-                            {r.reporter && ` / ${r.reporter}`}
-                          </span>
-                          {r.workers != null && (
-                            <span className="text-xs text-gray-500">作業人数 {r.workers}名</span>
-                          )}
-                          {r.matchResult && r.matchResult !== "有効" && (
-                            <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">
-                              要確認({r.matchResult})
-                            </span>
-                          )}
-                        </div>
-                        {r.content && (
-                          <div className="mb-1">
-                            <span className="text-xs text-gray-400">作業内容</span>
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.content}</p>
+                  <div className="p-4 overflow-x-auto">
+                    {/* 施工業者ごとに縦列で分割。各列は作業報告日の昇順 */}
+                    <div className="flex gap-4 min-w-min">
+                      {nippouGroups.map((g) => (
+                        <div key={g.key} className="flex-none w-80 rounded-lg border border-gray-200 bg-gray-50/50">
+                          <div className="px-3 py-2 border-b bg-gray-100 rounded-t-lg">
+                            <p className="text-sm font-semibold text-gray-800 truncate">{g.label}</p>
+                            <p className="text-xs text-gray-500">{g.reports.length}件</p>
                           </div>
-                        )}
-                        {r.notes && (
-                          <div className="mb-1">
-                            <span className="text-xs text-gray-400">特記事項・連絡事項</span>
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.notes}</p>
-                          </div>
-                        )}
-                        {r.tomorrow && (
-                          <div className="mb-1">
-                            <span className="text-xs text-gray-400">翌日の作業予定</span>
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.tomorrow}</p>
-                          </div>
-                        )}
-                        {r.photos && r.photos.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {r.photos.map((p, i) => {
-                              const url = p.file_token ? nippouPhotoUrls[p.file_token] : undefined;
-                              return url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                                  <img
-                                    src={url}
-                                    alt={p.name || "現場写真"}
-                                    className="h-24 w-24 rounded-md object-cover border border-gray-200 hover:opacity-90"
-                                  />
-                                </a>
-                              ) : (
-                                <div
-                                  key={i}
-                                  className="h-24 w-24 rounded-md border border-gray-200 flex items-center justify-center text-gray-300"
-                                >
-                                  <ImageIcon className="w-6 h-6" />
+                          <div className="divide-y max-h-[640px] overflow-y-auto">
+                            {g.reports.map((r) => (
+                              <div key={r.record_id} className="px-3 py-3 bg-white">
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
+                                  <span className="text-sm font-semibold text-gray-800">{r.reportDate || "-"}</span>
+                                  {r.reporter && <span className="text-xs text-gray-600">{r.reporter}</span>}
+                                  {r.workers != null && (
+                                    <span className="text-xs text-gray-500">作業人数 {r.workers}名</span>
+                                  )}
                                 </div>
-                              );
-                            })}
+                                {r.content && (
+                                  <div className="mb-1">
+                                    <span className="text-xs text-gray-400">作業内容</span>
+                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.content}</p>
+                                  </div>
+                                )}
+                                {r.notes && (
+                                  <div className="mb-1">
+                                    <span className="text-xs text-gray-400">特記事項・連絡事項</span>
+                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.notes}</p>
+                                  </div>
+                                )}
+                                {r.tomorrow && (
+                                  <div className="mb-1">
+                                    <span className="text-xs text-gray-400">翌日の作業予定</span>
+                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.tomorrow}</p>
+                                  </div>
+                                )}
+                                {r.photos && r.photos.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {r.photos.map((p, i) => {
+                                      const url = p.file_token ? nippouPhotoUrls[p.file_token] : undefined;
+                                      return url ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                                          <img
+                                            src={url}
+                                            alt={p.name || "現場写真"}
+                                            className="h-20 w-20 rounded-md object-cover border border-gray-200 hover:opacity-90"
+                                          />
+                                        </a>
+                                      ) : (
+                                        <div
+                                          key={i}
+                                          className="h-20 w-20 rounded-md border border-gray-200 flex items-center justify-center text-gray-300"
+                                        >
+                                          <ImageIcon className="w-6 h-6" />
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
                           </div>
-                        )}
-                      </div>
-                    ))}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

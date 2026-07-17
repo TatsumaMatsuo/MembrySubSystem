@@ -1006,6 +1006,9 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
 
   // === 一括ダウンロード用ヘルパー ===
 
+  // 資料ダウンロードの対象外書類(資料ダウンロードタブで表示はするがチェック不可・DL不可)
+  const DL_EXCLUDED_DOCTYPES = new Set(["見積書", "見積根拠", "原価明細書", "売約表紙", "注文書"]);
+
   // 選択可能なファイル情報を取得
   const getSelectableFiles = () => {
     if (!documents) return [];
@@ -1014,6 +1017,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       const deptDocs = documents[dept];
       if (!deptDocs) continue;
       for (const docType of DOCUMENT_CATEGORIES[dept]) {
+        if (DL_EXCLUDED_DOCTYPES.has(docType)) continue; // DL対象外(表示はするが選択・DL不可)
         const doc = deptDocs[docType];
         if (doc?.file_attachment && doc.file_attachment.length > 0) {
           for (const file of doc.file_attachment) {
@@ -4500,6 +4504,18 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
 
                                 return doc.file_attachment!.map((file) => {
                                   const key = `${dept}/${docType}/${file.file_token}`;
+                                  // DL対象外書類: 表示はするがチェックボックス非表示・選択不可
+                                  if (DL_EXCLUDED_DOCTYPES.has(docType)) {
+                                    return (
+                                      <div key={key} className="w-full flex items-center gap-3 px-4 py-2 pl-12 text-left opacity-70">
+                                        <span className="w-4 h-4 flex-shrink-0" />
+                                        <span className="text-sm font-medium text-gray-700 min-w-[120px]">{docType}</span>
+                                        <span className="text-sm text-gray-500 truncate flex-1">{file.name}</span>
+                                        <span className="text-xs text-gray-400 flex-shrink-0">{formatFileSize(file.size)}</span>
+                                        <span className="text-[10px] font-medium text-gray-400 flex-shrink-0 ml-1">対象外</span>
+                                      </div>
+                                    );
+                                  }
                                   const isSelected = selectedFiles.has(key);
 
                                   return (

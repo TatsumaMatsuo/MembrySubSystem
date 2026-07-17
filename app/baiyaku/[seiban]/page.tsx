@@ -1725,7 +1725,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
           {activeMenu === "nippou" && (
             <div className="space-y-4">
               {/* 配布設定(F2-07): 施工業者は複数登録可。明細クリックで編集・再送信 */}
-              <div className="bg-white rounded-lg shadow px-6 py-4">
+              <div className="bg-white rounded-lg shadow px-4 sm:px-6 py-4">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <h2 className="text-lg font-semibold flex items-center gap-2">
                     <Camera className="w-5 h-5 text-rose-500" /> 作業日報
@@ -1774,7 +1774,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                             title="この業者宛のメールをメールソフトで作成"
                           >
                             <Mail className="w-3.5 h-3.5" />
-                            メール作成
+                            <span className="hidden sm:inline">メール作成</span>
                           </button>
                         </div>
                       ))}
@@ -1837,7 +1837,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
 
               {/* 日報一覧(閲覧のみ) */}
               <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b flex items-center justify-between">
+                <div className="px-4 sm:px-6 py-4 border-b flex items-center justify-between">
                   <h3 className="font-semibold">
                     日報一覧
                     {nippouReports.length > 0 && (
@@ -1854,16 +1854,16 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                 ) : nippouReports.length === 0 ? (
                   <div className="px-6 py-10 text-center text-gray-500">日報がまだありません</div>
                 ) : (
-                  <div className="p-4 overflow-x-auto">
-                    {/* 施工業者ごとに縦列で分割。各列は作業報告日の昇順 */}
-                    <div className="flex gap-4 min-w-min">
+                  <div className="p-3 sm:p-4 overflow-x-auto">
+                    {/* PC=施工業者ごとに横並びの縦列 / モバイル=業者ごとに縦積み。各列は作業報告日の昇順 */}
+                    <div className="flex flex-col md:flex-row gap-4 md:min-w-min">
                       {nippouGroups.map((g) => (
-                        <div key={g.key} className="flex-none w-[32rem] rounded-lg border border-gray-200 bg-gray-50/50">
+                        <div key={g.key} className="w-full md:w-[32rem] md:flex-none rounded-lg border border-gray-200 bg-gray-50/50">
                           <div className="px-3 py-2 border-b bg-gray-100 rounded-t-lg">
                             <p className="text-sm font-semibold text-gray-800 truncate">{g.label}</p>
                             <p className="text-xs text-gray-500">{g.reports.length}件</p>
                           </div>
-                          <div className="divide-y max-h-[640px] overflow-y-auto">
+                          <div className="divide-y md:max-h-[640px] md:overflow-y-auto">
                             {g.reports.map((r) => (
                               <div key={r.record_id} className="px-3 py-3 bg-white">
                                 <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -1873,9 +1873,9 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                                     <span className="text-xs text-gray-500">作業人数 {r.workers}名</span>
                                   )}
                                 </div>
-                                {/* コメント欄(左) / 写真(右) の縦2列 */}
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div className="space-y-1 border-r border-gray-100 pr-3">
+                                {/* PC=コメント欄(左)/写真(右)の2列, モバイル=縦積み */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <div className="space-y-1 md:border-r md:border-gray-100 md:pr-3">
                                     {r.content && (
                                       <div>
                                         <span className="text-xs text-gray-400">作業内容</span>

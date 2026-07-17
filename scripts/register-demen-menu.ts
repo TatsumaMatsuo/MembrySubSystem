@@ -1,7 +1,7 @@
 /**
  * 工務課 > 出面管理 メニューを登録 (#93)
  * - メニュー表示マスタ: M007-01「出面管理」(L2, parent=M007, sort=1)
- * - 機能配置マスタ:    PGM052「出面管理」(menu=M007-01, url=/koumu/demen, sort=1)
+ * - 機能配置マスタ:    PGM052「出面管理」(menu=M007-01, url=/koumu/dezura, sort=1)
  *
  * 既存の同一IDがあればスキップ（冪等）。M007(工務課, L1)は既存前提。
  * ※ 工務課ユーザに表示するには グループ/個別権限マスタ で PGM052 の許可設定が別途必要。
@@ -28,7 +28,7 @@ const NEW_PROGRAM = {
   id: "PGM052",
   name: "出面管理",
   menu_id: "M007-01",
-  url: "/koumu/demen",
+  url: "/koumu/dezura",
   sort: 1,
 };
 

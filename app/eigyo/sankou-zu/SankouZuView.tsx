@@ -487,10 +487,12 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
               <div className={`${filterOpen ? "flex" : "hidden"} lg:flex flex-col flex-1 min-h-0`}>
               {/* 全体フリーワード（常時表示） */}
               <div className="p-3 border-b border-gray-100">
-                <label className="block text-xs font-bold text-gray-600 mb-1">フリーワード（案件名・管理名・各製番）</label>
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input className={`${selectClass} pl-8`} value={word} onChange={(e) => setWord(e.target.value)} placeholder="例: 倉庫、12345" />
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold text-gray-600 whitespace-nowrap flex-none">フリーワード（案件名・管理名・各製番）</label>
+                  <div className="relative flex-1 min-w-0">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input className={`${selectClass} pl-8`} value={word} onChange={(e) => setWord(e.target.value)} placeholder="例: 倉庫、12345" />
+                  </div>
                 </div>
               </div>
 

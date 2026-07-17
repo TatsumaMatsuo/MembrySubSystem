@@ -203,6 +203,7 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
   const [picker, setPicker] = useState<string | null>(null); // 検索ポップアップ中の列
   const [detail, setDetail] = useState<Daicho | null>(null); // 詳細表示中の行
   const [register, setRegister] = useState<Daicho | null>(null); // 登録/編集中の行(空={}=新規)
+  const [selected, setSelected] = useState<Daicho | null>(null); // 図面プレビュー中の行(lg+で右ペイン表示)
 
   // 利用状況の計測(失敗してもUIに影響させない fire-and-forget)
   function logUsage(type: "launch" | "fetch") {
@@ -593,7 +594,8 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
                 </div>
               )}
 
-              <div className="flex-1 overflow-auto p-3 min-h-0">
+              <div className="flex-1 flex min-h-0">
+                <div className="flex-1 min-w-0 overflow-auto p-3">
                 {loading ? (
                   <p className="text-sm text-gray-500 text-center py-10">読み込み中...</p>
                 ) : !hasCondition ? (
@@ -614,9 +616,13 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
                     </thead>
                     <tbody>
                       {shown.map((r, i) => (
-                        <tr key={`${s(r["伝票番号"])}-${i}`} className="border-t border-gray-100 hover:bg-fuchsia-50/40">
-                          <td className="px-2 py-1.5 sticky left-0 bg-white">
-                            <div className="flex items-center gap-1">
+                        <tr
+                          key={`${s(r["伝票番号"])}-${i}`}
+                          onClick={() => setSelected(r)}
+                          className={`border-t border-gray-100 cursor-pointer ${selected === r ? "bg-fuchsia-100" : "hover:bg-fuchsia-50/40"}`}
+                        >
+                          <td className={`px-2 py-1.5 sticky left-0 ${selected === r ? "bg-fuchsia-100" : "bg-white"}`}>
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => setDetail(r)}
                                 className="inline-flex items-center gap-1 px-2 py-1 text-xs font-bold text-gray-700 bg-gray-100 border border-gray-200 rounded-md hover:bg-gray-200"
@@ -661,6 +667,51 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
                     </tbody>
                   </table>
                 )}
+                </div>
+
+                {/* 図面プレビュー（選択行・lg以上で右ペイン表示。図面ボタン不要で自動表示） */}
+                <div className="hidden lg:flex lg:w-[46%] xl:w-1/2 flex-none flex-col border-l border-gray-100 bg-gray-50 min-h-0">
+                  <div className="px-3 py-2 border-b border-gray-100 bg-white flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <FileText className="w-4 h-4 text-fuchsia-600 flex-none" />
+                      <span className="text-xs font-bold text-gray-700 truncate">
+                        {selected ? (s(selected["ファイル名"]) || "（ファイル名なし）") : "図面プレビュー"}
+                      </span>
+                    </div>
+                    {selected && s(selected["ファイル名"]) && pdfEnabled && (
+                      <button
+                        onClick={() => openPdf(selected)}
+                        className="text-xs font-medium text-fuchsia-700 hover:underline flex-none whitespace-nowrap"
+                      >
+                        別タブで開く
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex-1 min-h-0 bg-gray-100">
+                    {!selected ? (
+                      <div className="h-full flex items-center justify-center p-6 text-center text-sm text-gray-400">
+                        一覧の行を選択すると、図面をここに表示します。
+                      </div>
+                    ) : !s(selected["ファイル名"]) ? (
+                      <div className="h-full flex items-center justify-center p-6 text-center text-sm text-gray-400">
+                        この行には図面（ファイル名）が登録されていません。
+                      </div>
+                    ) : !pdfEnabled ? (
+                      <div className="h-full flex items-center justify-center p-6 text-center text-sm text-amber-600">
+                        PDF連携(Box)が準備中のため表示できません。
+                      </div>
+                    ) : (
+                      <iframe
+                        key={s(selected["ファイル名"])}
+                        src={`/pdf-viewer?src=${encodeURIComponent(
+                          `/api/eigyo/sankou-zu/file?name=${encodeURIComponent(s(selected["ファイル名"]))}`
+                        )}&name=${encodeURIComponent(s(selected["ファイル名"]))}`}
+                        className="w-full h-full border-0"
+                        title="図面プレビュー"
+                      />
+                    )}
+                  </div>
+                </div>
               </div>
             </section>
           </div>

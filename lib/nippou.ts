@@ -191,6 +191,29 @@ export async function getNippouAnkenByCode(code: string): Promise<NippouAnken | 
   return item ? mapAnken(item) : null;
 }
 
+/** 現場作業日報レコード1件を NippouReport へ整形 */
+function mapNippouReport(item: { record_id: string; fields: Record<string, any> }): NippouReport {
+  const f = item.fields;
+  const workersRaw = f["作業人数"];
+  const d = formatReportDate(f["作業報告日"]);
+  return {
+    record_id: item.record_id,
+    seiban: extractText(f["売約番号"]),
+    bukken: extractText(f["物件名"]),
+    company: extractText(f["会社名"]),
+    reporter: extractText(f["報告者氏名"]),
+    reportDate: d.text,
+    reportDateTs: d.ts,
+    workers: typeof workersRaw === "number" ? workersRaw : workersRaw ? Number(workersRaw) : null,
+    content: extractText(f["作業内容"]),
+    notes: extractText(f["特記事項・連絡事項"]),
+    tomorrow: extractText(f["翌日の作業予定"]),
+    photos: Array.isArray(f["現場写真"]) ? (f["現場写真"] as NippouAttachment[]) : [],
+    uketsukeCode: extractText(f["受付コード"]),
+    postedAt: (f["投稿日時"] as number) ?? "",
+  };
+}
+
 /**
  * 現場作業日報を売約番号で取得。作業報告日の昇順(古い順)。
  * ※ 受付コード照合結果/有効フラグは廃止したため、全投稿を返す(除外なし)。
@@ -205,30 +228,44 @@ export async function getNippouReports(seiban: string): Promise<NippouReport[]> 
     pageSize: 200,
   });
   const items = (res.data?.items || []) as Array<{ record_id: string; fields: Record<string, any> }>;
-  const reports: NippouReport[] = items.map((item) => {
-    const f = item.fields;
-    const workersRaw = f["作業人数"];
-    const d = formatReportDate(f["作業報告日"]);
-    return {
-      record_id: item.record_id,
-      seiban: extractText(f["売約番号"]),
-      bukken: extractText(f["物件名"]),
-      company: extractText(f["会社名"]),
-      reporter: extractText(f["報告者氏名"]),
-      reportDate: d.text,
-      reportDateTs: d.ts,
-      workers: typeof workersRaw === "number" ? workersRaw : workersRaw ? Number(workersRaw) : null,
-      content: extractText(f["作業内容"]),
-      notes: extractText(f["特記事項・連絡事項"]),
-      tomorrow: extractText(f["翌日の作業予定"]),
-      photos: Array.isArray(f["現場写真"]) ? (f["現場写真"] as NippouAttachment[]) : [],
-      uketsukeCode: extractText(f["受付コード"]),
-      postedAt: (f["投稿日時"] as number) ?? "",
-    };
-  });
+  const reports = items.map(mapNippouReport);
   // 作業報告日の昇順(古い順)。ts優先、無ければ表示文字列で比較。
   reports.sort((a, b) => a.reportDateTs - b.reportDateTs || a.reportDate.localeCompare(b.reportDate));
   return reports;
+}
+
+/**
+ * 出面管理(#93): 作業報告日の範囲で全案件横断に日報を取得。任意で会社名部分一致で絞り込む。
+ * @param fromTs 作業報告日 下限(UTC0時のms。両端含む)
+ * @param toTs   作業報告日 上限(UTC0時のms。両端含む)
+ * @param companyContains 会社名の部分一致(未指定=絞り込みなし)
+ */
+export async function getNippouReportsByDateRange(
+  fromTs: number,
+  toTs: number,
+  companyContains?: string
+): Promise<NippouReport[]> {
+  const tables = getLarkTables();
+  const baseToken = getBaseTokenForTable("NIPPOU");
+  // 作業報告日は数値タイムスタンプ→引用符なしで数値比較。会社名は FIND() で部分一致。
+  const conds = [
+    `CurrentValue.[作業報告日] >= ${Number(fromTs)}`,
+    `CurrentValue.[作業報告日] <= ${Number(toTs)}`,
+  ];
+  const company = (companyContains || "").trim();
+  if (company) conds.push(`FIND("${escapeLarkFilterValue(company)}", CurrentValue.[会社名]) > 0`);
+  const filter = `AND(${conds.join(", ")})`;
+
+  // 期間横断は1ページを超え得るためページング取得(pageSize=500)。
+  const items: Array<{ record_id: string; fields: Record<string, any> }> = [];
+  let pageToken: string | undefined = undefined;
+  do {
+    const r: any = await getBaseRecords(tables.NIPPOU, { baseToken, filter, pageSize: 500, pageToken });
+    items.push(...(r.data?.items || []));
+    pageToken = r.data?.has_more ? r.data?.page_token : undefined;
+  } while (pageToken);
+
+  return items.map(mapNippouReport);
 }
 
 /**

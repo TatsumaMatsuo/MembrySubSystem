@@ -110,7 +110,9 @@ export default function DemenKanriPage() {
 
   return (
     <MainLayout>
-      <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-4">
+      {/* MainLayoutのmainはoverflow-hidden。ページ根をスクロール領域にする(縦スクロール) */}
+      <div className="h-full overflow-y-auto bg-gray-50">
+        <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-4">
         {/* ヘッダー */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-5 sm:px-6 shadow-lg">
           <div className="relative flex items-center gap-3">
@@ -313,6 +315,7 @@ export default function DemenKanriPage() {
               </table>
             </div>
           )}
+        </div>
         </div>
       </div>
     </MainLayout>

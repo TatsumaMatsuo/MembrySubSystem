@@ -56,7 +56,7 @@ export default function DemenKanriPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch(`/api/demen?${buildQuery("json")}`);
+      const res = await fetch(`/api/dezura?${buildQuery("json")}`);
       const data = await res.json();
       if (data.success) {
         setResult({ mode: data.mode, rows: data.rows, totals: data.totals });
@@ -81,7 +81,7 @@ export default function DemenKanriPage() {
     setError(null);
     setDownloading(true);
     try {
-      const res = await fetch(`/api/demen?${buildQuery("xlsx")}`);
+      const res = await fetch(`/api/dezura?${buildQuery("xlsx")}`);
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         setError(j.error || "ダウンロードに失敗しました。");

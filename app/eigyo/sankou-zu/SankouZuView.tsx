@@ -514,7 +514,7 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
               </div>
 
               {/* タブ内容 */}
-              <div className="p-3 grid grid-cols-2 gap-3 overflow-y-auto flex-1 min-h-0 content-start">
+              <div className="p-3 grid grid-cols-2 lg:grid-cols-4 gap-3 overflow-y-auto flex-1 min-h-0 content-start">
                 {current.fields.map((f) => {
                   const label = f.label || f.col;
                   if (f.kind === "range") {
@@ -562,35 +562,24 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
               </div>
             </aside>
 
-            {/* 上段右: 図面プレビュー（選択行を自動表示。A3横向き想定） */}
-            <div className="hidden lg:flex lg:flex-[2] min-h-0 bg-white rounded-xl shadow border border-gray-100 overflow-hidden flex-col">
-              <div className="px-3 py-2 border-b border-gray-100 bg-gradient-to-r from-fuchsia-500 to-purple-500 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <FileText className="w-4 h-4 text-white flex-none" />
-                  <span className="text-xs font-bold text-white truncate">
-                    {selected ? (s(selected["ファイル名"]) || "（ファイル名なし）") : "図面プレビュー"}
-                  </span>
-                </div>
-                {selected && s(selected["ファイル名"]) && pdfEnabled && (
-                  <button onClick={() => openPdf(selected)} className="text-xs font-medium text-white/90 hover:text-white underline flex-none whitespace-nowrap">別タブで開く</button>
-                )}
-              </div>
-              <div className="flex-1 min-h-0 bg-gray-100">
-                {!selected ? (
-                  <div className="h-full flex items-center justify-center p-6 text-center text-sm text-gray-400">一覧の行を選択すると、図面をここに表示します。</div>
-                ) : !s(selected["ファイル名"]) ? (
-                  <div className="h-full flex items-center justify-center p-6 text-center text-sm text-gray-400">この行には図面（ファイル名）が登録されていません。</div>
-                ) : !pdfEnabled ? (
-                  <div className="h-full flex items-center justify-center p-6 text-center text-sm text-amber-600">PDF連携(Box)が準備中のため表示できません。</div>
-                ) : (
+            {/* 上段右: 図面プレビュー。ツールバー/ファイル名/ページ操作なしで A3 1枚目を枠いっぱい表示 */}
+            <div className="hidden lg:flex lg:flex-[2] min-h-0 bg-gray-100 rounded-xl shadow border border-gray-100 overflow-hidden flex-col">
+              {!selected ? (
+                <div className="flex-1 flex items-center justify-center p-6 text-center text-sm text-gray-400">一覧の行を選択すると、図面をここに表示します。</div>
+              ) : !s(selected["ファイル名"]) ? (
+                <div className="flex-1 flex items-center justify-center p-6 text-center text-sm text-gray-400">この行には図面（ファイル名）が登録されていません。</div>
+              ) : !pdfEnabled ? (
+                <div className="flex-1 flex items-center justify-center p-6 text-center text-sm text-amber-600">PDF連携(Box)が準備中のため表示できません。</div>
+              ) : (
+                <div className="flex-1 min-h-0">
                   <iframe
                     key={s(selected["ファイル名"])}
-                    src={`/pdf-viewer?src=${encodeURIComponent(`/api/eigyo/sankou-zu/file?name=${encodeURIComponent(s(selected["ファイル名"]))}`)}&name=${encodeURIComponent(s(selected["ファイル名"]))}`}
+                    src={`/api/eigyo/sankou-zu/file?name=${encodeURIComponent(s(selected["ファイル名"]))}#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&view=Fit&page=1`}
                     className="w-full h-full border-0"
                     title="図面プレビュー"
                   />
-                )}
-              </div>
+                </div>
+              )}
             </div>
             </div>
 

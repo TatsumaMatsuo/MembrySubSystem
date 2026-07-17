@@ -1937,18 +1937,18 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                     {/* PC=施工業者ごとに横並びの縦列 / モバイル=業者ごとに縦積み。各列は作業報告日の昇順 */}
                     <div className="flex flex-col md:flex-row gap-4 md:min-w-min">
                       {nippouGroups.map((g) => (
-                        <div key={g.key} className="w-full md:w-[32rem] md:flex-none rounded-lg border border-gray-200 bg-gray-50/50">
-                          <div className="px-3 py-2 border-b bg-gray-100 rounded-t-lg flex items-start justify-between gap-2">
+                        <div key={g.key} className="w-full md:w-[32rem] md:flex-none rounded-xl border border-rose-100 bg-white shadow-sm overflow-hidden">
+                          <div className="px-3 py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-gray-800 truncate">{g.label}</p>
-                              <p className="text-xs text-gray-500">{g.reports.length}件</p>
+                              <p className="text-sm font-bold text-white truncate">{g.label}</p>
+                              <p className="text-xs text-rose-100">{g.reports.length}件の日報</p>
                             </div>
                             <div className="relative flex-none">
                               <button
                                 type="button"
                                 onClick={() => setDlOpenKey(dlOpenKey === g.key ? null : g.key)}
                                 disabled={dlBusyKey === g.key}
-                                className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                                className="inline-flex items-center gap-1 rounded-lg border border-white/40 bg-white/15 px-2 py-1 text-xs font-medium text-white hover:bg-white/25 disabled:opacity-50"
                                 title="この業者の日報/写真をダウンロード"
                               >
                                 {dlBusyKey === g.key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
@@ -1970,10 +1970,14 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                             {g.reports.map((r) => (
                               <div key={r.record_id} className="px-3 py-3 bg-white">
                                 <div className="flex flex-wrap items-center gap-2 mb-2">
-                                  <span className="text-sm font-semibold text-gray-800">{r.reportDate || "-"}</span>
+                                  <span className="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-100">
+                                    {r.reportDate || "-"}
+                                  </span>
                                   {r.reporter && <span className="text-xs text-gray-600">{r.reporter}</span>}
                                   {r.workers != null && (
-                                    <span className="text-xs text-gray-500">作業人数 {r.workers}名</span>
+                                    <span className="ml-auto inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                                      {r.workers}名
+                                    </span>
                                   )}
                                 </div>
                                 {/* PC=コメント欄(左)/写真(右)の2列, モバイル=縦積み */}

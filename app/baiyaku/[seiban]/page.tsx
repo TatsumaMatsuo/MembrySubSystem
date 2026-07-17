@@ -1858,7 +1858,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                     {/* 施工業者ごとに縦列で分割。各列は作業報告日の昇順 */}
                     <div className="flex gap-4 min-w-min">
                       {nippouGroups.map((g) => (
-                        <div key={g.key} className="flex-none w-80 rounded-lg border border-gray-200 bg-gray-50/50">
+                        <div key={g.key} className="flex-none w-[32rem] rounded-lg border border-gray-200 bg-gray-50/50">
                           <div className="px-3 py-2 border-b bg-gray-100 rounded-t-lg">
                             <p className="text-sm font-semibold text-gray-800 truncate">{g.label}</p>
                             <p className="text-xs text-gray-500">{g.reports.length}件</p>
@@ -1873,48 +1873,61 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                                     <span className="text-xs text-gray-500">作業人数 {r.workers}名</span>
                                   )}
                                 </div>
-                                {r.content && (
-                                  <div className="mb-1">
-                                    <span className="text-xs text-gray-400">作業内容</span>
-                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.content}</p>
+                                {/* コメント欄(左) / 写真(右) の縦2列 */}
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="space-y-1 border-r border-gray-100 pr-3">
+                                    {r.content && (
+                                      <div>
+                                        <span className="text-xs text-gray-400">作業内容</span>
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.content}</p>
+                                      </div>
+                                    )}
+                                    {r.notes && (
+                                      <div>
+                                        <span className="text-xs text-gray-400">特記事項・連絡事項</span>
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.notes}</p>
+                                      </div>
+                                    )}
+                                    {r.tomorrow && (
+                                      <div>
+                                        <span className="text-xs text-gray-400">翌日の作業予定</span>
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.tomorrow}</p>
+                                      </div>
+                                    )}
+                                    {!r.content && !r.notes && !r.tomorrow && (
+                                      <p className="text-xs text-gray-300">コメントなし</p>
+                                    )}
                                   </div>
-                                )}
-                                {r.notes && (
-                                  <div className="mb-1">
-                                    <span className="text-xs text-gray-400">特記事項・連絡事項</span>
-                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.notes}</p>
+                                  <div>
+                                    <span className="text-xs text-gray-400">写真</span>
+                                    {r.photos && r.photos.length > 0 ? (
+                                      <div className="mt-1 flex flex-wrap gap-2">
+                                        {r.photos.map((p, i) => {
+                                          const url = p.file_token ? nippouPhotoUrls[p.file_token] : undefined;
+                                          return url ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                                              <img
+                                                src={url}
+                                                alt={p.name || "現場写真"}
+                                                className="h-20 w-20 rounded-md object-cover border border-gray-200 hover:opacity-90"
+                                              />
+                                            </a>
+                                          ) : (
+                                            <div
+                                              key={i}
+                                              className="h-20 w-20 rounded-md border border-gray-200 flex items-center justify-center text-gray-300"
+                                            >
+                                              <ImageIcon className="w-6 h-6" />
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <p className="mt-1 text-xs text-gray-300">写真なし</p>
+                                    )}
                                   </div>
-                                )}
-                                {r.tomorrow && (
-                                  <div className="mb-1">
-                                    <span className="text-xs text-gray-400">翌日の作業予定</span>
-                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{r.tomorrow}</p>
-                                  </div>
-                                )}
-                                {r.photos && r.photos.length > 0 && (
-                                  <div className="mt-2 flex flex-wrap gap-2">
-                                    {r.photos.map((p, i) => {
-                                      const url = p.file_token ? nippouPhotoUrls[p.file_token] : undefined;
-                                      return url ? (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                                          <img
-                                            src={url}
-                                            alt={p.name || "現場写真"}
-                                            className="h-20 w-20 rounded-md object-cover border border-gray-200 hover:opacity-90"
-                                          />
-                                        </a>
-                                      ) : (
-                                        <div
-                                          key={i}
-                                          className="h-20 w-20 rounded-md border border-gray-200 flex items-center justify-center text-gray-300"
-                                        >
-                                          <ImageIcon className="w-6 h-6" />
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
+                                </div>
                               </div>
                             ))}
                           </div>

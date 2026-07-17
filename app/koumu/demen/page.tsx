@@ -255,10 +255,10 @@ export default function DemenKanriPage() {
           ) : result.rows.length === 0 ? (
             <div className="px-6 py-12 text-center text-gray-400">該当データがありません。</div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[70vh]">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide shadow-sm">
                     {isDetail ? (
                       <>
                         <th className="px-4 py-2.5 text-left font-semibold">外注業者名</th>

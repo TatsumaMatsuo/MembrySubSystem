@@ -117,8 +117,11 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [nippouReports, setNippouReports] = useState<NippouReportUI[]>([]);
   const [nippouAnkenList, setNippouAnkenList] = useState<NippouAnkenUI[]>([]);
   const [nippouPhotoUrls, setNippouPhotoUrls] = useState<Record<string, string>>({});
+  const [nippouTableId, setNippouTableId] = useState<string>("");
   const [loadingNippou, setLoadingNippou] = useState(false);
   const [nippouQr, setNippouQr] = useState<{ dataUrl: string; url: string } | null>(null);
+  const [dlOpenKey, setDlOpenKey] = useState<string | null>(null); // 開いているDLメニューの業者キー
+  const [dlBusyKey, setDlBusyKey] = useState<string | null>(null); // DL処理中の業者キー
   // F2-07 案件マスタ配布設定(施工業者単位。record_id=編集中の行, 空=新規)
   const [ankenForm, setAnkenForm] = useState<{ recordId: string; contractorEmail: string; contractor: string }>({
     recordId: "",
@@ -241,6 +244,81 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     for (const g of groups) g.reports.sort((a, b) => a.reportDateTs - b.reportDateTs || a.reportDate.localeCompare(b.reportDate));
     return groups;
   }, [nippouReports, nippouAnkenList]);
+
+  // ⑤ 施工業者別ダウンロード: 日報CSV / 写真ZIP / 両方(ZIP)
+  const buildReportsCsv = (reports: NippouReportUI[]): string => {
+    const esc = (s: unknown) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+    const header = ["作業報告日", "報告者", "作業人数", "作業内容", "特記事項・連絡事項", "翌日の作業予定"];
+    const rows = reports.map((r) =>
+      [r.reportDate, r.reporter, r.workers ?? "", r.content, r.notes, r.tomorrow].map(esc).join(",")
+    );
+    return "﻿" + [header.map(esc).join(","), ...rows].join("\r\n"); // BOMでExcel文字化け防止
+  };
+  const triggerDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+  const sanitizeName = (s: string) => (s || "業者").replace(/[\\/:*?"<>|]/g, "_").trim();
+  const downloadContractor = async (
+    g: { key: string; label: string; reports: NippouReportUI[] },
+    kind: "csv" | "photos" | "both"
+  ) => {
+    setDlOpenKey(null);
+    if (dlBusyKey) return;
+    setDlBusyKey(g.key);
+    try {
+      const label = sanitizeName(g.label);
+      if (kind === "csv") {
+        triggerDownload(new Blob([buildReportsCsv(g.reports)], { type: "text/csv;charset=utf-8" }), `日報_${label}.csv`);
+        return;
+      }
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      if (kind === "both") zip.file(`日報_${label}.csv`, buildReportsCsv(g.reports));
+      let missing = 0;
+      let photoCount = 0;
+      for (const r of g.reports) {
+        const dateLabel = (r.reportDate || "日付なし").replace(/\//g, "-");
+        let n = 0;
+        for (const p of r.photos || []) {
+          if (!p.file_token) continue;
+          n++;
+          const ext = p.name && p.name.includes(".") ? p.name.split(".").pop() : "jpg";
+          try {
+            const res = await fetch(
+              `/api/file/proxy?file_token=${encodeURIComponent(p.file_token)}&table_id=${encodeURIComponent(nippouTableId)}&disposition=attachment&name=${encodeURIComponent(p.name || "photo")}`
+            );
+            if (!res.ok) {
+              missing++;
+              continue;
+            }
+            zip.file(`photos/${dateLabel}_${n}.${ext}`, await res.blob());
+            photoCount++;
+          } catch {
+            missing++;
+          }
+        }
+      }
+      if (kind === "photos" && photoCount === 0) {
+        window.alert("この業者の写真がありません。");
+        return;
+      }
+      const out = await zip.generateAsync({ type: "blob" });
+      triggerDownload(out, `日報_${label}.zip`);
+      if (missing > 0) window.alert(`${missing}枚の写真を取得できませんでした（他は保存済み）。`);
+    } catch (e) {
+      console.error("[nippou] download error:", e);
+      window.alert("ダウンロードに失敗しました。");
+    } finally {
+      setDlBusyKey(null);
+    }
+  };
 
   const [customerRequests, setCustomerRequests] = useState<CustomerRequest[]>([]);
   const [qualityIssues, setQualityIssues] = useState<QualityIssue[]>([]);
@@ -788,6 +866,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
               const reports: NippouReportUI[] = data.reports || [];
               setNippouReports(reports);
               setNippouAnkenList(data.ankenList || []);
+              setNippouTableId(data.tableId || "");
               setAnkenForm({ recordId: "", contractorEmail: "", contractor: "" });
               // 現場写真の一時URLを取得(添付元テーブルIDを付与)
               const tokens: string[] = [];
@@ -1859,9 +1938,33 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                     <div className="flex flex-col md:flex-row gap-4 md:min-w-min">
                       {nippouGroups.map((g) => (
                         <div key={g.key} className="w-full md:w-[32rem] md:flex-none rounded-lg border border-gray-200 bg-gray-50/50">
-                          <div className="px-3 py-2 border-b bg-gray-100 rounded-t-lg">
-                            <p className="text-sm font-semibold text-gray-800 truncate">{g.label}</p>
-                            <p className="text-xs text-gray-500">{g.reports.length}件</p>
+                          <div className="px-3 py-2 border-b bg-gray-100 rounded-t-lg flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-gray-800 truncate">{g.label}</p>
+                              <p className="text-xs text-gray-500">{g.reports.length}件</p>
+                            </div>
+                            <div className="relative flex-none">
+                              <button
+                                type="button"
+                                onClick={() => setDlOpenKey(dlOpenKey === g.key ? null : g.key)}
+                                disabled={dlBusyKey === g.key}
+                                className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                                title="この業者の日報/写真をダウンロード"
+                              >
+                                {dlBusyKey === g.key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                                <span className="hidden sm:inline">ダウンロード</span>
+                              </button>
+                              {dlOpenKey === g.key && (
+                                <>
+                                  <div className="fixed inset-0 z-10" onClick={() => setDlOpenKey(null)} />
+                                  <div className="absolute right-0 z-20 mt-1 w-36 overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg">
+                                    <button type="button" onClick={() => downloadContractor(g, "csv")} className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50">日報CSV</button>
+                                    <button type="button" onClick={() => downloadContractor(g, "photos")} className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50">写真ZIP</button>
+                                    <button type="button" onClick={() => downloadContractor(g, "both")} className="block w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50">両方（ZIP）</button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
                           <div className="divide-y md:max-h-[640px] md:overflow-y-auto">
                             {g.reports.map((r) => (

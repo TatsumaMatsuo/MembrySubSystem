@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const fileToken = searchParams.get("file_token");
     const source = searchParams.get("source");
+    const tableId = searchParams.get("table_id");
 
     if (!fileToken) {
       return NextResponse.json(
@@ -25,10 +26,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // tableIdの決定: source指定 > table_id指定 > デフォルト(PROJECT_DOCUMENTS)
     const tables = getLarkTables();
     const targetTableId = source === "history"
       ? tables.DOCUMENT_HISTORY
-      : tables.PROJECT_DOCUMENTS || process.env.LARK_TABLE_PROJECT_DOCUMENTS || "";
+      : tableId || tables.PROJECT_DOCUMENTS || process.env.LARK_TABLE_PROJECT_DOCUMENTS || "";
 
     const extra = JSON.stringify({
       bitablePerm: {

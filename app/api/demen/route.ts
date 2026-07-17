@@ -6,11 +6,15 @@ import { getNippouReportsByDateRange, type NippouReport } from "@/lib/nippou";
 // 明細 or 施工業者ごと集計で返す。format=xlsx でExcelダウンロード。認証は middleware が担保。
 export const dynamic = "force-dynamic";
 
-// "YYYY-MM-DD" → 作業報告日(UTC0時ms)。不正は null。
-function parseDateToUtcTs(s: string): number | null {
+const JST_OFFSET_MS = 9 * 3600000;
+const DAY_MS = 86400000;
+
+// "YYYY-MM-DD"(JST) → その日のJST真夜中をUTC ms で返す。不正は null。
+// 作業報告日は「JST真夜中をUTCで保持」しているため、境界もJST基準で作る。
+function parseJstMidnight(s: string): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((s || "").trim());
   if (!m) return null;
-  const ts = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const ts = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) - JST_OFFSET_MS;
   return Number.isNaN(ts) ? null : ts;
 }
 
@@ -46,14 +50,17 @@ export async function GET(request: NextRequest) {
     const mode = searchParams.get("mode") === "detail" ? "detail" : "summary";
     const format = searchParams.get("format") === "xlsx" ? "xlsx" : "json";
 
-    const fromTs = parseDateToUtcTs(fromStr);
-    const toTs = parseDateToUtcTs(toStr);
-    if (fromTs == null || toTs == null) {
+    const fromMid = parseJstMidnight(fromStr);
+    const toMid = parseJstMidnight(toStr);
+    if (fromMid == null || toMid == null) {
       return NextResponse.json({ success: false, error: "作業日(From/To)は必須です（YYYY-MM-DD）。" }, { status: 400 });
     }
-    if (fromTs > toTs) {
+    if (fromMid > toMid) {
       return NextResponse.json({ success: false, error: "作業日のFromはTo以前にしてください。" }, { status: 400 });
     }
+    // From日のJST0時 〜 To日のJST23:59:59.999 を範囲に(intra-day値も取りこぼさない)
+    const fromTs = fromMid;
+    const toTs = toMid + DAY_MS - 1;
 
     const reports = await getNippouReportsByDateRange(fromTs, toTs, company || undefined);
 

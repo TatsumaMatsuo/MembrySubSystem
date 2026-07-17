@@ -107,10 +107,14 @@ export interface NippouReport {
   postedAt: string | number; // 投稿日時(作成日時)
 }
 
-/** 作業報告日(日付フィールド=UTC0時のタイムスタンプ)を YYYY/MM/DD 表示とソート用tsに整形 */
+/**
+ * 作業報告日(日付フィールド)を YYYY/MM/DD 表示とソート用tsに整形。
+ * ※ 保存値は JST真夜中を UTC で表したタイムスタンプ(例: JST 7/16 00:00 = UTC 7/15 15:00)。
+ *   日付の取り出しは +9h(JST)してから行う。ソート用tsは生値(単調なので比較に支障なし)。
+ */
 function formatReportDate(v: unknown): { text: string; ts: number } {
   if (typeof v === "number" && v > 0) {
-    const d = new Date(v);
+    const d = new Date(v + 9 * 3600000); // JSTで日付を取り出す
     const y = d.getUTCFullYear();
     const m = String(d.getUTCMonth() + 1).padStart(2, "0");
     const day = String(d.getUTCDate()).padStart(2, "0");
@@ -247,16 +251,13 @@ export async function getNippouReportsByDateRange(
 ): Promise<NippouReport[]> {
   const tables = getLarkTables();
   const baseToken = getBaseTokenForTable("NIPPOU");
-  // 作業報告日は数値タイムスタンプ→引用符なしで数値比較。会社名は FIND() で部分一致。
-  const conds = [
-    `CurrentValue.[作業報告日] >= ${Number(fromTs)}`,
-    `CurrentValue.[作業報告日] <= ${Number(toTs)}`,
-  ];
+  // ⚠ Lark の filter 文字列は日付フィールドの数値比較が不安定(>=/= が効かない、検証済)。
+  //   そのため日付範囲は JS 側で reportDateTs により絞る。会社名の部分一致(FIND)は正常に効くので
+  //   任意で Lark フィルタに適用して転送量を減らす。
   const company = (companyContains || "").trim();
-  if (company) conds.push(`FIND("${escapeLarkFilterValue(company)}", CurrentValue.[会社名]) > 0`);
-  const filter = `AND(${conds.join(", ")})`;
+  const filter = company ? `FIND("${escapeLarkFilterValue(company)}", CurrentValue.[会社名]) > 0` : undefined;
 
-  // 期間横断は1ページを超え得るためページング取得(pageSize=500)。
+  // ページング取得(pageSize=500)。
   const items: Array<{ record_id: string; fields: Record<string, any> }> = [];
   let pageToken: string | undefined = undefined;
   do {
@@ -265,7 +266,8 @@ export async function getNippouReportsByDateRange(
     pageToken = r.data?.has_more ? r.data?.page_token : undefined;
   } while (pageToken);
 
-  return items.map(mapNippouReport);
+  // 作業報告日(生タイムスタンプ)で範囲内のみ。fromTs/toTs は呼び出し側でJST基準に算出済み。
+  return items.map(mapNippouReport).filter((r) => r.reportDateTs >= fromTs && r.reportDateTs <= toTs);
 }
 
 /**

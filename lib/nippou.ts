@@ -3,7 +3,7 @@
 // - 現場作業日報(NIPPOU): フォーム投稿の蓄積先。売約番号で該当案件の有効日報を取得。
 // - 現場作業日報_案件マスタ(NIPPOU_ANKEN): 案件別の配布情報。物件名/施工場所/営業担当者名/
 //   現場chat_id は 売約情報(製番)からの Lookup(配列オブジェクト)なので値抽出する。
-import { getBaseRecords, createBaseRecord, updateBaseRecord, getLarkClient } from "./lark-client";
+import { getBaseRecords, createBaseRecord, updateBaseRecord } from "./lark-client";
 import { getLarkTables, getBaseTokenForTable } from "./lark-tables";
 import { escapeLarkFilterValue } from "./lark-filter";
 
@@ -336,66 +336,5 @@ export async function updateNippouAnken(
   return list.find((a) => a.record_id === recordId) ?? null;
 }
 
-/**
- * 外注業者へ案件別URLを Lark Mail で送信(F2-09)。宛先=業者メールアドレス。
- * 前提(情シス設定): アプリに `mail:user_mailbox.message:send` スコープ、
- * 送信元メールボックスを env `NIPPOU_MAIL_SENDER` に設定。
- * @returns 送信可否。呼び出し側で保存成否と分離して扱う。
- */
-export async function sendContractorMail(
-  anken: NippouAnken,
-  origin: string
-): Promise<{ sent: boolean; to?: string; error?: string }> {
-  const sender = process.env.NIPPOU_MAIL_SENDER;
-  if (!sender) return { sent: false, error: "送信元メールボックス(NIPPOU_MAIL_SENDER)が未設定です。管理者にご連絡ください。" };
-  if (!anken.contractorEmail) return { sent: false, error: "業者メールアドレスが未登録です。" };
-  if (!anken.uketsukeCode) return { sent: false, error: "受付コードが未登録です。" };
-  if (anken.status === "完了") return { sent: false, error: "完了案件のため送信できません。" };
-  const base = (origin || "").replace(/\/$/, "");
-  if (!base) return { sent: false, error: "アプリURL(NEXTAUTH_URL)が未設定です。" };
-
-  // 案件マスタのLookup(物件名/施工場所)は作成直後に未計算のことがあるため、
-  // 空なら売約情報から直接取得してフォールバック(メール本文の空欄防止)。
-  let bukken = anken.bukken;
-  let location = anken.location;
-  if (!bukken || !location) {
-    const info = await getBaiyakuInfoForNippou(anken.seiban);
-    if (info) {
-      bukken = bukken || info.bukken;
-      location = location || info.location;
-    }
-  }
-
-  const url = buildContractorPageUrl(base, anken.seiban, anken.uketsukeCode);
-  const subject = `【現場作業日報】${bukken || anken.seiban} 日報投稿のご案内`;
-  const bodyHtml =
-    `<p>${anken.contractor || "ご担当者"} 様</p>` +
-    `<p>いつもお世話になっております。<br>下記案件の作業日報を、以下の専用ページからご投稿ください。</p>` +
-    `<p>■ 物件名: ${bukken || "-"}<br>■ 施工場所: ${location || "-"}</p>` +
-    `<p><a href="${url}">${url}</a></p>` +
-    `<p>※このURLは本案件専用です。SNS等での転送はお控えください。<br>` +
-    `※フォームで受付コードを求められた場合は「${anken.uketsukeCode}」をご入力ください。</p>`;
-  const bodyText =
-    `${anken.contractor || "ご担当者"} 様\n\n` +
-    `いつもお世話になっております。下記案件の作業日報を、以下の専用ページからご投稿ください。\n\n` +
-    `物件名: ${bukken || "-"}\n施工場所: ${location || "-"}\n\n${url}\n\n` +
-    `※このURLは本案件専用です。SNS等での転送はお控えください。\n` +
-    `※フォームで受付コードを求められた場合は「${anken.uketsukeCode}」をご入力ください。`;
-
-  const client = getLarkClient();
-  if (!client) return { sent: false, error: "メール送信クライアントを初期化できません。" };
-  const res: any = await client.mail.userMailboxMessage.send({
-    path: { user_mailbox_id: sender },
-    data: {
-      subject,
-      to: [{ mail_address: anken.contractorEmail, name: anken.contractor || undefined }],
-      body_html: bodyHtml,
-      body_plain_text: bodyText,
-    },
-  });
-  if (res.code !== 0) {
-    console.error("[nippou] sendContractorMail error:", res.code, res.msg);
-    return { sent: false, error: `メール送信に失敗しました(${res.msg || res.code})。スコープ/送信元設定をご確認ください。` };
-  }
-  return { sent: true, to: anken.contractorEmail };
-}
+// 旧 sendContractorMail(Lark Mail 送信)は撤去。Lark はテナントトークンでメール送信不可(99991663)で
+// ユーザートークン方式も採らないため。配布はクライアントの mailto 方式(app/baiyaku/[seiban]/page.tsx)で行う。

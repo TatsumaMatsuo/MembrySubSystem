@@ -1933,11 +1933,14 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                 ) : nippouReports.length === 0 ? (
                   <div className="px-6 py-10 text-center text-gray-500">日報がまだありません</div>
                 ) : (
-                  <div className="p-3 sm:p-4 overflow-x-auto">
-                    {/* PC=施工業者ごとに横並びの縦列 / モバイル=業者ごとに縦積み。各列は作業報告日の昇順 */}
-                    <div className="flex flex-col md:flex-row gap-4 md:min-w-min">
+                  <div className="p-3 sm:p-4">
+                    {/* 施工業者ごとに画面幅へ自動フィット(横スクロールなし・折り返し)。各列は作業報告日の昇順 */}
+                    <div
+                      className="grid gap-4"
+                      style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))" }}
+                    >
                       {nippouGroups.map((g) => (
-                        <div key={g.key} className="w-full md:w-[32rem] md:flex-none rounded-xl border border-rose-100 bg-white shadow-sm overflow-hidden">
+                        <div key={g.key} className="rounded-xl border border-rose-100 bg-white shadow-sm overflow-hidden">
                           <div className="px-3 py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <p className="text-sm font-bold text-white truncate">{g.label}</p>

@@ -529,7 +529,10 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     return items.length ? [{ label: "", items }] : [];
   };
 
-  // ⑤ EXCEL出力: 写真を埋め込んだ表形式(No/写真/撮影日/工種・内容/撮影者/備考)のxlsxを生成。
+  // ⑤ EXCEL出力: 参考Word「(工事)写真台帳」のレイアウトに準拠。
+  //   4列グリッド(A/B/C/D)。上部にヘッダー表、以降は写真ブロック(1頁3枚)。
+  //   写真は左(A:B)を縦結合したセルに配置し、右(C=ラベル/D=値)に情報欄。
+  //   ※文字の出力項目・ラベルは画面/PDFと一致させる(撮影日/工種・内容/撮影者/備考、表紙項目)。
   const generateExcelBlob = async (): Promise<Blob> => {
     const ExcelJSmod: any = await import("exceljs");
     const ExcelJS = ExcelJSmod.default || ExcelJSmod;
@@ -537,41 +540,24 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     const ws = wb.addWorksheet("工事写真台帳", {
       pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } },
     });
-    ws.columns = [{ width: 6 }, { width: 32 }, { width: 14 }, { width: 34 }, { width: 12 }, { width: 30 }];
-    let r = 1;
-    // タイトル
-    ws.mergeCells(r, 1, r, 6);
-    const title = ws.getCell(r, 1);
-    title.value = "工事写真台帳";
-    title.font = { bold: true, size: 16 };
-    title.alignment = { horizontal: "center", vertical: "middle" };
-    ws.getRow(r).height = 26;
-    r++;
-    // 表紙情報
-    const coverRows: [string, string][] = [
-      ["工事名", cover.koujiName],
-      ["工事番号", cover.koujiNo],
-      ["施工場所", cover.place],
-      ["発注者", cover.client],
-      ["工期", cover.period],
-      ["施工者", cover.builder],
-      ["作成日", cover.createdAt],
-    ];
-    for (const [k, v] of coverRows) {
-      const kc = ws.getCell(r, 1);
-      kc.value = k;
-      kc.font = { bold: true };
-      kc.alignment = { vertical: "middle" };
-      ws.mergeCells(r, 2, r, 6);
-      ws.getCell(r, 2).value = v || "";
-      ws.getCell(r, 2).alignment = { vertical: "middle", wrapText: true };
-      r++;
-    }
-    r++; // 空行
+    // Word相当の4列(ラベル/値/ラベル/値)。写真はA:Bを結合して使用。
+    ws.columns = [{ width: 12 }, { width: 27 }, { width: 12 }, { width: 30 }];
 
-    const HDR = ["No", "写真", "撮影日", "工種・内容", "撮影者", "備考"];
     const thin = { style: "thin" as const };
     const border = { top: thin, left: thin, bottom: thin, right: thin };
+    const setLabel = (cell: any, text: string) => {
+      cell.value = text;
+      cell.font = { bold: true, size: 10 };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2F2F2" } };
+      cell.border = border;
+    };
+    const setValue = (cell: any, text: string, opts?: { wrap?: boolean; top?: boolean }) => {
+      cell.value = text || "";
+      cell.font = { size: 10 };
+      cell.alignment = { horizontal: "left", vertical: opts?.top ? "top" : "middle", wrapText: opts?.wrap ?? true, indent: 1 };
+      cell.border = border;
+    };
 
     // 画像を同一オリジンproxy経由で取得しbase64化(html2canvasと同じ経路)
     const fetchImg = async (p: LedgerPhoto): Promise<{ b64: string; ext: "jpeg" | "png" | "gif" } | null> => {
@@ -587,54 +573,72 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
       }
     };
 
-    for (const grp of selectedByGroup()) {
-      // 業者見出し
-      if (grp.label) {
-        ws.mergeCells(r, 1, r, 6);
-        const h = ws.getCell(r, 1);
-        h.value = `施工業者: ${grp.label}`;
-        h.font = { bold: true };
-        h.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3E8FF" } };
-        h.alignment = { vertical: "middle" };
-        ws.getRow(r).height = 20;
+    let r = 1;
+
+    // ヘッダー表(表紙情報)。項目はPDF表紙と一致。会社名=施工業者(グループ)。
+    const emitHeader = (contractor: string) => {
+      const rows: [string, string, string, string][] = [
+        ["工事名", cover.koujiName, "工事番号", cover.koujiNo],
+        ["施工場所", cover.place, "施工業者", contractor],
+        ["発注者", cover.client, "工期", cover.period],
+        ["施工者", cover.builder, "作成日", cover.createdAt],
+      ];
+      for (const [l1, v1, l2, v2] of rows) {
+        ws.getRow(r).height = 22;
+        setLabel(ws.getCell(r, 1), l1);
+        setValue(ws.getCell(r, 2), v1, { wrap: false });
+        setLabel(ws.getCell(r, 3), l2);
+        setValue(ws.getCell(r, 4), v2, { wrap: false });
         r++;
       }
-      // 列見出し
-      HDR.forEach((label, i) => {
-        const c = ws.getCell(r, i + 1);
-        c.value = label;
-        c.font = { bold: true };
-        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } };
-        c.alignment = { horizontal: "center", vertical: "middle" };
-        c.border = border;
-      });
-      ws.getRow(r).height = 20;
-      r++;
-      // 写真行
-      let no = 1;
-      for (const p of grp.items) {
-        const c = captions[p.token] || { reportDate: p.reportDate, content: p.content, reporter: p.reporter, notes: p.notes };
-        ws.getRow(r).height = 105;
-        ws.getCell(r, 1).value = no;
-        ws.getCell(r, 1).alignment = { horizontal: "center", vertical: "middle" };
-        ws.getCell(r, 3).value = c.reportDate;
-        ws.getCell(r, 3).alignment = { vertical: "middle", wrapText: true };
-        ws.getCell(r, 4).value = c.content;
-        ws.getCell(r, 4).alignment = { vertical: "top", wrapText: true };
-        ws.getCell(r, 5).value = c.reporter;
-        ws.getCell(r, 5).alignment = { vertical: "middle", wrapText: true };
-        ws.getCell(r, 6).value = c.notes;
-        ws.getCell(r, 6).alignment = { vertical: "top", wrapText: true };
-        for (let ci = 1; ci <= 6; ci++) ws.getCell(r, ci).border = border;
-        const img = await fetchImg(p);
-        if (img) {
-          const id = wb.addImage({ base64: img.b64, extension: img.ext });
-          // B列セル内に収める(oneCellで行/列に追従)
-          ws.addImage(id, { tl: { col: 1.05, row: r - 1 + 0.05 } as any, ext: { width: 190, height: 132 }, editAs: "oneCell" });
-        }
-        r++;
-        no++;
+      r++; // ヘッダーと写真の間の空行
+    };
+
+    // 写真ブロック(左=写真[A:B縦結合] / 右=写真番号・撮影日・工種内容・撮影者・備考)。項目はPDF情報欄と一致。
+    const emitPhotoBlock = async (no: number, cap: Caption, photo: LedgerPhoto) => {
+      const top = r;
+      const H = 22;
+      ws.getRow(r).height = H; setLabel(ws.getCell(r, 3), "写真番号"); setValue(ws.getCell(r, 4), String(no), { wrap: false }); r++;
+      ws.getRow(r).height = H; setLabel(ws.getCell(r, 3), "撮影日"); setValue(ws.getCell(r, 4), cap.reportDate, { wrap: false }); r++;
+      ws.getRow(r).height = H; setLabel(ws.getCell(r, 3), "工種・内容"); setValue(ws.getCell(r, 4), cap.content, { wrap: true }); r++;
+      ws.getRow(r).height = H; setLabel(ws.getCell(r, 3), "撮影者"); setValue(ws.getCell(r, 4), cap.reporter, { wrap: false }); r++;
+      // 〈備 考〉ラベル(C:D結合)
+      ws.getRow(r).height = 16; ws.mergeCells(r, 3, r, 4);
+      const bl = ws.getCell(r, 3);
+      bl.value = "〈備　考〉"; bl.font = { bold: true, size: 10 };
+      bl.alignment = { horizontal: "center", vertical: "middle" };
+      bl.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2F2F2" } };
+      bl.border = border; ws.getCell(r, 4).border = border; r++;
+      // 備考 値(C:D結合, 高め)
+      ws.getRow(r).height = 84; ws.mergeCells(r, 3, r, 4);
+      setValue(ws.getCell(r, 3), cap.notes, { wrap: true, top: true }); ws.getCell(r, 4).border = border; r++;
+
+      // 写真セル: A:B を top..bottom で縦結合し画像を配置
+      const bottom = r - 1;
+      ws.mergeCells(top, 1, bottom, 2);
+      ws.getCell(top, 1).alignment = { horizontal: "center", vertical: "middle" };
+      for (let rr = top; rr <= bottom; rr++) { ws.getCell(rr, 1).border = border; ws.getCell(rr, 2).border = border; }
+      const img = await fetchImg(photo);
+      if (img) {
+        const id = wb.addImage({ base64: img.b64, extension: img.ext });
+        // 結合セル(≈幅273px×高250px)内に収める
+        ws.addImage(id, { tl: { col: 0.08, row: top - 1 + 0.06 } as any, ext: { width: 262, height: 224 }, editAs: "oneCell" });
       }
+    };
+
+    const grpList = selectedByGroup();
+    for (let gi = 0; gi < grpList.length; gi++) {
+      const grp = grpList[gi];
+      emitHeader(grp.label);
+      for (let i = 0; i < grp.items.length; i++) {
+        const p = grp.items[i];
+        const cap = captions[p.token] || { reportDate: p.reportDate, content: p.content, reporter: p.reporter, notes: p.notes };
+        await emitPhotoBlock(i + 1, cap, p);
+        // Word準拠: 1頁3枚。3枚ごと(グループ末尾以外)に改ページ。
+        if ((i + 1) % 3 === 0 && i < grp.items.length - 1) ws.getRow(r - 1).addPageBreak();
+      }
+      // 次グループはヘッダーから新頁で
+      if (gi < grpList.length - 1) ws.getRow(r - 1).addPageBreak();
       r++; // グループ間の空行
     }
 

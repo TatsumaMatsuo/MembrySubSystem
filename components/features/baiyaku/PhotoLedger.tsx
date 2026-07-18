@@ -10,7 +10,7 @@
 // 画像は /api/file/proxy(同一オリジンでinline配信, 後段のhtml2canvasでもCORS汚染なし)を直接 <img src> に指定。
 
 import { useEffect, useMemo, useState } from "react";
-import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive } from "lucide-react";
 
 interface NippouReportUI {
   record_id: string;
@@ -111,7 +111,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   const [groupByContractor, setGroupByContractor] = useState(true);
   const [includeCover, setIncludeCover] = useState(true);
   const [coverOpen, setCoverOpen] = useState(false);
-  const [exporting, setExporting] = useState<null | "pdf">(null);
+  const [exporting, setExporting] = useState<null | "pdf" | "store">(null);
 
   const load = async () => {
     setLoading(true);
@@ -388,6 +388,49 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     }
   };
 
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result)); // data:...;base64,xxxx
+      fr.onerror = () => reject(fr.error);
+      fr.readAsDataURL(blob);
+    });
+
+  // ④ 案件書庫保管: 生成PDFを 工務課「工事写真台帳」列へアップロード(資料DL可に)
+  const handleStore = async () => {
+    if (exporting || selectedCount === 0) return;
+    if (!window.confirm("生成した工事写真台帳(PDF)を案件書庫に保管します。よろしいですか？")) return;
+    setExporting("store");
+    try {
+      const blob = await generatePdfBlob();
+      const fileData = await blobToBase64(blob);
+      const res = await fetch("/api/documents/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileData,
+          fileName: `${fileBase()}.pdf`,
+          mimeType: "application/pdf",
+          seiban,
+          department: "工務課",
+          documentType: "工事写真台帳",
+          replace: false,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        window.alert("案件書庫に保管しました（資料ダウンロード／関連資料から取得できます）。");
+      } else {
+        window.alert(`保管に失敗しました: ${data.error || res.status}`);
+      }
+    } catch (e: any) {
+      console.error("[photo-ledger] store error", e);
+      window.alert(`保管に失敗しました: ${e?.message || e}`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* ヘッダー */}
@@ -570,6 +613,14 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
                 >
                   {exporting === "pdf" ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                   PDF出力
+                </button>
+                <button
+                  onClick={handleStore}
+                  disabled={!!exporting || selectedCount === 0}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-teal-300 bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-700 hover:bg-teal-100 disabled:opacity-50"
+                >
+                  {exporting === "store" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
+                  案件書庫保管
                 </button>
               </div>
             </div>

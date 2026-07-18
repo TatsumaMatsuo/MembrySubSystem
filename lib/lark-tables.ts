@@ -105,7 +105,7 @@ export function getLarkTables() {
     NIPPOU_ANKEN: process.env.LARK_TABLE_NIPPOU_ANKEN || "tblH486vHdn7mixz",
     // 工事写真台帳_設定（#94 台帳作成の下書き状態を製番ごとに保存。project base）
     // 環境変数 or 実行時に名称「工事写真台帳設定」でテーブルIDを自動解決（route側）。
-    KOJI_LEDGER_SETTINGS: process.env.LARK_TABLE_KOJI_LEDGER_SETTINGS || "",
+    KOJI_LEDGER_SETTINGS: process.env.LARK_TABLE_KOJI_LEDGER_SETTINGS || "tbl2gxbdiu0oJl3o",
   };
 }
 

@@ -10,7 +10,7 @@
 // 画像は /api/file/proxy(同一オリジンでinline配信, 後段のhtml2canvasでもCORS汚染なし)を直接 <img src> に指定。
 
 import { useEffect, useMemo, useState } from "react";
-import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive } from "lucide-react";
+import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive, Upload } from "lucide-react";
 
 interface NippouReportUI {
   record_id: string;
@@ -40,12 +40,16 @@ export interface LedgerPhoto {
   reporter: string;
   notes: string;
   uketsukeCode: string;
+  tableId?: string; // 画像プロキシ用。未指定なら日報テーブル。アップロード写真は案件書庫テーブルを指定。
 }
 interface ContractorGroup {
   key: string;
   label: string;
   photos: LedgerPhoto[];
 }
+
+// アップロード写真グループのキー(施工業者グループと区別)
+const UPLOAD_GROUP_KEY = "__uploads__";
 
 // 台帳レイアウト(要件定義書 F-07)
 type LayoutId = "L1" | "L2" | "L3" | "L6";
@@ -128,6 +132,10 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   // 下書き(サーバ保存)の復元。undefined=未読込 / null=下書きなし / obj=あり
   const [pendingDraft, setPendingDraft] = useState<LedgerDraft | null | undefined>(undefined);
   const [hydrated, setHydrated] = useState(false); // 選択状態を下書き/初期値で一度だけ確定したか
+  // 案件書庫「工事写真アップロード」へローカルから追加した写真(日報とは別グループで台帳へ)
+  const [uploadPhotos, setUploadPhotos] = useState<{ file_token: string; name: string }[]>([]);
+  const [docTableId, setDocTableId] = useState(""); // 案件書庫テーブルID(アップロード写真の画像プロキシ用)
+  const [uploading, setUploading] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -181,6 +189,16 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
         if (typeof draft.includeCover === "boolean") setIncludeCover(draft.includeCover);
         if (draft.manualOrder) setManualOrder(draft.manualOrder);
       }
+      // 案件書庫「工事写真アップロード」の写真を取得(ローカル追加分)。失敗は握りつぶし。
+      try {
+        const ures = await fetch(`/api/koji-ledger/uploaded?seiban=${encodeURIComponent(seiban)}`).then((r) => r.json());
+        if (ures?.success) {
+          setUploadPhotos(ures.photos || []);
+          setDocTableId(ures.tableId || "");
+        }
+      } catch {
+        /* アップロード写真なしとして続行 */
+      }
       setPendingDraft(draft);
     } catch {
       setError("通信に失敗しました。");
@@ -221,6 +239,24 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
       }
     }
     const result = Array.from(map.values()).filter((g) => g.photos.length > 0);
+    // アップロード写真を最下段のグループとして追加(ローカル追加分)
+    if (uploadPhotos.length) {
+      result.push({
+        key: UPLOAD_GROUP_KEY,
+        label: "アップロード写真",
+        photos: uploadPhotos.map((u) => ({
+          token: u.file_token,
+          name: u.name || "photo",
+          company: "",
+          reportDate: "",
+          content: "",
+          reporter: "",
+          notes: "",
+          uketsukeCode: "",
+          tableId: docTableId, // 案件書庫テーブル経由で配信
+        })),
+      });
+    }
     // 手動並び替えを適用(撮影日昇順を基準に上書き)
     for (const g of result) {
       const ord = manualOrder[g.key];
@@ -230,7 +266,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
       }
     }
     return result;
-  }, [reports, ankenList, manualOrder]);
+  }, [reports, ankenList, manualOrder, uploadPhotos, docTableId]);
 
   const allTokens = useMemo(() => groups.flatMap((g) => g.photos.map((p) => p.token)), [groups]);
 
@@ -339,7 +375,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   };
 
   const imgSrc = (p: LedgerPhoto) =>
-    `/api/file/proxy?file_token=${encodeURIComponent(p.token)}&table_id=${encodeURIComponent(tableId)}&name=${encodeURIComponent(p.name)}`;
+    `/api/file/proxy?file_token=${encodeURIComponent(p.token)}&table_id=${encodeURIComponent(p.tableId || tableId)}&name=${encodeURIComponent(p.name)}`;
 
   // ---- プレビュー用ページ構築 ----
   type Page =
@@ -518,6 +554,110 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     }
   };
 
+  // ローカル写真を圧縮(長辺1600px/JPEG)してBlob化。アップロード容量・台帳の軽量化のため。
+  const compressImage = (file: File): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const maxDim = 1600;
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("canvas未対応"));
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("画像変換に失敗"))), "image/jpeg", 0.85);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("画像の読込に失敗"));
+      };
+      img.src = url;
+    });
+
+  // ローカルからまとめて写真を案件書庫「工事写真アップロード」へ追加(追記式)。完了後に再読込で台帳へ反映。
+  const handleUpload = async (files: FileList) => {
+    if (!files.length || uploading) return;
+    setUploading(true);
+    let ok = 0;
+    let fail = 0;
+    try {
+      for (const file of Array.from(files)) {
+        try {
+          if (!file.type.startsWith("image/")) {
+            fail++;
+            continue;
+          }
+          const blob = await compressImage(file);
+          const fileData = await blobToBase64(blob);
+          const fileName = `${file.name.replace(/\.[^.]+$/, "")}.jpg`;
+          const res = await fetch("/api/documents/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fileData,
+              fileName,
+              mimeType: "image/jpeg",
+              seiban,
+              department: "工務課",
+              documentType: "工事写真アップロード",
+              replace: false, // 追記(既存を保持して追加)
+            }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (res.ok && d.success) ok++;
+          else fail++;
+        } catch {
+          fail++;
+        }
+      }
+      await load(); // アップロード写真グループを再取得して反映
+      window.alert(`写真を追加しました：成功 ${ok}件${fail ? ` / 失敗 ${fail}件` : ""}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // ローカル写真アップロード枠(左カラム最下段/写真ゼロ時に表示)
+  const uploadPanel = (
+    <div className="rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/50 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-emerald-700 flex items-center gap-1.5">
+            <Upload className="w-4 h-4" /> アップロード写真
+          </p>
+          <p className="text-[11px] text-emerald-700/70 mt-0.5">日報以外の写真をローカルからまとめて追加できます（台帳に反映）。</p>
+        </div>
+        <label
+          className={`flex-none inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold text-white ${
+            uploading ? "bg-emerald-400 cursor-wait" : "bg-emerald-600 hover:bg-emerald-700 cursor-pointer"
+          }`}
+        >
+          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+          {uploading ? "追加中..." : "写真を追加"}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              const el = e.currentTarget;
+              const f = el.files;
+              if (f && f.length) handleUpload(f);
+              el.value = "";
+            }}
+          />
+        </label>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       {/* ヘッダー */}
@@ -609,8 +749,11 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
       ) : error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       ) : groups.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-200 px-4 py-12 text-center text-sm text-gray-400">
-          この製番の現場作業日報に写真がありません。
+        <div className="space-y-3">
+          <div className="rounded-xl border border-dashed border-gray-200 px-4 py-10 text-center text-sm text-gray-400">
+            この製番の現場作業日報に写真がありません。ローカルから写真を追加して台帳を作成できます。
+          </div>
+          {uploadPanel}
         </div>
       ) : (
         <div className="flex flex-col xl:flex-row gap-4">
@@ -684,6 +827,8 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
                 </div>
               );
             })}
+            {/* ローカル写真アップロード枠(最下段) */}
+            {uploadPanel}
           </div>
 
           {/* A4プレビュー */}

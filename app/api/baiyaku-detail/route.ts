@@ -110,6 +110,10 @@ export async function GET(request: NextRequest) {
       juchu_kenmei: parseValue(f.受注件名),
       tantousha: parseValue(f.担当者),
       bumon: parseValue(f.部門),
+      // 工事写真台帳の表紙用(#94)
+      koji_koumoku: parseValue(f["◆工事項目"]),
+      motouke_name: parseValue(f["提出必要書類 元請け名"]),
+      sekousha: parseValue(f.施工者),
 
       // 得意先情報
       tokuisaki: {

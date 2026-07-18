@@ -122,15 +122,16 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
       } else {
         setError(nres.error || "日報の取得に失敗しました。");
       }
-      // 表紙初期値(売約情報)
+      // 表紙初期値(売約情報)。工事名=◆工事項目 / 発注者=元請け名(空なら得意先宛名1) / 施工者=施工者(空なら自社)
       if (bres?.success && bres.data) {
         const d = bres.data;
         setCover((c) => ({
           ...c,
-          koujiName: d.juchu_kenmei || c.koujiName,
+          koujiName: d.koji_koumoku || d.juchu_kenmei || c.koujiName,
           koujiNo: d.seiban || seiban,
           place: d.nounyusaki?.address || c.place,
-          client: d.tokuisaki?.name1 || c.client,
+          client: d.motouke_name || d.tokuisaki?.name1 || c.client,
+          builder: d.sekousha || "山口産業株式会社",
         }));
       }
     } catch {
@@ -266,11 +267,16 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
 
   // A4プレビューの各ページをhtml2canvasで画像化しjsPDFへ。Blobを返す。
   const generatePdfBlob = async (): Promise<Blob> => {
-    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
+    // CJS/ESM interop差を吸収して読み込む
+    const h2cMod: any = await import("html2canvas");
+    const html2canvas = h2cMod.default || h2cMod;
+    const jspdfMod: any = await import("jspdf");
+    const JsPDF = jspdfMod.jsPDF || jspdfMod.default?.jsPDF || jspdfMod.default;
+    if (typeof JsPDF !== "function") throw new Error("jsPDFの読み込みに失敗しました");
     await waitImages();
     const pageEls = Array.from(document.querySelectorAll("#photo-ledger-preview [data-page]")) as HTMLElement[];
-    if (pageEls.length === 0) throw new Error("no pages");
-    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    if (pageEls.length === 0) throw new Error("出力するページがありません（写真を選択してください）");
+    const pdf = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
     for (let i = 0; i < pageEls.length; i++) {
@@ -299,9 +305,9 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     try {
       const blob = await generatePdfBlob();
       triggerDownload(blob, `${fileBase()}.pdf`);
-    } catch (e) {
+    } catch (e: any) {
       console.error("[photo-ledger] pdf error", e);
-      window.alert("PDF生成に失敗しました。写真の枚数を減らすか、再度お試しください。");
+      window.alert(`PDF生成に失敗しました: ${e?.message || e}\n（写真の枚数を減らす／再読込のうえ再度お試しください）`);
     } finally {
       setExporting(null);
     }

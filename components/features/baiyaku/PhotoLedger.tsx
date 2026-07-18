@@ -10,7 +10,7 @@
 // 画像は /api/file/proxy(同一オリジンでinline配信, 後段のhtml2canvasでもCORS汚染なし)を直接 <img src> に指定。
 
 import { useEffect, useMemo, useState } from "react";
-import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive, FileSpreadsheet } from "lucide-react";
+import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive } from "lucide-react";
 
 interface NippouReportUI {
   record_id: string;
@@ -124,7 +124,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   const [groupByContractor, setGroupByContractor] = useState(true);
   const [includeCover, setIncludeCover] = useState(true);
   const [coverOpen, setCoverOpen] = useState(false);
-  const [exporting, setExporting] = useState<null | "pdf" | "store" | "excel">(null);
+  const [exporting, setExporting] = useState<null | "pdf" | "store">(null);
   // 下書き(サーバ保存)の復元。undefined=未読込 / null=下書きなし / obj=あり
   const [pendingDraft, setPendingDraft] = useState<LedgerDraft | null | undefined>(undefined);
   const [hydrated, setHydrated] = useState(false); // 選択状態を下書き/初期値で一度だけ確定したか
@@ -518,149 +518,6 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     }
   };
 
-  // 選択中の写真を業者グループ順(業者ごと改ページOFF時は一続き)で列挙。Excel/集計で共通利用。
-  const selectedByGroup = (): { label: string; items: LedgerPhoto[] }[] => {
-    if (groupByContractor) {
-      return groups
-        .map((g) => ({ label: g.label, items: g.photos.filter((p) => selected.has(p.token)) }))
-        .filter((x) => x.items.length > 0);
-    }
-    const items = groups.flatMap((g) => g.photos).filter((p) => selected.has(p.token));
-    return items.length ? [{ label: "", items }] : [];
-  };
-
-  // ⑤ EXCEL出力: 参考Word「(工事)写真台帳」のレイアウトに準拠。
-  //   4列グリッド(A/B/C/D)。上部にヘッダー表、以降は写真ブロック(1頁3枚)。
-  //   写真は左(A:B)を縦結合したセルに配置し、右(C=ラベル/D=値)に情報欄。
-  //   ※文字の出力項目・ラベルは画面/PDFと一致させる(撮影日/工種・内容/撮影者/備考、表紙項目)。
-  const generateExcelBlob = async (): Promise<Blob> => {
-    const ExcelJSmod: any = await import("exceljs");
-    const ExcelJS = ExcelJSmod.default || ExcelJSmod;
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("工事写真台帳", {
-      pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } },
-    });
-    // Word相当の4列(ラベル/値/ラベル/値)。写真はA:Bを結合して使用。
-    ws.columns = [{ width: 12 }, { width: 27 }, { width: 12 }, { width: 30 }];
-
-    const thin = { style: "thin" as const };
-    const border = { top: thin, left: thin, bottom: thin, right: thin };
-    const setLabel = (cell: any, text: string) => {
-      cell.value = text;
-      cell.font = { bold: true, size: 10 };
-      cell.alignment = { horizontal: "center", vertical: "middle" };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2F2F2" } };
-      cell.border = border;
-    };
-    const setValue = (cell: any, text: string, opts?: { wrap?: boolean; top?: boolean }) => {
-      cell.value = text || "";
-      cell.font = { size: 10 };
-      cell.alignment = { horizontal: "left", vertical: opts?.top ? "top" : "middle", wrapText: opts?.wrap ?? true, indent: 1 };
-      cell.border = border;
-    };
-
-    // 画像を同一オリジンproxy経由で取得しbase64化(html2canvasと同じ経路)
-    const fetchImg = async (p: LedgerPhoto): Promise<{ b64: string; ext: "jpeg" | "png" | "gif" } | null> => {
-      try {
-        const res = await fetch(imgSrc(p));
-        if (!res.ok) return null;
-        const blob = await res.blob();
-        const b64 = await blobToBase64(blob);
-        const ext = blob.type.includes("png") ? "png" : blob.type.includes("gif") ? "gif" : "jpeg";
-        return { b64, ext };
-      } catch {
-        return null;
-      }
-    };
-
-    let r = 1;
-
-    // ヘッダー表(表紙情報)。項目はPDF表紙と一致。会社名=施工業者(グループ)。
-    const emitHeader = (contractor: string) => {
-      const rows: [string, string, string, string][] = [
-        ["工事名", cover.koujiName, "工事番号", cover.koujiNo],
-        ["施工場所", cover.place, "施工業者", contractor],
-        ["発注者", cover.client, "工期", cover.period],
-        ["施工者", cover.builder, "作成日", cover.createdAt],
-      ];
-      for (const [l1, v1, l2, v2] of rows) {
-        ws.getRow(r).height = 22;
-        setLabel(ws.getCell(r, 1), l1);
-        setValue(ws.getCell(r, 2), v1, { wrap: false });
-        setLabel(ws.getCell(r, 3), l2);
-        setValue(ws.getCell(r, 4), v2, { wrap: false });
-        r++;
-      }
-      r++; // ヘッダーと写真の間の空行
-    };
-
-    // 写真ブロック(左=写真[A:B縦結合] / 右=写真番号・撮影日・工種内容・撮影者・備考)。項目はPDF情報欄と一致。
-    const emitPhotoBlock = async (no: number, cap: Caption, photo: LedgerPhoto) => {
-      const top = r;
-      const H = 22;
-      ws.getRow(r).height = H; setLabel(ws.getCell(r, 3), "写真番号"); setValue(ws.getCell(r, 4), String(no), { wrap: false }); r++;
-      ws.getRow(r).height = H; setLabel(ws.getCell(r, 3), "撮影日"); setValue(ws.getCell(r, 4), cap.reportDate, { wrap: false }); r++;
-      ws.getRow(r).height = H; setLabel(ws.getCell(r, 3), "工種・内容"); setValue(ws.getCell(r, 4), cap.content, { wrap: true }); r++;
-      ws.getRow(r).height = H; setLabel(ws.getCell(r, 3), "撮影者"); setValue(ws.getCell(r, 4), cap.reporter, { wrap: false }); r++;
-      // 〈備 考〉ラベル(C:D結合)
-      ws.getRow(r).height = 16; ws.mergeCells(r, 3, r, 4);
-      const bl = ws.getCell(r, 3);
-      bl.value = "〈備　考〉"; bl.font = { bold: true, size: 10 };
-      bl.alignment = { horizontal: "center", vertical: "middle" };
-      bl.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2F2F2" } };
-      bl.border = border; ws.getCell(r, 4).border = border; r++;
-      // 備考 値(C:D結合, 高め)
-      ws.getRow(r).height = 84; ws.mergeCells(r, 3, r, 4);
-      setValue(ws.getCell(r, 3), cap.notes, { wrap: true, top: true }); ws.getCell(r, 4).border = border; r++;
-
-      // 写真セル: A:B を top..bottom で縦結合し画像を配置
-      const bottom = r - 1;
-      ws.mergeCells(top, 1, bottom, 2);
-      ws.getCell(top, 1).alignment = { horizontal: "center", vertical: "middle" };
-      for (let rr = top; rr <= bottom; rr++) { ws.getCell(rr, 1).border = border; ws.getCell(rr, 2).border = border; }
-      const img = await fetchImg(photo);
-      if (img) {
-        const id = wb.addImage({ base64: img.b64, extension: img.ext });
-        // 結合セル(≈幅273px×高250px)内に収める
-        ws.addImage(id, { tl: { col: 0.08, row: top - 1 + 0.06 } as any, ext: { width: 262, height: 224 }, editAs: "oneCell" });
-      }
-    };
-
-    const grpList = selectedByGroup();
-    for (let gi = 0; gi < grpList.length; gi++) {
-      const grp = grpList[gi];
-      emitHeader(grp.label);
-      for (let i = 0; i < grp.items.length; i++) {
-        const p = grp.items[i];
-        const cap = captions[p.token] || { reportDate: p.reportDate, content: p.content, reporter: p.reporter, notes: p.notes };
-        await emitPhotoBlock(i + 1, cap, p);
-        // Word準拠: 1頁3枚。3枚ごと(グループ末尾以外)に改ページ。
-        if ((i + 1) % 3 === 0 && i < grp.items.length - 1) ws.getRow(r - 1).addPageBreak();
-      }
-      // 次グループはヘッダーから新頁で
-      if (gi < grpList.length - 1) ws.getRow(r - 1).addPageBreak();
-      r++; // グループ間の空行
-    }
-
-    const buf = await wb.xlsx.writeBuffer();
-    return new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-  };
-
-  const handleExcel = async () => {
-    if (exporting || selectedCount === 0) return;
-    setExporting("excel");
-    try {
-      const blob = await generateExcelBlob();
-      triggerDownload(blob, `${fileBase()}.xlsx`);
-      await saveSettings(); // 出力時点の編集内容を保存
-    } catch (e: any) {
-      console.error("[photo-ledger] excel error", e);
-      window.alert(`EXCEL生成に失敗しました: ${e?.message || e}\n（写真の枚数を減らす／再読込のうえ再度お試しください）`);
-    } finally {
-      setExporting(null);
-    }
-  };
-
   return (
     <div className="space-y-4">
       {/* ヘッダー */}
@@ -845,14 +702,6 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
                   PDF出力
                 </button>
                 <button
-                  onClick={handleExcel}
-                  disabled={!!exporting || selectedCount === 0}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-                >
-                  {exporting === "excel" ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
-                  EXCEL出力
-                </button>
-                <button
                   onClick={handleStore}
                   disabled={!!exporting || selectedCount === 0}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-teal-300 bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-700 hover:bg-teal-100 disabled:opacity-50"
@@ -895,7 +744,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
                 )}
               </div>
             </div>
-            <p className="mt-2 text-[11px] text-gray-400">情報欄はプレビュー上で直接編集できます。PDF出力・EXCEL出力・案件書庫保管を押すと、編集内容(表紙/コメント/並び順/選択)が保存されます。</p>
+            <p className="mt-2 text-[11px] text-gray-400">情報欄はプレビュー上で直接編集できます。PDF出力・案件書庫保管を押すと、編集内容(表紙/コメント/並び順/選択)が保存されます。</p>
           </div>
         </div>
       )}

@@ -10,7 +10,7 @@
 // 画像は /api/file/proxy(同一オリジンでinline配信, 後段のhtml2canvasでもCORS汚染なし)を直接 <img src> に指定。
 
 import { useEffect, useMemo, useState } from "react";
-import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive, Upload } from "lucide-react";
+import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive, Upload, GripVertical } from "lucide-react";
 import { uploadDocumentFile, prepareImageForUpload, UPLOAD_MAX_BYTES } from "@/lib/document-upload";
 
 interface NippouReportUI {
@@ -87,6 +87,7 @@ interface LedgerDraft {
   groupByContractor?: boolean;
   includeCover?: boolean;
   manualOrder?: Record<string, string[]>;
+  groupOrder?: string[]; // 施工業者グループの出力順
   selected?: string[]; // 対象(チェックON)のトークン。ここに無い写真は未チェック=新規追加分も自動でOFF
   captions?: Record<string, Caption>;
 }
@@ -109,10 +110,15 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // 手動並び替え(業者キー→トークン順)。未設定は撮影日昇順。
   const [manualOrder, setManualOrder] = useState<Record<string, string[]>>({});
-  // ドラッグ&ドロップ状態
+  // 施工業者グループの出力順(グループキーの並び)。未設定は取得順(アップロード写真は末尾)。
+  const [groupOrder, setGroupOrder] = useState<string[]>([]);
+  // ドラッグ&ドロップ状態(写真の並べ替え)
   const [dragTok, setDragTok] = useState<string | null>(null);
   const [dragGroupKey, setDragGroupKey] = useState<string | null>(null);
   const [dragOverTok, setDragOverTok] = useState<string | null>(null);
+  // ドラッグ&ドロップ状態(グループの並べ替え)
+  const [dragOrderKey, setDragOrderKey] = useState<string | null>(null);
+  const [dragOverOrderKey, setDragOverOrderKey] = useState<string | null>(null);
 
   // ② 追加state
   const [captions, setCaptions] = useState<Record<string, Caption>>({});
@@ -189,6 +195,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
         if (typeof draft.groupByContractor === "boolean") setGroupByContractor(draft.groupByContractor);
         if (typeof draft.includeCover === "boolean") setIncludeCover(draft.includeCover);
         if (draft.manualOrder) setManualOrder(draft.manualOrder);
+        if (draft.groupOrder) setGroupOrder(draft.groupOrder);
       }
       // 案件書庫「工事写真アップロード」の写真を取得(ローカル追加分)。失敗は握りつぶし。
       try {
@@ -266,8 +273,13 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
         g.photos.sort((a, b) => (pos.get(a.token) ?? 1e9) - (pos.get(b.token) ?? 1e9));
       }
     }
+    // 施工業者グループの出力順を適用(未指定のグループは末尾へ、相対順は維持)
+    if (groupOrder.length) {
+      const pos = new Map(groupOrder.map((k, i) => [k, i] as const));
+      result.sort((a, b) => (pos.get(a.key) ?? 1e9) - (pos.get(b.key) ?? 1e9));
+    }
     return result;
-  }, [reports, ankenList, manualOrder, uploadPhotos, docTableId]);
+  }, [reports, ankenList, manualOrder, groupOrder, uploadPhotos, docTableId]);
 
   const allTokens = useMemo(() => groups.flatMap((g) => g.photos.map((p) => p.token)), [groups]);
 
@@ -375,6 +387,41 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     setManualOrder((prev) => ({ ...prev, [gkey]: next }));
   };
 
+  // 施工業者グループの出力順をドラッグ&ドロップで並べ替え(見出しをドラッグ)。写真の並べ替えとは独立。
+  const onGroupDragStart = (e: React.DragEvent, key: string) => {
+    setDragOrderKey(key);
+    e.dataTransfer.effectAllowed = "move";
+    try {
+      e.dataTransfer.setData("text/plain", `group:${key}`);
+    } catch {
+      /* noop */
+    }
+  };
+  const onGroupDragOver = (e: React.DragEvent, key: string) => {
+    if (!dragOrderKey || dragOrderKey === key) return; // グループDnD中のみ反応
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverOrderKey !== key) setDragOverOrderKey(key);
+  };
+  const clearGroupDrag = () => {
+    setDragOrderKey(null);
+    setDragOverOrderKey(null);
+  };
+  const onGroupDrop = (e: React.DragEvent, targetKey: string) => {
+    e.preventDefault();
+    const src = dragOrderKey;
+    clearGroupDrag();
+    if (!src || src === targetKey) return;
+    const cur = groups.map((g) => g.key); // 現在の表示順を基準に並べ替え
+    const from = cur.indexOf(src);
+    const to = cur.indexOf(targetKey);
+    if (from < 0 || to < 0) return;
+    const next = [...cur];
+    next.splice(from, 1);
+    next.splice(to, 0, src);
+    setGroupOrder(next);
+  };
+
   const imgSrc = (p: LedgerPhoto) =>
     `/api/file/proxy?file_token=${encodeURIComponent(p.token)}&table_id=${encodeURIComponent(p.tableId || tableId)}&name=${encodeURIComponent(p.name)}`;
 
@@ -471,6 +518,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
       groupByContractor,
       includeCover,
       manualOrder,
+      groupOrder,
       selected: Array.from(selected),
       captions,
     };
@@ -715,16 +763,33 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
           {/* 写真選択 */}
           <div className="xl:w-[38%] space-y-3">
             <p className="text-xs font-semibold text-gray-500">写真を選択（クリックで選択/解除・ホバーで ◀ ▶ 並べ替え）</p>
+            <p className="text-[11px] text-gray-400 -mt-1">業者見出し（<span className="inline-flex align-middle"><GripVertical className="w-3 h-3" /></span>）をドラッグすると業者の出力順を変更できます。</p>
             {groups.map((g) => {
               const groupAll = g.photos.every((p) => selected.has(p.token));
               const groupSel = g.photos.filter((p) => selected.has(p.token)).length;
               return (
-                <div key={g.key} className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-                  <div className="flex items-center justify-between gap-2 px-3 py-2 bg-gradient-to-r from-fuchsia-500 to-pink-500">
-                    <button onClick={() => toggleGroup(g)} className="flex items-center gap-2 min-w-0 text-white">
-                      {groupAll ? <CheckSquare className="w-4 h-4 flex-none" /> : <Square className="w-4 h-4 flex-none" />}
-                      <span className="text-sm font-bold truncate">{g.label}</span>
-                    </button>
+                <div
+                  key={g.key}
+                  className={`rounded-xl border bg-white shadow-sm overflow-hidden ${
+                    dragOverOrderKey === g.key ? "border-blue-500 ring-2 ring-blue-300" : "border-gray-100"
+                  } ${dragOrderKey === g.key ? "opacity-50" : ""}`}
+                >
+                  <div
+                    className="flex items-center justify-between gap-2 px-3 py-2 bg-gradient-to-r from-fuchsia-500 to-pink-500 cursor-move"
+                    draggable
+                    onDragStart={(e) => onGroupDragStart(e, g.key)}
+                    onDragOver={(e) => onGroupDragOver(e, g.key)}
+                    onDrop={(e) => onGroupDrop(e, g.key)}
+                    onDragEnd={clearGroupDrag}
+                    title="ドラッグで業者の出力順を並べ替え"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <GripVertical className="w-4 h-4 text-white/70 flex-none" />
+                      <button onClick={() => toggleGroup(g)} className="flex items-center gap-2 min-w-0 text-white">
+                        {groupAll ? <CheckSquare className="w-4 h-4 flex-none" /> : <Square className="w-4 h-4 flex-none" />}
+                        <span className="text-sm font-bold truncate">{g.label}</span>
+                      </button>
+                    </div>
                     <span className="text-xs text-fuchsia-100 flex-none">{groupSel}/{g.photos.length}</span>
                   </div>
                   <div className="p-2 grid grid-cols-3 sm:grid-cols-4 gap-2">

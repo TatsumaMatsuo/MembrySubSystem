@@ -105,6 +105,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   const [groupByContractor, setGroupByContractor] = useState(true);
   const [includeCover, setIncludeCover] = useState(true);
   const [coverOpen, setCoverOpen] = useState(false);
+  const [exporting, setExporting] = useState<null | "pdf">(null);
 
   const load = async () => {
     setLoading(true);
@@ -244,6 +245,68 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
 
   const photoPageCount = pages.filter((p) => p.kind === "photos").length;
 
+  const fileBase = () => `${cover.koujiNo || seiban}_工事写真台帳_${(cover.createdAt || todayStr()).replace(/[/\\]/g, "")}`;
+
+  // プレビュー内の全画像の読込完了を待つ(html2canvas前)
+  const waitImages = async () => {
+    const root = document.getElementById("photo-ledger-preview");
+    if (!root) return;
+    const imgs = Array.from(root.querySelectorAll("img"));
+    await Promise.all(
+      imgs.map((im) =>
+        im.complete && im.naturalWidth > 0
+          ? Promise.resolve()
+          : new Promise<void>((resolve) => {
+              im.addEventListener("load", () => resolve(), { once: true });
+              im.addEventListener("error", () => resolve(), { once: true });
+            })
+      )
+    );
+  };
+
+  // A4プレビューの各ページをhtml2canvasで画像化しjsPDFへ。Blobを返す。
+  const generatePdfBlob = async (): Promise<Blob> => {
+    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
+    await waitImages();
+    const pageEls = Array.from(document.querySelectorAll("#photo-ledger-preview [data-page]")) as HTMLElement[];
+    if (pageEls.length === 0) throw new Error("no pages");
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    for (let i = 0; i < pageEls.length; i++) {
+      const canvas = await html2canvas(pageEls[i], { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false });
+      const img = canvas.toDataURL("image/jpeg", 0.92);
+      if (i > 0) pdf.addPage();
+      pdf.addImage(img, "JPEG", 0, 0, pw, ph);
+    }
+    return pdf.output("blob");
+  };
+
+  const triggerDownload = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePdf = async () => {
+    if (exporting || selectedCount === 0) return;
+    setExporting("pdf");
+    try {
+      const blob = await generatePdfBlob();
+      triggerDownload(blob, `${fileBase()}.pdf`);
+    } catch (e) {
+      console.error("[photo-ledger] pdf error", e);
+      window.alert("PDF生成に失敗しました。写真の枚数を減らすか、再度お試しください。");
+    } finally {
+      setExporting(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* ヘッダー */}
@@ -381,9 +444,21 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
 
           {/* A4プレビュー */}
           <div className="xl:flex-1 min-w-0">
-            <p className="text-xs font-semibold text-gray-500 mb-2">
-              プレビュー（A4縦・{LAYOUTS[layout].label}／写真ページ {photoPageCount}）
-            </p>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-gray-500">
+                プレビュー（A4縦・{LAYOUTS[layout].label}／写真ページ {photoPageCount}）
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePdf}
+                  disabled={!!exporting || selectedCount === 0}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-fuchsia-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-fuchsia-700 disabled:opacity-50"
+                >
+                  {exporting === "pdf" ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  PDF出力
+                </button>
+              </div>
+            </div>
             <div id="photo-ledger-preview" className="overflow-auto rounded-xl border border-gray-200 bg-gray-200 p-3 max-h-[80vh]">
               <div className="mx-auto flex flex-col items-center gap-3" style={{ width: A4_W }}>
                 {pages.map((pg, pi) => (

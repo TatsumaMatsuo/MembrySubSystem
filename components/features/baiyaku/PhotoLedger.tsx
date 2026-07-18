@@ -91,6 +91,10 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // 手動並び替え(業者キー→トークン順)。未設定は撮影日昇順。
   const [manualOrder, setManualOrder] = useState<Record<string, string[]>>({});
+  // ドラッグ&ドロップ状態
+  const [dragTok, setDragTok] = useState<string | null>(null);
+  const [dragGroupKey, setDragGroupKey] = useState<string | null>(null);
+  const [dragOverTok, setDragOverTok] = useState<string | null>(null);
 
   // ② 追加state
   const [captions, setCaptions] = useState<Record<string, Caption>>({});
@@ -235,7 +239,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   const setCap = (token: string, patch: Partial<Caption>) =>
     setCaptions((prev) => ({ ...prev, [token]: { ...prev[token], ...patch } }));
 
-  // 写真を業者グループ内で前(-1)/後(+1)へ移動
+  // 写真を業者グループ内で前(-1)/後(+1)へ移動(ボタン方式)
   const movePhoto = (g: ContractorGroup, token: string, dir: -1 | 1) => {
     const cur = g.photos.map((p) => p.token); // 現在の表示順
     const idx = cur.indexOf(token);
@@ -244,6 +248,46 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     const next = [...cur];
     [next[idx], next[ni]] = [next[ni], next[idx]];
     setManualOrder((prev) => ({ ...prev, [g.key]: next }));
+  };
+
+  // ドラッグ&ドロップで並べ替え(同一業者内のみ)。ボタン方式と両立。
+  const onDragStartPhoto = (e: React.DragEvent, gkey: string, token: string) => {
+    setDragTok(token);
+    setDragGroupKey(gkey);
+    e.dataTransfer.effectAllowed = "move";
+    try {
+      e.dataTransfer.setData("text/plain", token);
+    } catch {
+      /* noop */
+    }
+  };
+  const onDragOverPhoto = (e: React.DragEvent, gkey: string, token: string) => {
+    if (dragGroupKey !== gkey) return; // 別業者へはドロップ不可
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverTok !== token) setDragOverTok(token);
+  };
+  const clearDrag = () => {
+    setDragOverTok(null);
+    setDragTok(null);
+    setDragGroupKey(null);
+  };
+  const onDropPhoto = (e: React.DragEvent, gkey: string, targetToken: string) => {
+    e.preventDefault();
+    const src = dragTok;
+    const sg = dragGroupKey;
+    clearDrag();
+    if (!src || sg !== gkey || src === targetToken) return;
+    const g = groups.find((x) => x.key === gkey);
+    if (!g) return;
+    const cur = g.photos.map((p) => p.token);
+    const from = cur.indexOf(src);
+    const to = cur.indexOf(targetToken);
+    if (from < 0 || to < 0) return;
+    const next = [...cur];
+    next.splice(from, 1);
+    next.splice(to, 0, src);
+    setManualOrder((prev) => ({ ...prev, [gkey]: next }));
   };
 
   const imgSrc = (p: LedgerPhoto) =>
@@ -461,12 +505,23 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
                       return (
                         <div
                           key={`${p.token}-${i}`}
+                          draggable
+                          onDragStart={(e) => onDragStartPhoto(e, g.key, p.token)}
+                          onDragOver={(e) => onDragOverPhoto(e, g.key, p.token)}
+                          onDrop={(e) => onDropPhoto(e, g.key, p.token)}
+                          onDragEnd={clearDrag}
                           onClick={() => toggle(p.token)}
-                          className={`group relative rounded-md overflow-hidden border-2 cursor-pointer ${on ? "border-fuchsia-500" : "border-transparent hover:border-gray-200"}`}
+                          className={`group relative rounded-md overflow-hidden border-2 cursor-move ${
+                            dragOverTok === p.token && dragGroupKey === g.key
+                              ? "border-blue-500 ring-2 ring-blue-300"
+                              : on
+                              ? "border-fuchsia-500"
+                              : "border-transparent hover:border-gray-200"
+                          } ${dragTok === p.token ? "opacity-50" : ""}`}
                           title={`${p.reportDate} ${p.content}`}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={imgSrc(p)} alt={p.name} className="h-20 w-full object-cover bg-gray-100" />
+                          <img src={imgSrc(p)} alt={p.name} draggable={false} className="h-20 w-full object-cover bg-gray-100" />
                           <span className={`absolute top-0.5 left-0.5 rounded p-0.5 ${on ? "bg-fuchsia-600 text-white" : "bg-white/80 text-gray-400"}`}>
                             {on ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
                           </span>

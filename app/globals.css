@@ -439,3 +439,43 @@ body {
     print-color-adjust: exact !important;
   }
 }
+
+/* ========================================
+   ガントチャート PDF印刷（#95）
+   チャート本体(.gantt-print-root)のみ全幅印刷。
+   左グリッド/ツールバーは .no-print で非表示、@pageはJSで横向き挿入。
+   ======================================== */
+@media print {
+  .gantt-print-root {
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+  .gantt-print-root * {
+    overflow: visible !important;
+  }
+  .gantt-print-root .gantt-target {
+    min-width: 0 !important;
+  }
+  .gantt-print-root .gantt-container {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  /* 今日ボタン等のフローティングUIは印刷しない */
+  .gantt-print-root .side-header,
+  .gantt-print-root .extras {
+    display: none !important;
+  }
+  /* バー/進捗/矢印の色を印刷に反映 */
+  .gantt-print-root svg,
+  .gantt-print-root .bar,
+  .gantt-print-root .bar-progress,
+  .gantt-print-root .arrow {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

@@ -7,8 +7,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { MainLayout } from "@/components/layout";
 import { GanttChart } from "@/components/features/eigyo/GanttChart";
 import { fetchJson } from "@/lib/fetch-json";
-import { ArrowLeft, Plus, Save, Copy, Trash2, ChevronUp, ChevronDown, Loader2, LayoutTemplate, X } from "lucide-react";
-import type { GanttTaskData, GanttUnit, GanttChartFull, GanttTemplateMeta, GanttTemplateFull } from "@/lib/gantt/types";
+import { ArrowLeft, Plus, Save, Copy, Trash2, ChevronUp, ChevronDown, Loader2, LayoutTemplate, X, Printer, Link2 } from "lucide-react";
+import { GANTT_PALETTE, type GanttTaskData, type GanttUnit, type GanttChartFull, type GanttTemplateMeta, type GanttTemplateFull } from "@/lib/gantt/types";
 
 function todayStr(): string {
   const d = new Date();
@@ -71,6 +71,8 @@ function GanttEditInner() {
   const [tplMode, setTplMode] = useState<"replace" | "append">("replace");
   const [tplApplying, setTplApplying] = useState(false);
   const [savingTpl, setSavingTpl] = useState(false);
+  // 先行(依存)選択ポップオーバーを開いているタスク
+  const [predOpen, setPredOpen] = useState<string | null>(null);
 
   const load = useCallback(async (cid: string) => {
     setLoading(true);
@@ -110,11 +112,21 @@ function GanttEditInner() {
   // ---- タスク操作 ----
   const addTask = () => {
     const t = todayStr();
-    setTasks((prev) => [...prev, { id: newId(), name: "", start: t, end: t, assignee: "", progress: 0, notes: "" }]);
+    setTasks((prev) => [...prev, { id: newId(), name: "", start: t, end: t, assignee: "", notes: "" }]);
   };
   const patchTask = (tid: string, patch: Partial<GanttTaskData>) =>
     setTasks((prev) => prev.map((t) => (t.id === tid ? { ...t, ...patch } : t)));
-  const removeTask = (tid: string) => setTasks((prev) => prev.filter((t) => t.id !== tid));
+  // タスク削除時は他タスクの先行(依存)からも取り除く
+  const removeTask = (tid: string) =>
+    setTasks((prev) => prev.filter((t) => t.id !== tid).map((t) => (t.pred?.includes(tid) ? { ...t, pred: t.pred.filter((p) => p !== tid) } : t)));
+  const togglePred = (tid: string, predId: string) =>
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== tid) return t;
+        const cur = t.pred || [];
+        return { ...t, pred: cur.includes(predId) ? cur.filter((p) => p !== predId) : [...cur, predId] };
+      })
+    );
   const moveTask = (tid: string, dir: -1 | 1) =>
     setTasks((prev) => {
       const i = prev.findIndex((t) => t.id === tid);
@@ -262,6 +274,30 @@ function GanttEditInner() {
     }
   };
 
+  // ---- PDF印刷 ----
+  const onPrint = () => {
+    if (tasks.length === 0) {
+      window.alert("印刷するタスクがありません");
+      return;
+    }
+    // ガントは横長のためA4横向きで印刷（@pageはJS側で動的挿入する既存方式に合わせる）
+    const style = document.createElement("style");
+    style.id = "gantt-print-page";
+    style.textContent = "@page { size: A4 landscape; margin: 8mm; }";
+    document.head.appendChild(style);
+    const cleanup = () => {
+      document.getElementById("gantt-print-page")?.remove();
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
+    window.print();
+    // afterprintが発火しない環境向けフォールバック
+    window.setTimeout(cleanup, 1500);
+  };
+
+  // 先行タスクの表示名（工程名 or 連番）
+  const taskLabel = (t: GanttTaskData, idx: number) => (t.name.trim() ? t.name.trim() : `工程${idx + 1}`);
+
   const taskCount = tasks.length;
   const chart = useMemo(() => <GanttChart tasks={tasks} unit={unit} onDateChange={onBarDateChange} />, [tasks, unit]);
 
@@ -269,7 +305,7 @@ function GanttEditInner() {
     <MainLayout>
       <div className="h-full flex flex-col bg-gray-50 overflow-auto">
         {/* ツールバー */}
-        <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200 bg-white">
+        <div className="no-print flex-shrink-0 px-4 py-3 border-b border-gray-200 bg-white">
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={() => router.push("/eigyo/gantt")} className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm text-gray-700 hover:bg-gray-50">
               <ArrowLeft className="w-4 h-4" /> 一覧
@@ -305,6 +341,9 @@ function GanttEditInner() {
             <button onClick={saveAsTemplate} disabled={savingTpl} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" title="現在の工程をひな形として保存">
               {savingTpl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} ひな形化
             </button>
+            <button onClick={onPrint} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50" title="PDF印刷（ブラウザの印刷ダイアログでPDF保存）">
+              <Printer className="w-4 h-4" /> PDF印刷
+            </button>
             <button onClick={() => save(false)} disabled={!!saving} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
               {saving === "save" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 保存
             </button>
@@ -322,7 +361,7 @@ function GanttEditInner() {
         ) : (
           <div className="flex-1 flex flex-col xl:flex-row gap-3 p-3 min-h-0">
             {/* 左: タスクグリッド */}
-            <div className="xl:w-[46%] flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm min-h-0">
+            <div className="no-print xl:w-[46%] flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm min-h-0">
               <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
                 <span className="text-sm font-semibold text-gray-700">タスク（{taskCount}）</span>
                 <button onClick={addTask} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700">
@@ -331,19 +370,24 @@ function GanttEditInner() {
               </div>
               <div className="overflow-auto">
                 <table className="min-w-full text-xs">
-                  <thead className="sticky top-0 bg-gray-50 text-gray-500">
+                  <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500">
                     <tr>
                       <th className="px-2 py-1.5 text-left font-medium w-8"></th>
                       <th className="px-2 py-1.5 text-left font-medium">工程名</th>
                       <th className="px-2 py-1.5 text-left font-medium">開始</th>
                       <th className="px-2 py-1.5 text-left font-medium">終了</th>
                       <th className="px-2 py-1.5 text-left font-medium">担当</th>
-                      <th className="px-2 py-1.5 text-left font-medium w-16">進捗%</th>
+                      <th className="px-2 py-1.5 text-center font-medium w-10">色</th>
+                      <th className="px-2 py-1.5 text-left font-medium w-14">先行</th>
+                      <th className="px-2 py-1.5 text-left font-medium">メモ</th>
                       <th className="px-2 py-1.5 text-left font-medium w-16"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {tasks.map((t, i) => (
+                    {tasks.map((t, i) => {
+                      const effColor = t.color || GANTT_PALETTE[i % GANTT_PALETTE.length];
+                      const preds = t.pred || [];
+                      return (
                       <tr key={t.id} className="hover:bg-gray-50">
                         <td className="px-1 py-1 text-center text-gray-400">{i + 1}</td>
                         <td className="px-1 py-1">
@@ -358,8 +402,50 @@ function GanttEditInner() {
                         <td className="px-1 py-1">
                           <input value={t.assignee || ""} onChange={(e) => patchTask(t.id, { assignee: e.target.value })} className="w-full min-w-[70px] rounded border border-gray-200 px-1.5 py-1 focus:border-indigo-400 focus:outline-none" placeholder="担当" />
                         </td>
+                        {/* 色 */}
+                        <td className="px-1 py-1 text-center">
+                          <label className="inline-flex cursor-pointer items-center justify-center" title="バーの色を変更">
+                            <span className="inline-block h-5 w-5 rounded border border-gray-300" style={{ backgroundColor: effColor }} />
+                            <input type="color" value={effColor} onChange={(e) => patchTask(t.id, { color: e.target.value })} className="sr-only" />
+                          </label>
+                        </td>
+                        {/* 先行(依存) */}
                         <td className="px-1 py-1">
-                          <input type="number" min={0} max={100} value={t.progress ?? 0} onChange={(e) => patchTask(t.id, { progress: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })} className="w-14 rounded border border-gray-200 px-1 py-1 focus:border-indigo-400 focus:outline-none" />
+                          <div className="relative">
+                            <button
+                              onClick={() => setPredOpen(predOpen === t.id ? null : t.id)}
+                              className={`inline-flex items-center gap-1 rounded border px-1.5 py-1 ${preds.length ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-gray-200 text-gray-500"} hover:bg-indigo-50`}
+                              title="先行タスク（依存線）を選択"
+                            >
+                              <Link2 className="w-3.5 h-3.5" />
+                              {preds.length > 0 && <span className="text-[11px] font-semibold">{preds.length}</span>}
+                            </button>
+                            {predOpen === t.id && (
+                              <>
+                                <div className="fixed inset-0 z-20" onClick={() => setPredOpen(null)} />
+                                <div className="absolute left-0 top-full z-30 mt-1 max-h-56 w-52 overflow-auto rounded-lg border border-gray-200 bg-white p-1.5 shadow-xl">
+                                  <div className="px-1 pb-1 text-[11px] font-semibold text-gray-400">先行タスク</div>
+                                  {tasks.filter((o) => o.id !== t.id).length === 0 ? (
+                                    <div className="px-1 py-2 text-[11px] text-gray-400">他のタスクがありません</div>
+                                  ) : (
+                                    tasks.map((o, oi) =>
+                                      o.id === t.id ? null : (
+                                        <label key={o.id} className="flex cursor-pointer items-center gap-1.5 rounded px-1 py-1 text-[12px] hover:bg-gray-50">
+                                          <input type="checkbox" checked={preds.includes(o.id)} onChange={() => togglePred(t.id, o.id)} />
+                                          <span className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: o.color || GANTT_PALETTE[oi % GANTT_PALETTE.length] }} />
+                                          <span className="truncate">{taskLabel(o, oi)}</span>
+                                        </label>
+                                      )
+                                    )
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                        {/* メモ */}
+                        <td className="px-1 py-1">
+                          <input value={t.notes || ""} onChange={(e) => patchTask(t.id, { notes: e.target.value })} className="w-full min-w-[120px] rounded border border-gray-200 px-1.5 py-1 focus:border-indigo-400 focus:outline-none" placeholder="メモ" />
                         </td>
                         <td className="px-1 py-1">
                           <div className="flex items-center gap-0.5">
@@ -369,10 +455,11 @@ function GanttEditInner() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                     {tasks.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-3 py-8 text-center text-gray-400">「追加」からタスクを作成してください。</td>
+                        <td colSpan={9} className="px-3 py-8 text-center text-gray-400">「追加」からタスクを作成してください。</td>
                       </tr>
                     )}
                   </tbody>
@@ -380,8 +467,19 @@ function GanttEditInner() {
               </div>
             </div>
 
-            {/* 右: ガントチャート */}
-            <div className="xl:flex-1 rounded-xl border border-gray-200 bg-white shadow-sm p-2 min-h-0 overflow-auto">
+            {/* 右: ガントチャート（印刷対象） */}
+            <div className="gantt-print-root xl:flex-1 rounded-xl border border-gray-200 bg-white shadow-sm p-2 min-h-0 overflow-auto">
+              {/* 印刷時のみ表示する見出し */}
+              <div className="mb-2 hidden print:block">
+                <h2 className="text-base font-bold text-gray-900">{title || "(無題)"}</h2>
+                <div className="text-xs text-gray-600">
+                  {seiban ? `売約番号: ${seiban}　` : ""}
+                  {(() => {
+                    const d = new Date();
+                    return `作成日: ${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+                  })()}
+                </div>
+              </div>
               {chart}
             </div>
           </div>

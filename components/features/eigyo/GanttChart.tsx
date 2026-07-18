@@ -5,7 +5,7 @@
 import { useEffect, useRef } from "react";
 // frappe-gantt の exports 制限でサブパスCSSを直接importできないため、リポジトリ内に複製したCSSを読み込む。
 import "./frappe-gantt.css";
-import type { GanttTaskData, GanttUnit } from "@/lib/gantt/types";
+import { GANTT_PALETTE, type GanttTaskData, type GanttUnit } from "@/lib/gantt/types";
 
 const UNIT_TO_MODE: Record<GanttUnit, string> = { day: "Day", week: "Week", month: "Month" };
 
@@ -16,14 +16,26 @@ function fmt(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function toFg(t: GanttTaskData) {
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// 未指定タスクにはインデックス順でパレット既定色を割当（バーを見分けやすく）
+function colorFor(t: GanttTaskData, i: number): string {
+  return t.color || GANTT_PALETTE[i % GANTT_PALETTE.length];
+}
+
+function toFg(t: GanttTaskData, i: number) {
   return {
     id: t.id,
     name: t.name || "(無題)",
     start: t.start,
     end: t.end || t.start,
-    progress: typeof t.progress === "number" ? t.progress : 0,
+    progress: 0, // 進捗機能は廃止。バー全体を色表示
+    color: colorFor(t, i),
     dependencies: (t.pred || []).join(","),
+    assignee: t.assignee || "",
+    notes: t.notes || "",
   };
 }
 
@@ -67,8 +79,20 @@ export function GanttChart({
           today_button: true,
           view_mode_select: false,
           readonly: !!readonly,
-          readonly_progress: true, // 進捗はグリッド側で編集
+          readonly_progress: true, // 進捗機能は廃止
           popup_on: "hover",
+          // ホバー時に工程名・期間・担当・メモを表示
+          popup: (ctx: any) => {
+            const task = ctx.task || {};
+            const s = task._start instanceof Date ? fmt(task._start) : task.start;
+            const e = task._end instanceof Date ? fmt(task._end) : task.end;
+            const rows = [
+              `<div class="gantt-popup-dates">${s} 〜 ${e}</div>`,
+              task.assignee ? `<div class="gantt-popup-assignee">担当: ${escapeHtml(task.assignee)}</div>` : "",
+              task.notes ? `<div class="gantt-popup-notes">${escapeHtml(task.notes)}</div>` : "",
+            ].join("");
+            return `<div class="gantt-popup"><div class="gantt-popup-title">${escapeHtml(task.name || "(無題)")}</div>${rows}</div>`;
+          },
           infinite_padding: false, // 無限パディングはドラッグ時に表示がずれるため無効化
           scroll_to: "start",
           on_date_change: (task: any, start: Date, end: Date) => {
@@ -101,7 +125,7 @@ export function GanttChart({
       // refresh はスクロールを先頭へ戻すことがあるため、位置を保存/復元
       const scroller = containerRef.current?.querySelector<HTMLElement>(".gantt-container");
       const left = scroller?.scrollLeft ?? 0;
-      g.refresh(tasks.map(toFg));
+      g.refresh(tasks.map((t, i) => toFg(t, i)));
       if (scroller) requestAnimationFrame(() => (scroller.scrollLeft = left));
     } catch (e) {
       console.error("[GanttChart] refresh error", e);

@@ -63,6 +63,7 @@ export function GanttChart({
       try {
         ganttRef.current = new Gantt(containerRef.current, tasks.map(toFg), {
           view_mode: UNIT_TO_MODE[unit],
+          language: "ja", // 月名などを日本語表記(Intl.DateTimeFormat('ja'))
           today_button: true,
           view_mode_select: false,
           readonly: !!readonly,

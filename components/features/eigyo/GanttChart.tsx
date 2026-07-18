@@ -68,7 +68,8 @@ export function GanttChart({
           readonly: !!readonly,
           readonly_progress: true, // 進捗はグリッド側で編集
           popup_on: "hover",
-          infinite_padding: true,
+          infinite_padding: false, // 無限パディングはドラッグ時に表示がずれるため無効化
+          scroll_to: "start",
           on_date_change: (task: any, start: Date, end: Date) => {
             skipSyncRef.current = true; // 自分のドラッグ結果はGanttが既に反映済み→作り直さない
             cbRef.current.onDateChange?.(task.id, fmt(start), fmt(end));
@@ -96,7 +97,11 @@ export function GanttChart({
     const g = ganttRef.current;
     if (!g || !tasks.length) return;
     try {
+      // refresh はスクロールを先頭へ戻すことがあるため、位置を保存/復元
+      const scroller = containerRef.current?.querySelector<HTMLElement>(".gantt-container");
+      const left = scroller?.scrollLeft ?? 0;
       g.refresh(tasks.map(toFg));
+      if (scroller) requestAnimationFrame(() => (scroller.scrollLeft = left));
     } catch (e) {
       console.error("[GanttChart] refresh error", e);
     }

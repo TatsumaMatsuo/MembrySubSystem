@@ -111,16 +111,25 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     setLoading(true);
     setError(null);
     try {
-      const [nres, bres] = await Promise.all([
-        fetch(`/api/nippou?seiban=${encodeURIComponent(seiban)}`).then((r) => r.json()),
-        fetch(`/api/baiyaku-detail?seiban=${encodeURIComponent(seiban)}`).then((r) => r.json()).catch(() => ({})),
-      ]);
+      // Larkへの同時アクセスを避けるため順次取得(同時だと断続的に500になることがある)
+      const nres = await fetch(`/api/nippou?seiban=${encodeURIComponent(seiban)}`).then((r) => r.json());
       if (nres.success) {
         setReports(nres.reports || []);
         setAnkenList(nres.ankenList || []);
         setTableId(nres.tableId || "");
       } else {
         setError(nres.error || "日報の取得に失敗しました。");
+      }
+      // 表紙用: 失敗は握りつぶし。500対策で最大2回試行。
+      let bres: any = {};
+      for (let i = 0; i < 2; i++) {
+        try {
+          const r = await fetch(`/api/baiyaku-detail?seiban=${encodeURIComponent(seiban)}`);
+          bres = await r.json();
+          if (bres?.success) break;
+        } catch {
+          /* retry */
+        }
       }
       // 表紙初期値(売約情報)。工事名=◆工事項目 / 発注者=元請け名(空なら得意先宛名1) / 施工者=施工者(空なら自社)
       if (bres?.success && bres.data) {

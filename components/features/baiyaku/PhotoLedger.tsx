@@ -323,18 +323,20 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
 
   const fileBase = () => `${cover.koujiNo || seiban}_工事写真台帳_${(cover.createdAt || todayStr()).replace(/[/\\]/g, "")}`;
 
-  // プレビュー内の全画像の読込完了を待つ(html2canvas前)
+  // プレビュー内の全画像の読込完了を待つ(html2canvas前)。壊れ画像/無応答でもハングしないよう保険付き。
   const waitImages = async () => {
     const root = document.getElementById("photo-ledger-preview");
     if (!root) return;
     const imgs = Array.from(root.querySelectorAll("img"));
     await Promise.all(
       imgs.map((im) =>
-        im.complete && im.naturalWidth > 0
+        im.complete
           ? Promise.resolve()
           : new Promise<void>((resolve) => {
-              im.addEventListener("load", () => resolve(), { once: true });
-              im.addEventListener("error", () => resolve(), { once: true });
+              const done = () => resolve();
+              im.addEventListener("load", done, { once: true });
+              im.addEventListener("error", done, { once: true });
+              setTimeout(done, 8000); // 保険: 8秒で強制続行
             })
       )
     );
@@ -401,12 +403,16 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     if (exporting || selectedCount === 0) return;
     if (!window.confirm("生成した工事写真台帳(PDF)を案件書庫に保管します。よろしいですか？")) return;
     setExporting("store");
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 120000); // 保険: 120秒でタイムアウト
     try {
       const blob = await generatePdfBlob();
+      const sizeMB = blob.size / (1024 * 1024);
       const fileData = await blobToBase64(blob);
       const res = await fetch("/api/documents/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: ctrl.signal,
         body: JSON.stringify({
           fileData,
           fileName: `${fileBase()}.pdf`,
@@ -417,16 +423,23 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
           replace: false,
         }),
       });
-      const data = await res.json().catch(() => ({}));
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
       if (res.ok && data.success) {
         window.alert("案件書庫に保管しました（資料ダウンロード／関連資料から取得できます）。");
       } else {
-        window.alert(`保管に失敗しました: ${data.error || res.status}`);
+        window.alert(`保管に失敗しました (HTTP ${res.status}${sizeMB > 8 ? ` / PDF約${sizeMB.toFixed(1)}MB` : ""}): ${data.error || "サーバーエラー"}`);
       }
     } catch (e: any) {
       console.error("[photo-ledger] store error", e);
-      window.alert(`保管に失敗しました: ${e?.message || e}`);
+      const msg = e?.name === "AbortError" ? "タイムアウトしました（写真枚数を減らしてお試しください）" : e?.message || e;
+      window.alert(`保管に失敗しました: ${msg}`);
     } finally {
+      clearTimeout(timer);
       setExporting(null);
     }
   };

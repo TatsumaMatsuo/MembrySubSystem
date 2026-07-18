@@ -2,6 +2,18 @@
 
 export type GanttUnit = "day" | "week" | "month";
 
+// バーの既定色パレット（未指定タスクにインデックス順で割当。エディタの色見本とも共有）
+export const GANTT_PALETTE = [
+  "#4f46e5", // indigo
+  "#0891b2", // cyan
+  "#059669", // emerald
+  "#d97706", // amber
+  "#dc2626", // red
+  "#7c3aed", // violet
+  "#db2777", // pink
+  "#0d9488", // teal
+];
+
 // タスク(工程)1件
 export interface GanttTaskData {
   id: string;
@@ -9,9 +21,10 @@ export interface GanttTaskData {
   start: string; // YYYY-MM-DD
   end: string; // YYYY-MM-DD（当日を含む終了日）
   assignee?: string;
-  progress?: number; // 0-100
-  pred?: string[]; // 先行タスクID（依存線。MVPでは保持のみ）
+  color?: string; // バー色（未指定時はパレット既定色）
+  pred?: string[]; // 先行タスクID（依存線でつなぐ）
   notes?: string;
+  progress?: number; // 0-100（UIでは廃止。過去データの後方互換のため型は保持）
 }
 
 // データJSONに格納する本体

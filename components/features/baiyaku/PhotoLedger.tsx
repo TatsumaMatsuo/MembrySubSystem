@@ -10,7 +10,7 @@
 // 画像は /api/file/proxy(同一オリジンでinline配信, 後段のhtml2canvasでもCORS汚染なし)を直接 <img src> に指定。
 
 import { useEffect, useMemo, useState } from "react";
-import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText } from "lucide-react";
+import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface NippouReportUI {
   record_id: string;
@@ -89,6 +89,8 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   const [ankenList, setAnkenList] = useState<NippouAnkenUI[]>([]);
   const [tableId, setTableId] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // 手動並び替え(業者キー→トークン順)。未設定は撮影日昇順。
+  const [manualOrder, setManualOrder] = useState<Record<string, string[]>>({});
 
   // ② 追加state
   const [captions, setCaptions] = useState<Record<string, Caption>>({});
@@ -180,8 +182,17 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
         });
       }
     }
-    return Array.from(map.values()).filter((g) => g.photos.length > 0);
-  }, [reports, ankenList]);
+    const result = Array.from(map.values()).filter((g) => g.photos.length > 0);
+    // 手動並び替えを適用(撮影日昇順を基準に上書き)
+    for (const g of result) {
+      const ord = manualOrder[g.key];
+      if (ord && ord.length) {
+        const pos = new Map(ord.map((t, i) => [t, i] as const));
+        g.photos.sort((a, b) => (pos.get(a.token) ?? 1e9) - (pos.get(b.token) ?? 1e9));
+      }
+    }
+    return result;
+  }, [reports, ankenList, manualOrder]);
 
   const allTokens = useMemo(() => groups.flatMap((g) => g.photos.map((p) => p.token)), [groups]);
 
@@ -223,6 +234,17 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
 
   const setCap = (token: string, patch: Partial<Caption>) =>
     setCaptions((prev) => ({ ...prev, [token]: { ...prev[token], ...patch } }));
+
+  // 写真を業者グループ内で前(-1)/後(+1)へ移動
+  const movePhoto = (g: ContractorGroup, token: string, dir: -1 | 1) => {
+    const cur = g.photos.map((p) => p.token); // 現在の表示順
+    const idx = cur.indexOf(token);
+    const ni = idx + dir;
+    if (idx < 0 || ni < 0 || ni >= cur.length) return;
+    const next = [...cur];
+    [next[idx], next[ni]] = [next[ni], next[idx]];
+    setManualOrder((prev) => ({ ...prev, [g.key]: next }));
+  };
 
   const imgSrc = (p: LedgerPhoto) =>
     `/api/file/proxy?file_token=${encodeURIComponent(p.token)}&table_id=${encodeURIComponent(tableId)}&name=${encodeURIComponent(p.name)}`;
@@ -420,7 +442,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
         <div className="flex flex-col xl:flex-row gap-4">
           {/* 写真選択 */}
           <div className="xl:w-[38%] space-y-3">
-            <p className="text-xs font-semibold text-gray-500">写真を選択（クリックで選択/解除）</p>
+            <p className="text-xs font-semibold text-gray-500">写真を選択（クリックで選択/解除・ホバーで ◀ ▶ 並べ替え）</p>
             {groups.map((g) => {
               const groupAll = g.photos.every((p) => selected.has(p.token));
               const groupSel = g.photos.filter((p) => selected.has(p.token)).length;
@@ -437,10 +459,10 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
                     {g.photos.map((p, i) => {
                       const on = selected.has(p.token);
                       return (
-                        <button
+                        <div
                           key={`${p.token}-${i}`}
                           onClick={() => toggle(p.token)}
-                          className={`group relative rounded-md overflow-hidden border-2 ${on ? "border-fuchsia-500" : "border-transparent hover:border-gray-200"}`}
+                          className={`group relative rounded-md overflow-hidden border-2 cursor-pointer ${on ? "border-fuchsia-500" : "border-transparent hover:border-gray-200"}`}
                           title={`${p.reportDate} ${p.content}`}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -448,7 +470,29 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
                           <span className={`absolute top-0.5 left-0.5 rounded p-0.5 ${on ? "bg-fuchsia-600 text-white" : "bg-white/80 text-gray-400"}`}>
                             {on ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
                           </span>
-                        </button>
+                          <span className="absolute top-0.5 right-0.5 rounded bg-black/45 px-1 text-[9px] text-white">{i + 1}</span>
+                          {/* 並べ替え(前へ/後へ) */}
+                          <div className="absolute bottom-0 inset-x-0 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); movePhoto(g, p.token, -1); }}
+                              disabled={i === 0}
+                              className="bg-black/55 text-white p-0.5 hover:bg-black/75 disabled:opacity-25"
+                              title="前へ移動"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); movePhoto(g, p.token, 1); }}
+                              disabled={i === g.photos.length - 1}
+                              className="bg-black/55 text-white p-0.5 hover:bg-black/75 disabled:opacity-25"
+                              title="後へ移動"
+                            >
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>

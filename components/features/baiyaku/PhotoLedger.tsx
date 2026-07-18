@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive, Upload } from "lucide-react";
+import { uploadDocumentFile, prepareImageForUpload, UPLOAD_MAX_BYTES } from "@/lib/document-upload";
 
 interface NippouReportUI {
   record_id: string;
@@ -499,15 +500,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     }
   };
 
-  const blobToBase64 = (blob: Blob): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const fr = new FileReader();
-      fr.onload = () => resolve(String(fr.result)); // data:...;base64,xxxx
-      fr.onerror = () => reject(fr.error);
-      fr.readAsDataURL(blob);
-    });
-
-  // ④ 案件書庫保管: 生成PDFを 工務課「工事写真台帳」列へアップロード(資料DL可に)
+  // ④ 案件書庫保管: 生成PDFを 工務課「工事写真台帳」列へアップロード(資料DL可に)。生バイナリ送信で上限緩和。
   const handleStore = async () => {
     if (exporting || selectedCount === 0) return;
     if (!window.confirm("生成した工事写真台帳(PDF)を案件書庫に保管します。よろしいですか？")) return;
@@ -517,32 +510,22 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     try {
       const blob = await generatePdfBlob();
       const sizeMB = blob.size / (1024 * 1024);
-      const fileData = await blobToBase64(blob);
-      const res = await fetch("/api/documents/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const r = await uploadDocumentFile({
+        file: blob,
+        fileName: `${fileBase()}.pdf`,
+        mimeType: "application/pdf",
+        seiban,
+        department: "工務課",
+        documentType: "工事写真台帳",
+        replace: false,
         signal: ctrl.signal,
-        body: JSON.stringify({
-          fileData,
-          fileName: `${fileBase()}.pdf`,
-          mimeType: "application/pdf",
-          seiban,
-          department: "工務課",
-          documentType: "工事写真台帳",
-          replace: false,
-        }),
       });
-      let data: any = {};
-      try {
-        data = await res.json();
-      } catch {
-        data = {};
-      }
-      if (res.ok && data.success) {
+      const data = r.data;
+      if (r.ok) {
         await saveSettings(); // 保管時点の編集内容を保存(Lark同時アクセスを避け、アップロード成功後に実行)
         window.alert("案件書庫に保管しました（資料ダウンロード／関連資料から取得できます）。");
       } else {
-        window.alert(`保管に失敗しました (HTTP ${res.status}${sizeMB > 8 ? ` / PDF約${sizeMB.toFixed(1)}MB` : ""}): ${data.error || "サーバーエラー"}`);
+        window.alert(`保管に失敗しました (HTTP ${r.status}${sizeMB > 5 ? ` / PDF約${sizeMB.toFixed(1)}MB（上限5MB）` : ""}): ${data.error || "サーバーエラー"}`);
       }
     } catch (e: any) {
       console.error("[photo-ledger] store error", e);
@@ -554,33 +537,8 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     }
   };
 
-  // ローカル写真を圧縮(長辺1600px/JPEG)してBlob化。アップロード容量・台帳の軽量化のため。
-  const compressImage = (file: File): Promise<Blob> =>
-    new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        const maxDim = 1600;
-        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-        const w = Math.max(1, Math.round(img.width * scale));
-        const h = Math.max(1, Math.round(img.height * scale));
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return reject(new Error("canvas未対応"));
-        ctx.drawImage(img, 0, 0, w, h);
-        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("画像変換に失敗"))), "image/jpeg", 0.85);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error("画像の読込に失敗"));
-      };
-      img.src = url;
-    });
-
   // ローカルからまとめて写真を案件書庫「工事写真アップロード」へ追加(追記式)。完了後に再読込で台帳へ反映。
+  // 画像は上限超過時のみ高品質圧縮で救済(共通ヘルパー)。送信は生バイナリ。
   const handleUpload = async (files: FileList) => {
     if (!files.length || uploading) return;
     setUploading(true);
@@ -593,24 +551,21 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
             fail++;
             continue;
           }
-          const blob = await compressImage(file);
-          const fileData = await blobToBase64(blob);
-          const fileName = `${file.name.replace(/\.[^.]+$/, "")}.jpg`;
-          const res = await fetch("/api/documents/upload", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              fileData,
-              fileName,
-              mimeType: "image/jpeg",
-              seiban,
-              department: "工務課",
-              documentType: "工事写真アップロード",
-              replace: false, // 追記(既存を保持して追加)
-            }),
+          const prepared = await prepareImageForUpload(file);
+          if (prepared.blob.size > UPLOAD_MAX_BYTES) {
+            fail++;
+            continue;
+          }
+          const r = await uploadDocumentFile({
+            file: prepared.blob,
+            fileName: prepared.fileName,
+            mimeType: prepared.mimeType,
+            seiban,
+            department: "工務課",
+            documentType: "工事写真アップロード",
+            replace: false, // 追記(既存を保持して追加)
           });
-          const d = await res.json().catch(() => ({}));
-          if (res.ok && d.success) ok++;
+          if (r.ok) ok++;
           else fail++;
         } catch {
           fail++;

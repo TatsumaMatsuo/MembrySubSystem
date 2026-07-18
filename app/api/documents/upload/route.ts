@@ -8,8 +8,11 @@ import { isDangerousUploadName } from "@/lib/upload-validation";
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // アップロードには時間がかかる場合があるため
 
-// ファイルサイズ上限: 4MB (Base64エンコード後に約5.3MBになるため、AWS Amplify 6MB制限内に収める)
-const MAX_FILE_SIZE = 4 * 1024 * 1024;
+// ファイルサイズ上限: 5MB。
+// AWS Amplify(Lambda)のリクエスト本文上限 約6MB が実質的な天井。
+// octet-stream(生バイナリ)送信ならBase64膨張(約1.37倍)が無いため、5MBの生ファイルでも本文は約5MBに収まり安全。
+// (従来のBase64 JSON送信は膨張のため実質4.3MBが限界だった)
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
   console.log("[upload] POST request received");
@@ -56,6 +59,24 @@ export async function POST(request: NextRequest) {
       documentType = json.documentType;
       replaceMode = json.replace === true || json.replace === "true";
       targetFileToken = json.targetFileToken || null;
+    } else if (contentType.includes("application/octet-stream")) {
+      // 生バイナリ形式 (Base64膨張を避け上限を引き上げるため。メタデータはクエリで受け取る)
+      const sp = request.nextUrl.searchParams;
+      const buffer = Buffer.from(await request.arrayBuffer());
+      if (buffer.length > MAX_FILE_SIZE) {
+        return NextResponse.json({
+          success: false,
+          error: `ファイルサイズが上限（${MAX_FILE_SIZE / 1024 / 1024}MB）を超えています`,
+        }, { status: 400 });
+      }
+      const fileName = sp.get("fileName") || "file";
+      const mimeType = sp.get("mimeType") || "application/octet-stream";
+      file = new File([buffer], fileName, { type: mimeType });
+      seiban = sp.get("seiban");
+      documentType = sp.get("documentType");
+      replaceMode = sp.get("replace") === "true";
+      targetFileToken = sp.get("targetFileToken") || null;
+      console.log("[upload] octet-stream payload received:", { fileName, seiban, documentType, size: buffer.length });
     } else {
       // FormData形式 (従来の方式)
       const formData = await request.formData();

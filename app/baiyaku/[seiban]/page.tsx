@@ -74,6 +74,7 @@ import { DOCUMENT_CATEGORIES } from "@/lib/lark-tables";
 import PdfThumbnail from "@/components/PdfThumbnail";
 import { ImageDiff } from "@/components/ImageDiff";
 import { PhotoLedger } from "@/components/features/baiyaku/PhotoLedger";
+import { uploadDocumentFile, prepareImageForUpload, UPLOAD_MAX_BYTES } from "@/lib/document-upload";
 import JSZip from "jszip";
 
 interface PageProps {
@@ -576,23 +577,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     }
   };
 
-  // ファイルサイズ上限: 4MB（Base64エンコード後に約5.3MBになるため、AWS Amplify 6MB制限内に収める）
-  const MAX_FILE_SIZE = 4 * 1024 * 1024;
-
-  // ファイルをBase64に変換するヘルパー関数
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        // data:image/png;base64,xxxxx 形式から base64 部分のみ取り出す
-        const base64 = result.split(",")[1] || result;
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
+  // ファイルサイズ上限: 5MB（生バイナリ送信でBase64膨張が無いため、AWS Amplify 6MB制限内に収まる）
+  const MAX_FILE_SIZE = UPLOAD_MAX_BYTES;
 
   // ファイル選択（<input>）時の処理
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -604,60 +590,42 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const uploadSelectedFile = async (file: File) => {
     if (!uploadTarget) return;
 
-    // ファイルサイズチェック
-    if (file.size > MAX_FILE_SIZE) {
-      alert(`ファイルサイズが上限（${MAX_FILE_SIZE / 1024 / 1024}MB）を超えています。\n小さいファイルを選択してください。`);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      return;
-    }
-
     setUploading(true);
 
     try {
-      // ファイルをBase64に変換（FileReader使用でより信頼性の高い変換）
-      const base64 = await fileToBase64(file);
-
-      console.log("[upload] Sending upload request:", {
-        fileName: file.name,
-        fileSize: file.size,
-        base64Length: base64.length,
-        documentType: uploadTarget.docType,
-      });
-
-      // JSON形式でアップロード（AWS Amplifyの制限を回避）
-      const response = await fetch("/api/documents/upload", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fileData: base64,
-          fileName: file.name,
-          mimeType: file.type,
-          seiban: seiban,
-          department: uploadTarget.dept,
-          documentType: uploadTarget.docType,
-          replace: uploadTarget.replace,
-          targetFileToken: uploadTarget.targetFileToken,
-        }),
-      });
-
-      console.log("[upload] Response status:", response.status);
-
-      // レスポンスがJSONかどうかを確認
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text();
-        console.error("Non-JSON response:", text.substring(0, 500));
-        alert(`アップロードに失敗しました: サーバーエラー (${response.status})`);
+      // 画像は上限超過時のみ高品質圧縮で救済(劣化を抑制)。画像以外はそのまま。
+      const prepared = await prepareImageForUpload(file, MAX_FILE_SIZE);
+      if (prepared.blob.size > MAX_FILE_SIZE) {
+        alert(
+          `ファイルサイズが上限（${MAX_FILE_SIZE / 1024 / 1024}MB）を超えています。\n` +
+            (file.type.startsWith("image/") ? "画像を縮小しても上限内に収まりませんでした。" : "この形式は圧縮できないため、小さいファイルを選択してください。")
+        );
+        if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
 
-      const data = await response.json();
+      console.log("[upload] Sending upload request:", {
+        fileName: prepared.fileName,
+        originalSize: file.size,
+        sendSize: prepared.blob.size,
+        documentType: uploadTarget.docType,
+      });
 
-      if (data.success) {
+      // 生バイナリ(octet-stream)でアップロード
+      const { ok, status, data } = await uploadDocumentFile({
+        file: prepared.blob,
+        fileName: prepared.fileName,
+        mimeType: prepared.mimeType,
+        seiban: seiban,
+        department: uploadTarget.dept,
+        documentType: uploadTarget.docType,
+        replace: uploadTarget.replace,
+        targetFileToken: uploadTarget.targetFileToken,
+      });
+
+      console.log("[upload] Response status:", status);
+
+      if (ok && data.success) {
         // 履歴を記録（差替えの場合は変更前のトークン、新規アップロードしたトークンを渡す）
         const operationType: OperationType = uploadTarget.replace ? "差替" : "追加";
         const beforeToken = uploadTarget.replace ? uploadTarget.targetFileToken : undefined;

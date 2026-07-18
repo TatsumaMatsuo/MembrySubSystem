@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MainLayout } from "@/components/layout";
-import { GanttChartSquare, Plus, Search, RefreshCw, Trash2, Pencil, Loader2 } from "lucide-react";
+import { GanttChartSquare, Plus, Search, RefreshCw, Trash2, Pencil, Loader2, LayoutTemplate } from "lucide-react";
 import type { GanttChartMeta } from "@/lib/gantt/types";
 
 function fmtDate(ms?: number): string {
@@ -63,12 +63,20 @@ export default function GanttListPage() {
             <h1 className="text-lg sm:text-xl font-extrabold flex items-center gap-2 text-gray-800">
               <GanttChartSquare className="w-6 h-6 text-indigo-600" /> ガントチャート
             </h1>
-            <button
-              onClick={() => router.push("/eigyo/gantt/edit")}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
-            >
-              <Plus className="w-4 h-4" /> 新規作成
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push("/eigyo/gantt/templates")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50"
+              >
+                <LayoutTemplate className="w-4 h-4" /> 工程ひな形
+              </button>
+              <button
+                onClick={() => router.push("/eigyo/gantt/edit")}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+              >
+                <Plus className="w-4 h-4" /> 新規作成
+              </button>
+            </div>
           </div>
           {/* 検索 */}
           <form

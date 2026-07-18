@@ -6,12 +6,27 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MainLayout } from "@/components/layout";
 import { GanttChart } from "@/components/features/eigyo/GanttChart";
-import { ArrowLeft, Plus, Save, Copy, Trash2, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
-import type { GanttTaskData, GanttUnit, GanttChartFull } from "@/lib/gantt/types";
+import { fetchJson } from "@/lib/fetch-json";
+import { ArrowLeft, Plus, Save, Copy, Trash2, ChevronUp, ChevronDown, Loader2, LayoutTemplate, X } from "lucide-react";
+import type { GanttTaskData, GanttUnit, GanttChartFull, GanttTemplateMeta, GanttTemplateFull } from "@/lib/gantt/types";
 
 function todayStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+// YYYY-MM-DD をローカル日付として扱い、日数を加減算する
+function addDays(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  dt.setDate(dt.getDate() + days);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+function diffDays(from: string, to: string): number {
+  const [ay, am, ad] = from.split("-").map(Number);
+  const [by, bm, bd] = to.split("-").map(Number);
+  const a = new Date(ay, (am || 1) - 1, ad || 1).getTime();
+  const b = new Date(by, (bm || 1) - 1, bd || 1).getTime();
+  return Math.round((b - a) / 86400000);
 }
 function newId(): string {
   try {
@@ -46,6 +61,16 @@ function GanttEditInner() {
   const [tasks, setTasks] = useState<GanttTaskData[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<null | "save" | "saveas">(null);
+
+  // ひな形連携
+  const [tplModal, setTplModal] = useState(false);
+  const [tplList, setTplList] = useState<GanttTemplateMeta[]>([]);
+  const [tplLoading, setTplLoading] = useState(false);
+  const [tplSel, setTplSel] = useState<string>("");
+  const [tplBaseDate, setTplBaseDate] = useState<string>(todayStr());
+  const [tplMode, setTplMode] = useState<"replace" | "append">("replace");
+  const [tplApplying, setTplApplying] = useState(false);
+  const [savingTpl, setSavingTpl] = useState(false);
 
   const load = useCallback(async (cid: string) => {
     setLoading(true);
@@ -141,6 +166,102 @@ function GanttEditInner() {
     }
   };
 
+  // ---- ひな形連携 ----
+  const openTplModal = async () => {
+    setTplMode(tasks.length ? "append" : "replace");
+    setTplModal(true);
+    setTplLoading(true);
+    try {
+      const res = await fetchJson<{ success: boolean; templates?: GanttTemplateMeta[]; error?: string }>(
+        "/api/eigyo/gantt/templates"
+      );
+      if (res.success) {
+        setTplList(res.templates || []);
+        if (!tplSel && res.templates?.[0]) setTplSel(res.templates[0].id);
+      } else window.alert(res.error || "ひな形一覧の取得に失敗しました");
+    } catch (e: any) {
+      window.alert(e?.message || "通信に失敗しました");
+    } finally {
+      setTplLoading(false);
+    }
+  };
+
+  const applyTemplate = async () => {
+    if (!tplSel) {
+      window.alert("ひな形を選択してください");
+      return;
+    }
+    if (!tplBaseDate) {
+      window.alert("基準日を入力してください");
+      return;
+    }
+    setTplApplying(true);
+    try {
+      const res = await fetchJson<{ success: boolean; template?: GanttTemplateFull; error?: string }>(
+        `/api/eigyo/gantt/templates/${encodeURIComponent(tplSel)}`
+      );
+      if (!res.success || !res.template) {
+        window.alert(res.error || "ひな形の取得に失敗しました");
+        return;
+      }
+      const steps = res.template.data?.steps || [];
+      const generated: GanttTaskData[] = steps.map((s) => {
+        const start = addDays(tplBaseDate, Math.max(0, Number(s.offset) || 0));
+        const end = addDays(start, Math.max(1, Number(s.days) || 1) - 1);
+        return { id: newId(), name: s.name, start, end, assignee: "", progress: 0, notes: s.notes || "" };
+      });
+      setTasks((prev) => (tplMode === "append" ? [...prev, ...generated] : generated));
+      if (tplMode === "replace" && !title.trim()) setTitle(res.template.name || "");
+      setTplModal(false);
+    } catch (e: any) {
+      window.alert(e?.message || "通信に失敗しました");
+    } finally {
+      setTplApplying(false);
+    }
+  };
+
+  const saveAsTemplate = async () => {
+    if (savingTpl) return;
+    const usable = tasks.filter((t) => t.name.trim() && t.start);
+    if (usable.length === 0) {
+      window.alert("工程名と開始日のあるタスクがありません");
+      return;
+    }
+    const defName = title.trim() ? `${title.trim()}（ひな形）` : "";
+    const name = window.prompt("ひな形名を入力してください", defName);
+    if (name == null) return;
+    if (!name.trim()) {
+      window.alert("ひな形名を入力してください");
+      return;
+    }
+    const category = window.prompt("分類（任意・空欄可）", "") || "";
+    // 基準日 = 最も早い開始日。各工程 offset/days をそこからの相対で算出。
+    const base = usable.reduce((min, t) => (t.start < min ? t.start : min), usable[0].start);
+    const steps = usable.map((t) => {
+      const end = t.end && t.end >= t.start ? t.end : t.start;
+      return {
+        name: t.name.trim(),
+        offset: Math.max(0, diffDays(base, t.start)),
+        days: Math.max(1, diffDays(t.start, end) + 1),
+        notes: (t.notes || "").trim() || undefined,
+      };
+    });
+    setSavingTpl(true);
+    try {
+      const res = await fetchJson<{ success: boolean; id?: string; error?: string }>("/api/eigyo/gantt/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), category: category.trim(), active: true, data: { steps } }),
+      });
+      if (res.success) window.alert("ひな形として保存しました");
+      else window.alert(res.error || "ひな形の保存に失敗しました");
+    } catch (e: any) {
+      window.alert(e?.message || "ひな形の保存に失敗しました");
+    } finally {
+      setSavingTpl(false);
+    }
+  };
+
   const taskCount = tasks.length;
   const chart = useMemo(() => <GanttChart tasks={tasks} unit={unit} onDateChange={onBarDateChange} />, [tasks, unit]);
 
@@ -178,6 +299,12 @@ function GanttEditInner() {
               ))}
             </div>
             <div className="flex-1" />
+            <button onClick={openTplModal} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50" title="ひな形と基準日から工程を生成">
+              <LayoutTemplate className="w-4 h-4" /> ひな形から生成
+            </button>
+            <button onClick={saveAsTemplate} disabled={savingTpl} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" title="現在の工程をひな形として保存">
+              {savingTpl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} ひな形化
+            </button>
             <button onClick={() => save(false)} disabled={!!saving} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
               {saving === "save" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 保存
             </button>
@@ -256,6 +383,69 @@ function GanttEditInner() {
             {/* 右: ガントチャート */}
             <div className="xl:flex-1 rounded-xl border border-gray-200 bg-white shadow-sm p-2 min-h-0 overflow-auto">
               {chart}
+            </div>
+          </div>
+        )}
+
+        {/* ひな形から生成モーダル */}
+        {tplModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !tplApplying && setTplModal(false)}>
+            <div className="w-full max-w-md rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h2 className="flex items-center gap-2 text-base font-bold text-gray-800">
+                  <LayoutTemplate className="w-5 h-5 text-indigo-600" /> ひな形から生成
+                </h2>
+                <button onClick={() => setTplModal(false)} disabled={tplApplying} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-50">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-4 px-4 py-4">
+                {tplLoading ? (
+                  <div className="flex items-center justify-center py-8 text-gray-500">
+                    <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                  </div>
+                ) : tplList.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-sm text-gray-400">
+                    有効なひな形がありません。
+                    <button onClick={() => router.push("/eigyo/gantt/templates")} className="ml-1 text-indigo-600 hover:underline">
+                      ひな形を作成
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-semibold text-gray-600">ひな形</span>
+                      <select value={tplSel} onChange={(e) => setTplSel(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100">
+                        {tplList.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.category ? `[${t.category}] ` : ""}{t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-semibold text-gray-600">基準日（着工日など）</span>
+                      <input type="date" value={tplBaseDate} onChange={(e) => setTplBaseDate(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100" />
+                      <span className="mt-1 block text-[11px] text-gray-400">各工程の「開始(日後)」をこの日から加算して生成します。</span>
+                    </label>
+                    {tasks.length > 0 && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <span className="text-xs font-semibold text-gray-600">既存タスク:</span>
+                        <label className="inline-flex items-center gap-1"><input type="radio" checked={tplMode === "replace"} onChange={() => setTplMode("replace")} /> 置き換え</label>
+                        <label className="inline-flex items-center gap-1"><input type="radio" checked={tplMode === "append"} onChange={() => setTplMode("append")} /> 追加</label>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-4 py-3">
+                <button onClick={() => setTplModal(false)} disabled={tplApplying} className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                  キャンセル
+                </button>
+                <button onClick={applyTemplate} disabled={tplApplying || tplLoading || tplList.length === 0} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+                  {tplApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} 生成
+                </button>
+              </div>
             </div>
           </div>
         )}

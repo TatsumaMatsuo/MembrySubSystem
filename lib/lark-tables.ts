@@ -106,6 +106,9 @@ export function getLarkTables() {
     // 工事写真台帳_設定（#94 台帳作成の下書き状態を製番ごとに保存。project base）
     // 環境変数 or 実行時に名称「工事写真台帳設定」でテーブルIDを自動解決（route側）。
     KOJI_LEDGER_SETTINGS: process.env.LARK_TABLE_KOJI_LEDGER_SETTINGS || "tbl2gxbdiu0oJl3o",
+    // ガントチャート機能（#95 営業部支援ツール。project base）
+    GANTT_CHART: process.env.LARK_TABLE_GANTT_CHART || "tblZu9auJGP1Jsbn",
+    GANTT_TEMPLATE: process.env.LARK_TABLE_GANTT_TEMPLATE || "tbljLtonssQbpHAx",
   };
 }
 
@@ -168,7 +171,38 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   NIPPOU_ANKEN: "project",
   // 工事写真台帳_設定
   KOJI_LEDGER_SETTINGS: "project",
+  // ガントチャート機能
+  GANTT_CHART: "project",
+  GANTT_TEMPLATE: "project",
 };
+
+/**
+ * ガントチャートテーブルのフィールド定義（#95）
+ * 作成者=テキスト(実ユーザー名を書込)、作成日時/更新日時=日付(epoch ms書込)。
+ */
+export const GANTT_CHART_FIELDS = {
+  chart_id: "チャートID",
+  title: "題名",
+  seiban: "売約番号",
+  data_json: "データJSON",
+  created_by: "作成者", // テキスト。作成時に実ユーザー名
+  created_at: "作成日時", // 日付。作成時のepoch ms
+  updated_at: "更新日時", // 日付。更新時のepoch ms
+} as const;
+
+/**
+ * ガントひな形テーブルのフィールド定義（#95）
+ * 更新者=テキスト、更新日時=日付。
+ */
+export const GANTT_TEMPLATE_FIELDS = {
+  template_id: "ひな形ID",
+  name: "ひな形名",
+  category: "分類",
+  is_active: "有効フラグ",
+  data_json: "データJSON",
+  updated_by: "更新者", // テキスト
+  updated_at: "更新日時", // 日付。epoch ms
+} as const;
 
 /**
  * 工事写真台帳_設定テーブルのフィールド定義（#94）

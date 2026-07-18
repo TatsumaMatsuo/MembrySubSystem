@@ -41,20 +41,27 @@ export function GanttChart({
   onClickTask?: (id: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const ganttRef = useRef<any>(null);
   const cbRef = useRef({ onDateChange, onClickTask });
   cbRef.current = { onDateChange, onClickTask };
+  // バーD&D由来の更新は「React→Ganttの再描画」を1回スキップ(ちらつき/ジャンプ防止)
+  const skipSyncRef = useRef(false);
 
+  // 構造シグネチャ: タスクの増減・並び・単位・readonly が変わった時だけ作り直す
+  const structuralSig = tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0");
+
+  // 生成/再生成（構造変化時のみ）
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const mod: any = await import("frappe-gantt");
       const Gantt = mod.default || mod;
       if (cancelled || !containerRef.current) return;
-      containerRef.current.innerHTML = ""; // 作り直し
+      containerRef.current.innerHTML = "";
+      ganttRef.current = null;
       if (!tasks.length) return;
       try {
-        // eslint-disable-next-line no-new
-        new Gantt(containerRef.current, tasks.map(toFg), {
+        ganttRef.current = new Gantt(containerRef.current, tasks.map(toFg), {
           view_mode: UNIT_TO_MODE[unit],
           today_button: true,
           view_mode_select: false,
@@ -63,6 +70,7 @@ export function GanttChart({
           popup_on: "hover",
           infinite_padding: true,
           on_date_change: (task: any, start: Date, end: Date) => {
+            skipSyncRef.current = true; // 自分のドラッグ結果はGanttが既に反映済み→作り直さない
             cbRef.current.onDateChange?.(task.id, fmt(start), fmt(end));
           },
           on_click: (task: any) => {
@@ -76,7 +84,24 @@ export function GanttChart({
     return () => {
       cancelled = true;
     };
-  }, [tasks, unit, readonly]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [structuralSig]);
+
+  // 同期（グリッド編集＝日付/名称/進捗の変更を既存インスタンスへ反映）。ドラッグ由来はスキップ。
+  useEffect(() => {
+    if (skipSyncRef.current) {
+      skipSyncRef.current = false;
+      return;
+    }
+    const g = ganttRef.current;
+    if (!g || !tasks.length) return;
+    try {
+      g.refresh(tasks.map(toFg));
+    } catch (e) {
+      console.error("[GanttChart] refresh error", e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks]);
 
   return (
     <div className="w-full overflow-auto">

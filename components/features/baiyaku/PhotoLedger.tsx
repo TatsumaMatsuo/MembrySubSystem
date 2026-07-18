@@ -10,7 +10,7 @@
 // 画像は /api/file/proxy(同一オリジンでinline配信, 後段のhtml2canvasでもCORS汚染なし)を直接 <img src> に指定。
 
 import { useEffect, useMemo, useState } from "react";
-import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive } from "lucide-react";
+import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive, FileSpreadsheet } from "lucide-react";
 
 interface NippouReportUI {
   record_id: string;
@@ -124,7 +124,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   const [groupByContractor, setGroupByContractor] = useState(true);
   const [includeCover, setIncludeCover] = useState(true);
   const [coverOpen, setCoverOpen] = useState(false);
-  const [exporting, setExporting] = useState<null | "pdf" | "store">(null);
+  const [exporting, setExporting] = useState<null | "pdf" | "store" | "excel">(null);
   // 下書き(サーバ保存)の復元。undefined=未読込 / null=下書きなし / obj=あり
   const [pendingDraft, setPendingDraft] = useState<LedgerDraft | null | undefined>(undefined);
   const [hydrated, setHydrated] = useState(false); // 選択状態を下書き/初期値で一度だけ確定したか
@@ -518,6 +518,145 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     }
   };
 
+  // 選択中の写真を業者グループ順(業者ごと改ページOFF時は一続き)で列挙。Excel/集計で共通利用。
+  const selectedByGroup = (): { label: string; items: LedgerPhoto[] }[] => {
+    if (groupByContractor) {
+      return groups
+        .map((g) => ({ label: g.label, items: g.photos.filter((p) => selected.has(p.token)) }))
+        .filter((x) => x.items.length > 0);
+    }
+    const items = groups.flatMap((g) => g.photos).filter((p) => selected.has(p.token));
+    return items.length ? [{ label: "", items }] : [];
+  };
+
+  // ⑤ EXCEL出力: 写真を埋め込んだ表形式(No/写真/撮影日/工種・内容/撮影者/備考)のxlsxを生成。
+  const generateExcelBlob = async (): Promise<Blob> => {
+    const ExcelJSmod: any = await import("exceljs");
+    const ExcelJS = ExcelJSmod.default || ExcelJSmod;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("工事写真台帳", {
+      pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } },
+    });
+    ws.columns = [{ width: 6 }, { width: 32 }, { width: 14 }, { width: 34 }, { width: 12 }, { width: 30 }];
+    let r = 1;
+    // タイトル
+    ws.mergeCells(r, 1, r, 6);
+    const title = ws.getCell(r, 1);
+    title.value = "工事写真台帳";
+    title.font = { bold: true, size: 16 };
+    title.alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(r).height = 26;
+    r++;
+    // 表紙情報
+    const coverRows: [string, string][] = [
+      ["工事名", cover.koujiName],
+      ["工事番号", cover.koujiNo],
+      ["施工場所", cover.place],
+      ["発注者", cover.client],
+      ["工期", cover.period],
+      ["施工者", cover.builder],
+      ["作成日", cover.createdAt],
+    ];
+    for (const [k, v] of coverRows) {
+      const kc = ws.getCell(r, 1);
+      kc.value = k;
+      kc.font = { bold: true };
+      kc.alignment = { vertical: "middle" };
+      ws.mergeCells(r, 2, r, 6);
+      ws.getCell(r, 2).value = v || "";
+      ws.getCell(r, 2).alignment = { vertical: "middle", wrapText: true };
+      r++;
+    }
+    r++; // 空行
+
+    const HDR = ["No", "写真", "撮影日", "工種・内容", "撮影者", "備考"];
+    const thin = { style: "thin" as const };
+    const border = { top: thin, left: thin, bottom: thin, right: thin };
+
+    // 画像を同一オリジンproxy経由で取得しbase64化(html2canvasと同じ経路)
+    const fetchImg = async (p: LedgerPhoto): Promise<{ b64: string; ext: "jpeg" | "png" | "gif" } | null> => {
+      try {
+        const res = await fetch(imgSrc(p));
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        const b64 = await blobToBase64(blob);
+        const ext = blob.type.includes("png") ? "png" : blob.type.includes("gif") ? "gif" : "jpeg";
+        return { b64, ext };
+      } catch {
+        return null;
+      }
+    };
+
+    for (const grp of selectedByGroup()) {
+      // 業者見出し
+      if (grp.label) {
+        ws.mergeCells(r, 1, r, 6);
+        const h = ws.getCell(r, 1);
+        h.value = `施工業者: ${grp.label}`;
+        h.font = { bold: true };
+        h.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3E8FF" } };
+        h.alignment = { vertical: "middle" };
+        ws.getRow(r).height = 20;
+        r++;
+      }
+      // 列見出し
+      HDR.forEach((label, i) => {
+        const c = ws.getCell(r, i + 1);
+        c.value = label;
+        c.font = { bold: true };
+        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } };
+        c.alignment = { horizontal: "center", vertical: "middle" };
+        c.border = border;
+      });
+      ws.getRow(r).height = 20;
+      r++;
+      // 写真行
+      let no = 1;
+      for (const p of grp.items) {
+        const c = captions[p.token] || { reportDate: p.reportDate, content: p.content, reporter: p.reporter, notes: p.notes };
+        ws.getRow(r).height = 105;
+        ws.getCell(r, 1).value = no;
+        ws.getCell(r, 1).alignment = { horizontal: "center", vertical: "middle" };
+        ws.getCell(r, 3).value = c.reportDate;
+        ws.getCell(r, 3).alignment = { vertical: "middle", wrapText: true };
+        ws.getCell(r, 4).value = c.content;
+        ws.getCell(r, 4).alignment = { vertical: "top", wrapText: true };
+        ws.getCell(r, 5).value = c.reporter;
+        ws.getCell(r, 5).alignment = { vertical: "middle", wrapText: true };
+        ws.getCell(r, 6).value = c.notes;
+        ws.getCell(r, 6).alignment = { vertical: "top", wrapText: true };
+        for (let ci = 1; ci <= 6; ci++) ws.getCell(r, ci).border = border;
+        const img = await fetchImg(p);
+        if (img) {
+          const id = wb.addImage({ base64: img.b64, extension: img.ext });
+          // B列セル内に収める(oneCellで行/列に追従)
+          ws.addImage(id, { tl: { col: 1.05, row: r - 1 + 0.05 } as any, ext: { width: 190, height: 132 }, editAs: "oneCell" });
+        }
+        r++;
+        no++;
+      }
+      r++; // グループ間の空行
+    }
+
+    const buf = await wb.xlsx.writeBuffer();
+    return new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  };
+
+  const handleExcel = async () => {
+    if (exporting || selectedCount === 0) return;
+    setExporting("excel");
+    try {
+      const blob = await generateExcelBlob();
+      triggerDownload(blob, `${fileBase()}.xlsx`);
+      await saveSettings(); // 出力時点の編集内容を保存
+    } catch (e: any) {
+      console.error("[photo-ledger] excel error", e);
+      window.alert(`EXCEL生成に失敗しました: ${e?.message || e}\n（写真の枚数を減らす／再読込のうえ再度お試しください）`);
+    } finally {
+      setExporting(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* ヘッダー */}
@@ -702,6 +841,14 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
                   PDF出力
                 </button>
                 <button
+                  onClick={handleExcel}
+                  disabled={!!exporting || selectedCount === 0}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                >
+                  {exporting === "excel" ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
+                  EXCEL出力
+                </button>
+                <button
                   onClick={handleStore}
                   disabled={!!exporting || selectedCount === 0}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-teal-300 bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-700 hover:bg-teal-100 disabled:opacity-50"
@@ -744,7 +891,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
                 )}
               </div>
             </div>
-            <p className="mt-2 text-[11px] text-gray-400">情報欄はプレビュー上で直接編集できます。PDF/Excel出力・案件書庫保管は次段階で追加します。</p>
+            <p className="mt-2 text-[11px] text-gray-400">情報欄はプレビュー上で直接編集できます。PDF出力・EXCEL出力・案件書庫保管を押すと、編集内容(表紙/コメント/並び順/選択)が保存されます。</p>
           </div>
         </div>
       )}

@@ -103,8 +103,14 @@ export function getLarkTables() {
     // 現場作業日報システム（project base）
     NIPPOU: process.env.LARK_TABLE_NIPPOU || "tbl428UNr7jZbN5D",
     NIPPOU_ANKEN: process.env.LARK_TABLE_NIPPOU_ANKEN || "tblH486vHdn7mixz",
+    // 工事写真台帳_設定（#94 台帳作成の下書き状態を製番ごとに保存。project base）
+    // 環境変数 or 実行時に名称「工事写真台帳設定」でテーブルIDを自動解決（route側）。
+    KOJI_LEDGER_SETTINGS: process.env.LARK_TABLE_KOJI_LEDGER_SETTINGS || "",
   };
 }
+
+/** 工事写真台帳_設定 テーブル名（IDが未設定のとき名称でテーブルIDを解決するのに使う） */
+export const KOJI_LEDGER_SETTINGS_TABLE_NAME = "工事写真台帳設定";
 
 /**
  * テーブルごとのBase設定
@@ -160,7 +166,19 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   // 現場作業日報システム
   NIPPOU: "project",
   NIPPOU_ANKEN: "project",
+  // 工事写真台帳_設定
+  KOJI_LEDGER_SETTINGS: "project",
 };
+
+/**
+ * 工事写真台帳_設定テーブルのフィールド定義（#94）
+ * 台帳作成画面の下書き（選択/並び順/コメント/表紙/レイアウト）を製番ごとにJSONで保存。
+ */
+export const KOJI_LEDGER_SETTINGS_FIELDS = {
+  seiban: "製番",
+  settings_json: "設定JSON",
+  updated_at: "更新日時",
+} as const;
 
 /**
  * テーブル名からBaseトークンを取得

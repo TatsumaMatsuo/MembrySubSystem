@@ -73,6 +73,19 @@ interface Cover {
   createdAt: string; // 作成日
 }
 
+// サーバ保存する下書き(製番ごと)。PDF出力/案件書庫保管時に保存し、次回開いた時に復元する。
+interface LedgerDraft {
+  version?: number;
+  savedAt?: string;
+  cover?: Partial<Cover>;
+  layout?: LayoutId;
+  groupByContractor?: boolean;
+  includeCover?: boolean;
+  manualOrder?: Record<string, string[]>;
+  selected?: string[]; // 対象(チェックON)のトークン。ここに無い写真は未チェック=新規追加分も自動でOFF
+  captions?: Record<string, Caption>;
+}
+
 // A4(96dpi)ピクセル。プレビューとPDF化(③)で共通利用。
 const A4_W = 794;
 const A4_H = 1123;
@@ -112,10 +125,14 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   const [includeCover, setIncludeCover] = useState(true);
   const [coverOpen, setCoverOpen] = useState(false);
   const [exporting, setExporting] = useState<null | "pdf" | "store">(null);
+  // 下書き(サーバ保存)の復元。undefined=未読込 / null=下書きなし / obj=あり
+  const [pendingDraft, setPendingDraft] = useState<LedgerDraft | null | undefined>(undefined);
+  const [hydrated, setHydrated] = useState(false); // 選択状態を下書き/初期値で一度だけ確定したか
 
   const load = async () => {
     setLoading(true);
     setError(null);
+    setHydrated(false); // 再取得時は選択状態を下書きから再確定する
     try {
       // Larkへの同時アクセスを避けるため順次取得(同時だと断続的に500になることがある)
       const nres = await fetch(`/api/nippou?seiban=${encodeURIComponent(seiban)}`).then((r) => r.json());
@@ -149,8 +166,25 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
           builder: d.sekousha || "山口産業株式会社",
         }));
       }
+      // 下書き(サーバ保存)を取得。あれば表紙/レイアウト/並び順を先に反映(選択はhydrationで確定)。失敗は握りつぶし。
+      let draft: LedgerDraft | null = null;
+      try {
+        const sres = await fetch(`/api/koji-ledger/settings?seiban=${encodeURIComponent(seiban)}`).then((r) => r.json());
+        if (sres?.success) draft = sres.data || null;
+      } catch {
+        /* 下書き無しとして続行 */
+      }
+      if (draft) {
+        if (draft.cover) setCover((c) => ({ ...c, ...draft!.cover }));
+        if (draft.layout && LAYOUTS[draft.layout]) setLayout(draft.layout);
+        if (typeof draft.groupByContractor === "boolean") setGroupByContractor(draft.groupByContractor);
+        if (typeof draft.includeCover === "boolean") setIncludeCover(draft.includeCover);
+        if (draft.manualOrder) setManualOrder(draft.manualOrder);
+      }
+      setPendingDraft(draft);
     } catch {
       setError("通信に失敗しました。");
+      setPendingDraft(null);
     } finally {
       setLoading(false);
     }
@@ -200,9 +234,8 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
 
   const allTokens = useMemo(() => groups.flatMap((g) => g.photos.map((p) => p.token)), [groups]);
 
-  // 初期: 全選択 + 情報欄を日報値で初期化
+  // 情報欄の初期値: 各写真に日報値を補完(既存/下書き値は保持。新規写真もここで日報既定が入る)
   useEffect(() => {
-    setSelected(new Set(allTokens));
     setCaptions((prev) => {
       const next = { ...prev };
       for (const g of groups) {
@@ -212,7 +245,22 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
       }
       return next;
     });
-  }, [allTokens, groups]);
+  }, [groups]);
+
+  // 選択状態を一度だけ確定(hydration)。
+  //  - 下書きあり: 保存時に対象だったトークンのみON。以降に追加された写真はここに無い=未チェック。
+  //  - 下書きなし: 全選択(従来動作)。
+  useEffect(() => {
+    if (loading || hydrated || pendingDraft === undefined) return;
+    if (pendingDraft && Array.isArray(pendingDraft.selected)) {
+      const exists = new Set(allTokens);
+      setSelected(new Set(pendingDraft.selected.filter((t) => exists.has(t))));
+      if (pendingDraft.captions) setCaptions((prev) => ({ ...prev, ...pendingDraft.captions }));
+    } else {
+      setSelected(new Set(allTokens));
+    }
+    setHydrated(true);
+  }, [loading, hydrated, pendingDraft, allTokens]);
 
   const totalPhotos = allTokens.length;
   const selectedCount = selected.size;
@@ -376,12 +424,37 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
     URL.revokeObjectURL(url);
   };
 
+  // 現在の編集状態を下書きとしてサーバ保存(製番ごと)。PDF出力/案件書庫保管時に呼ぶ。非致命(失敗しても本処理は継続)。
+  const saveSettings = async () => {
+    const settings: LedgerDraft = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      cover,
+      layout,
+      groupByContractor,
+      includeCover,
+      manualOrder,
+      selected: Array.from(selected),
+      captions,
+    };
+    try {
+      await fetch("/api/koji-ledger/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seiban, settings }),
+      });
+    } catch (e) {
+      console.error("[photo-ledger] save settings failed", e);
+    }
+  };
+
   const handlePdf = async () => {
     if (exporting || selectedCount === 0) return;
     setExporting("pdf");
     try {
       const blob = await generatePdfBlob();
       triggerDownload(blob, `${fileBase()}.pdf`);
+      await saveSettings(); // 出力時点の編集内容を保存
     } catch (e: any) {
       console.error("[photo-ledger] pdf error", e);
       window.alert(`PDF生成に失敗しました: ${e?.message || e}\n（写真の枚数を減らす／再読込のうえ再度お試しください）`);
@@ -430,6 +503,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
         data = {};
       }
       if (res.ok && data.success) {
+        await saveSettings(); // 保管時点の編集内容を保存(Lark同時アクセスを避け、アップロード成功後に実行)
         window.alert("案件書庫に保管しました（資料ダウンロード／関連資料から取得できます）。");
       } else {
         window.alert(`保管に失敗しました (HTTP ${res.status}${sizeMB > 8 ? ` / PDF約${sizeMB.toFixed(1)}MB` : ""}): ${data.error || "サーバーエラー"}`);

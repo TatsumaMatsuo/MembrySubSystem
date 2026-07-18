@@ -16,6 +16,7 @@ import {
   Eye,
   Download,
   Image as ImageIcon,
+  Images,
   File,
   Loader2,
   ChevronDown,
@@ -72,6 +73,7 @@ import type {
 import { DOCUMENT_CATEGORIES } from "@/lib/lark-tables";
 import PdfThumbnail from "@/components/PdfThumbnail";
 import { ImageDiff } from "@/components/ImageDiff";
+import { PhotoLedger } from "@/components/features/baiyaku/PhotoLedger";
 import JSZip from "jszip";
 
 interface PageProps {
@@ -1145,6 +1147,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     { id: "customer-requests", label: "顧客要求事項変更履歴", icon: <FileText className="w-5 h-5" />, color: "text-blue-500", activeColor: "text-blue-600" },
     { id: "quality-issues", label: "不具合情報", icon: <AlertTriangle className="w-5 h-5" />, color: "text-orange-500", activeColor: "text-orange-600" },
     { id: "nippou", label: "作業日報", icon: <Camera className="w-5 h-5" />, color: "text-rose-500", activeColor: "text-rose-600" },
+    { id: "photo-ledger", label: "工事写真台帳", icon: <Images className="w-5 h-5" />, color: "text-fuchsia-500", activeColor: "text-fuchsia-600" },
     { id: "gantt-chart", label: "ガントチャート", icon: <Calendar className="w-5 h-5" />, color: "text-emerald-500", activeColor: "text-emerald-600" },
     { id: "cost-analysis", label: "原価分析", icon: <TrendingUp className="w-5 h-5" />, color: "text-cyan-500", activeColor: "text-cyan-600" },
     { id: "documents", label: "関連資料", icon: <FolderOpen className="w-5 h-5" />, color: "text-purple-500", activeColor: "text-purple-600" },
@@ -2051,6 +2054,13 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* 工事写真台帳 (#94) */}
+          {activeMenu === "photo-ledger" && (
+            <div className="space-y-4">
+              <PhotoLedger seiban={seiban} />
             </div>
           )}
 

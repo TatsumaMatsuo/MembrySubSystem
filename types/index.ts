@@ -128,7 +128,8 @@ export type MenuItemType =
   | "construction-detail"
   | "documents"
   | "bulk-download"
-  | "nippou";
+  | "nippou"
+  | "photo-ledger";
 
 /**
  * 売約詳細情報の型定義

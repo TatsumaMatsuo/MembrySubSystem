@@ -90,6 +90,7 @@ function GanttEditInner() {
   // 表示: 縮尺(ズーム)・カレンダー表示月数・タスク枠の折りたたみ
   const [zoom, setZoom] = useState(1);
   const [displayMonths, setDisplayMonths] = useState(5); // カレンダーに収める月数（30N+1日を表示幅に収める）
+  const [baseDateOverride, setBaseDateOverride] = useState(""); // 基準日(カレンダー表示開始日)の手動指定。空=自動(最早開始日-3日)
   const [gridCollapsed, setGridCollapsed] = useState(false);
   // 会社カレンダーの休日（薄い赤）と出勤日（土日でも稼働）
   const [holidays, setHolidays] = useState<GanttHoliday[]>([]);
@@ -595,9 +596,16 @@ function GanttEditInner() {
 
   const taskCount = tasks.length;
   const fitDays = displayMonths * 30 + 1; // 例: 5か月 → 151日を表示幅に収める
+  // 基準日（カレンダー表示開始日）。既定=一番早い開始日の3日前。ユーザーが変更したらそれを優先。
+  const earliestStart = useMemo(() => {
+    const starts = tasks.map((t) => t.start).filter(Boolean);
+    return starts.length ? starts.reduce((a, b) => (b < a ? b : a)) : "";
+  }, [tasks]);
+  const autoBaseDate = earliestStart ? addDays(earliestStart, -3) : "";
+  const baseDate = baseDateOverride || autoBaseDate;
   const chart = useMemo(
-    () => <GanttChart tasks={tasks} unit={unit} zoom={zoom} fitDays={fitDays} holidays={holidays} workdays={workdays} onDateChange={onBarDateChange} />,
-    [tasks, unit, zoom, fitDays, holidays, workdays]
+    () => <GanttChart tasks={tasks} unit={unit} zoom={zoom} fitDays={fitDays} baseDate={baseDate} holidays={holidays} workdays={workdays} onDateChange={onBarDateChange} />,
+    [tasks, unit, zoom, fitDays, baseDate, holidays, workdays]
   );
 
   return (
@@ -652,6 +660,19 @@ function GanttEditInner() {
                   <option key={m} value={m}>{m}か月</option>
                 ))}
               </select>
+            </div>
+            {/* 基準日（カレンダー表示開始日。既定=最早開始日の3日前） */}
+            <div className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1" title="カレンダーの表示開始日（既定は一番早い開始日の3日前）">
+              <span className="text-xs text-gray-500">基準日</span>
+              <input
+                type="date"
+                value={baseDate}
+                onChange={(e) => setBaseDateOverride(e.target.value)}
+                className="bg-transparent text-xs font-medium text-gray-700 focus:outline-none"
+              />
+              {baseDateOverride && (
+                <button onClick={() => setBaseDateOverride("")} className="text-[10px] text-indigo-600 hover:underline" title="自動(最早開始日の3日前)に戻す">自動</button>
+              )}
             </div>
             <div className="flex-1" />
             <button onClick={openTplModal} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50" title="ひな型と基準日から工程を生成">

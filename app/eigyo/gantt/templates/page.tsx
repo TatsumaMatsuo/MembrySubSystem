@@ -78,7 +78,7 @@ export default function GanttTemplatesPage() {
         setNotes(t.data?.notes || "");
         setSteps(Array.isArray(t.data?.steps) && t.data.steps.length ? t.data.steps : [EMPTY_STEP()]);
       } else {
-        window.alert(res.error || "ひな形の取得に失敗しました");
+        window.alert(res.error || "ひな型の取得に失敗しました");
         setSelId(null);
       }
     } catch (e: any) {
@@ -106,7 +106,7 @@ export default function GanttTemplatesPage() {
   const save = async (asNew: boolean) => {
     if (saving) return;
     if (!name.trim()) {
-      window.alert("ひな形名を入力してください");
+      window.alert("ひな型名を入力してください");
       return;
     }
     const cleaned = steps
@@ -151,7 +151,7 @@ export default function GanttTemplatesPage() {
 
   const onDelete = async () => {
     if (!selId) return;
-    if (!window.confirm(`ひな形「${name || "(無題)"}」を削除します。よろしいですか？`)) return;
+    if (!window.confirm(`ひな型「${name || "(無題)"}」を削除します。よろしいですか？`)) return;
     setDeleting(true);
     try {
       const res = await fetchJson<{ success: boolean; error?: string }>(
@@ -204,20 +204,20 @@ export default function GanttTemplatesPage() {
                 <ArrowLeft className="w-4 h-4" /> ガント一覧
               </button>
               <h1 className="text-lg sm:text-xl font-extrabold flex items-center gap-2 text-gray-800">
-                <LayoutTemplate className="w-6 h-6 text-indigo-600" /> 工程ひな形マスタ
+                <LayoutTemplate className="w-6 h-6 text-indigo-600" /> 工程ひな型マスタ
               </h1>
             </div>
             <button onClick={openNew} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">
-              <Plus className="w-4 h-4" /> 新規ひな形
+              <Plus className="w-4 h-4" /> 新規ひな型
             </button>
           </div>
         </div>
 
         <div className="flex-1 flex flex-col lg:flex-row gap-3 p-3 min-h-0 overflow-auto">
-          {/* 左: ひな形一覧 */}
+          {/* 左: ひな型一覧 */}
           <div className="lg:w-80 flex-shrink-0 flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm min-h-0">
             <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-              <span className="text-sm font-semibold text-gray-700">ひな形一覧</span>
+              <span className="text-sm font-semibold text-gray-700">ひな型一覧</span>
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-1 text-xs text-gray-500">
                   <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} /> 無効も表示
@@ -235,7 +235,7 @@ export default function GanttTemplatesPage() {
               ) : listError ? (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{listError}</div>
               ) : visibleList.length === 0 ? (
-                <div className="px-3 py-8 text-center text-xs text-gray-400">ひな形はありません。</div>
+                <div className="px-3 py-8 text-center text-xs text-gray-400">ひな型はありません。</div>
               ) : (
                 <div className="space-y-3">
                   {grouped.map(([cat, items]) => (
@@ -277,7 +277,7 @@ export default function GanttTemplatesPage() {
             {!editing ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-gray-400">
                 <FilePlus className="w-10 h-10 text-gray-300" />
-                <div className="text-sm">左からひな形を選択、または「新規ひな形」で作成してください。</div>
+                <div className="text-sm">左からひな型を選択、または「新規ひな型」で作成してください。</div>
               </div>
             ) : loadingForm ? (
               <div className="flex flex-1 items-center justify-center text-gray-500">
@@ -291,7 +291,7 @@ export default function GanttTemplatesPage() {
                     <input
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="ひな形名（必須）"
+                      placeholder="ひな型名（必須）"
                       className="min-w-[180px] flex-1 max-w-sm rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
                     />
                     <input

@@ -191,12 +191,12 @@ export const GANTT_CHART_FIELDS = {
 } as const;
 
 /**
- * ガントひな形テーブルのフィールド定義（#95）
+ * ガントひな型テーブルのフィールド定義（#95）
  * 更新者=テキスト、更新日時=日付。
  */
 export const GANTT_TEMPLATE_FIELDS = {
-  template_id: "ひな形ID",
-  name: "ひな形名",
+  template_id: "ひな型ID",
+  name: "ひな型名",
   category: "分類",
   is_active: "有効フラグ",
   data_json: "データJSON",

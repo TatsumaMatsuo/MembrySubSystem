@@ -72,7 +72,7 @@ function GanttEditInner() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<null | "save" | "saveas">(null);
 
-  // ひな形連携
+  // ひな型連携
   const [tplModal, setTplModal] = useState(false);
   const [tplList, setTplList] = useState<GanttTemplateMeta[]>([]);
   const [tplLoading, setTplLoading] = useState(false);
@@ -198,7 +198,7 @@ function GanttEditInner() {
     }
   };
 
-  // ---- ひな形連携 ----
+  // ---- ひな型連携 ----
   const openTplModal = async () => {
     setTplMode(tasks.length ? "append" : "replace");
     setTplModal(true);
@@ -210,7 +210,7 @@ function GanttEditInner() {
       if (res.success) {
         setTplList(res.templates || []);
         if (!tplSel && res.templates?.[0]) setTplSel(res.templates[0].id);
-      } else window.alert(res.error || "ひな形一覧の取得に失敗しました");
+      } else window.alert(res.error || "ひな型一覧の取得に失敗しました");
     } catch (e: any) {
       window.alert(e?.message || "通信に失敗しました");
     } finally {
@@ -220,7 +220,7 @@ function GanttEditInner() {
 
   const applyTemplate = async () => {
     if (!tplSel) {
-      window.alert("ひな形を選択してください");
+      window.alert("ひな型を選択してください");
       return;
     }
     if (!tplBaseDate) {
@@ -233,7 +233,7 @@ function GanttEditInner() {
         `/api/eigyo/gantt/templates/${encodeURIComponent(tplSel)}`
       );
       if (!res.success || !res.template) {
-        window.alert(res.error || "ひな形の取得に失敗しました");
+        window.alert(res.error || "ひな型の取得に失敗しました");
         return;
       }
       const steps = res.template.data?.steps || [];
@@ -259,11 +259,11 @@ function GanttEditInner() {
       window.alert("工程名と開始日のあるタスクがありません");
       return;
     }
-    const defName = title.trim() ? `${title.trim()}（ひな形）` : "";
-    const name = window.prompt("ひな形名を入力してください", defName);
+    const defName = title.trim() ? `${title.trim()}（ひな型）` : "";
+    const name = window.prompt("ひな型名を入力してください", defName);
     if (name == null) return;
     if (!name.trim()) {
-      window.alert("ひな形名を入力してください");
+      window.alert("ひな型名を入力してください");
       return;
     }
     const category = window.prompt("分類（任意・空欄可）", "") || "";
@@ -285,10 +285,10 @@ function GanttEditInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), category: category.trim(), active: true, data: { steps } }),
       });
-      if (res.success) window.alert("ひな形として保存しました");
-      else window.alert(res.error || "ひな形の保存に失敗しました");
+      if (res.success) window.alert("ひな型として保存しました");
+      else window.alert(res.error || "ひな型の保存に失敗しました");
     } catch (e: any) {
-      window.alert(e?.message || "ひな形の保存に失敗しました");
+      window.alert(e?.message || "ひな型の保存に失敗しました");
     } finally {
       setSavingTpl(false);
     }
@@ -637,11 +637,11 @@ function GanttEditInner() {
               </button>
             </div>
             <div className="flex-1" />
-            <button onClick={openTplModal} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50" title="ひな形と基準日から工程を生成">
-              <LayoutTemplate className="w-4 h-4" /> ひな形から生成
+            <button onClick={openTplModal} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50" title="ひな型と基準日から工程を生成">
+              <LayoutTemplate className="w-4 h-4" /> ひな型から生成
             </button>
-            <button onClick={saveAsTemplate} disabled={savingTpl} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" title="現在の工程をひな形として保存">
-              {savingTpl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} ひな形化
+            <button onClick={saveAsTemplate} disabled={savingTpl} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" title="現在の工程をひな型として保存">
+              {savingTpl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} ひな型化
             </button>
             <button onClick={openPrintModal} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50" title="PDFを出力（項目を選択して1ページに出力）">
               <Printer className="w-4 h-4" /> PDF出力
@@ -793,13 +793,13 @@ function GanttEditInner() {
           </div>
         )}
 
-        {/* ひな形から生成モーダル */}
+        {/* ひな型から生成モーダル */}
         {tplModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !tplApplying && setTplModal(false)}>
             <div className="w-full max-w-md rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                 <h2 className="flex items-center gap-2 text-base font-bold text-gray-800">
-                  <LayoutTemplate className="w-5 h-5 text-indigo-600" /> ひな形から生成
+                  <LayoutTemplate className="w-5 h-5 text-indigo-600" /> ひな型から生成
                 </h2>
                 <button onClick={() => setTplModal(false)} disabled={tplApplying} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-50">
                   <X className="w-5 h-5" />
@@ -812,15 +812,15 @@ function GanttEditInner() {
                   </div>
                 ) : tplList.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-sm text-gray-400">
-                    有効なひな形がありません。
+                    有効なひな型がありません。
                     <button onClick={() => router.push("/eigyo/gantt/templates")} className="ml-1 text-indigo-600 hover:underline">
-                      ひな形を作成
+                      ひな型を作成
                     </button>
                   </div>
                 ) : (
                   <>
                     <label className="block">
-                      <span className="mb-1 block text-xs font-semibold text-gray-600">ひな形</span>
+                      <span className="mb-1 block text-xs font-semibold text-gray-600">ひな型</span>
                       <select value={tplSel} onChange={(e) => setTplSel(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100">
                         {tplList.map((t) => (
                           <option key={t.id} value={t.id}>

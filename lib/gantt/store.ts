@@ -171,7 +171,7 @@ export async function unlinkChartsBySeiban(seiban: string): Promise<number> {
   return count;
 }
 
-// ==================== ガントひな形 ====================
+// ==================== ガントひな型 ====================
 
 async function findTemplateRecord(id: string) {
   const tables = getLarkTables();
@@ -184,7 +184,7 @@ function toBool(v: unknown): boolean {
   return v === true || v === 1 || v === "true";
 }
 
-// 公開ひな形 or 自分が所有するひな形だけを閲覧できる（C: 共有＋個人の併用）
+// 公開ひな型 or 自分が所有するひな型だけを閲覧できる（C: 共有＋個人の併用）
 function canView(data: GanttTemplatePayload, userEmail?: string): boolean {
   if (data.isPublic !== false) return true; // 未設定/true は公開扱い(後方互換)
   return !!userEmail && data.ownerEmail === userEmail; // 非公開は所有者のみ
@@ -248,9 +248,9 @@ export async function upsertTemplate(input: {
   const existing = input.id ? await findTemplateRecord(input.id) : null;
   const id = input.id && existing ? input.id : genId("TMPL");
   const prev = existing ? parseJson<GanttTemplatePayload>(existing.fields?.[TF.data_json], { steps: [] }) : null;
-  // 非公開ひな形は所有者以外の更新を拒否
+  // 非公開ひな型は所有者以外の更新を拒否
   if (prev && prev.isPublic === false && input.user?.email && prev.ownerEmail && prev.ownerEmail !== input.user.email) {
-    throw new Error("このひな形は非公開のため、作成者のみ編集できます");
+    throw new Error("このひな型は非公開のため、作成者のみ編集できます");
   }
   const payload: GanttTemplatePayload = {
     ...input.data,
@@ -263,7 +263,7 @@ export async function upsertTemplate(input: {
   };
   const fields: Record<string, any> = {
     [TF.template_id]: id,
-    [TF.name]: input.name || "(無題ひな形)",
+    [TF.name]: input.name || "(無題ひな型)",
     [TF.category]: input.category || "",
     [TF.is_active]: input.active !== false,
     [TF.data_json]: JSON.stringify(payload),
@@ -280,7 +280,7 @@ export async function deleteTemplate(id: string, userEmail?: string): Promise<bo
   const rec = await findTemplateRecord(id);
   if (!rec?.record_id) return false;
   const data = parseJson<GanttTemplatePayload>(rec.fields?.[TF.data_json], { steps: [] });
-  if (!canView(data, userEmail)) throw new Error("このひな形は非公開のため、作成者のみ削除できます");
+  if (!canView(data, userEmail)) throw new Error("このひな型は非公開のため、作成者のみ削除できます");
   await deleteBaseRecord(tables.GANTT_TEMPLATE, rec.record_id);
   return true;
 }

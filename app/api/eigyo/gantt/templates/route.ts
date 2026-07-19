@@ -3,14 +3,14 @@ import { getServerSession } from "@/lib/auth-server";
 import { listTemplates, upsertTemplate, deleteTemplate } from "@/lib/gantt/store";
 import type { GanttTemplatePayload } from "@/lib/gantt/types";
 
-// ガントひな形 一覧/保存/削除（#95）
+// ガントひな型 一覧/保存/削除（#95）
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession();
     const includeInactive = request.nextUrl.searchParams.get("all") === "1";
-    // 公開ひな形＋自分のひな形だけを返す（C: 共有＋個人の併用）
+    // 公開ひな型＋自分のひな型だけを返す（C: 共有＋個人の併用）
     const templates = await listTemplates({ includeInactive, userEmail: session.user?.email });
     return NextResponse.json({ success: true, templates });
   } catch (e: any) {
@@ -28,9 +28,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const name = String(body?.name || "").trim();
     const data = body?.data as GanttTemplatePayload;
-    if (!name) return NextResponse.json({ success: false, error: "ひな形名は必須です" }, { status: 400 });
+    if (!name) return NextResponse.json({ success: false, error: "ひな型名は必須です" }, { status: 400 });
     if (!data || typeof data !== "object" || !Array.isArray(data.steps)) {
-      return NextResponse.json({ success: false, error: "ひな形データが不正です" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "ひな型データが不正です" }, { status: 400 });
     }
     const { id } = await upsertTemplate({
       id: body?.id ? String(body.id) : undefined,

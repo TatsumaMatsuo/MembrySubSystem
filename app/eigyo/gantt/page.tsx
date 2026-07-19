@@ -68,7 +68,7 @@ export default function GanttListPage() {
                 onClick={() => router.push("/eigyo/gantt/templates")}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50"
               >
-                <LayoutTemplate className="w-4 h-4" /> 工程ひな形
+                <LayoutTemplate className="w-4 h-4" /> 工程ひな型
               </button>
               <button
                 onClick={() => router.push("/eigyo/gantt/edit")}

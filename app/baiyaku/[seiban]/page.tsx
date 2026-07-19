@@ -551,14 +551,38 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       const JsPDF = jspdfMod.jsPDF || jspdfMod.default?.jsPDF || jspdfMod.default;
       if (typeof JsPDF !== "function") throw new Error("jsPDFの読み込みに失敗しました");
 
-      const canvas = await html2canvas(node, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        useCORS: true,
-        logging: false,
-        windowWidth: node.scrollWidth,
-        windowHeight: node.scrollHeight,
-      });
+      // ヘッダー（売約名＋工程表）＋工程表ボードを画面外に組んで一括キャプチャ
+      const esc = (s: string) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
+      const name = `${baiyaku?.hinmei || ""}${baiyaku?.hinmei2 ? " / " + baiyaku.hinmei2 : ""}`.trim();
+      const wrap = document.createElement("div");
+      wrap.style.cssText =
+        "position:fixed;left:-100000px;top:0;background:#ffffff;padding:16px;display:inline-block;font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN','Meiryo',sans-serif;color:#111827;";
+      const header = document.createElement("div");
+      header.style.cssText = "margin-bottom:10px;";
+      header.innerHTML =
+        `<div style="font-size:18px;font-weight:700;">${esc(name)}${name ? "　" : ""}工程表</div>` +
+        `<div style="font-size:12px;color:#4b5563;margin-top:2px;">製番: ${esc(seiban)}　作成日: ${dateStr}</div>`;
+      wrap.appendChild(header);
+      const clone = node.cloneNode(true) as HTMLElement;
+      clone.style.width = `${node.scrollWidth}px`;
+      wrap.appendChild(clone);
+      document.body.appendChild(wrap);
+
+      let canvas: HTMLCanvasElement;
+      try {
+        canvas = await html2canvas(wrap, {
+          scale: 2,
+          backgroundColor: "#ffffff",
+          useCORS: true,
+          logging: false,
+          windowWidth: wrap.scrollWidth,
+          windowHeight: wrap.scrollHeight,
+        });
+      } finally {
+        document.body.removeChild(wrap);
+      }
       const pdf = new JsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       const PW = pdf.internal.pageSize.getWidth();
       const PH = pdf.internal.pageSize.getHeight();

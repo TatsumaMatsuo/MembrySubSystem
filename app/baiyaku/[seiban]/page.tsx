@@ -373,6 +373,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   } | null>(null);
   const [importLoadingPreview, setImportLoadingPreview] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [initializing, setInitializing] = useState(false);
   const [collapsedDeptSections, setCollapsedDeptSections] = useState<Set<string>>(new Set());
   const [scheduleCollapsed, setScheduleCollapsed] = useState(false);
   const [costAnalysisData, setCostAnalysisData] = useState<CostAnalysisData | null>(null);
@@ -432,15 +433,12 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     setImportPreview(null);
     setImportLoadingList(true);
     try {
-      const res = await fetch(`/api/eigyo/gantt/charts?q=${encodeURIComponent(seiban)}`).then((r) => r.json());
-      let charts: any[] = res?.success ? res.charts || [] : [];
-      // この製番のガントを優先表示（見つからなければ全件から選べるよう再取得）
-      if (charts.length === 0) {
-        const all = await fetch(`/api/eigyo/gantt/charts`).then((r) => r.json());
-        charts = all?.success ? all.charts || [] : [];
-      }
-      // 当製番を先頭へ
-      charts.sort((a, b) => (b.seiban === seiban ? 1 : 0) - (a.seiban === seiban ? 1 : 0) || (b.updatedAt || 0) - (a.updatedAt || 0));
+      const res = await fetch(`/api/eigyo/gantt/charts`).then((r) => r.json());
+      const all: any[] = res?.success ? res.charts || [] : [];
+      // 既に製番が設定済（＝取込済）のガントは対象外にして表示しない
+      const charts = all
+        .filter((c) => !c.seiban)
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       setImportCharts(charts);
     } catch {
       setImportCharts([]);
@@ -489,7 +487,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       const res = await fetch("/api/schedule/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seiban, dates }),
+        body: JSON.stringify({ seiban, dates, chartId: importSelId }),
       }).then((r) => r.json());
       if (res?.success) {
         // 画面のscheduleDataを更新（UTC msへ変換）
@@ -512,6 +510,58 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       alert("取込に失敗しました");
     } finally {
       setImporting(false);
+    }
+  };
+
+  // 社内工程表の初期化（日付クリア＋工程表資料削除＋ガント売約番号解除）
+  const initSchedule = async () => {
+    if (initializing) return;
+    if (!confirm("社内工程表を初期化します。\n・全工程の開始/終了日をクリア\n・関連する『工程表』の資料があれば削除\n・紐づくガントの売約番号を解除\n\nよろしいですか？")) return;
+    setInitializing(true);
+    try {
+      // 1. 工程表資料を削除（全部門を走査して存在すれば）
+      const atts: Array<{ file_token?: string }> = [];
+      if (documents) {
+        for (const dept of Object.keys(documents)) {
+          const doc = (documents as any)[dept]?.["工程表"];
+          if (doc?.file_attachment?.length) atts.push(...doc.file_attachment);
+        }
+      }
+      for (const a of atts) {
+        if (!a?.file_token) continue;
+        try {
+          await fetch("/api/documents/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ seiban, documentType: "工程表", fileToken: a.file_token }),
+          });
+        } catch {
+          /* 個別削除の失敗は握りつぶし（初期化は継続） */
+        }
+      }
+      // 2. 工程日付クリア＋当製番に紐づくガントの売約番号解除
+      const res = await fetch("/api/schedule/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seiban }),
+      }).then((r) => r.json());
+      if (!res?.success) {
+        alert(res?.error || "初期化に失敗しました");
+        return;
+      }
+      // 3. 画面状態を更新
+      setScheduleData((prev) => (prev ? { ...prev, dates: {} } : prev));
+      try {
+        const docsRes = await fetch(`/api/documents?seiban=${encodeURIComponent(seiban)}`).then((r) => r.json());
+        if (docsRes?.success) setDocuments(docsRes.data);
+      } catch {
+        /* 書類再取得失敗は無視 */
+      }
+      alert("社内工程表を初期化しました");
+    } catch {
+      alert("初期化に失敗しました");
+    } finally {
+      setInitializing(false);
     }
   };
 
@@ -2350,6 +2400,15 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                     >
                       <Calendar className="w-4 h-4" />
                       保存ガントから取込
+                    </button>
+                    <button
+                      onClick={initSchedule}
+                      disabled={initializing}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                      title="社内工程表の日程をすべてクリアし、関連する工程表資料があれば削除します"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      {initializing ? "初期化中..." : "初期化"}
                     </button>
                     <button
                       onClick={() => { setScheduleCollapsed(false); setCollapsedDeptSections(new Set()); }}

@@ -567,6 +567,12 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       wrap.appendChild(header);
       const clone = node.cloneNode(true) as HTMLElement;
       clone.style.width = `${node.scrollWidth}px`;
+      // PDF時はsticky解除（html2canvasがstickyを右へ誤配置するため）。左パネルを通常フローで左寄せに。
+      const infoPanel = clone.querySelector<HTMLElement>("[data-gantt-info]");
+      if (infoPanel) {
+        infoPanel.style.position = "static";
+        infoPanel.style.left = "auto";
+      }
       wrap.appendChild(clone);
       document.body.appendChild(wrap);
 

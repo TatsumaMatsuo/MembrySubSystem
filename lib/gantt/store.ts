@@ -126,6 +126,31 @@ export async function deleteChart(id: string): Promise<boolean> {
   return true;
 }
 
+// ガントに売約番号を設定（売約詳細への取込時。当該ガントを製番へ紐付け）
+export async function setChartSeiban(id: string, seiban: string): Promise<boolean> {
+  const tables = getLarkTables();
+  const rec = await findChartRecord(id);
+  if (!rec?.record_id) return false;
+  await updateBaseRecord(tables.GANTT_CHART, rec.record_id, { [CF.seiban]: seiban || "" });
+  return true;
+}
+
+// 指定製番に紐づく全ガントの売約番号を空にする（社内工程表の初期化時）
+export async function unlinkChartsBySeiban(seiban: string): Promise<number> {
+  if (!seiban) return 0;
+  const tables = getLarkTables();
+  const res = await getBaseRecords(tables.GANTT_CHART, { pageSize: 200 });
+  const items = res.data?.items || [];
+  let count = 0;
+  for (const rec of items) {
+    if (text(rec.fields?.[CF.seiban]) === seiban && rec.record_id) {
+      await updateBaseRecord(tables.GANTT_CHART, rec.record_id, { [CF.seiban]: "" });
+      count++;
+    }
+  }
+  return count;
+}
+
 // ==================== ガントひな形 ====================
 
 async function findTemplateRecord(id: string) {

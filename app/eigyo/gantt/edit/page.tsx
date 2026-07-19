@@ -90,8 +90,9 @@ function GanttEditInner() {
   // 表示: 縮尺(ズーム)とタスク枠の折りたたみ
   const [zoom, setZoom] = useState(1);
   const [gridCollapsed, setGridCollapsed] = useState(false);
-  // 会社カレンダーの休日（背景色反映）
+  // 会社カレンダーの休日（薄い赤）と出勤日（土日でも稼働）
   const [holidays, setHolidays] = useState<GanttHoliday[]>([]);
+  const [workdays, setWorkdays] = useState<string[]>([]);
 
   const load = useCallback(async (cid: string) => {
     setLoading(true);
@@ -400,15 +401,16 @@ function GanttEditInner() {
         ix += c.w;
       }
     }
-    // 土日・会社休日の背景バンド（日/週表示のみ。バーの下）
+    // 土日・会社休日の背景バンド（日/週表示のみ。バーの下）。会社の出勤日は土日でも塗らない。
     if (unit !== "month") {
       const holSet = new Set(holidays.map((h) => h.date));
+      const workSet = new Set(workdays);
       for (let d = 0; d < totalDays; d++) {
         const ymd = addDays(from, d);
         const [yy, mm, da] = ymd.split("-").map(Number);
         const dow = new Date(yy, mm - 1, da).getDay();
         const isHol = holSet.has(ymd);
-        const isWknd = dow === 0 || dow === 6;
+        const isWknd = (dow === 0 || dow === 6) && !workSet.has(ymd);
         if (!isHol && !isWknd) continue;
         const left = infoWidth + Math.round(d * pxPerDay);
         const w = Math.max(1, Math.round(pxPerDay));
@@ -572,10 +574,13 @@ function GanttEditInner() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetchJson<{ success: boolean; holidays?: GanttHoliday[] }>(
+        const res = await fetchJson<{ success: boolean; holidays?: GanttHoliday[]; workdays?: string[] }>(
           `/api/eigyo/gantt/holidays?from=${holRange.from}&to=${holRange.to}`
         );
-        if (!cancelled && res.success) setHolidays(res.holidays || []);
+        if (!cancelled && res.success) {
+          setHolidays(res.holidays || []);
+          setWorkdays(res.workdays || []);
+        }
       } catch {
         // 休日反映は非致命（会社カレンダー未権限などでも本機能は継続）
       }
@@ -587,8 +592,8 @@ function GanttEditInner() {
 
   const taskCount = tasks.length;
   const chart = useMemo(
-    () => <GanttChart tasks={tasks} unit={unit} zoom={zoom} holidays={holidays} onDateChange={onBarDateChange} />,
-    [tasks, unit, zoom, holidays]
+    () => <GanttChart tasks={tasks} unit={unit} zoom={zoom} holidays={holidays} workdays={workdays} onDateChange={onBarDateChange} />,
+    [tasks, unit, zoom, holidays, workdays]
   );
 
   return (

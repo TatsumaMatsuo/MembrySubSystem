@@ -66,29 +66,46 @@ export async function GET(request: NextRequest) {
       else break;
     }
 
+    // タイトルに出勤系キーワードを含む予定は「出勤日」(土日グレー解除用)、それ以外は「休日」。
+    const WORKDAY_KEYWORDS = ["出勤", "出社", "振替出勤", "振出", "営業日", "稼働", "勤務日", "平日"];
+    const isWorkdayTitle = (s: string) => WORKDAY_KEYWORDS.some((k) => s.includes(k));
+
     // 終日予定を日付展開（end.date は排他的＝翌日）。[from,to]にクランプ・重複排除。
-    const map = new Map<string, string>(); // date -> name
+    const holMap = new Map<string, string>(); // date -> 休日名
+    const workSet = new Set<string>(); // 出勤日(土日でも稼働)
+    const raw: { date: string; summary: string }[] = [];
     for (const ev of events) {
       if (ev.status === "cancelled" || ev.status === "removed") continue;
       const sd = ev.start_time?.date as string | undefined; // 終日のみ date を持つ
       if (!sd) continue; // 時間指定予定は休日扱いしない
       const ed = (ev.end_time?.date as string | undefined) || addDayStr(sd);
       const name = ev.summary || "休日";
+      const workday = isWorkdayTitle(name);
+      const push = (d: string) => {
+        if (d < from || d > to) return;
+        if (workday) workSet.add(d);
+        else if (!holMap.has(d)) holMap.set(d, name);
+        raw.push({ date: d, summary: name });
+      };
       let d = sd;
       let guard = 0;
       while (d < ed && guard < 400) {
-        if (d >= from && d <= to && !map.has(d)) map.set(d, name);
+        push(d);
         d = addDayStr(d);
         guard++;
       }
-      // 単日で end<=start の防御
-      if (sd >= ed && sd >= from && sd <= to && !map.has(sd)) map.set(sd, name);
+      if (sd >= ed) push(sd); // 単日で end<=start の防御
     }
-    const holidays = Array.from(map.entries())
+    // 出勤日は休日から除外（出勤指定が優先）
+    for (const w of workSet) holMap.delete(w);
+
+    const holidays = Array.from(holMap.entries())
       .map(([date, name]) => ({ date, name }))
       .sort((a, b) => a.date.localeCompare(b.date));
+    const workdays = Array.from(workSet).sort();
 
-    return NextResponse.json({ success: true, holidays });
+    const debug = request.nextUrl.searchParams.get("debug") === "1";
+    return NextResponse.json({ success: true, holidays, workdays, ...(debug ? { raw: raw.sort((a, b) => a.date.localeCompare(b.date)) } : {}) });
   } catch (e: any) {
     console.error("[gantt/holidays] error", e);
     return NextResponse.json({ success: false, error: e?.message || "休日の取得に失敗しました" }, { status: 500 });

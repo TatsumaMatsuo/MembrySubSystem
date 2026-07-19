@@ -8,8 +8,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession();
     const includeInactive = request.nextUrl.searchParams.get("all") === "1";
-    const templates = await listTemplates({ includeInactive });
+    // 公開ひな形＋自分のひな形だけを返す（C: 共有＋個人の併用）
+    const templates = await listTemplates({ includeInactive, userEmail: session.user?.email });
     return NextResponse.json({ success: true, templates });
   } catch (e: any) {
     console.error("[gantt/templates] GET error", e);
@@ -35,8 +37,9 @@ export async function POST(request: NextRequest) {
       name,
       category: body?.category ? String(body.category) : undefined,
       active: body?.active !== false,
+      isPublic: body?.isPublic !== false, // 既定は全体公開
       data,
-      user: { name: session.user.name },
+      user: { name: session.user.name, email: session.user.email },
     });
     return NextResponse.json({ success: true, id });
   } catch (e: any) {
@@ -53,7 +56,7 @@ export async function DELETE(request: NextRequest) {
     }
     const id = request.nextUrl.searchParams.get("id");
     if (!id) return NextResponse.json({ success: false, error: "IDが指定されていません" }, { status: 400 });
-    const ok = await deleteTemplate(id);
+    const ok = await deleteTemplate(id, session.user.email);
     return NextResponse.json({ success: ok });
   } catch (e: any) {
     console.error("[gantt/templates] DELETE error", e);

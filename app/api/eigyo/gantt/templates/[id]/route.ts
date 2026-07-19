@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "@/lib/auth-server";
 import { getTemplate } from "@/lib/gantt/store";
 
 // ガントひな形 1件取得（#95）
@@ -6,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const template = await getTemplate(params.id);
+    const session = await getServerSession();
+    const template = await getTemplate(params.id, session.user?.email);
     if (!template) return NextResponse.json({ success: false, error: "ひな形が見つかりません" }, { status: 404 });
     return NextResponse.json({ success: true, template });
   } catch (e: any) {

@@ -66,6 +66,9 @@ export interface GanttTemplatePayload {
   steps: GanttTemplateStep[];
   updatedBy?: string;
   updatedAt?: number;
+  ownerEmail?: string; // 作成者（所有者）メール。非公開ひな形の閲覧可否判定に使用
+  ownerName?: string; // 作成者表示名
+  isPublic?: boolean; // 全体公開（true=全員 / false=自分のみ）。未設定は公開扱い(後方互換)
 }
 
 export interface GanttTemplateMeta {
@@ -74,6 +77,9 @@ export interface GanttTemplateMeta {
   category?: string;
   active: boolean;
   updatedAt?: number;
+  isPublic?: boolean; // 全体公開フラグ
+  ownerName?: string; // 作成者表示名（公開ひな形で他者作成のものを判別）
+  mine?: boolean; // 現在のユーザーが所有者か
 }
 
 export interface GanttTemplateFull extends GanttTemplateMeta {

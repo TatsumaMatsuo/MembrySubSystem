@@ -139,36 +139,52 @@ function toBool(v: unknown): boolean {
   return v === true || v === 1 || v === "true";
 }
 
-export async function listTemplates(opts?: { includeInactive?: boolean }): Promise<GanttTemplateMeta[]> {
+// 公開ひな形 or 自分が所有するひな形だけを閲覧できる（C: 共有＋個人の併用）
+function canView(data: GanttTemplatePayload, userEmail?: string): boolean {
+  if (data.isPublic !== false) return true; // 未設定/true は公開扱い(後方互換)
+  return !!userEmail && data.ownerEmail === userEmail; // 非公開は所有者のみ
+}
+
+export async function listTemplates(opts?: { includeInactive?: boolean; userEmail?: string }): Promise<GanttTemplateMeta[]> {
   const tables = getLarkTables();
   const res = await getBaseRecords(tables.GANTT_TEMPLATE, { pageSize: 200 });
   const items = res.data?.items || [];
   const metas: GanttTemplateMeta[] = items
     .map((rec: any) => {
       const data = parseJson<GanttTemplatePayload>(rec.fields?.[TF.data_json], { steps: [] });
+      const isPublic = data.isPublic !== false;
       return {
         id: text(rec.fields?.[TF.template_id]),
         name: text(rec.fields?.[TF.name]),
         category: text(rec.fields?.[TF.category]),
         active: toBool(rec.fields?.[TF.is_active]),
         updatedAt: numberOr(rec.fields?.[TF.updated_at]) ?? data.updatedAt,
-      } as GanttTemplateMeta;
+        isPublic,
+        ownerName: data.ownerName || "",
+        mine: !!opts?.userEmail && data.ownerEmail === opts.userEmail,
+        _view: canView(data, opts?.userEmail),
+      } as GanttTemplateMeta & { _view: boolean };
     })
-    .filter((m) => m.id && (opts?.includeInactive || m.active));
+    .filter((m: any) => m.id && (opts?.includeInactive || m.active) && m._view)
+    .map(({ _view, ...m }: any) => m as GanttTemplateMeta);
   metas.sort((a, b) => (a.category || "").localeCompare(b.category || "") || (a.name || "").localeCompare(b.name || ""));
   return metas;
 }
 
-export async function getTemplate(id: string): Promise<GanttTemplateFull | null> {
+export async function getTemplate(id: string, userEmail?: string): Promise<GanttTemplateFull | null> {
   const rec = await findTemplateRecord(id);
   if (!rec) return null;
   const data = parseJson<GanttTemplatePayload>(rec.fields?.[TF.data_json], { steps: [] });
+  if (!canView(data, userEmail)) return null; // 非公開は所有者以外に返さない
   return {
     id: text(rec.fields?.[TF.template_id]),
     name: text(rec.fields?.[TF.name]),
     category: text(rec.fields?.[TF.category]),
     active: toBool(rec.fields?.[TF.is_active]),
     updatedAt: data.updatedAt,
+    isPublic: data.isPublic !== false,
+    ownerName: data.ownerName || "",
+    mine: !!userEmail && data.ownerEmail === userEmail,
     data,
   };
 }
@@ -178,14 +194,28 @@ export async function upsertTemplate(input: {
   name: string;
   category?: string;
   active?: boolean;
+  isPublic?: boolean;
   data: GanttTemplatePayload;
-  user?: { name?: string };
+  user?: { name?: string; email?: string };
 }): Promise<{ id: string }> {
   const tables = getLarkTables();
   const now = Date.now();
   const existing = input.id ? await findTemplateRecord(input.id) : null;
   const id = input.id && existing ? input.id : genId("TMPL");
-  const payload: GanttTemplatePayload = { ...input.data, updatedBy: input.user?.name || input.data.updatedBy || "", updatedAt: now };
+  const prev = existing ? parseJson<GanttTemplatePayload>(existing.fields?.[TF.data_json], { steps: [] }) : null;
+  // 非公開ひな形は所有者以外の更新を拒否
+  if (prev && prev.isPublic === false && input.user?.email && prev.ownerEmail && prev.ownerEmail !== input.user.email) {
+    throw new Error("このひな形は非公開のため、作成者のみ編集できます");
+  }
+  const payload: GanttTemplatePayload = {
+    ...input.data,
+    updatedBy: input.user?.name || input.data.updatedBy || "",
+    updatedAt: now,
+    // 所有者は初回作成時に確定。更新時は保持
+    ownerEmail: prev?.ownerEmail || input.user?.email || "",
+    ownerName: prev?.ownerName || input.user?.name || "",
+    isPublic: input.isPublic !== undefined ? input.isPublic : prev?.isPublic !== false,
+  };
   const fields: Record<string, any> = {
     [TF.template_id]: id,
     [TF.name]: input.name || "(無題ひな形)",
@@ -200,10 +230,12 @@ export async function upsertTemplate(input: {
   return { id };
 }
 
-export async function deleteTemplate(id: string): Promise<boolean> {
+export async function deleteTemplate(id: string, userEmail?: string): Promise<boolean> {
   const tables = getLarkTables();
   const rec = await findTemplateRecord(id);
   if (!rec?.record_id) return false;
+  const data = parseJson<GanttTemplatePayload>(rec.fields?.[TF.data_json], { steps: [] });
+  if (!canView(data, userEmail)) throw new Error("このひな形は非公開のため、作成者のみ削除できます");
   await deleteBaseRecord(tables.GANTT_TEMPLATE, rec.record_id);
   return true;
 }

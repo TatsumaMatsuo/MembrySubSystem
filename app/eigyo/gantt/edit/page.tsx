@@ -314,11 +314,13 @@ function GanttEditInner() {
 
     const pxPerDayByUnit: Record<GanttUnit, number> = { day: 26, week: 8, month: 3.4 };
     const pxPerDay = Math.max(1.2, pxPerDayByUnit[unit] * zoom);
-    const timelineWidth = Math.round(totalDays * pxPerDay);
+    const rightPad = 56; // 右端の月ラベルがはみ出しても切れないための余白
+    const timelineWidth = Math.round(totalDays * pxPerDay) + rightPad;
     const vz = Math.min(1.8, Math.max(0.85, zoom)); // 行高は縮尺を控えめに反映
-    const rowH = Math.round(24 * vz);
-    const headerH = 40;
-    const barH = Math.max(9, rowH - 8);
+    const rowH = Math.round(26 * vz);
+    const headerH = 42;
+    const barH = Math.max(9, rowH - 10);
+    const infoFont = 10;
     const dayX = (ymd: string) => diffDays(from, ymd) * pxPerDay;
 
     // 情報列（日付=開始/終了は常に、他は選択項目のみ）
@@ -348,35 +350,36 @@ function GanttEditInner() {
     let html = "";
     // ヘッダー背景
     html += `<div style="position:absolute;left:0;top:0;width:${totalW}px;height:${headerH}px;background:#f1f5f9;border-bottom:1px solid #cbd5e1;"></div>`;
-    // 情報列ヘッダー
+    // 情報列ヘッダー（line-heightで縦中央寄せ＝html2canvasで確実に中央になる）
     let cx = 0;
     for (const c of infoCols) {
-      html += `<div style="position:absolute;left:${cx}px;top:0;width:${c.w}px;height:${headerH}px;display:flex;align-items:center;padding:0 4px;box-sizing:border-box;font-size:11px;font-weight:600;color:#334155;border-right:1px solid #e2e8f0;">${escHtml(c.label)}</div>`;
+      html += `<div style="position:absolute;left:${cx}px;top:0;width:${c.w}px;height:${headerH}px;line-height:${headerH}px;padding:0 4px;box-sizing:border-box;font-size:11px;font-weight:600;color:#334155;border-right:1px solid #e2e8f0;overflow:hidden;white-space:nowrap;">${escHtml(c.label)}</div>`;
       cx += c.w;
     }
-    // 月ラベル（上段）
+    // 月ラベル（上段）。右端の部分月でも切れないよう overflow:visible
     for (let k = 0; k < monthStarts.length; k++) {
       const ms = monthStarts[k];
       const left = infoWidth + Math.round(Math.max(0, dayX(ms.ymd)));
       const nextYmd = k + 1 < monthStarts.length ? monthStarts[k + 1].ymd : addDays(to, 1);
       const w = Math.round(dayX(nextYmd) - Math.max(0, dayX(ms.ymd)));
-      html += `<div style="position:absolute;left:${left}px;top:0;width:${w}px;height:20px;border-left:1px solid #cbd5e1;box-sizing:border-box;font-size:11px;font-weight:600;color:#374151;padding-left:3px;overflow:hidden;white-space:nowrap;">${ms.y}/${String(ms.m).padStart(2, "0")}</div>`;
+      html += `<div style="position:absolute;left:${left}px;top:0;width:${w}px;height:20px;line-height:20px;border-left:1px solid #cbd5e1;box-sizing:border-box;font-size:11px;font-weight:600;color:#374151;padding-left:3px;overflow:visible;white-space:nowrap;">${ms.y}/${String(ms.m).padStart(2, "0")}</div>`;
     }
-    // 下段目盛（日: 日番号 / 週: 週頭日 / 月: なし）
+    // 下段目盛（日: 日番号 / 週: 週頭日(月曜) / 月: なし）
     if (unit === "day") {
       for (let d = 0; d < totalDays; d++) {
         const left = infoWidth + Math.round(d * pxPerDay);
         const dd = Number(addDays(from, d).split("-")[2]);
-        html += `<div style="position:absolute;left:${left}px;top:20px;width:${Math.round(pxPerDay)}px;height:20px;border-left:1px solid #eef2f7;box-sizing:border-box;font-size:9px;text-align:center;color:#64748b;overflow:hidden;">${pxPerDay >= 13 ? dd : ""}</div>`;
+        html += `<div style="position:absolute;left:${left}px;top:22px;width:${Math.round(pxPerDay)}px;height:18px;line-height:18px;border-left:1px solid #eef2f7;box-sizing:border-box;font-size:9px;text-align:center;color:#64748b;overflow:hidden;">${pxPerDay >= 13 ? dd : ""}</div>`;
       }
     } else if (unit === "week") {
+      // 月曜のみ表示（先頭日と月曜が近接して重なるのを避ける）
       for (let d = 0; d < totalDays; d++) {
         const ymd = addDays(from, d);
         const [yy, mm, da] = ymd.split("-").map(Number);
         const dow = new Date(yy, mm - 1, da).getDay();
-        if (dow === 1 || d === 0) {
+        if (dow === 1) {
           const left = infoWidth + Math.round(d * pxPerDay);
-          html += `<div style="position:absolute;left:${left}px;top:20px;height:20px;border-left:1px solid #e2e8f0;box-sizing:border-box;font-size:9px;color:#64748b;padding-left:2px;white-space:nowrap;">${mm}/${da}</div>`;
+          html += `<div style="position:absolute;left:${left}px;top:22px;height:18px;line-height:18px;border-left:1px solid #e2e8f0;box-sizing:border-box;font-size:9px;color:#64748b;padding-left:2px;white-space:nowrap;">${mm}/${da}</div>`;
         }
       }
     }
@@ -389,8 +392,9 @@ function GanttEditInner() {
       html += `<div style="position:absolute;left:0;top:${rowTop}px;width:${totalW}px;height:${rowH}px;background:${i % 2 ? "#ffffff" : "#fbfcfe"};border-bottom:1px solid #eef2f7;"></div>`;
       let ix = 0;
       for (const c of infoCols) {
-        const dot = c.dot ? `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${col};margin-right:4px;flex:none;"></span>` : "";
-        html += `<div style="position:absolute;left:${ix}px;top:${rowTop}px;width:${c.w}px;height:${rowH}px;display:flex;align-items:center;padding:0 4px;box-sizing:border-box;font-size:10px;color:#334155;border-right:1px solid #eef2f7;overflow:hidden;white-space:nowrap;">${dot}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(String(c.get(t, i)))}</span></div>`;
+        const dot = c.dot ? `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${col};margin-right:4px;vertical-align:middle;"></span>` : "";
+        // line-heightで縦中央寄せ＋text-overflowで省略（flexだとhtml2canvasで縦がずれて見切れる）
+        html += `<div style="position:absolute;left:${ix}px;top:${rowTop}px;width:${c.w}px;height:${rowH}px;line-height:${rowH}px;padding:0 5px;box-sizing:border-box;font-size:${infoFont}px;color:#334155;border-right:1px solid #eef2f7;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${dot}${escHtml(String(c.get(t, i)))}</div>`;
         ix += c.w;
       }
     }

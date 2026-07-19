@@ -2769,6 +2769,98 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
             );
           })()}
 
+          {/* 保存ガントから取込モーダル（Stage3。タブ非依存で常にツリーに置く） */}
+          {importOpen && (
+            <>
+              <div className="fixed inset-0 bg-black/40 z-50" onClick={() => !importing && setImportOpen(false)} />
+              <div className="fixed inset-4 md:inset-x-auto md:inset-y-10 md:max-w-2xl md:mx-auto z-50 flex flex-col bg-white rounded-xl shadow-2xl overflow-hidden">
+                <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-200 flex items-center justify-between flex-shrink-0">
+                  <h3 className="font-bold text-emerald-800">保存ガントから社内工程表へ取込</h3>
+                  <button onClick={() => setImportOpen(false)} disabled={importing} className="text-gray-400 hover:text-gray-700 disabled:opacity-50">✕</button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {/* ガント選択 */}
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 mb-1.5">取り込むガントチャートを選択</div>
+                    {importLoadingList ? (
+                      <div className="py-6 text-center text-sm text-gray-400">読み込み中...</div>
+                    ) : importCharts.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-sm text-gray-400">
+                        保存済みのガントチャートがありません。営業支援ツールのガントチャートで作成・保存してください。
+                      </div>
+                    ) : (
+                      <div className="max-h-40 overflow-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+                        {importCharts.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => selectImportChart(c.id)}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 flex items-center gap-2 ${importSelId === c.id ? "bg-emerald-50" : "bg-white"}`}
+                          >
+                            <span className="flex-1 font-medium text-gray-800 truncate">{c.title || "(無題)"}</span>
+                            {c.seiban === seiban && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700 flex-shrink-0">当製番</span>}
+                            {c.seiban && c.seiban !== seiban && <span className="text-[10px] text-gray-400 flex-shrink-0">{c.seiban}</span>}
+                            <span className="text-[10px] text-gray-400 flex-shrink-0">{c.author || ""}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* プレビュー */}
+                  {importSelId && (
+                    <div>
+                      <div className="text-xs font-semibold text-gray-500 mb-1.5">取込プレビュー（工程名が一致した工程のみ反映されます）</div>
+                      {importLoadingPreview ? (
+                        <div className="py-6 text-center text-sm text-gray-400">照合中...</div>
+                      ) : !importPreview ? null : importPreview.matched.length === 0 ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700">
+                          社内工程表の工程名と一致するタスクがありませんでした。ガント側の工程名（例: 受注／計画図作成／…）をご確認ください。
+                        </div>
+                      ) : (
+                        <div className="overflow-auto rounded-lg border border-gray-200">
+                          <table className="min-w-full text-xs">
+                            <thead className="bg-gray-50 text-gray-500">
+                              <tr>
+                                <th className="px-3 py-1.5 text-left font-medium">工程</th>
+                                <th className="px-3 py-1.5 text-left font-medium">開始</th>
+                                <th className="px-3 py-1.5 text-left font-medium">終了</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {importPreview.matched.map((m) => (
+                                <tr key={m.proc}>
+                                  <td className="px-3 py-1.5 font-medium text-gray-800">{m.label}</td>
+                                  <td className="px-3 py-1.5 text-gray-600">{m.start || "-"}</td>
+                                  <td className="px-3 py-1.5 text-gray-600">{m.end || "-"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      {importPreview && importPreview.unmatched.length > 0 && (
+                        <div className="mt-2 text-[11px] text-gray-400">
+                          取込対象外（工程名が一致しないタスク）: {importPreview.unmatched.join("、")}
+                        </div>
+                      )}
+                      <p className="mt-2 text-[11px] text-gray-400">※一致した工程の開始・終了日を上書きします。対象外の工程の既存日付はそのまま残ります。</p>
+                    </div>
+                  )}
+                </div>
+                <div className="px-4 py-3 border-t flex items-center justify-end gap-2 flex-shrink-0">
+                  <button onClick={() => setImportOpen(false)} disabled={importing} className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
+                  <button
+                    onClick={runImport}
+                    disabled={importing || !importPreview || importPreview.matched.length === 0}
+                    className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold disabled:opacity-50"
+                  >
+                    {importing ? "取込中..." : `取込実行${importPreview && importPreview.matched.length ? `（${importPreview.matched.length}工程）` : ""}`}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
           {activeMenu === "cost-analysis" && (
             <div className="space-y-6">
               {loadingCostAnalysis ? (
@@ -3723,98 +3815,6 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                   </button>
                 </div>
               )}
-              {/* 保存ガントから取込モーダル（Stage3） */}
-              {importOpen && (
-                <>
-                  <div className="fixed inset-0 bg-black/40 z-50" onClick={() => !importing && setImportOpen(false)} />
-                  <div className="fixed inset-4 md:inset-x-auto md:inset-y-10 md:max-w-2xl md:mx-auto z-50 flex flex-col bg-white rounded-xl shadow-2xl overflow-hidden">
-                    <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-200 flex items-center justify-between flex-shrink-0">
-                      <h3 className="font-bold text-emerald-800">保存ガントから社内工程表へ取込</h3>
-                      <button onClick={() => setImportOpen(false)} disabled={importing} className="text-gray-400 hover:text-gray-700 disabled:opacity-50">✕</button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                      {/* ガント選択 */}
-                      <div>
-                        <div className="text-xs font-semibold text-gray-500 mb-1.5">取り込むガントチャートを選択</div>
-                        {importLoadingList ? (
-                          <div className="py-6 text-center text-sm text-gray-400">読み込み中...</div>
-                        ) : importCharts.length === 0 ? (
-                          <div className="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-sm text-gray-400">
-                            保存済みのガントチャートがありません。営業支援ツールのガントチャートで作成・保存してください。
-                          </div>
-                        ) : (
-                          <div className="max-h-40 overflow-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
-                            {importCharts.map((c) => (
-                              <button
-                                key={c.id}
-                                onClick={() => selectImportChart(c.id)}
-                                className={`w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 flex items-center gap-2 ${importSelId === c.id ? "bg-emerald-50" : "bg-white"}`}
-                              >
-                                <span className="flex-1 font-medium text-gray-800 truncate">{c.title || "(無題)"}</span>
-                                {c.seiban === seiban && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700 flex-shrink-0">当製番</span>}
-                                {c.seiban && c.seiban !== seiban && <span className="text-[10px] text-gray-400 flex-shrink-0">{c.seiban}</span>}
-                                <span className="text-[10px] text-gray-400 flex-shrink-0">{c.author || ""}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* プレビュー */}
-                      {importSelId && (
-                        <div>
-                          <div className="text-xs font-semibold text-gray-500 mb-1.5">取込プレビュー（工程名が一致した工程のみ反映されます）</div>
-                          {importLoadingPreview ? (
-                            <div className="py-6 text-center text-sm text-gray-400">照合中...</div>
-                          ) : !importPreview ? null : importPreview.matched.length === 0 ? (
-                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700">
-                              社内工程表の工程名と一致するタスクがありませんでした。ガント側の工程名（例: 受注／計画図作成／…）をご確認ください。
-                            </div>
-                          ) : (
-                            <div className="overflow-auto rounded-lg border border-gray-200">
-                              <table className="min-w-full text-xs">
-                                <thead className="bg-gray-50 text-gray-500">
-                                  <tr>
-                                    <th className="px-3 py-1.5 text-left font-medium">工程</th>
-                                    <th className="px-3 py-1.5 text-left font-medium">開始</th>
-                                    <th className="px-3 py-1.5 text-left font-medium">終了</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                  {importPreview.matched.map((m) => (
-                                    <tr key={m.proc}>
-                                      <td className="px-3 py-1.5 font-medium text-gray-800">{m.label}</td>
-                                      <td className="px-3 py-1.5 text-gray-600">{m.start || "-"}</td>
-                                      <td className="px-3 py-1.5 text-gray-600">{m.end || "-"}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                          {importPreview && importPreview.unmatched.length > 0 && (
-                            <div className="mt-2 text-[11px] text-gray-400">
-                              取込対象外（工程名が一致しないタスク）: {importPreview.unmatched.join("、")}
-                            </div>
-                          )}
-                          <p className="mt-2 text-[11px] text-gray-400">※一致した工程の開始・終了日を上書きします。対象外の工程の既存日付はそのまま残ります。</p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="px-4 py-3 border-t flex items-center justify-end gap-2 flex-shrink-0">
-                      <button onClick={() => setImportOpen(false)} disabled={importing} className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
-                      <button
-                        onClick={runImport}
-                        disabled={importing || !importPreview || importPreview.matched.length === 0}
-                        className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold disabled:opacity-50"
-                      >
-                        {importing ? "取込中..." : `取込実行${importPreview && importPreview.matched.length ? `（${importPreview.matched.length}工程）` : ""}`}
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-
               {ocrConfirm && (
                 <>
                   <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setOcrConfirm(null)} />

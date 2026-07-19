@@ -10,7 +10,7 @@
 // 画像は /api/file/proxy(同一オリジンでinline配信, 後段のhtml2canvasでもCORS汚染なし)を直接 <img src> に指定。
 
 import { useEffect, useMemo, useState } from "react";
-import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive, Upload, GripVertical } from "lucide-react";
+import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive, Upload, GripVertical, Maximize2, ZoomIn, X } from "lucide-react";
 import { uploadDocumentFile, prepareImageForUpload, UPLOAD_MAX_BYTES } from "@/lib/document-upload";
 
 interface NippouReportUI {
@@ -119,6 +119,8 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   // ドラッグ&ドロップ状態(グループの並べ替え)
   const [dragOrderKey, setDragOrderKey] = useState<string | null>(null);
   const [dragOverOrderKey, setDragOverOrderKey] = useState<string | null>(null);
+  // 業者ごとの写真を別画面(モーダル)で大きく表示・並べ替え・選択するためのグループキー
+  const [expandKey, setExpandKey] = useState<string | null>(null);
 
   // ② 追加state
   const [captions, setCaptions] = useState<Record<string, Caption>>({});
@@ -763,7 +765,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
           {/* 写真選択 */}
           <div className="xl:w-[38%] space-y-3">
             <p className="text-xs font-semibold text-gray-500">写真を選択（クリックで選択/解除・ホバーで ◀ ▶ 並べ替え）</p>
-            <p className="text-[11px] text-gray-400 -mt-1">業者見出し（<span className="inline-flex align-middle"><GripVertical className="w-3 h-3" /></span>）をドラッグすると業者の出力順を変更できます。</p>
+            <p className="text-[11px] text-gray-400 -mt-1">業者見出し（<span className="inline-flex align-middle"><GripVertical className="w-3 h-3" /></span>）をドラッグすると業者の出力順を変更できます。写真が多い・見えにくいときは「拡大」で別画面を開けます。</p>
             {groups.map((g) => {
               const groupAll = g.photos.every((p) => selected.has(p.token));
               const groupSel = g.photos.filter((p) => selected.has(p.token)).length;
@@ -790,7 +792,19 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
                         <span className="text-sm font-bold truncate">{g.label}</span>
                       </button>
                     </div>
-                    <span className="text-xs text-fuchsia-100 flex-none">{groupSel}/{g.photos.length}</span>
+                    <div className="flex items-center gap-1.5 flex-none">
+                      <span className="text-xs text-fuchsia-100">{groupSel}/{g.photos.length}</span>
+                      <button
+                        type="button"
+                        draggable={false}
+                        onClick={(e) => { e.stopPropagation(); setExpandKey(g.key); }}
+                        onDragStart={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 rounded-md bg-white/20 px-2 py-1 text-[11px] font-semibold text-white hover:bg-white/35"
+                        title="別画面で大きく表示して並べ替え・選択"
+                      >
+                        <Maximize2 className="w-3.5 h-3.5" /> 拡大
+                      </button>
+                    </div>
                   </div>
                   <div className="p-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
                     {g.photos.map((p, i) => {
@@ -910,6 +924,237 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
               </div>
             </div>
             <p className="mt-2 text-[11px] text-gray-400">情報欄はプレビュー上で直接編集できます。PDF出力・案件書庫保管を押すと、編集内容(表紙/コメント/並び順/選択)が保存されます。</p>
+          </div>
+        </div>
+      )}
+
+      {/* 業者ごとの写真を大きく表示して並べ替え・選択する別画面 */}
+      {expandKey && (() => {
+        const g = groups.find((x) => x.key === expandKey);
+        if (!g) return null;
+        return (
+          <GroupPhotoModal
+            group={g}
+            selected={selected}
+            captions={captions}
+            imgSrc={imgSrc}
+            onToggle={toggle}
+            onToggleGroup={() => toggleGroup(g)}
+            onMove={(token, dir) => movePhoto(g, token, dir)}
+            dnd={{
+              dragTok,
+              dragOverTok,
+              dragGroupKey,
+              onDragStart: (e, token) => onDragStartPhoto(e, g.key, token),
+              onDragOver: (e, token) => onDragOverPhoto(e, g.key, token),
+              onDrop: (e, token) => onDropPhoto(e, g.key, token),
+              onDragEnd: clearDrag,
+            }}
+            onClose={() => setExpandKey(null)}
+          />
+        );
+      })()}
+    </div>
+  );
+}
+
+// ---- 業者ごとの写真を大きく表示する別画面(モーダル) ----
+// 一覧の小さなサムネイルでは内容が判別しづらい／枚数が多い場合に使う。
+// 画面内でそのまま「対象チェックの切替」と「並べ替え」ができ、状態は本体と共有する。
+function GroupPhotoModal({
+  group,
+  selected,
+  captions,
+  imgSrc,
+  onToggle,
+  onToggleGroup,
+  onMove,
+  dnd,
+  onClose,
+}: {
+  group: ContractorGroup;
+  selected: Set<string>;
+  captions: Record<string, Caption>;
+  imgSrc: (p: LedgerPhoto) => string;
+  onToggle: (token: string) => void;
+  onToggleGroup: () => void;
+  onMove: (token: string, dir: -1 | 1) => void;
+  dnd: {
+    dragTok: string | null;
+    dragOverTok: string | null;
+    dragGroupKey: string | null;
+    onDragStart: (e: React.DragEvent, token: string) => void;
+    onDragOver: (e: React.DragEvent, token: string) => void;
+    onDrop: (e: React.DragEvent, token: string) => void;
+    onDragEnd: () => void;
+  };
+  onClose: () => void;
+}) {
+  // サムネイルの大きさ(中/大)。既定は「大」= 1枚あたりを大きく見せる。
+  const [size, setSize] = useState<"md" | "lg">("lg");
+  // 1枚を画面いっぱいに表示する拡大表示(ライトボックス)のトークン
+  const [zoomTok, setZoomTok] = useState<string | null>(null);
+
+  const selCount = group.photos.filter((p) => selected.has(p.token)).length;
+  const allOn = group.photos.length > 0 && selCount === group.photos.length;
+
+  // Escで閉じる(拡大表示中はまず拡大表示だけ閉じる)。開いている間は背面のスクロールを止める。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (zoomTok) setZoomTok(null);
+      else onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [zoomTok, onClose]);
+
+  const gridCls = size === "lg" ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3" : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4";
+  const imgH = size === "lg" ? "h-64" : "h-40";
+
+  const zoomPhoto = zoomTok ? group.photos.find((p) => p.token === zoomTok) : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-6" onClick={onClose}>
+      <div
+        className="flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ヘッダー */}
+        <div className="flex flex-none flex-wrap items-center justify-between gap-2 bg-gradient-to-r from-fuchsia-500 to-pink-500 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <button onClick={onToggleGroup} className="flex min-w-0 items-center gap-2 text-white" title="この業者の写真をまとめて選択/解除">
+              {allOn ? <CheckSquare className="w-5 h-5 flex-none" /> : <Square className="w-5 h-5 flex-none" />}
+              <span className="truncate text-base font-bold">{group.label}</span>
+            </button>
+            <span className="flex-none text-xs text-fuchsia-100">選択 {selCount} / {group.photos.length} 枚</span>
+          </div>
+          <div className="flex flex-none items-center gap-2">
+            <div className="inline-flex rounded-lg bg-white/20 p-0.5">
+              {(["md", "lg"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSize(s)}
+                  className={`rounded-md px-2 py-1 text-xs font-medium ${size === s ? "bg-white text-fuchsia-700 shadow-sm" : "text-white/90 hover:text-white"}`}
+                >
+                  {s === "md" ? "中" : "大"}
+                </button>
+              ))}
+            </div>
+            <button onClick={onClose} className="inline-flex items-center gap-1 rounded-lg bg-white/20 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/35">
+              <X className="w-4 h-4" /> 閉じる
+            </button>
+          </div>
+        </div>
+
+        <p className="flex-none border-b border-gray-100 bg-gray-50 px-4 py-1.5 text-[11px] text-gray-500">
+          写真をクリックで選択/解除・ドラッグまたは ◀ ▶ で並べ替え・
+          <span className="inline-flex align-middle"><ZoomIn className="w-3 h-3" /></span> で1枚を大きく表示。変更はそのまま台帳プレビューに反映されます。
+        </p>
+
+        {/* 写真グリッド */}
+        <div className="flex-1 overflow-auto bg-gray-100 p-3">
+          <div className={`grid gap-3 ${gridCls}`}>
+            {group.photos.map((p, i) => {
+              const on = selected.has(p.token);
+              const c = captions[p.token];
+              return (
+                <div
+                  key={`${p.token}-${i}`}
+                  draggable
+                  onDragStart={(e) => dnd.onDragStart(e, p.token)}
+                  onDragOver={(e) => dnd.onDragOver(e, p.token)}
+                  onDrop={(e) => dnd.onDrop(e, p.token)}
+                  onDragEnd={dnd.onDragEnd}
+                  onClick={() => onToggle(p.token)}
+                  className={`group relative cursor-move overflow-hidden rounded-lg border-2 bg-white shadow-sm ${
+                    dnd.dragOverTok === p.token && dnd.dragGroupKey === group.key
+                      ? "border-blue-500 ring-2 ring-blue-300"
+                      : on
+                      ? "border-fuchsia-500"
+                      : "border-gray-200 hover:border-gray-300"
+                  } ${dnd.dragTok === p.token ? "opacity-50" : ""}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imgSrc(p)} alt={p.name} draggable={false} className={`${imgH} w-full bg-gray-100 object-contain`} />
+                  <span className={`absolute left-1.5 top-1.5 rounded p-1 ${on ? "bg-fuchsia-600 text-white" : "bg-white/90 text-gray-400"}`}>
+                    {on ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                  </span>
+                  <span className="absolute right-1.5 top-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[11px] font-semibold text-white">{i + 1}</span>
+                  <button
+                    type="button"
+                    draggable={false}
+                    onClick={(e) => { e.stopPropagation(); setZoomTok(p.token); }}
+                    className="absolute right-1.5 top-8 rounded bg-black/55 p-1 text-white opacity-0 transition-opacity hover:bg-black/75 group-hover:opacity-100"
+                    title="1枚を大きく表示"
+                  >
+                    <ZoomIn className="w-4 h-4" />
+                  </button>
+                  {/* 並べ替え */}
+                  <div className="absolute inset-x-0 bottom-8 flex justify-between opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      type="button"
+                      draggable={false}
+                      onClick={(e) => { e.stopPropagation(); onMove(p.token, -1); }}
+                      disabled={i === 0}
+                      className="bg-black/55 p-1.5 text-white hover:bg-black/75 disabled:opacity-25"
+                      title="前へ移動"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      draggable={false}
+                      onClick={(e) => { e.stopPropagation(); onMove(p.token, 1); }}
+                      disabled={i === group.photos.length - 1}
+                      className="bg-black/55 p-1.5 text-white hover:bg-black/75 disabled:opacity-25"
+                      title="後へ移動"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {/* 情報(撮影日・工種内容) */}
+                  <div className="border-t border-gray-100 px-2 py-1">
+                    <p className="truncate text-[11px] font-medium text-gray-700">{c?.reportDate || p.reportDate || "-"}</p>
+                    <p className="truncate text-[11px] text-gray-500" title={c?.content || p.content}>{c?.content || p.content || "-"}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* 1枚を画面いっぱいに表示 */}
+      {zoomPhoto && (
+        <div className="fixed inset-0 z-[60] flex flex-col bg-black/90 p-4" onClick={(e) => { e.stopPropagation(); setZoomTok(null); }}>
+          <div className="flex flex-none items-center justify-between gap-2 pb-2 text-white">
+            <span className="min-w-0 truncate text-sm">
+              {captions[zoomPhoto.token]?.reportDate || zoomPhoto.reportDate}　{captions[zoomPhoto.token]?.content || zoomPhoto.content}
+            </span>
+            <button onClick={(e) => { e.stopPropagation(); setZoomTok(null); }} className="flex-none inline-flex items-center gap-1 rounded-lg bg-white/20 px-3 py-1.5 text-sm font-semibold hover:bg-white/35">
+              <X className="w-4 h-4" /> 閉じる
+            </button>
+          </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imgSrc(zoomPhoto)} alt={zoomPhoto.name} className="max-h-full max-w-full object-contain" onClick={(e) => e.stopPropagation()} />
+          </div>
+          <div className="flex-none pt-2 text-center">
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggle(zoomPhoto.token); }}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold ${
+                selected.has(zoomPhoto.token) ? "bg-fuchsia-600 text-white hover:bg-fuchsia-700" : "bg-white/20 text-white hover:bg-white/35"
+              }`}
+            >
+              {selected.has(zoomPhoto.token) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+              {selected.has(zoomPhoto.token) ? "台帳に含める（選択中）" : "台帳に含めない（未選択）"}
+            </button>
           </div>
         </div>
       )}

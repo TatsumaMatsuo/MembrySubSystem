@@ -368,6 +368,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [importOpen, setImportOpen] = useState(false);
   const [importCharts, setImportCharts] = useState<Array<{ id: string; title: string; seiban?: string; author?: string; updatedAt?: number }>>([]);
   const [importLoadingList, setImportLoadingList] = useState(false);
+  const [importSearch, setImportSearch] = useState("");
   const [importSelId, setImportSelId] = useState<string>("");
   const [importPreview, setImportPreview] = useState<{
     title: string;
@@ -438,6 +439,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     setImportOpen(true);
     setImportSelId("");
     setImportPreview(null);
+    setImportSearch("");
     setImportLoadingList(true);
     try {
       const res = await fetch(`/api/eigyo/gantt/charts`).then((r) => r.json());
@@ -2990,28 +2992,44 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                   {/* ガント選択 */}
                   <div>
                     <div className="text-xs font-semibold text-gray-500 mb-1.5">取り込むガントチャートを選択</div>
+                    {/* 名称検索 */}
+                    <input
+                      value={importSearch}
+                      onChange={(e) => setImportSearch(e.target.value)}
+                      placeholder="名称で検索（題名・作成者）"
+                      className="w-full mb-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                    />
                     {importLoadingList ? (
                       <div className="py-6 text-center text-sm text-gray-400">読み込み中...</div>
                     ) : importCharts.length === 0 ? (
                       <div className="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-sm text-gray-400">
                         保存済みのガントチャートがありません。営業支援ツールのガントチャートで作成・保存してください。
                       </div>
-                    ) : (
-                      <div className="max-h-40 overflow-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
-                        {importCharts.map((c) => (
-                          <button
-                            key={c.id}
-                            onClick={() => selectImportChart(c.id)}
-                            className={`w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 flex items-center gap-2 ${importSelId === c.id ? "bg-emerald-50" : "bg-white"}`}
-                          >
-                            <span className="flex-1 font-medium text-gray-800 truncate">{c.title || "(無題)"}</span>
-                            {c.seiban === seiban && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700 flex-shrink-0">当製番</span>}
-                            {c.seiban && c.seiban !== seiban && <span className="text-[10px] text-gray-400 flex-shrink-0">{c.seiban}</span>}
-                            <span className="text-[10px] text-gray-400 flex-shrink-0">{c.author || ""}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                    ) : (() => {
+                      const q = importSearch.trim().toLowerCase();
+                      const filtered = q
+                        ? importCharts.filter((c) => `${c.title || ""} ${c.author || ""}`.toLowerCase().includes(q))
+                        : importCharts;
+                      if (filtered.length === 0) {
+                        return <div className="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-sm text-gray-400">「{importSearch}」に一致するガントがありません。</div>;
+                      }
+                      return (
+                        <div className="max-h-40 overflow-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+                          {filtered.map((c) => (
+                            <button
+                              key={c.id}
+                              onClick={() => selectImportChart(c.id)}
+                              className={`w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 flex items-center gap-2 ${importSelId === c.id ? "bg-emerald-50" : "bg-white"}`}
+                            >
+                              <span className="flex-1 font-medium text-gray-800 truncate">{c.title || "(無題)"}</span>
+                              {c.seiban === seiban && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700 flex-shrink-0">当製番</span>}
+                              {c.seiban && c.seiban !== seiban && <span className="text-[10px] text-gray-400 flex-shrink-0">{c.seiban}</span>}
+                              <span className="text-[10px] text-gray-400 flex-shrink-0">{c.author || ""}</span>
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* プレビュー（ガントの全工程をそのまま反映） */}

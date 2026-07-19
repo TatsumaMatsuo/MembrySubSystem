@@ -107,6 +107,37 @@ interface NippouAnkenUI {
   contractor: string;
 }
 
+// 社内工程表の固定14工程（ガントチャートタブ／取込で共有）
+const SCHED_PROCESS_DEFS: { key: string; label: string; color: string }[] = [
+  { key: "受注", label: "受注", color: "#6366f1" },
+  { key: "計画図作成", label: "計画図作成", color: "#3b82f6" },
+  { key: "申請必要情報確定", label: "申請必要情報確定", color: "#0ea5e9" },
+  { key: "承認図作成", label: "承認図作成", color: "#14b8a6" },
+  { key: "図面承認", label: "図面承認", color: "#22c55e" },
+  { key: "申請図書作成", label: "申請図書作成", color: "#84cc16" },
+  { key: "申請期間構造", label: "申請期間（構造）", color: "#eab308" },
+  { key: "申請期間確認済", label: "申請期間（確認済）", color: "#f59e0b" },
+  { key: "製作図", label: "製作図", color: "#f97316" },
+  { key: "材料手配", label: "材料手配", color: "#ef4444" },
+  { key: "製作期間", label: "製作期間", color: "#dc2626" },
+  { key: "基礎工事", label: "基礎工事", color: "#be185d" },
+  { key: "施工期間", label: "施工期間", color: "#9333ea" },
+  { key: "完了検査", label: "完了検査", color: "#7c3aed" },
+];
+// 工程名マッチ用の正規化（全角/半角括弧・空白を無視）
+function normalizeProcName(s: string): string {
+  return (s || "")
+    .replace(/[（）()\s　]/g, "")
+    .trim()
+    .toLowerCase();
+}
+// UTC ms -> "YYYY-MM-DD"
+function utcMsToYmd(ms: number | null | undefined): string | null {
+  if (!ms && ms !== 0) return null;
+  const d = new Date(ms);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
 export default function BaiyakuDetailPage({ params }: PageProps) {
   const router = useRouter();
   const { user, status, signOut } = useAuth();
@@ -331,6 +362,17 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [editingScheduleCell, setEditingScheduleCell] = useState<string | null>(null);
   const [savingSchedule, setSavingSchedule] = useState<string | null>(null);
+  // 保存ガントからの取込（Stage3）
+  const [importOpen, setImportOpen] = useState(false);
+  const [importCharts, setImportCharts] = useState<Array<{ id: string; title: string; seiban?: string; author?: string; updatedAt?: number }>>([]);
+  const [importLoadingList, setImportLoadingList] = useState(false);
+  const [importSelId, setImportSelId] = useState<string>("");
+  const [importPreview, setImportPreview] = useState<{
+    matched: Array<{ proc: string; label: string; start: string | null; end: string | null }>;
+    unmatched: string[];
+  } | null>(null);
+  const [importLoadingPreview, setImportLoadingPreview] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [collapsedDeptSections, setCollapsedDeptSections] = useState<Set<string>>(new Set());
   const [scheduleCollapsed, setScheduleCollapsed] = useState(false);
   const [costAnalysisData, setCostAnalysisData] = useState<CostAnalysisData | null>(null);
@@ -382,6 +424,96 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  // ===== 保存ガントから社内工程表へ取込（Stage3） =====
+  const openImportModal = async () => {
+    setImportOpen(true);
+    setImportSelId("");
+    setImportPreview(null);
+    setImportLoadingList(true);
+    try {
+      const res = await fetch(`/api/eigyo/gantt/charts?q=${encodeURIComponent(seiban)}`).then((r) => r.json());
+      let charts: any[] = res?.success ? res.charts || [] : [];
+      // この製番のガントを優先表示（見つからなければ全件から選べるよう再取得）
+      if (charts.length === 0) {
+        const all = await fetch(`/api/eigyo/gantt/charts`).then((r) => r.json());
+        charts = all?.success ? all.charts || [] : [];
+      }
+      // 当製番を先頭へ
+      charts.sort((a, b) => (b.seiban === seiban ? 1 : 0) - (a.seiban === seiban ? 1 : 0) || (b.updatedAt || 0) - (a.updatedAt || 0));
+      setImportCharts(charts);
+    } catch {
+      setImportCharts([]);
+    } finally {
+      setImportLoadingList(false);
+    }
+  };
+
+  const selectImportChart = async (id: string) => {
+    setImportSelId(id);
+    setImportPreview(null);
+    setImportLoadingPreview(true);
+    try {
+      const res = await fetch(`/api/eigyo/gantt/charts/${encodeURIComponent(id)}`).then((r) => r.json());
+      const tasks: Array<{ id: string; name: string; start: string; end: string }> = res?.success && res.chart ? res.chart.data?.tasks || [] : [];
+      const usedTaskIds = new Set<string>();
+      const matched: Array<{ proc: string; label: string; start: string | null; end: string | null }> = [];
+      for (const p of SCHED_PROCESS_DEFS) {
+        const nk = normalizeProcName(p.key);
+        const nl = normalizeProcName(p.label);
+        const t = tasks.find((tk) => {
+          const n = normalizeProcName(tk.name);
+          return n && (n === nk || n === nl) && !usedTaskIds.has(tk.id);
+        });
+        if (t) {
+          usedTaskIds.add(t.id);
+          const end = t.end && t.end >= t.start ? t.end : t.start;
+          matched.push({ proc: p.key, label: p.label, start: t.start || null, end: end || null });
+        }
+      }
+      const unmatched = tasks.filter((t) => t.name.trim() && !usedTaskIds.has(t.id)).map((t) => t.name.trim());
+      setImportPreview({ matched, unmatched });
+    } catch {
+      setImportPreview({ matched: [], unmatched: [] });
+    } finally {
+      setImportLoadingPreview(false);
+    }
+  };
+
+  const runImport = async () => {
+    if (!importPreview || importPreview.matched.length === 0 || importing) return;
+    setImporting(true);
+    try {
+      const dates: Record<string, { start: string | null; end: string | null }> = {};
+      for (const m of importPreview.matched) dates[m.proc] = { start: m.start, end: m.end };
+      const res = await fetch("/api/schedule/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seiban, dates }),
+      }).then((r) => r.json());
+      if (res?.success) {
+        // 画面のscheduleDataを更新（UTC msへ変換）
+        const toUtc = (v: string | null) =>
+          v ? Date.UTC(parseInt(v.slice(0, 4)), parseInt(v.slice(5, 7)) - 1, parseInt(v.slice(8, 10))) : null;
+        setScheduleData((prev) => {
+          const base = prev ?? { recordId: "", dates: {}, deptFields: {} };
+          const nextDates = { ...base.dates };
+          for (const m of importPreview.matched) {
+            nextDates[m.proc] = { start: toUtc(m.start), end: toUtc(m.end) };
+          }
+          return { ...base, dates: nextDates };
+        });
+        setImportOpen(false);
+        alert(`社内工程表に${res.count ?? importPreview.matched.length}件の工程を取り込みました`);
+      } else {
+        alert(res?.error || "取込に失敗しました");
+      }
+    } catch {
+      alert("取込に失敗しました");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   // 部門の折りたたみ状態を切り替え
   const toggleDeptCollapse = (dept: DepartmentName) => {
@@ -2077,22 +2209,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
           )}
 
           {activeMenu === "gantt-chart" && !loadingSchedule && (() => {
-            const SCHED_PROCESSES = [
-              { key: "受注", label: "受注", color: "#6366f1" },
-              { key: "計画図作成", label: "計画図作成", color: "#3b82f6" },
-              { key: "申請必要情報確定", label: "申請必要情報確定", color: "#0ea5e9" },
-              { key: "承認図作成", label: "承認図作成", color: "#14b8a6" },
-              { key: "図面承認", label: "図面承認", color: "#22c55e" },
-              { key: "申請図書作成", label: "申請図書作成", color: "#84cc16" },
-              { key: "申請期間構造", label: "申請期間（構造）", color: "#eab308" },
-              { key: "申請期間確認済", label: "申請期間（確認済）", color: "#f59e0b" },
-              { key: "製作図", label: "製作図", color: "#f97316" },
-              { key: "材料手配", label: "材料手配", color: "#ef4444" },
-              { key: "製作期間", label: "製作期間", color: "#dc2626" },
-              { key: "基礎工事", label: "基礎工事", color: "#be185d" },
-              { key: "施工期間", label: "施工期間", color: "#9333ea" },
-              { key: "完了検査", label: "完了検査", color: "#7c3aed" },
-            ];
+            const SCHED_PROCESSES = SCHED_PROCESS_DEFS;
             const fieldNameFor = (proc: string, type: "start" | "end") => `社内工程表_${proc}${type === "start" ? "開始日" : "終了日"}`;
             const dates = scheduleData?.dates ?? {};
             const deptFieldsAll = scheduleData?.deptFields ?? {};
@@ -2226,6 +2343,14 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                     )}
                   </button>
                   <div className="flex gap-2">
+                    <button
+                      onClick={openImportModal}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+                      title="営業支援ツールで作成・保存したガントチャートから工程日程を取り込みます"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      保存ガントから取込
+                    </button>
                     <button
                       onClick={() => { setScheduleCollapsed(false); setCollapsedDeptSections(new Set()); }}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
@@ -3598,6 +3723,98 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                   </button>
                 </div>
               )}
+              {/* 保存ガントから取込モーダル（Stage3） */}
+              {importOpen && (
+                <>
+                  <div className="fixed inset-0 bg-black/40 z-50" onClick={() => !importing && setImportOpen(false)} />
+                  <div className="fixed inset-4 md:inset-x-auto md:inset-y-10 md:max-w-2xl md:mx-auto z-50 flex flex-col bg-white rounded-xl shadow-2xl overflow-hidden">
+                    <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-200 flex items-center justify-between flex-shrink-0">
+                      <h3 className="font-bold text-emerald-800">保存ガントから社内工程表へ取込</h3>
+                      <button onClick={() => setImportOpen(false)} disabled={importing} className="text-gray-400 hover:text-gray-700 disabled:opacity-50">✕</button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                      {/* ガント選択 */}
+                      <div>
+                        <div className="text-xs font-semibold text-gray-500 mb-1.5">取り込むガントチャートを選択</div>
+                        {importLoadingList ? (
+                          <div className="py-6 text-center text-sm text-gray-400">読み込み中...</div>
+                        ) : importCharts.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-sm text-gray-400">
+                            保存済みのガントチャートがありません。営業支援ツールのガントチャートで作成・保存してください。
+                          </div>
+                        ) : (
+                          <div className="max-h-40 overflow-auto rounded-lg border border-gray-200 divide-y divide-gray-100">
+                            {importCharts.map((c) => (
+                              <button
+                                key={c.id}
+                                onClick={() => selectImportChart(c.id)}
+                                className={`w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 flex items-center gap-2 ${importSelId === c.id ? "bg-emerald-50" : "bg-white"}`}
+                              >
+                                <span className="flex-1 font-medium text-gray-800 truncate">{c.title || "(無題)"}</span>
+                                {c.seiban === seiban && <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700 flex-shrink-0">当製番</span>}
+                                {c.seiban && c.seiban !== seiban && <span className="text-[10px] text-gray-400 flex-shrink-0">{c.seiban}</span>}
+                                <span className="text-[10px] text-gray-400 flex-shrink-0">{c.author || ""}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* プレビュー */}
+                      {importSelId && (
+                        <div>
+                          <div className="text-xs font-semibold text-gray-500 mb-1.5">取込プレビュー（工程名が一致した工程のみ反映されます）</div>
+                          {importLoadingPreview ? (
+                            <div className="py-6 text-center text-sm text-gray-400">照合中...</div>
+                          ) : !importPreview ? null : importPreview.matched.length === 0 ? (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700">
+                              社内工程表の工程名と一致するタスクがありませんでした。ガント側の工程名（例: 受注／計画図作成／…）をご確認ください。
+                            </div>
+                          ) : (
+                            <div className="overflow-auto rounded-lg border border-gray-200">
+                              <table className="min-w-full text-xs">
+                                <thead className="bg-gray-50 text-gray-500">
+                                  <tr>
+                                    <th className="px-3 py-1.5 text-left font-medium">工程</th>
+                                    <th className="px-3 py-1.5 text-left font-medium">開始</th>
+                                    <th className="px-3 py-1.5 text-left font-medium">終了</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {importPreview.matched.map((m) => (
+                                    <tr key={m.proc}>
+                                      <td className="px-3 py-1.5 font-medium text-gray-800">{m.label}</td>
+                                      <td className="px-3 py-1.5 text-gray-600">{m.start || "-"}</td>
+                                      <td className="px-3 py-1.5 text-gray-600">{m.end || "-"}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                          {importPreview && importPreview.unmatched.length > 0 && (
+                            <div className="mt-2 text-[11px] text-gray-400">
+                              取込対象外（工程名が一致しないタスク）: {importPreview.unmatched.join("、")}
+                            </div>
+                          )}
+                          <p className="mt-2 text-[11px] text-gray-400">※一致した工程の開始・終了日を上書きします。対象外の工程の既存日付はそのまま残ります。</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-4 py-3 border-t flex items-center justify-end gap-2 flex-shrink-0">
+                      <button onClick={() => setImportOpen(false)} disabled={importing} className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
+                      <button
+                        onClick={runImport}
+                        disabled={importing || !importPreview || importPreview.matched.length === 0}
+                        className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold disabled:opacity-50"
+                      >
+                        {importing ? "取込中..." : `取込実行${importPreview && importPreview.matched.length ? `（${importPreview.matched.length}工程）` : ""}`}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
               {ocrConfirm && (
                 <>
                   <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setOcrConfirm(null)} />

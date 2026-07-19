@@ -267,6 +267,8 @@ function GanttEditInner() {
       return;
     }
     const category = window.prompt("分類（任意・空欄可）", "") || "";
+    // 公開範囲を選択（OK=全体公開 / キャンセル=自分のみ）
+    const isPublic = window.confirm("このひな型を全員が使えるように「全体公開」しますか？\n\n［OK］全体公開　／　［キャンセル］自分のみ");
     // 基準日 = 最も早い開始日。各工程 offset/days をそこからの相対で算出。
     const base = usable.reduce((min, t) => (t.start < min ? t.start : min), usable[0].start);
     const steps = usable.map((t) => {
@@ -283,9 +285,9 @@ function GanttEditInner() {
       const res = await fetchJson<{ success: boolean; id?: string; error?: string }>("/api/eigyo/gantt/templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), category: category.trim(), active: true, data: { steps } }),
+        body: JSON.stringify({ name: name.trim(), category: category.trim(), active: true, isPublic, data: { steps } }),
       });
-      if (res.success) window.alert("ひな型として保存しました");
+      if (res.success) window.alert(`ひな型として保存しました（${isPublic ? "全体公開" : "自分のみ"}）`);
       else window.alert(res.error || "ひな型の保存に失敗しました");
     } catch (e: any) {
       window.alert(e?.message || "ひな型の保存に失敗しました");

@@ -67,7 +67,7 @@ function GanttEditInner() {
   const [id, setId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [seiban, setSeiban] = useState("");
-  const [unit, setUnit] = useState<GanttUnit>("day");
+  const [unit, setUnit] = useState<GanttUnit>("week");
   const [tasks, setTasks] = useState<GanttTaskData[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<null | "save" | "saveas">(null);
@@ -87,8 +87,9 @@ function GanttEditInner() {
   const [printModal, setPrintModal] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [printOpts, setPrintOpts] = useState<Record<PrintOptKey, boolean>>({ name: true, assignee: true, notes: true });
-  // 表示: 縮尺(ズーム)とタスク枠の折りたたみ
+  // 表示: 縮尺(ズーム)・カレンダー表示月数・タスク枠の折りたたみ
   const [zoom, setZoom] = useState(1);
+  const [displayMonths, setDisplayMonths] = useState(5); // カレンダーに収める月数（30N+1日を表示幅に収める）
   const [gridCollapsed, setGridCollapsed] = useState(false);
   // 会社カレンダーの休日（薄い赤）と出勤日（土日でも稼働）
   const [holidays, setHolidays] = useState<GanttHoliday[]>([]);
@@ -102,7 +103,7 @@ function GanttEditInner() {
         setId("");
         setTitle("");
         setSeiban("");
-        setUnit("day");
+        setUnit("week");
         setTasks([]);
         return;
       }
@@ -593,9 +594,10 @@ function GanttEditInner() {
   }, [holRange?.from, holRange?.to]);
 
   const taskCount = tasks.length;
+  const fitDays = displayMonths * 30 + 1; // 例: 5か月 → 151日を表示幅に収める
   const chart = useMemo(
-    () => <GanttChart tasks={tasks} unit={unit} zoom={zoom} holidays={holidays} workdays={workdays} onDateChange={onBarDateChange} />,
-    [tasks, unit, zoom, holidays, workdays]
+    () => <GanttChart tasks={tasks} unit={unit} zoom={zoom} fitDays={fitDays} holidays={holidays} workdays={workdays} onDateChange={onBarDateChange} />,
+    [tasks, unit, zoom, fitDays, holidays, workdays]
   );
 
   return (
@@ -637,6 +639,19 @@ function GanttEditInner() {
               <button onClick={zoomIn} disabled={zoom >= 2.5} className="rounded-r-lg px-2 py-1.5 text-gray-600 hover:bg-gray-100 disabled:opacity-40" title="拡大">
                 <Plus className="w-4 h-4" />
               </button>
+            </div>
+            {/* カレンダー表示月数（表示幅に収める月数） */}
+            <div className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1" title="カレンダーに表示する月数（表示幅に収めます）">
+              <span className="text-xs text-gray-500">表示</span>
+              <select
+                value={displayMonths}
+                onChange={(e) => setDisplayMonths(Number(e.target.value))}
+                className="bg-transparent text-xs font-medium text-gray-700 focus:outline-none"
+              >
+                {[1, 2, 3, 4, 5, 6, 9, 12].map((m) => (
+                  <option key={m} value={m}>{m}か月</option>
+                ))}
+              </select>
             </div>
             <div className="flex-1" />
             <button onClick={openTplModal} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50" title="ひな型と基準日から工程を生成">

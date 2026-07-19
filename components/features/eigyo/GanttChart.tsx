@@ -21,6 +21,12 @@ function fmt(d: Date): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+// YYYY-MM-DD の日数差（to - from）
+function ymdDiff(from: string, to: string): number {
+  const [ay, am, ad] = from.split("-").map(Number);
+  const [by, bm, bd] = to.split("-").map(Number);
+  return Math.round((new Date(by, (bm || 1) - 1, bd || 1).getTime() - new Date(ay, (am || 1) - 1, ad || 1).getTime()) / 86400000);
+}
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -51,6 +57,7 @@ export function GanttChart({
   readonly,
   zoom = 1,
   fitDays,
+  baseDate,
   holidays,
   workdays,
   onDateChange,
@@ -61,6 +68,7 @@ export function GanttChart({
   readonly?: boolean;
   zoom?: number; // 全体縮尺（カラム幅倍率）。1.0=標準（fitDays指定時はfit状態を1.0とする）
   fitDays?: number; // 指定時、この日数分を表示幅に収める（例: 表示月数N → 30N+1日）
+  baseDate?: string; // カレンダー表示開始日（YYYY-MM-DD）。gantt_startをこの日に合わせる
   holidays?: GanttHoliday[]; // 会社カレンダーの休日（薄い赤）
   workdays?: string[]; // 会社の出勤日（土日でもグレーにしない）YYYY-MM-DD
   onDateChange?: (id: string, start: string, end: string) => void;
@@ -72,6 +80,22 @@ export function GanttChart({
   const ganttRef = useRef<any>(null);
   const cbRef = useRef({ onDateChange, onClickTask });
   cbRef.current = { onDateChange, onClickTask };
+  const baseDateRef = useRef<string | undefined>(baseDate);
+  baseDateRef.current = baseDate;
+
+  // 基準日でカレンダー開始日を合わせる: 現在の表示モードのpaddingを「最小開始日−基準日」日に設定。
+  // frappeの gantt_start = start_of(最小開始日) − padding。step=日基準なので gantt_start = 基準日 になる。
+  const applyBasePadding = (taskList: GanttTaskData[]) => {
+    const g = ganttRef.current;
+    const bd = baseDateRef.current;
+    if (!g || !bd) return;
+    const starts = taskList.map((t) => t.start).filter(Boolean);
+    if (!starts.length) return;
+    const minStart = starts.reduce((a, b) => (b < a ? b : a));
+    const pad = Math.max(0, ymdDiff(bd, minStart)); // 最小開始日 − 基準日（正）
+    const vm = g.options?.view_modes?.find((m: any) => m.name === UNIT_TO_MODE[unit]);
+    if (vm) vm.padding = `${pad}d`;
+  };
   // バーD&D由来の更新は「React→Ganttの再描画」を1回スキップ(ちらつき/ジャンプ防止)
   const skipSyncRef = useRef(false);
 
@@ -109,7 +133,7 @@ export function GanttChart({
   const workdaySig = (workdays || []).join(",");
   // 構造シグネチャ: タスクの増減・並び・単位・readonly・縮尺・休日・出勤日 が変わった時だけ作り直す
   const structuralSig =
-    tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth + "x" + barHeight + "x" + rowPadding + "#h" + holidaySig + "#w" + workdaySig;
+    tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth + "x" + barHeight + "x" + rowPadding + "#h" + holidaySig + "#w" + workdaySig + "#b" + (baseDate || "");
 
   // 生成/再生成（構造変化時のみ）
   useEffect(() => {
@@ -165,6 +189,15 @@ export function GanttChart({
             cbRef.current.onClickTask?.(task.id);
           },
         });
+        // 基準日でカレンダー開始日を合わせる（padding再設定→再描画）
+        if (baseDateRef.current) {
+          applyBasePadding(tasks);
+          try {
+            ganttRef.current.change_view_mode();
+          } catch {
+            /* 再描画失敗は無視 */
+          }
+        }
       } catch (e) {
         console.error("[GanttChart] render error", e);
       }
@@ -187,6 +220,7 @@ export function GanttChart({
       // refresh はスクロールを先頭へ戻すことがあるため、位置を保存/復元
       const scroller = containerRef.current?.querySelector<HTMLElement>(".gantt-container");
       const left = scroller?.scrollLeft ?? 0;
+      applyBasePadding(tasks); // 基準日の開始位置を維持（日付編集で最小開始日が変わっても追従）
       g.refresh(tasks.map((t, i) => toFg(t, i)));
       if (scroller) requestAnimationFrame(() => (scroller.scrollLeft = left));
     } catch (e) {

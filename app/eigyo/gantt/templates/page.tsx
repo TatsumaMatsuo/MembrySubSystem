@@ -23,6 +23,7 @@ export default function GanttTemplatesPage() {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
   const [active, setActive] = useState(true);
+  const [isPublic, setIsPublic] = useState(true); // 全体公開(ON=全員/OFF=自分のみ)
   const [notes, setNotes] = useState("");
   const [steps, setSteps] = useState<GanttTemplateStep[]>([]);
   const [loadingForm, setLoadingForm] = useState(false);
@@ -54,6 +55,7 @@ export default function GanttTemplatesPage() {
     setName("");
     setCategory("");
     setActive(true);
+    setIsPublic(true);
     setNotes("");
     setSteps(empty ? [EMPTY_STEP()] : []);
   };
@@ -72,6 +74,7 @@ export default function GanttTemplatesPage() {
         setName(t.name || "");
         setCategory(t.category || "");
         setActive(t.active !== false);
+        setIsPublic(t.isPublic !== false);
         setNotes(t.data?.notes || "");
         setSteps(Array.isArray(t.data?.steps) && t.data.steps.length ? t.data.steps : [EMPTY_STEP()]);
       } else {
@@ -128,6 +131,7 @@ export default function GanttTemplatesPage() {
           name: name.trim(),
           category: category.trim(),
           active,
+          isPublic,
           data: { notes: notes.trim(), steps: cleaned },
         }),
       });
@@ -248,8 +252,16 @@ export default function GanttTemplatesPage() {
                           >
                             <div className="flex items-center gap-1.5">
                               <span className="flex-1 font-medium truncate">{t.name || "(無題)"}</span>
+                              {t.isPublic === false ? (
+                                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700">自分のみ</span>
+                              ) : (
+                                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">公開</span>
+                              )}
                               {!t.active && <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-500">無効</span>}
                             </div>
+                            {t.isPublic !== false && !t.mine && t.ownerName && (
+                              <div className="mt-0.5 text-[10px] text-gray-400">作成: {t.ownerName}</div>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -290,6 +302,9 @@ export default function GanttTemplatesPage() {
                     />
                     <label className="inline-flex items-center gap-1.5 text-sm text-gray-600">
                       <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} /> 有効
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 text-sm text-gray-600" title="ONで全員が利用可能／OFFで自分だけ">
+                      <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} /> 全体公開
                     </label>
                     <div className="flex-1" />
                     <button onClick={() => save(false)} disabled={!!saving} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">

@@ -51,6 +51,7 @@ export function GanttChart({
   readonly,
   zoom = 1,
   holidays,
+  workdays,
   onDateChange,
   onClickTask,
 }: {
@@ -58,7 +59,8 @@ export function GanttChart({
   unit: GanttUnit;
   readonly?: boolean;
   zoom?: number; // 全体縮尺（カラム幅倍率）。1.0=標準
-  holidays?: GanttHoliday[]; // 会社カレンダーの休日（背景色反映）
+  holidays?: GanttHoliday[]; // 会社カレンダーの休日（薄い赤）
+  workdays?: string[]; // 会社の出勤日（土日でもグレーにしない）YYYY-MM-DD
   onDateChange?: (id: string, start: string, end: string) => void;
   onClickTask?: (id: string) => void;
 }) {
@@ -74,10 +76,12 @@ export function GanttChart({
   const barHeight = Math.max(10, Math.round(30 * zoom));
   const rowPadding = Math.max(6, Math.round(18 * zoom));
   const holidayList = holidays || [];
+  const workdaySet = new Set(workdays || []);
   const holidaySig = holidayList.map((h) => h.date).join(",");
-  // 構造シグネチャ: タスクの増減・並び・単位・readonly・縮尺・休日 が変わった時だけ作り直す
+  const workdaySig = (workdays || []).join(",");
+  // 構造シグネチャ: タスクの増減・並び・単位・readonly・縮尺・休日・出勤日 が変わった時だけ作り直す
   const structuralSig =
-    tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth + "x" + barHeight + "x" + rowPadding + "#h" + holidaySig;
+    tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth + "x" + barHeight + "x" + rowPadding + "#h" + holidaySig + "#w" + workdaySig;
 
   // 生成/再生成（構造変化時のみ）
   useEffect(() => {
@@ -95,10 +99,15 @@ export function GanttChart({
           column_width: columnWidth, // 縮尺（横）
           bar_height: barHeight, // 縮尺（縦: バー高）
           padding: rowPadding, // 縮尺（縦: 行間）
-          // 背景色: 会社休日＝薄い赤(名称ラベル付き) / 土日＝薄いグレー
+          // 背景色: 会社休日＝薄い赤(名称ラベル付き) / 土日＝薄いグレー(会社の出勤日は除外)
           holidays: {
             [HOLIDAY_BG]: holidayList.map((h) => ({ date: h.date, name: h.name || "休日" })),
-            [WEEKEND_BG]: "weekend",
+            // 関数を渡すと日付ごとに判定できる: 会社出勤日はグレーにしない
+            [WEEKEND_BG]: (d: Date) => {
+              const s = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+              if (workdaySet.has(s)) return false; // 会社の出勤日
+              return d.getDay() === 0 || d.getDay() === 6; // 通常の土日
+            },
           },
           language: "ja", // 月名などを日本語表記(Intl.DateTimeFormat('ja'))
           today_button: true,

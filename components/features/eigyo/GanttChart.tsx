@@ -8,6 +8,8 @@ import "./frappe-gantt.css";
 import { GANTT_PALETTE, type GanttTaskData, type GanttUnit } from "@/lib/gantt/types";
 
 const UNIT_TO_MODE: Record<GanttUnit, string> = { day: "Day", week: "Week", month: "Month" };
+// 各単位の基準カラム幅(px)。ズーム倍率を掛けて column_width に渡す。
+const BASE_COL: Record<GanttUnit, number> = { day: 38, week: 140, month: 120 };
 
 function fmt(d: Date): string {
   const y = d.getFullYear();
@@ -43,12 +45,14 @@ export function GanttChart({
   tasks,
   unit,
   readonly,
+  zoom = 1,
   onDateChange,
   onClickTask,
 }: {
   tasks: GanttTaskData[];
   unit: GanttUnit;
   readonly?: boolean;
+  zoom?: number; // 全体縮尺（カラム幅倍率）。1.0=標準
   onDateChange?: (id: string, start: string, end: string) => void;
   onClickTask?: (id: string) => void;
 }) {
@@ -59,8 +63,9 @@ export function GanttChart({
   // バーD&D由来の更新は「React→Ganttの再描画」を1回スキップ(ちらつき/ジャンプ防止)
   const skipSyncRef = useRef(false);
 
-  // 構造シグネチャ: タスクの増減・並び・単位・readonly が変わった時だけ作り直す
-  const structuralSig = tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0");
+  const columnWidth = Math.max(12, Math.round(BASE_COL[unit] * zoom));
+  // 構造シグネチャ: タスクの増減・並び・単位・readonly・縮尺 が変わった時だけ作り直す
+  const structuralSig = tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth;
 
   // 生成/再生成（構造変化時のみ）
   useEffect(() => {
@@ -75,6 +80,7 @@ export function GanttChart({
       try {
         ganttRef.current = new Gantt(containerRef.current, tasks.map(toFg), {
           view_mode: UNIT_TO_MODE[unit],
+          column_width: columnWidth, // 縮尺（＋/−ズーム）
           language: "ja", // 月名などを日本語表記(Intl.DateTimeFormat('ja'))
           today_button: true,
           view_mode_select: false,
@@ -134,13 +140,15 @@ export function GanttChart({
   }, [tasks]);
 
   return (
-    <div className="w-full overflow-auto">
+    <div className="w-full h-full overflow-hidden">
       {tasks.length === 0 ? (
         <div className="flex items-center justify-center h-40 text-sm text-gray-400">
           左のグリッドでタスクを追加するとチャートが表示されます。
         </div>
       ) : (
-        <div ref={containerRef} className="gantt-target min-w-[640px]" />
+        // gantt-target を高さ100%にし、内部の .gantt-container を唯一のスクロール領域にする
+        // （日付ヘッダーは position:sticky で縦スクロール時も固定・横は常にスクロール可能）
+        <div ref={containerRef} className="gantt-target h-full" />
       )}
     </div>
   );

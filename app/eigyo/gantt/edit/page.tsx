@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { MainLayout } from "@/components/layout";
 import { GanttChart } from "@/components/features/eigyo/GanttChart";
 import { fetchJson } from "@/lib/fetch-json";
-import { ArrowLeft, Plus, Save, Copy, Trash2, ChevronUp, ChevronDown, Loader2, LayoutTemplate, X, Printer, Link2 } from "lucide-react";
+import { ArrowLeft, Plus, Minus, Save, Copy, Trash2, ChevronUp, ChevronDown, Loader2, LayoutTemplate, X, Printer, Link2, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { GANTT_PALETTE, type GanttTaskData, type GanttUnit, type GanttChartFull, type GanttTemplateMeta, type GanttTemplateFull } from "@/lib/gantt/types";
 
 function todayStr(): string {
@@ -88,6 +88,9 @@ function GanttEditInner() {
   const [printModal, setPrintModal] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [printOpts, setPrintOpts] = useState<Record<PrintOptKey, boolean>>({ name: true, assignee: true, notes: true, chart: true });
+  // 表示: 縮尺(ズーム)とタスク枠の折りたたみ
+  const [zoom, setZoom] = useState(1);
+  const [gridCollapsed, setGridCollapsed] = useState(false);
 
   const load = useCallback(async (cid: string) => {
     setLoading(true);
@@ -301,6 +304,24 @@ function GanttEditInner() {
   // 選択項目でPDFを生成（html2canvasでDOM画像化→jsPDFでA4横1ページに収める）。
   const generateGanttPdf = async () => {
     if (printing) return;
+    // 工程期間が長く1ページに収まりにくい場合は、より粗い単位を促す
+    if (printOpts.chart) {
+      const starts = tasks.map((t) => t.start).filter(Boolean);
+      const ends = tasks.map((t) => t.end || t.start).filter(Boolean);
+      if (starts.length && ends.length) {
+        const minS = starts.reduce((a, b) => (b < a ? b : a));
+        const maxE = ends.reduce((a, b) => (b > a ? b : a));
+        const spanDays = diffDays(minS, maxE) + 1;
+        const cols = unit === "day" ? spanDays : unit === "week" ? Math.ceil(spanDays / 7) : Math.ceil(spanDays / 30);
+        if (unit !== "month" && cols > 45) {
+          const suggest = unit === "day" ? "「週」または「月」" : "「月」";
+          const ok = window.confirm(
+            `工程期間が約${spanDays}日と長いため、1ページに収めると細かくなり読みにくくなります。\n表示単位を${suggest}に切り替えてから出力することをおすすめします。\n\nこのまま出力しますか？`
+          );
+          if (!ok) return;
+        }
+      }
+    }
     setPrinting(true);
     try {
       const h2cMod: any = await import("html2canvas");
@@ -405,8 +426,13 @@ function GanttEditInner() {
   // 先行タスクの表示名（工程名 or 連番）
   const taskLabel = (t: GanttTaskData, idx: number) => (t.name.trim() ? t.name.trim() : `工程${idx + 1}`);
 
+  // 縮尺（＋/−）
+  const zoomOut = () => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(2)));
+  const zoomIn = () => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)));
+  const zoomReset = () => setZoom(1);
+
   const taskCount = tasks.length;
-  const chart = useMemo(() => <GanttChart tasks={tasks} unit={unit} onDateChange={onBarDateChange} />, [tasks, unit]);
+  const chart = useMemo(() => <GanttChart tasks={tasks} unit={unit} zoom={zoom} onDateChange={onBarDateChange} />, [tasks, unit, zoom]);
 
   return (
     <MainLayout>
@@ -441,6 +467,18 @@ function GanttEditInner() {
                 </button>
               ))}
             </div>
+            {/* 縮尺（＋/−） */}
+            <div className="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50">
+              <button onClick={zoomOut} disabled={zoom <= 0.4} className="rounded-l-lg px-2 py-1.5 text-gray-600 hover:bg-gray-100 disabled:opacity-40" title="縮小">
+                <Minus className="w-4 h-4" />
+              </button>
+              <button onClick={zoomReset} className="min-w-[48px] px-1 py-1 text-center text-xs font-medium text-gray-600 hover:bg-gray-100" title="標準に戻す">
+                {Math.round(zoom * 100)}%
+              </button>
+              <button onClick={zoomIn} disabled={zoom >= 2.5} className="rounded-r-lg px-2 py-1.5 text-gray-600 hover:bg-gray-100 disabled:opacity-40" title="拡大">
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
             <div className="flex-1" />
             <button onClick={openTplModal} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50" title="ひな形と基準日から工程を生成">
               <LayoutTemplate className="w-4 h-4" /> ひな形から生成
@@ -467,10 +505,26 @@ function GanttEditInner() {
           </div>
         ) : (
           <div className="flex-1 flex flex-col xl:flex-row gap-3 p-3 min-h-0">
+            {/* 折りたたみ時: タスク枠を開く細いバー */}
+            {gridCollapsed && (
+              <button
+                onClick={() => setGridCollapsed(false)}
+                className="no-print flex-shrink-0 flex xl:flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-2 py-2 text-gray-500 shadow-sm hover:bg-gray-50"
+                title="タスク一覧を開く"
+              >
+                <PanelLeftOpen className="w-4 h-4" />
+                <span className="text-[11px] xl:[writing-mode:vertical-rl] font-medium">タスク一覧</span>
+              </button>
+            )}
             {/* 左: タスクグリッド */}
-            <div className="no-print xl:w-[46%] flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm min-h-0">
+            <div className={`no-print ${gridCollapsed ? "hidden" : "xl:w-[46%]"} flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm min-h-0`}>
               <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-                <span className="text-sm font-semibold text-gray-700">タスク（{taskCount}）</span>
+                <div className="flex items-center gap-1.5">
+                  <button onClick={() => setGridCollapsed(true)} className="p-1 text-gray-400 hover:text-gray-700" title="タスク一覧を折りたたむ">
+                    <PanelLeftClose className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm font-semibold text-gray-700">タスク（{taskCount}）</span>
+                </div>
                 <button onClick={addTask} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700">
                   <Plus className="w-3.5 h-3.5" /> 追加
                 </button>
@@ -574,8 +628,9 @@ function GanttEditInner() {
               </div>
             </div>
 
-            {/* 右: ガントチャート（PDF出力時にこのSVGを複製して画像化） */}
-            <div className="gantt-print-root xl:flex-1 rounded-xl border border-gray-200 bg-white shadow-sm p-2 min-h-0 overflow-auto">
+            {/* 右: ガントチャート（PDF出力時にこのSVGを複製して画像化）。
+                タスク枠を折りたたむと flex-1 で自動的に横幅が広がる。 */}
+            <div className="gantt-print-root flex-1 min-h-[420px] xl:min-h-0 flex flex-col rounded-xl border border-gray-200 bg-white shadow-sm p-2 overflow-hidden">
               {chart}
             </div>
           </div>

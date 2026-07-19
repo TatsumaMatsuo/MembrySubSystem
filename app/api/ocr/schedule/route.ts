@@ -4,6 +4,7 @@ import { getBaseRecords, updateBaseRecord } from "@/lib/lark-client";
 import { getLarkTables, SCHEDULE_FIELDS } from "@/lib/lark-tables";
 import { AI_MODEL_CHAINS, createMessageWithFallback } from "@/lib/ai-models";
 import { escapeLarkFilterValue } from "@/lib/lark-filter";
+import { unlinkChartsBySeiban } from "@/lib/gantt/store";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -191,6 +192,14 @@ async function handleSave(body: { seiban: string; dates: Record<string, { start:
 
   const setCount = Object.values(updateFields).filter((v) => v !== null).length;
   console.log("[ocr/schedule] Saved", setCount, "dates for", seiban);
+
+  // OCR取込で社内工程表を上書きしたため、以前ガントから取り込んで紐付いていたガントは
+  // 実データと不整合になる。当製番に紐づくガントの売約番号を空にする（非致命）。
+  try {
+    await unlinkChartsBySeiban(seiban);
+  } catch (e) {
+    console.error("[ocr/schedule] unlinkChartsBySeiban failed", e);
+  }
 
   return NextResponse.json({
     success: true,

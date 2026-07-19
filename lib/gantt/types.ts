@@ -2,6 +2,12 @@
 
 export type GanttUnit = "day" | "week" | "month";
 
+// 会社カレンダーの休日（背景色反映用）
+export interface GanttHoliday {
+  date: string; // YYYY-MM-DD
+  name?: string;
+}
+
 // バーの既定色パレット（未指定タスクにインデックス順で割当。エディタの色見本とも共有）
 export const GANTT_PALETTE = [
   "#4f46e5", // indigo

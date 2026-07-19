@@ -5,7 +5,11 @@
 import { useEffect, useRef } from "react";
 // frappe-gantt の exports 制限でサブパスCSSを直接importできないため、リポジトリ内に複製したCSSを読み込む。
 import "./frappe-gantt.css";
-import { GANTT_PALETTE, type GanttTaskData, type GanttUnit } from "@/lib/gantt/types";
+import { GANTT_PALETTE, type GanttTaskData, type GanttUnit, type GanttHoliday } from "@/lib/gantt/types";
+
+// 背景色: 土日＝薄いグレー / 会社休日＝薄い赤
+const WEEKEND_BG = "#eef1f5";
+const HOLIDAY_BG = "#fde8e8";
 
 const UNIT_TO_MODE: Record<GanttUnit, string> = { day: "Day", week: "Week", month: "Month" };
 // 各単位の基準カラム幅(px)。ズーム倍率を掛けて column_width に渡す。
@@ -46,6 +50,7 @@ export function GanttChart({
   unit,
   readonly,
   zoom = 1,
+  holidays,
   onDateChange,
   onClickTask,
 }: {
@@ -53,6 +58,7 @@ export function GanttChart({
   unit: GanttUnit;
   readonly?: boolean;
   zoom?: number; // 全体縮尺（カラム幅倍率）。1.0=標準
+  holidays?: GanttHoliday[]; // 会社カレンダーの休日（背景色反映）
   onDateChange?: (id: string, start: string, end: string) => void;
   onClickTask?: (id: string) => void;
 }) {
@@ -67,9 +73,11 @@ export function GanttChart({
   const columnWidth = Math.max(12, Math.round(BASE_COL[unit] * zoom));
   const barHeight = Math.max(10, Math.round(30 * zoom));
   const rowPadding = Math.max(6, Math.round(18 * zoom));
-  // 構造シグネチャ: タスクの増減・並び・単位・readonly・縮尺 が変わった時だけ作り直す
+  const holidayList = holidays || [];
+  const holidaySig = holidayList.map((h) => h.date).join(",");
+  // 構造シグネチャ: タスクの増減・並び・単位・readonly・縮尺・休日 が変わった時だけ作り直す
   const structuralSig =
-    tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth + "x" + barHeight + "x" + rowPadding;
+    tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth + "x" + barHeight + "x" + rowPadding + "#h" + holidaySig;
 
   // 生成/再生成（構造変化時のみ）
   useEffect(() => {
@@ -87,6 +95,11 @@ export function GanttChart({
           column_width: columnWidth, // 縮尺（横）
           bar_height: barHeight, // 縮尺（縦: バー高）
           padding: rowPadding, // 縮尺（縦: 行間）
+          // 背景色: 会社休日＝薄い赤(名称ラベル付き) / 土日＝薄いグレー
+          holidays: {
+            [HOLIDAY_BG]: holidayList.map((h) => ({ date: h.date, name: h.name || "休日" })),
+            [WEEKEND_BG]: "weekend",
+          },
           language: "ja", // 月名などを日本語表記(Intl.DateTimeFormat('ja'))
           today_button: true,
           view_mode_select: false,

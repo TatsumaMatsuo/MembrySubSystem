@@ -8,7 +8,7 @@ import { MainLayout } from "@/components/layout";
 import { GanttChart } from "@/components/features/eigyo/GanttChart";
 import { fetchJson } from "@/lib/fetch-json";
 import { ArrowLeft, Plus, Minus, Save, Copy, Trash2, ChevronUp, ChevronDown, Loader2, LayoutTemplate, X, Printer, Link2, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { GANTT_PALETTE, type GanttTaskData, type GanttUnit, type GanttChartFull, type GanttTemplateMeta, type GanttTemplateFull } from "@/lib/gantt/types";
+import { GANTT_PALETTE, type GanttTaskData, type GanttUnit, type GanttChartFull, type GanttTemplateMeta, type GanttTemplateFull, type GanttHoliday } from "@/lib/gantt/types";
 
 function todayStr(): string {
   const d = new Date();
@@ -90,6 +90,8 @@ function GanttEditInner() {
   // 表示: 縮尺(ズーム)とタスク枠の折りたたみ
   const [zoom, setZoom] = useState(1);
   const [gridCollapsed, setGridCollapsed] = useState(false);
+  // 会社カレンダーの休日（背景色反映）
+  const [holidays, setHolidays] = useState<GanttHoliday[]>([]);
 
   const load = useCallback(async (cid: string) => {
     setLoading(true);
@@ -398,6 +400,21 @@ function GanttEditInner() {
         ix += c.w;
       }
     }
+    // 土日・会社休日の背景バンド（日/週表示のみ。バーの下）
+    if (unit !== "month") {
+      const holSet = new Set(holidays.map((h) => h.date));
+      for (let d = 0; d < totalDays; d++) {
+        const ymd = addDays(from, d);
+        const [yy, mm, da] = ymd.split("-").map(Number);
+        const dow = new Date(yy, mm - 1, da).getDay();
+        const isHol = holSet.has(ymd);
+        const isWknd = dow === 0 || dow === 6;
+        if (!isHol && !isWknd) continue;
+        const left = infoWidth + Math.round(d * pxPerDay);
+        const w = Math.max(1, Math.round(pxPerDay));
+        html += `<div style="position:absolute;left:${left}px;top:${headerH}px;width:${w}px;height:${totalH - headerH}px;background:${isHol ? "#fde8e8" : "#eef1f5"};"></div>`;
+      }
+    }
     // 月グリッド線（全高・バーの下）
     for (let k = 0; k < monthStarts.length; k++) {
       const left = infoWidth + Math.round(Math.max(0, dayX(monthStarts[k].ymd)));
@@ -537,8 +554,42 @@ function GanttEditInner() {
   const zoomIn = () => setZoom((z) => Math.min(2.5, +(z + 0.1).toFixed(2)));
   const zoomReset = () => setZoom(1);
 
+  // 休日取得の対象期間（工程範囲＋前後余白）
+  const holRange = useMemo(() => {
+    const starts = tasks.map((t) => t.start).filter(Boolean);
+    const ends = tasks.map((t) => (t.end && t.end >= t.start ? t.end : t.start)).filter(Boolean);
+    if (!starts.length) return null;
+    const from = addDays(starts.reduce((a, b) => (b < a ? b : a)), -14);
+    const to = addDays(ends.reduce((a, b) => (b > a ? b : a)), 31);
+    return { from, to };
+  }, [tasks]);
+
+  useEffect(() => {
+    if (!holRange) {
+      setHolidays([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchJson<{ success: boolean; holidays?: GanttHoliday[] }>(
+          `/api/eigyo/gantt/holidays?from=${holRange.from}&to=${holRange.to}`
+        );
+        if (!cancelled && res.success) setHolidays(res.holidays || []);
+      } catch {
+        // 休日反映は非致命（会社カレンダー未権限などでも本機能は継続）
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [holRange?.from, holRange?.to]);
+
   const taskCount = tasks.length;
-  const chart = useMemo(() => <GanttChart tasks={tasks} unit={unit} zoom={zoom} onDateChange={onBarDateChange} />, [tasks, unit, zoom]);
+  const chart = useMemo(
+    () => <GanttChart tasks={tasks} unit={unit} zoom={zoom} holidays={holidays} onDateChange={onBarDateChange} />,
+    [tasks, unit, zoom, holidays]
+  );
 
   return (
     <MainLayout>

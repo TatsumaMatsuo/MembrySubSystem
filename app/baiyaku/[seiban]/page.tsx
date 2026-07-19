@@ -71,8 +71,8 @@ import type {
   ConstructionSpec,
 } from "@/types";
 import { DOCUMENT_CATEGORIES } from "@/lib/lark-tables";
-import { GanttChart } from "@/components/features/eigyo/GanttChart";
-import type { GanttTaskData, GanttUnit } from "@/lib/gantt/types";
+import { GanttBoard } from "@/components/features/eigyo/GanttBoard";
+import type { GanttTaskData, GanttUnit, GanttHoliday } from "@/lib/gantt/types";
 import PdfThumbnail from "@/components/PdfThumbnail";
 import { ImageDiff } from "@/components/ImageDiff";
 import { PhotoLedger } from "@/components/features/baiyaku/PhotoLedger";
@@ -378,6 +378,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [initializing, setInitializing] = useState(false);
   // この製番に紐づくガント（社内工程表タブで表示）。あれば固定14工程の代わりにこれを表示。
   const [linkedGantt, setLinkedGantt] = useState<{ id: string; title: string; unit: GanttUnit; tasks: GanttTaskData[] } | null>(null);
+  const [linkedHolidays, setLinkedHolidays] = useState<GanttHoliday[]>([]);
+  const [linkedWorkdays, setLinkedWorkdays] = useState<string[]>([]);
   const [collapsedDeptSections, setCollapsedDeptSections] = useState<Set<string>>(new Set());
   const [scheduleCollapsed, setScheduleCollapsed] = useState(false);
   const [costAnalysisData, setCostAnalysisData] = useState<CostAnalysisData | null>(null);
@@ -475,7 +477,30 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       const res = await fetch(`/api/eigyo/gantt/charts/by-seiban?seiban=${encodeURIComponent(seiban)}`).then((r) => r.json());
       const chart = res?.success ? res.chart : null;
       if (chart && Array.isArray(chart.data?.tasks) && chart.data.tasks.length > 0) {
-        setLinkedGantt({ id: chart.id, title: chart.title || "", unit: chart.data.unit || "day", tasks: chart.data.tasks });
+        const tasks = chart.data.tasks as GanttTaskData[];
+        setLinkedGantt({ id: chart.id, title: chart.title || "", unit: chart.data.unit || "day", tasks });
+        // ガント側と同様に会社カレンダーの休日/出勤日も反映
+        const starts = tasks.map((t) => t.start).filter(Boolean);
+        const ends = tasks.map((t) => (t.end && t.end >= t.start ? t.end : t.start)).filter(Boolean) as string[];
+        if (starts.length) {
+          const addDaysLocal = (ymd: string, days: number) => {
+            const [y, m, d] = ymd.split("-").map(Number);
+            const dt = new Date(y, (m || 1) - 1, d || 1);
+            dt.setDate(dt.getDate() + days);
+            return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+          };
+          const fromH = addDaysLocal(starts.reduce((a, b) => (b < a ? b : a)), -14);
+          const toH = addDaysLocal(ends.reduce((a, b) => (b > a ? b : a)), 31);
+          try {
+            const h = await fetch(`/api/eigyo/gantt/holidays?from=${fromH}&to=${toH}`).then((r) => r.json());
+            if (h?.success) {
+              setLinkedHolidays(h.holidays || []);
+              setLinkedWorkdays(h.workdays || []);
+            }
+          } catch {
+            /* 休日反映は非致命 */
+          }
+        }
       } else {
         setLinkedGantt(null);
       }
@@ -2284,9 +2309,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                 </div>
               </div>
               <div className="p-4">
-                <div className="h-[560px]">
-                  <GanttChart tasks={linkedGantt.tasks} unit={linkedGantt.unit} zoom={1} readonly />
-                </div>
+                <GanttBoard tasks={linkedGantt.tasks} unit={linkedGantt.unit} holidays={linkedHolidays} workdays={linkedWorkdays} />
               </div>
             </div>
           )}

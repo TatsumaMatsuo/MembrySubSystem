@@ -63,9 +63,13 @@ export function GanttChart({
   // バーD&D由来の更新は「React→Ganttの再描画」を1回スキップ(ちらつき/ジャンプ防止)
   const skipSyncRef = useRef(false);
 
+  // 縮尺は横(カラム幅)と縦(バー高・行間)の両方に効かせる
   const columnWidth = Math.max(12, Math.round(BASE_COL[unit] * zoom));
+  const barHeight = Math.max(10, Math.round(30 * zoom));
+  const rowPadding = Math.max(6, Math.round(18 * zoom));
   // 構造シグネチャ: タスクの増減・並び・単位・readonly・縮尺 が変わった時だけ作り直す
-  const structuralSig = tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth;
+  const structuralSig =
+    tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth + "x" + barHeight + "x" + rowPadding;
 
   // 生成/再生成（構造変化時のみ）
   useEffect(() => {
@@ -80,7 +84,9 @@ export function GanttChart({
       try {
         ganttRef.current = new Gantt(containerRef.current, tasks.map(toFg), {
           view_mode: UNIT_TO_MODE[unit],
-          column_width: columnWidth, // 縮尺（＋/−ズーム）
+          column_width: columnWidth, // 縮尺（横）
+          bar_height: barHeight, // 縮尺（縦: バー高）
+          padding: rowPadding, // 縮尺（縦: 行間）
           language: "ja", // 月名などを日本語表記(Intl.DateTimeFormat('ja'))
           today_button: true,
           view_mode_select: false,

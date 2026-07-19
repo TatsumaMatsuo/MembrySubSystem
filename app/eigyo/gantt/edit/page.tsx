@@ -38,13 +38,12 @@ function newId(): string {
 function escHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-// PDF出力項目（日付は常に出力するため対象外）
-type PrintOptKey = "name" | "assignee" | "notes" | "chart";
+// PDF出力項目（日付=開始/終了は常に出力・タイムラインも常時。ここは情報列の取捨のみ）
+type PrintOptKey = "name" | "assignee" | "notes";
 const PRINT_OPT_LABELS: { key: PrintOptKey; label: string }[] = [
   { key: "name", label: "工程名" },
   { key: "assignee", label: "担当" },
   { key: "notes", label: "メモ" },
-  { key: "chart", label: "ガントチャート図" },
 ];
 const UNITS: { key: GanttUnit; label: string }[] = [
   { key: "day", label: "日" },
@@ -87,7 +86,7 @@ function GanttEditInner() {
   // PDF出力
   const [printModal, setPrintModal] = useState(false);
   const [printing, setPrinting] = useState(false);
-  const [printOpts, setPrintOpts] = useState<Record<PrintOptKey, boolean>>({ name: true, assignee: true, notes: true, chart: true });
+  const [printOpts, setPrintOpts] = useState<Record<PrintOptKey, boolean>>({ name: true, assignee: true, notes: true });
   // 表示: 縮尺(ズーム)とタスク枠の折りたたみ
   const [zoom, setZoom] = useState(1);
   const [gridCollapsed, setGridCollapsed] = useState(false);
@@ -301,11 +300,151 @@ function GanttEditInner() {
     setPrintModal(true);
   };
 
+  // 印刷用ガント（タスク表＋タイムラインを行揃えで横並び）DOMを組み立てる。
+  // 着手日の最早日から開始。html2canvasで画像化する前提の絶対配置レイアウト。
+  const buildPrintGanttNode = (): HTMLElement | null => {
+    const valid = tasks.filter((t) => t.start);
+    if (!valid.length) return null;
+    const from = valid.reduce((m, t) => (t.start < m ? t.start : m), valid[0].start);
+    const to = valid.reduce((m, t) => {
+      const e = t.end && t.end >= t.start ? t.end : t.start;
+      return e > m ? e : m;
+    }, valid[0].end && valid[0].end >= valid[0].start ? valid[0].end : valid[0].start);
+    const totalDays = Math.max(1, diffDays(from, to) + 1);
+
+    const pxPerDayByUnit: Record<GanttUnit, number> = { day: 26, week: 8, month: 3.4 };
+    const pxPerDay = Math.max(1.2, pxPerDayByUnit[unit] * zoom);
+    const timelineWidth = Math.round(totalDays * pxPerDay);
+    const vz = Math.min(1.8, Math.max(0.85, zoom)); // 行高は縮尺を控えめに反映
+    const rowH = Math.round(24 * vz);
+    const headerH = 40;
+    const barH = Math.max(9, rowH - 8);
+    const dayX = (ymd: string) => diffDays(from, ymd) * pxPerDay;
+
+    // 情報列（日付=開始/終了は常に、他は選択項目のみ）
+    const infoCols: { label: string; w: number; get: (t: GanttTaskData, i: number) => string; dot?: boolean }[] = [
+      { label: "No.", w: 30, get: (_t, i) => String(i + 1), dot: true },
+    ];
+    if (printOpts.name) infoCols.push({ label: "工程名", w: 120, get: (t) => t.name || "" });
+    infoCols.push({ label: "開始", w: 74, get: (t) => t.start || "" });
+    infoCols.push({ label: "終了", w: 74, get: (t) => (t.end && t.end >= t.start ? t.end : t.start) || "" });
+    if (printOpts.assignee) infoCols.push({ label: "担当", w: 72, get: (t) => t.assignee || "" });
+    if (printOpts.notes) infoCols.push({ label: "メモ", w: 140, get: (t) => t.notes || "" });
+    const infoWidth = infoCols.reduce((s, c) => s + c.w, 0);
+    const totalW = infoWidth + timelineWidth;
+    const totalH = headerH + valid.length * rowH;
+
+    // 月区切りの位置（グリッド線＋月ラベル）
+    const monthStarts: { ymd: string; y: number; m: number }[] = [];
+    {
+      let cur = from;
+      while (cur <= to) {
+        const [y, m] = cur.split("-").map(Number);
+        monthStarts.push({ ymd: cur, y, m });
+        cur = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+      }
+    }
+
+    let html = "";
+    // ヘッダー背景
+    html += `<div style="position:absolute;left:0;top:0;width:${totalW}px;height:${headerH}px;background:#f1f5f9;border-bottom:1px solid #cbd5e1;"></div>`;
+    // 情報列ヘッダー
+    let cx = 0;
+    for (const c of infoCols) {
+      html += `<div style="position:absolute;left:${cx}px;top:0;width:${c.w}px;height:${headerH}px;display:flex;align-items:center;padding:0 4px;box-sizing:border-box;font-size:11px;font-weight:600;color:#334155;border-right:1px solid #e2e8f0;">${escHtml(c.label)}</div>`;
+      cx += c.w;
+    }
+    // 月ラベル（上段）
+    for (let k = 0; k < monthStarts.length; k++) {
+      const ms = monthStarts[k];
+      const left = infoWidth + Math.round(Math.max(0, dayX(ms.ymd)));
+      const nextYmd = k + 1 < monthStarts.length ? monthStarts[k + 1].ymd : addDays(to, 1);
+      const w = Math.round(dayX(nextYmd) - Math.max(0, dayX(ms.ymd)));
+      html += `<div style="position:absolute;left:${left}px;top:0;width:${w}px;height:20px;border-left:1px solid #cbd5e1;box-sizing:border-box;font-size:11px;font-weight:600;color:#374151;padding-left:3px;overflow:hidden;white-space:nowrap;">${ms.y}/${String(ms.m).padStart(2, "0")}</div>`;
+    }
+    // 下段目盛（日: 日番号 / 週: 週頭日 / 月: なし）
+    if (unit === "day") {
+      for (let d = 0; d < totalDays; d++) {
+        const left = infoWidth + Math.round(d * pxPerDay);
+        const dd = Number(addDays(from, d).split("-")[2]);
+        html += `<div style="position:absolute;left:${left}px;top:20px;width:${Math.round(pxPerDay)}px;height:20px;border-left:1px solid #eef2f7;box-sizing:border-box;font-size:9px;text-align:center;color:#64748b;overflow:hidden;">${pxPerDay >= 13 ? dd : ""}</div>`;
+      }
+    } else if (unit === "week") {
+      for (let d = 0; d < totalDays; d++) {
+        const ymd = addDays(from, d);
+        const [yy, mm, da] = ymd.split("-").map(Number);
+        const dow = new Date(yy, mm - 1, da).getDay();
+        if (dow === 1 || d === 0) {
+          const left = infoWidth + Math.round(d * pxPerDay);
+          html += `<div style="position:absolute;left:${left}px;top:20px;height:20px;border-left:1px solid #e2e8f0;box-sizing:border-box;font-size:9px;color:#64748b;padding-left:2px;white-space:nowrap;">${mm}/${da}</div>`;
+        }
+      }
+    }
+
+    // 行背景＋情報セル
+    for (let i = 0; i < valid.length; i++) {
+      const t = valid[i];
+      const rowTop = headerH + i * rowH;
+      const col = t.color || GANTT_PALETTE[i % GANTT_PALETTE.length];
+      html += `<div style="position:absolute;left:0;top:${rowTop}px;width:${totalW}px;height:${rowH}px;background:${i % 2 ? "#ffffff" : "#fbfcfe"};border-bottom:1px solid #eef2f7;"></div>`;
+      let ix = 0;
+      for (const c of infoCols) {
+        const dot = c.dot ? `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${col};margin-right:4px;flex:none;"></span>` : "";
+        html += `<div style="position:absolute;left:${ix}px;top:${rowTop}px;width:${c.w}px;height:${rowH}px;display:flex;align-items:center;padding:0 4px;box-sizing:border-box;font-size:10px;color:#334155;border-right:1px solid #eef2f7;overflow:hidden;white-space:nowrap;">${dot}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(String(c.get(t, i)))}</span></div>`;
+        ix += c.w;
+      }
+    }
+    // 月グリッド線（全高・バーの下）
+    for (let k = 0; k < monthStarts.length; k++) {
+      const left = infoWidth + Math.round(Math.max(0, dayX(monthStarts[k].ymd)));
+      html += `<div style="position:absolute;left:${left}px;top:${headerH}px;width:0;height:${totalH - headerH}px;border-left:1px solid #eef2f7;"></div>`;
+    }
+    // バー
+    for (let i = 0; i < valid.length; i++) {
+      const t = valid[i];
+      const rowTop = headerH + i * rowH;
+      const start = t.start;
+      const end = t.end && t.end >= t.start ? t.end : t.start;
+      const bx = infoWidth + Math.round(dayX(start));
+      const bw = Math.max(3, Math.round((diffDays(start, end) + 1) * pxPerDay));
+      const by = rowTop + Math.round((rowH - barH) / 2);
+      const col = t.color || GANTT_PALETTE[i % GANTT_PALETTE.length];
+      html += `<div style="position:absolute;left:${bx}px;top:${by}px;width:${bw}px;height:${barH}px;background:${col};border-radius:3px;"></div>`;
+    }
+    // 依存線（矢印）SVGオーバーレイ
+    const idx = new Map<string, number>();
+    valid.forEach((t, i) => idx.set(t.id, i));
+    const center = (i: number) => headerH + i * rowH + rowH / 2;
+    let arrows = "";
+    for (let i = 0; i < valid.length; i++) {
+      const t = valid[i];
+      for (const p of t.pred || []) {
+        const j = idx.get(p);
+        if (j == null) continue;
+        const pe = valid[j];
+        const pend = pe.end && pe.end >= pe.start ? pe.end : pe.start;
+        const x1 = infoWidth + Math.round(dayX(pe.start) + (diffDays(pe.start, pend) + 1) * pxPerDay);
+        const y1 = center(j);
+        const x2 = infoWidth + Math.round(dayX(t.start));
+        const y2 = center(i);
+        arrows +=
+          `<path d="M ${x1} ${y1} H ${x1 + 6} V ${y2} H ${x2}" fill="none" stroke="#64748b" stroke-width="1"/>` +
+          `<path d="M ${x2 - 5} ${y2 - 3} L ${x2} ${y2} L ${x2 - 5} ${y2 + 3} Z" fill="#64748b"/>`;
+      }
+    }
+    if (arrows) html += `<svg width="${totalW}" height="${totalH}" style="position:absolute;left:0;top:0;pointer-events:none;">${arrows}</svg>`;
+
+    const node = document.createElement("div");
+    node.style.cssText = `position:relative;width:${totalW}px;height:${totalH}px;background:#ffffff;border:1px solid #cbd5e1;box-sizing:border-box;`;
+    node.innerHTML = html;
+    return node;
+  };
+
   // 選択項目でPDFを生成（html2canvasでDOM画像化→jsPDFでA4横1ページに収める）。
   const generateGanttPdf = async () => {
     if (printing) return;
     // 工程期間が長く1ページに収まりにくい場合は、より粗い単位を促す
-    if (printOpts.chart) {
+    {
       const starts = tasks.map((t) => t.start).filter(Boolean);
       const ends = tasks.map((t) => t.end || t.start).filter(Boolean);
       if (starts.length && ends.length) {
@@ -330,61 +469,24 @@ function GanttEditInner() {
       const JsPDF = jspdfMod.jsPDF || jspdfMod.default?.jsPDF || jspdfMod.default;
       if (typeof JsPDF !== "function") throw new Error("jsPDFの読み込みに失敗しました");
 
-      // 画面外に印刷用DOMを組み立てる
+      // 画面外に印刷用DOM（見出し＋タスク表とタイムラインの横並び）を組み立てる
       const wrap = document.createElement("div");
       wrap.style.cssText =
         "position:fixed;left:-100000px;top:0;background:#ffffff;padding:16px;display:inline-block;font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN','Meiryo',sans-serif;color:#111827;";
 
-      // 見出し（題名・売約番号・作成日）
+      // 見出し（題名・作成日。売約番号は表示しない）
       const now = new Date();
       const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
       const header = document.createElement("div");
-      header.style.cssText = "margin-bottom:12px;";
+      header.style.cssText = "margin-bottom:10px;";
       header.innerHTML =
         `<div style="font-size:18px;font-weight:700;">${escHtml(title || "(無題)")}</div>` +
-        `<div style="font-size:12px;color:#4b5563;margin-top:2px;">${seiban ? "売約番号: " + escHtml(seiban) + "　" : ""}作成日: ${dateStr}</div>`;
+        `<div style="font-size:12px;color:#4b5563;margin-top:2px;">作成日: ${dateStr}</div>`;
       wrap.appendChild(header);
 
-      // 工程一覧テーブル（日付は常に、他は選択項目のみ）
-      const cols: { label: string; get: (t: GanttTaskData, i: number) => string }[] = [{ label: "No.", get: (_t, i) => String(i + 1) }];
-      if (printOpts.name) cols.push({ label: "工程名", get: (t) => escHtml(t.name || "") });
-      cols.push({ label: "開始", get: (t) => escHtml(t.start || "") });
-      cols.push({ label: "終了", get: (t) => escHtml(t.end || "") });
-      if (printOpts.assignee) cols.push({ label: "担当", get: (t) => escHtml(t.assignee || "") });
-      if (printOpts.notes) cols.push({ label: "メモ", get: (t) => escHtml(t.notes || "") });
-      const table = document.createElement("table");
-      table.style.cssText = "border-collapse:collapse;font-size:12px;margin-bottom:14px;min-width:100%;";
-      const thStyle = "border:1px solid #cbd5e1;background:#f1f5f9;padding:4px 8px;text-align:left;white-space:nowrap;font-weight:600;";
-      const tdStyle = "border:1px solid #e2e8f0;padding:4px 8px;text-align:left;vertical-align:top;";
-      table.innerHTML =
-        `<thead><tr>${cols.map((c) => `<th style="${thStyle}">${c.label}</th>`).join("")}</tr></thead>` +
-        `<tbody>${tasks
-          .map((t, i) => {
-            const eff = t.color || GANTT_PALETTE[i % GANTT_PALETTE.length];
-            const firstCell = `<td style="${tdStyle}white-space:nowrap;"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${eff};margin-right:5px;"></span>${cols[0].get(t, i)}</td>`;
-            const rest = cols.slice(1).map((c) => `<td style="${tdStyle}">${c.get(t, i)}</td>`).join("");
-            return `<tr>${firstCell}${rest}</tr>`;
-          })
-          .join("")}</tbody>`;
-      wrap.appendChild(table);
-
-      // ガントチャート図（選択時のみ）: 画面上の描画済みSVGを複製
-      if (printOpts.chart) {
-        const live = document.querySelector<HTMLElement>(".gantt-print-root .gantt-container");
-        if (live) {
-          const w = live.scrollWidth;
-          const h = live.scrollHeight;
-          const clone = live.cloneNode(true) as HTMLElement;
-          clone.querySelectorAll(".side-header, .extras").forEach((n) => n.remove()); // 今日ボタン等は除外
-          clone.style.overflow = "visible";
-          clone.style.width = `${w}px`;
-          clone.style.height = `${h}px`;
-          clone.style.maxWidth = "none";
-          const chartBox = document.createElement("div");
-          chartBox.appendChild(clone);
-          wrap.appendChild(chartBox);
-        }
-      }
+      const ganttNode = buildPrintGanttNode();
+      if (!ganttNode) throw new Error("出力する工程がありません");
+      wrap.appendChild(ganttNode);
 
       document.body.appendChild(wrap);
       let canvas: HTMLCanvasElement;
@@ -449,12 +551,7 @@ function GanttEditInner() {
               placeholder="題名（必須）"
               className="min-w-[180px] flex-1 max-w-sm rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
             />
-            <input
-              value={seiban}
-              onChange={(e) => setSeiban(e.target.value)}
-              placeholder="売約番号（任意）"
-              className="w-40 rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-            />
+            {/* 売約番号は売約詳細から呼び出した場合のみ設定（標準エディタでは非表示） */}
             {/* 表示単位 */}
             <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
               {UNITS.map((u) => (
@@ -712,7 +809,7 @@ function GanttEditInner() {
                 </button>
               </div>
               <div className="px-4 py-4">
-                <div className="mb-2 text-xs font-semibold text-gray-600">出力する項目</div>
+                <div className="mb-2 text-xs font-semibold text-gray-600">タスク欄に出力する項目</div>
                 <div className="space-y-1.5">
                   {/* 日付は常に出力 */}
                   <label className="flex items-center gap-2 rounded-lg bg-gray-50 px-2.5 py-2 text-sm text-gray-500">
@@ -730,7 +827,7 @@ function GanttEditInner() {
                     </label>
                   ))}
                 </div>
-                <p className="mt-3 text-[11px] text-gray-400">A4横向き・1ページに収まるよう自動縮小して出力します。</p>
+                <p className="mt-3 text-[11px] text-gray-400">左にタスク欄・右にカレンダー（着手日から）を横並びで、A4横向き1ページに収まるよう自動縮小して出力します。</p>
               </div>
               <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-4 py-3">
                 <button onClick={() => setPrintModal(false)} disabled={printing} className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">

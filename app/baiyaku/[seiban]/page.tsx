@@ -376,6 +376,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [importLoadingPreview, setImportLoadingPreview] = useState(false);
   const [importing, setImporting] = useState(false);
   const [initializing, setInitializing] = useState(false);
+  const [printingLinked, setPrintingLinked] = useState(false);
   // この製番に紐づくガント（社内工程表タブで表示）。あれば固定14工程の代わりにこれを表示。
   const [linkedGantt, setLinkedGantt] = useState<{ id: string; title: string; unit: GanttUnit; tasks: GanttTaskData[] } | null>(null);
   const [linkedHolidays, setLinkedHolidays] = useState<GanttHoliday[]>([]);
@@ -531,6 +532,48 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
       alert("取込に失敗しました");
     } finally {
       setImporting(false);
+    }
+  };
+
+  // 紐づくガント(社内工程表)をPDF出力（GanttBoardのDOMを画像化しA4横1ページに収める）
+  const printLinkedGantt = async () => {
+    if (printingLinked) return;
+    const node = document.getElementById("linked-gantt-board");
+    if (!node) {
+      alert("出力対象が見つかりません");
+      return;
+    }
+    setPrintingLinked(true);
+    try {
+      const h2cMod: any = await import("html2canvas");
+      const html2canvas = h2cMod.default || h2cMod;
+      const jspdfMod: any = await import("jspdf");
+      const JsPDF = jspdfMod.jsPDF || jspdfMod.default?.jsPDF || jspdfMod.default;
+      if (typeof JsPDF !== "function") throw new Error("jsPDFの読み込みに失敗しました");
+
+      const canvas = await html2canvas(node, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        logging: false,
+        windowWidth: node.scrollWidth,
+        windowHeight: node.scrollHeight,
+      });
+      const pdf = new JsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const PW = pdf.internal.pageSize.getWidth();
+      const PH = pdf.internal.pageSize.getHeight();
+      const margin = 8;
+      const ratio = Math.min((PW - margin * 2) / canvas.width, (PH - margin * 2) / canvas.height);
+      const iw = canvas.width * ratio;
+      const ih = canvas.height * ratio;
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", (PW - iw) / 2, margin, iw, ih);
+      const safe = (linkedGantt?.title || `工程表_${seiban}`).replace(/[\\/:*?"<>|]/g, "_");
+      pdf.save(`${safe}.pdf`);
+    } catch (e: any) {
+      console.error("[gantt] pdf error", e);
+      alert(e?.message || "PDFの生成に失敗しました");
+    } finally {
+      setPrintingLinked(false);
     }
   };
 
@@ -2290,13 +2333,33 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                   <h2 className="text-lg font-semibold">社内工程表</h2>
                   <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">ガント取込: {linkedGantt.title || "(無題)"}</span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={openImportModal}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
                     title="別の保存ガントに差し替えます"
                   >
                     <Calendar className="w-4 h-4" /> 別のガントに差替
+                  </button>
+                  <button
+                    onClick={printLinkedGantt}
+                    disabled={printingLinked}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                    title="この工程表をA4横1ページのPDFで出力します"
+                  >
+                    <Download className="w-4 h-4" /> {printingLinked ? "出力中..." : "PDF印刷"}
+                  </button>
+                  <button
+                    onClick={() => { setScheduleCollapsed(false); setCollapsedDeptSections(new Set()); }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+                  >
+                    <ChevronDown className="w-4 h-4" /> すべて展開
+                  </button>
+                  <button
+                    onClick={() => { setScheduleCollapsed(true); setCollapsedDeptSections(new Set(["設計", "鉄工", "縫製", "工務"])); }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" /> すべて閉じる
                   </button>
                   <button
                     onClick={initSchedule}
@@ -2309,7 +2372,7 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                 </div>
               </div>
               <div className="p-4">
-                <GanttBoard tasks={linkedGantt.tasks} unit={linkedGantt.unit} holidays={linkedHolidays} workdays={linkedWorkdays} />
+                <GanttBoard contentId="linked-gantt-board" tasks={linkedGantt.tasks} unit={linkedGantt.unit} holidays={linkedHolidays} workdays={linkedWorkdays} />
               </div>
             </div>
           )}

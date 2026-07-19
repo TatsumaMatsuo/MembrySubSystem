@@ -26,12 +26,14 @@ export function GanttBoard({
   zoom = 1,
   holidays,
   workdays,
+  contentId,
 }: {
   tasks: GanttTaskData[];
   unit: GanttUnit;
   zoom?: number;
   holidays?: GanttHoliday[];
   workdays?: string[];
+  contentId?: string; // PDF出力時に全幅DOMを掴むためのid（内側flexコンテナに付与）
 }) {
   const model = useMemo(() => {
     const valid = tasks.filter((t) => t.start);
@@ -104,7 +106,7 @@ export function GanttBoard({
 
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-      <div className="flex" style={{ width: infoWidth + timelineWidth, minWidth: "100%" }}>
+      <div id={contentId} className="flex" style={{ width: infoWidth + timelineWidth, minWidth: "100%" }}>
         {/* 左: 工程名 / 開始 / 終了（横スクロール時も固定） */}
         <div className="flex-shrink-0 sticky left-0 z-10 bg-white" style={{ width: infoWidth, boxShadow: "1px 0 0 #e5e7eb" }}>
           <div className="flex items-center border-b border-gray-200 bg-gray-50 text-xs font-semibold text-gray-600" style={{ height: headerH }}>

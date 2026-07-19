@@ -7,3 +7,13 @@
 .gantt-container .popup-wrapper .gantt-popup-notes{font-size:.72rem;color:var(--g-text-muted);margin-top:4px;max-width:260px;white-space:pre-wrap}
 /* 色付きバー内に載るラベルは白抜きで可読性確保（バー外に出る .big は暗色のまま） */
 .gantt .bar-label:not(.big){fill:#fff}
+
+/* --- #95 高さ固定レイアウト: 日付ヘッダーsticky固定＋縦横スクロール ---
+   gantt-target を高さ100%にし、frappeの .gantt-container を唯一のスクロール領域にする。
+   これにより grid-header(position:sticky;top:0) が縦スクロールで固定され、横は常にスクロール可能。 */
+.gantt-target { height: 100%; width: 100%; }
+.gantt-target > .gantt-container {
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: auto !important;
+}

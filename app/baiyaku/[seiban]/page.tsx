@@ -71,6 +71,8 @@ import type {
   ConstructionSpec,
 } from "@/types";
 import { DOCUMENT_CATEGORIES } from "@/lib/lark-tables";
+import { GanttChart } from "@/components/features/eigyo/GanttChart";
+import type { GanttTaskData, GanttUnit } from "@/lib/gantt/types";
 import PdfThumbnail from "@/components/PdfThumbnail";
 import { ImageDiff } from "@/components/ImageDiff";
 import { PhotoLedger } from "@/components/features/baiyaku/PhotoLedger";
@@ -368,12 +370,14 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
   const [importLoadingList, setImportLoadingList] = useState(false);
   const [importSelId, setImportSelId] = useState<string>("");
   const [importPreview, setImportPreview] = useState<{
-    matched: Array<{ proc: string; label: string; start: string | null; end: string | null }>;
-    unmatched: string[];
+    title: string;
+    tasks: Array<{ name: string; start: string; end: string }>;
   } | null>(null);
   const [importLoadingPreview, setImportLoadingPreview] = useState(false);
   const [importing, setImporting] = useState(false);
   const [initializing, setInitializing] = useState(false);
+  // この製番に紐づくガント（社内工程表タブで表示）。あれば固定14工程の代わりにこれを表示。
+  const [linkedGantt, setLinkedGantt] = useState<{ id: string; title: string; unit: GanttUnit; tasks: GanttTaskData[] } | null>(null);
   const [collapsedDeptSections, setCollapsedDeptSections] = useState<Set<string>>(new Set());
   const [scheduleCollapsed, setScheduleCollapsed] = useState(false);
   const [costAnalysisData, setCostAnalysisData] = useState<CostAnalysisData | null>(null);
@@ -453,56 +457,48 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
     setImportLoadingPreview(true);
     try {
       const res = await fetch(`/api/eigyo/gantt/charts/${encodeURIComponent(id)}`).then((r) => r.json());
-      const tasks: Array<{ id: string; name: string; start: string; end: string }> = res?.success && res.chart ? res.chart.data?.tasks || [] : [];
-      const usedTaskIds = new Set<string>();
-      const matched: Array<{ proc: string; label: string; start: string | null; end: string | null }> = [];
-      for (const p of SCHED_PROCESS_DEFS) {
-        const nk = normalizeProcName(p.key);
-        const nl = normalizeProcName(p.label);
-        const t = tasks.find((tk) => {
-          const n = normalizeProcName(tk.name);
-          return n && (n === nk || n === nl) && !usedTaskIds.has(tk.id);
-        });
-        if (t) {
-          usedTaskIds.add(t.id);
-          const end = t.end && t.end >= t.start ? t.end : t.start;
-          matched.push({ proc: p.key, label: p.label, start: t.start || null, end: end || null });
-        }
-      }
-      const unmatched = tasks.filter((t) => t.name.trim() && !usedTaskIds.has(t.id)).map((t) => t.name.trim());
-      setImportPreview({ matched, unmatched });
+      const chart = res?.success && res.chart ? res.chart : null;
+      const tasks: Array<{ name: string; start: string; end: string }> = (chart?.data?.tasks || [])
+        .filter((t: any) => t.name?.trim())
+        .map((t: any) => ({ name: t.name.trim(), start: t.start || "", end: t.end && t.end >= t.start ? t.end : t.start || "" }));
+      setImportPreview({ title: chart?.title || "", tasks });
     } catch {
-      setImportPreview({ matched: [], unmatched: [] });
+      setImportPreview({ title: "", tasks: [] });
     } finally {
       setImportLoadingPreview(false);
     }
   };
 
+  // 紐づくガントを読み込み（社内工程表タブ表示用）
+  const loadLinkedGantt = async () => {
+    try {
+      const res = await fetch(`/api/eigyo/gantt/charts/by-seiban?seiban=${encodeURIComponent(seiban)}`).then((r) => r.json());
+      const chart = res?.success ? res.chart : null;
+      if (chart && Array.isArray(chart.data?.tasks) && chart.data.tasks.length > 0) {
+        setLinkedGantt({ id: chart.id, title: chart.title || "", unit: chart.data.unit || "day", tasks: chart.data.tasks });
+      } else {
+        setLinkedGantt(null);
+      }
+    } catch {
+      setLinkedGantt(null);
+    }
+  };
+
   const runImport = async () => {
-    if (!importPreview || importPreview.matched.length === 0 || importing) return;
+    if (!importSelId || importing) return;
     setImporting(true);
     try {
-      const dates: Record<string, { start: string | null; end: string | null }> = {};
-      for (const m of importPreview.matched) dates[m.proc] = { start: m.start, end: m.end };
       const res = await fetch("/api/schedule/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seiban, dates, chartId: importSelId }),
+        body: JSON.stringify({ seiban, chartId: importSelId }),
       }).then((r) => r.json());
       if (res?.success) {
-        // 画面のscheduleDataを更新（UTC msへ変換）
-        const toUtc = (v: string | null) =>
-          v ? Date.UTC(parseInt(v.slice(0, 4)), parseInt(v.slice(5, 7)) - 1, parseInt(v.slice(8, 10))) : null;
-        setScheduleData((prev) => {
-          const base = prev ?? { recordId: "", dates: {}, deptFields: {} };
-          const nextDates = { ...base.dates };
-          for (const m of importPreview.matched) {
-            nextDates[m.proc] = { start: toUtc(m.start), end: toUtc(m.end) };
-          }
-          return { ...base, dates: nextDates };
-        });
+        // 固定14工程はクリア済み。紐づくガント表示へ切替。
+        setScheduleData((prev) => (prev ? { ...prev, dates: {} } : prev));
+        await loadLinkedGantt();
         setImportOpen(false);
-        alert(`社内工程表に${res.count ?? importPreview.matched.length}件の工程を取り込みました`);
+        alert("社内工程表にガントを反映しました");
       } else {
         alert(res?.error || "取込に失敗しました");
       }
@@ -549,8 +545,9 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
         alert(res?.error || "初期化に失敗しました");
         return;
       }
-      // 3. 画面状態を更新
+      // 3. 画面状態を更新（紐づくガント表示も解除）
       setScheduleData((prev) => (prev ? { ...prev, dates: {} } : prev));
+      setLinkedGantt(null);
       try {
         const docsRes = await fetch(`/api/documents?seiban=${encodeURIComponent(seiban)}`).then((r) => r.json());
         if (docsRes?.success) setDocuments(docsRes.data);
@@ -995,6 +992,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
           if (data.success) {
             setGanttData(data.data);
           }
+          // この製番に紐づくガント（取込済）があれば固定14の代わりに表示
+          loadLinkedGantt();
           if (!scheduleData) {
             setLoadingSchedule(true);
             try {
@@ -2258,7 +2257,41 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
             </div>
           )}
 
-          {activeMenu === "gantt-chart" && !loadingSchedule && (() => {
+          {/* 取込済ガントがある場合は固定14工程の代わりにそのガントを表示 */}
+          {activeMenu === "gantt-chart" && !loadingSchedule && linkedGantt && (
+            <div className="bg-white rounded-lg shadow mb-4">
+              <div className="px-6 py-4 border-b flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold">社内工程表</h2>
+                  <span className="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">ガント取込: {linkedGantt.title || "(無題)"}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={openImportModal}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+                    title="別の保存ガントに差し替えます"
+                  >
+                    <Calendar className="w-4 h-4" /> 別のガントに差替
+                  </button>
+                  <button
+                    onClick={initSchedule}
+                    disabled={initializing}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                    title="社内工程表を初期化し、ガントの紐付けを解除します"
+                  >
+                    <Trash2 className="w-4 h-4" /> {initializing ? "初期化中..." : "初期化"}
+                  </button>
+                </div>
+              </div>
+              <div className="p-4">
+                <div className="h-[560px]">
+                  <GanttChart tasks={linkedGantt.tasks} unit={linkedGantt.unit} zoom={1} readonly />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeMenu === "gantt-chart" && !loadingSchedule && !linkedGantt && (() => {
             const SCHED_PROCESSES = SCHED_PROCESS_DEFS;
             const fieldNameFor = (proc: string, type: "start" | "end") => `社内工程表_${proc}${type === "start" ? "開始日" : "終了日"}`;
             const dates = scheduleData?.dates ?? {};
@@ -2865,20 +2898,20 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                     )}
                   </div>
 
-                  {/* プレビュー */}
+                  {/* プレビュー（ガントの全工程をそのまま反映） */}
                   {importSelId && (
                     <div>
-                      <div className="text-xs font-semibold text-gray-500 mb-1.5">取込プレビュー（工程名が一致した工程のみ反映されます）</div>
+                      <div className="text-xs font-semibold text-gray-500 mb-1.5">取込プレビュー（このガントの工程をすべて社内工程表に反映します）</div>
                       {importLoadingPreview ? (
-                        <div className="py-6 text-center text-sm text-gray-400">照合中...</div>
-                      ) : !importPreview ? null : importPreview.matched.length === 0 ? (
+                        <div className="py-6 text-center text-sm text-gray-400">読み込み中...</div>
+                      ) : !importPreview ? null : importPreview.tasks.length === 0 ? (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-700">
-                          社内工程表の工程名と一致するタスクがありませんでした。ガント側の工程名（例: 受注／計画図作成／…）をご確認ください。
+                          このガントには工程がありません。
                         </div>
                       ) : (
-                        <div className="overflow-auto rounded-lg border border-gray-200">
+                        <div className="max-h-56 overflow-auto rounded-lg border border-gray-200">
                           <table className="min-w-full text-xs">
-                            <thead className="bg-gray-50 text-gray-500">
+                            <thead className="bg-gray-50 text-gray-500 sticky top-0">
                               <tr>
                                 <th className="px-3 py-1.5 text-left font-medium">工程</th>
                                 <th className="px-3 py-1.5 text-left font-medium">開始</th>
@@ -2886,23 +2919,18 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                              {importPreview.matched.map((m) => (
-                                <tr key={m.proc}>
-                                  <td className="px-3 py-1.5 font-medium text-gray-800">{m.label}</td>
-                                  <td className="px-3 py-1.5 text-gray-600">{m.start || "-"}</td>
-                                  <td className="px-3 py-1.5 text-gray-600">{m.end || "-"}</td>
+                              {importPreview.tasks.map((t, i) => (
+                                <tr key={i}>
+                                  <td className="px-3 py-1.5 font-medium text-gray-800">{t.name}</td>
+                                  <td className="px-3 py-1.5 text-gray-600">{t.start || "-"}</td>
+                                  <td className="px-3 py-1.5 text-gray-600">{t.end || "-"}</td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
                         </div>
                       )}
-                      {importPreview && importPreview.unmatched.length > 0 && (
-                        <div className="mt-2 text-[11px] text-gray-400">
-                          取込対象外（工程名が一致しないタスク）: {importPreview.unmatched.join("、")}
-                        </div>
-                      )}
-                      <p className="mt-2 text-[11px] text-gray-400">※一致した工程の開始・終了日を上書きします。対象外の工程の既存日付はそのまま残ります。</p>
+                      <p className="mt-2 text-[11px] text-gray-400">※現在の社内工程表（固定工程の日付）はクリアされ、選んだガントの内容がそのまま表示されます。編集はガント側で行ってください。</p>
                     </div>
                   )}
                 </div>
@@ -2910,10 +2938,10 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                   <button onClick={() => setImportOpen(false)} disabled={importing} className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
                   <button
                     onClick={runImport}
-                    disabled={importing || !importPreview || importPreview.matched.length === 0}
+                    disabled={importing || !importSelId || !importPreview || importPreview.tasks.length === 0}
                     className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold disabled:opacity-50"
                   >
-                    {importing ? "取込中..." : `取込実行${importPreview && importPreview.matched.length ? `（${importPreview.matched.length}工程）` : ""}`}
+                    {importing ? "取込中..." : `取込実行${importPreview && importPreview.tasks.length ? `（${importPreview.tasks.length}工程）` : ""}`}
                   </button>
                 </div>
               </div>
@@ -3963,6 +3991,8 @@ export default function BaiyakuDetailPage({ params }: PageProps) {
                                 success: true,
                                 message: `${result.data.updatedFields} 件の日付を工程管理テーブルに保存しました。`,
                               });
+                              // OCR取込で上書きしたためガント紐付けは解除済み。固定14表示へ戻す。
+                              setLinkedGantt(null);
                               // 保存した日付をガンチャートに即時反映するため scheduleData を再取得
                               try {
                                 const schedRes = await fetch(`/api/schedule?seiban=${encodeURIComponent(seiban)}`);

@@ -65,6 +65,26 @@ export async function listCharts(opts?: { q?: string; seiban?: string }): Promis
   return filtered;
 }
 
+// 製番に紐づくガント（最初の1件）をフルで取得。社内工程表タブでの表示用。
+export async function getChartBySeiban(seiban: string): Promise<GanttChartFull | null> {
+  if (!seiban) return null;
+  const tables = getLarkTables();
+  const filter = `CurrentValue.[${CF.seiban}] = "${escapeLarkFilterValue(seiban)}"`;
+  const res = await getBaseRecords(tables.GANTT_CHART, { filter, pageSize: 5 });
+  const rec = res.data?.items?.[0];
+  if (!rec) return null;
+  const data = parseJson<GanttChartPayload>(rec.fields?.[CF.data_json], { unit: "day", tasks: [] });
+  return {
+    id: text(rec.fields?.[CF.chart_id]),
+    title: text(rec.fields?.[CF.title]),
+    seiban: text(rec.fields?.[CF.seiban]),
+    author: text(rec.fields?.[CF.created_by]) || data.author || "",
+    createdAt: numberOr(rec.fields?.[CF.created_at]) ?? data.createdAt,
+    updatedAt: numberOr(rec.fields?.[CF.updated_at]) ?? data.updatedAt,
+    data,
+  };
+}
+
 export async function getChart(id: string): Promise<GanttChartFull | null> {
   const rec = await findChartRecord(id);
   if (!rec) return null;

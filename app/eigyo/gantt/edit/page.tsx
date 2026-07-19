@@ -35,6 +35,17 @@ function newId(): string {
     return `t-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   }
 }
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+// PDF出力項目（日付は常に出力するため対象外）
+type PrintOptKey = "name" | "assignee" | "notes" | "chart";
+const PRINT_OPT_LABELS: { key: PrintOptKey; label: string }[] = [
+  { key: "name", label: "工程名" },
+  { key: "assignee", label: "担当" },
+  { key: "notes", label: "メモ" },
+  { key: "chart", label: "ガントチャート図" },
+];
 const UNITS: { key: GanttUnit; label: string }[] = [
   { key: "day", label: "日" },
   { key: "week", label: "週" },
@@ -73,6 +84,10 @@ function GanttEditInner() {
   const [savingTpl, setSavingTpl] = useState(false);
   // 先行(依存)選択ポップオーバーを開いているタスク
   const [predOpen, setPredOpen] = useState<string | null>(null);
+  // PDF出力
+  const [printModal, setPrintModal] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const [printOpts, setPrintOpts] = useState<Record<PrintOptKey, boolean>>({ name: true, assignee: true, notes: true, chart: true });
 
   const load = useCallback(async (cid: string) => {
     setLoading(true);
@@ -274,25 +289,117 @@ function GanttEditInner() {
     }
   };
 
-  // ---- PDF印刷 ----
-  const onPrint = () => {
+  // ---- PDF出力 ----
+  const openPrintModal = () => {
     if (tasks.length === 0) {
-      window.alert("印刷するタスクがありません");
+      window.alert("出力するタスクがありません");
       return;
     }
-    // ガントは横長のためA4横向きで印刷（@pageはJS側で動的挿入する既存方式に合わせる）
-    const style = document.createElement("style");
-    style.id = "gantt-print-page";
-    style.textContent = "@page { size: A4 landscape; margin: 8mm; }";
-    document.head.appendChild(style);
-    const cleanup = () => {
-      document.getElementById("gantt-print-page")?.remove();
-      window.removeEventListener("afterprint", cleanup);
-    };
-    window.addEventListener("afterprint", cleanup);
-    window.print();
-    // afterprintが発火しない環境向けフォールバック
-    window.setTimeout(cleanup, 1500);
+    setPrintModal(true);
+  };
+
+  // 選択項目でPDFを生成（html2canvasでDOM画像化→jsPDFでA4横1ページに収める）。
+  const generateGanttPdf = async () => {
+    if (printing) return;
+    setPrinting(true);
+    try {
+      const h2cMod: any = await import("html2canvas");
+      const html2canvas = h2cMod.default || h2cMod;
+      const jspdfMod: any = await import("jspdf");
+      const JsPDF = jspdfMod.jsPDF || jspdfMod.default?.jsPDF || jspdfMod.default;
+      if (typeof JsPDF !== "function") throw new Error("jsPDFの読み込みに失敗しました");
+
+      // 画面外に印刷用DOMを組み立てる
+      const wrap = document.createElement("div");
+      wrap.style.cssText =
+        "position:fixed;left:-100000px;top:0;background:#ffffff;padding:16px;display:inline-block;font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN','Meiryo',sans-serif;color:#111827;";
+
+      // 見出し（題名・売約番号・作成日）
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
+      const header = document.createElement("div");
+      header.style.cssText = "margin-bottom:12px;";
+      header.innerHTML =
+        `<div style="font-size:18px;font-weight:700;">${escHtml(title || "(無題)")}</div>` +
+        `<div style="font-size:12px;color:#4b5563;margin-top:2px;">${seiban ? "売約番号: " + escHtml(seiban) + "　" : ""}作成日: ${dateStr}</div>`;
+      wrap.appendChild(header);
+
+      // 工程一覧テーブル（日付は常に、他は選択項目のみ）
+      const cols: { label: string; get: (t: GanttTaskData, i: number) => string }[] = [{ label: "No.", get: (_t, i) => String(i + 1) }];
+      if (printOpts.name) cols.push({ label: "工程名", get: (t) => escHtml(t.name || "") });
+      cols.push({ label: "開始", get: (t) => escHtml(t.start || "") });
+      cols.push({ label: "終了", get: (t) => escHtml(t.end || "") });
+      if (printOpts.assignee) cols.push({ label: "担当", get: (t) => escHtml(t.assignee || "") });
+      if (printOpts.notes) cols.push({ label: "メモ", get: (t) => escHtml(t.notes || "") });
+      const table = document.createElement("table");
+      table.style.cssText = "border-collapse:collapse;font-size:12px;margin-bottom:14px;min-width:100%;";
+      const thStyle = "border:1px solid #cbd5e1;background:#f1f5f9;padding:4px 8px;text-align:left;white-space:nowrap;font-weight:600;";
+      const tdStyle = "border:1px solid #e2e8f0;padding:4px 8px;text-align:left;vertical-align:top;";
+      table.innerHTML =
+        `<thead><tr>${cols.map((c) => `<th style="${thStyle}">${c.label}</th>`).join("")}</tr></thead>` +
+        `<tbody>${tasks
+          .map((t, i) => {
+            const eff = t.color || GANTT_PALETTE[i % GANTT_PALETTE.length];
+            const firstCell = `<td style="${tdStyle}white-space:nowrap;"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${eff};margin-right:5px;"></span>${cols[0].get(t, i)}</td>`;
+            const rest = cols.slice(1).map((c) => `<td style="${tdStyle}">${c.get(t, i)}</td>`).join("");
+            return `<tr>${firstCell}${rest}</tr>`;
+          })
+          .join("")}</tbody>`;
+      wrap.appendChild(table);
+
+      // ガントチャート図（選択時のみ）: 画面上の描画済みSVGを複製
+      if (printOpts.chart) {
+        const live = document.querySelector<HTMLElement>(".gantt-print-root .gantt-container");
+        if (live) {
+          const w = live.scrollWidth;
+          const h = live.scrollHeight;
+          const clone = live.cloneNode(true) as HTMLElement;
+          clone.querySelectorAll(".side-header, .extras").forEach((n) => n.remove()); // 今日ボタン等は除外
+          clone.style.overflow = "visible";
+          clone.style.width = `${w}px`;
+          clone.style.height = `${h}px`;
+          clone.style.maxWidth = "none";
+          const chartBox = document.createElement("div");
+          chartBox.appendChild(clone);
+          wrap.appendChild(chartBox);
+        }
+      }
+
+      document.body.appendChild(wrap);
+      let canvas: HTMLCanvasElement;
+      try {
+        canvas = await html2canvas(wrap, {
+          scale: 2,
+          backgroundColor: "#ffffff",
+          useCORS: true,
+          logging: false,
+          windowWidth: wrap.scrollWidth,
+          windowHeight: wrap.scrollHeight,
+        });
+      } finally {
+        document.body.removeChild(wrap);
+      }
+
+      // A4横1ページに収める
+      const pdf = new JsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const PW = pdf.internal.pageSize.getWidth();
+      const PH = pdf.internal.pageSize.getHeight();
+      const margin = 8;
+      const availW = PW - margin * 2;
+      const availH = PH - margin * 2;
+      const ratio = Math.min(availW / canvas.width, availH / canvas.height);
+      const iw = canvas.width * ratio;
+      const ih = canvas.height * ratio;
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", (PW - iw) / 2, margin, iw, ih);
+      const safe = (title || "ガントチャート").replace(/[\\/:*?"<>|]/g, "_");
+      pdf.save(`${safe}.pdf`);
+      setPrintModal(false);
+    } catch (e: any) {
+      console.error("[gantt] pdf error", e);
+      window.alert(e?.message || "PDFの生成に失敗しました");
+    } finally {
+      setPrinting(false);
+    }
   };
 
   // 先行タスクの表示名（工程名 or 連番）
@@ -341,8 +448,8 @@ function GanttEditInner() {
             <button onClick={saveAsTemplate} disabled={savingTpl} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50" title="現在の工程をひな形として保存">
               {savingTpl ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} ひな形化
             </button>
-            <button onClick={onPrint} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50" title="PDF印刷（ブラウザの印刷ダイアログでPDF保存）">
-              <Printer className="w-4 h-4" /> PDF印刷
+            <button onClick={openPrintModal} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50" title="PDFを出力（項目を選択して1ページに出力）">
+              <Printer className="w-4 h-4" /> PDF出力
             </button>
             <button onClick={() => save(false)} disabled={!!saving} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
               {saving === "save" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 保存
@@ -467,19 +574,8 @@ function GanttEditInner() {
               </div>
             </div>
 
-            {/* 右: ガントチャート（印刷対象） */}
+            {/* 右: ガントチャート（PDF出力時にこのSVGを複製して画像化） */}
             <div className="gantt-print-root xl:flex-1 rounded-xl border border-gray-200 bg-white shadow-sm p-2 min-h-0 overflow-auto">
-              {/* 印刷時のみ表示する見出し */}
-              <div className="mb-2 hidden print:block">
-                <h2 className="text-base font-bold text-gray-900">{title || "(無題)"}</h2>
-                <div className="text-xs text-gray-600">
-                  {seiban ? `売約番号: ${seiban}　` : ""}
-                  {(() => {
-                    const d = new Date();
-                    return `作成日: ${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
-                  })()}
-                </div>
-              </div>
               {chart}
             </div>
           </div>
@@ -542,6 +638,51 @@ function GanttEditInner() {
                 </button>
                 <button onClick={applyTemplate} disabled={tplApplying || tplLoading || tplList.length === 0} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
                   {tplApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} 生成
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PDF出力モーダル */}
+        {printModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !printing && setPrintModal(false)}>
+            <div className="w-full max-w-sm rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h2 className="flex items-center gap-2 text-base font-bold text-gray-800">
+                  <Printer className="w-5 h-5 text-indigo-600" /> PDF出力
+                </h2>
+                <button onClick={() => setPrintModal(false)} disabled={printing} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-50">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="px-4 py-4">
+                <div className="mb-2 text-xs font-semibold text-gray-600">出力する項目</div>
+                <div className="space-y-1.5">
+                  {/* 日付は常に出力 */}
+                  <label className="flex items-center gap-2 rounded-lg bg-gray-50 px-2.5 py-2 text-sm text-gray-500">
+                    <input type="checkbox" checked disabled />
+                    日付（開始・終了）<span className="ml-auto text-[11px]">常に出力</span>
+                  </label>
+                  {PRINT_OPT_LABELS.map((o) => (
+                    <label key={o.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={printOpts[o.key]}
+                        onChange={(e) => setPrintOpts((prev) => ({ ...prev, [o.key]: e.target.checked }))}
+                      />
+                      {o.label}
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-3 text-[11px] text-gray-400">A4横向き・1ページに収まるよう自動縮小して出力します。</p>
+              </div>
+              <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-4 py-3">
+                <button onClick={() => setPrintModal(false)} disabled={printing} className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                  キャンセル
+                </button>
+                <button onClick={generateGanttPdf} disabled={printing} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+                  {printing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />} 出力
                 </button>
               </div>
             </div>

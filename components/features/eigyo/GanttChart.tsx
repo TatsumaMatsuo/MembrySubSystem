@@ -2,7 +2,7 @@
 
 // Frappe Gantt(MIT) の React ラッパ（#95）。
 // vanilla JS ライブラリを client 専用に動的import し、依存変更時はコンテナを作り直して再描画する。
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 // frappe-gantt の exports 制限でサブパスCSSを直接importできないため、リポジトリ内に複製したCSSを読み込む。
 import "./frappe-gantt.css";
 import { GANTT_PALETTE, type GanttTaskData, type GanttUnit, type GanttHoliday } from "@/lib/gantt/types";
@@ -50,6 +50,7 @@ export function GanttChart({
   unit,
   readonly,
   zoom = 1,
+  fitDays,
   holidays,
   workdays,
   onDateChange,
@@ -58,12 +59,15 @@ export function GanttChart({
   tasks: GanttTaskData[];
   unit: GanttUnit;
   readonly?: boolean;
-  zoom?: number; // 全体縮尺（カラム幅倍率）。1.0=標準
+  zoom?: number; // 全体縮尺（カラム幅倍率）。1.0=標準（fitDays指定時はfit状態を1.0とする）
+  fitDays?: number; // 指定時、この日数分を表示幅に収める（例: 表示月数N → 30N+1日）
   holidays?: GanttHoliday[]; // 会社カレンダーの休日（薄い赤）
   workdays?: string[]; // 会社の出勤日（土日でもグレーにしない）YYYY-MM-DD
   onDateChange?: (id: string, start: string, end: string) => void;
   onClickTask?: (id: string) => void;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [viewW, setViewW] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const ganttRef = useRef<any>(null);
   const cbRef = useRef({ onDateChange, onClickTask });
@@ -71,8 +75,32 @@ export function GanttChart({
   // バーD&D由来の更新は「React→Ganttの再描画」を1回スキップ(ちらつき/ジャンプ防止)
   const skipSyncRef = useRef(false);
 
-  // 縮尺は横(カラム幅)と縦(バー高・行間)の両方に効かせる
-  const columnWidth = Math.max(12, Math.round(BASE_COL[unit] * zoom));
+  // 表示幅を計測（fitDays指定時に「N月分を幅に収める」ため）
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.clientWidth;
+      setViewW((prev) => (Math.abs(prev - w) >= 8 ? w : prev));
+    };
+    update();
+    let ro: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(update);
+      ro.observe(el);
+    }
+    return () => ro?.disconnect();
+  }, []);
+
+  // 縮尺は横(カラム幅)と縦(バー高・行間)の両方に効かせる。
+  // fitDays指定時は「表示幅 / 列数」を基準(=zoom 1.0)にして、指定日数分が収まるようにする。
+  const columnWidth = (() => {
+    if (fitDays && fitDays > 0 && viewW > 0) {
+      const columns = unit === "day" ? fitDays : unit === "week" ? Math.ceil(fitDays / 7) : Math.ceil(fitDays / 30);
+      return Math.max(4, Math.round((viewW / Math.max(1, columns)) * zoom));
+    }
+    return Math.max(12, Math.round(BASE_COL[unit] * zoom));
+  })();
   const barHeight = Math.max(10, Math.round(30 * zoom));
   const rowPadding = Math.max(6, Math.round(18 * zoom));
   const holidayList = holidays || [];
@@ -168,7 +196,7 @@ export function GanttChart({
   }, [tasks]);
 
   return (
-    <div className="w-full h-full overflow-hidden">
+    <div ref={rootRef} className="w-full h-full overflow-hidden">
       {tasks.length === 0 ? (
         <div className="flex items-center justify-center h-40 text-sm text-gray-400">
           左のグリッドでタスクを追加するとチャートが表示されます。

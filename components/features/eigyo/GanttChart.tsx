@@ -14,6 +14,8 @@ const HOLIDAY_BG = "#fde8e8";
 const UNIT_TO_MODE: Record<GanttUnit, string> = { day: "Day", week: "Week", month: "Month" };
 // 各単位の基準カラム幅(px)。ズーム倍率を掛けて column_width に渡す。
 const BASE_COL: Record<GanttUnit, number> = { day: 38, week: 140, month: 120 };
+// 最終バーが右端に貼り付かないよう、終了側に最低限確保する日数
+const END_PAD_MIN = 3;
 
 function fmt(d: Date): string {
   const y = d.getFullYear();
@@ -82,19 +84,34 @@ export function GanttChart({
   cbRef.current = { onDateChange, onClickTask };
   const baseDateRef = useRef<string | undefined>(baseDate);
   baseDateRef.current = baseDate;
+  const fitDaysRef = useRef<number | undefined>(fitDays);
+  fitDaysRef.current = fitDays;
 
-  // 基準日でカレンダー開始日を合わせる: 現在の表示モードのpaddingを「最小開始日−基準日」日に設定。
-  // frappeの gantt_start = start_of(最小開始日) − padding。step=日基準なので gantt_start = 基準日 になる。
+  // カレンダーの描画範囲を padding で決める。frappe は
+  //   gantt_start = start_of(最小開始日, unit) − padding[0]
+  //   gantt_end   = start_of(最大終了日, unit) + padding[1]
+  // で範囲を出す(タスクの期間が基準で、列幅は無関係)。padding に文字列を渡すと両端に同じ値が
+  // 入ってしまうため、[開始側, 終了側] の配列で個別に指定する。
+  //  - 開始側: 「最小開始日 − 基準日」→ gantt_start が基準日に一致する。
+  //  - 終了側: 「基準日 + fitDays」まで届く長さ。これを入れないとタスク期間より広い月数を
+  //    指定しても描画範囲が伸びず、表示月数を増やしても列が細くなるだけで月数が増えない。
   const applyBasePadding = (taskList: GanttTaskData[]) => {
     const g = ganttRef.current;
-    const bd = baseDateRef.current;
-    if (!g || !bd) return;
+    if (!g) return;
     const starts = taskList.map((t) => t.start).filter(Boolean);
     if (!starts.length) return;
     const minStart = starts.reduce((a, b) => (b < a ? b : a));
-    const pad = Math.max(0, ymdDiff(bd, minStart)); // 最小開始日 − 基準日（正）
+    const bd = baseDateRef.current || minStart;
+    const ends = taskList.map((t) => t.end || t.start).filter(Boolean);
+    const maxEnd = ends.length ? ends.reduce((a, b) => (b > a ? b : a)) : minStart;
+    const startPad = Math.max(0, ymdDiff(bd, minStart)); // 最小開始日 − 基準日（正）
+    // week/month 表示では gantt_end が週初/月初へ切り捨てられるぶん不足するので余裕を足す
+    const slack = unit === "day" ? 0 : unit === "week" ? 6 : 31;
+    const fd = fitDaysRef.current || 0;
+    const spanDays = ymdDiff(bd, maxEnd); // 基準日 → 最終終了日
+    const endPad = Math.max(END_PAD_MIN, fd > 0 ? fd - spanDays + slack : 0);
     const vm = g.options?.view_modes?.find((m: any) => m.name === UNIT_TO_MODE[unit]);
-    if (vm) vm.padding = `${pad}d`;
+    if (vm) vm.padding = [`${startPad}d`, `${endPad}d`];
   };
   // バーD&D由来の更新は「React→Ganttの再描画」を1回スキップ(ちらつき/ジャンプ防止)
   const skipSyncRef = useRef(false);
@@ -131,9 +148,11 @@ export function GanttChart({
   const workdaySet = new Set(workdays || []);
   const holidaySig = holidayList.map((h) => h.date).join(",");
   const workdaySig = (workdays || []).join(",");
-  // 構造シグネチャ: タスクの増減・並び・単位・readonly・縮尺・休日・出勤日 が変わった時だけ作り直す
+  // 構造シグネチャ: タスクの増減・並び・単位・readonly・縮尺・休日・出勤日・表示月数 が変わった時だけ作り直す
+  // ※ fitDays は必須。列幅が下限(4px)に張り付くと 9か月/12か月で columnWidth が同値になり、
+  //   fitDays を含めないと表示月数を変えても再描画されない。
   const structuralSig =
-    tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth + "x" + barHeight + "x" + rowPadding + "#h" + holidaySig + "#w" + workdaySig + "#b" + (baseDate || "");
+    tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth + "x" + barHeight + "x" + rowPadding + "#h" + holidaySig + "#w" + workdaySig + "#b" + (baseDate || "") + "#f" + (fitDays || 0);
 
   // 生成/再生成（構造変化時のみ）
   useEffect(() => {
@@ -189,14 +208,12 @@ export function GanttChart({
             cbRef.current.onClickTask?.(task.id);
           },
         });
-        // 基準日でカレンダー開始日を合わせる（padding再設定→再描画）
-        if (baseDateRef.current) {
-          applyBasePadding(tasks);
-          try {
-            ganttRef.current.change_view_mode();
-          } catch {
-            /* 再描画失敗は無視 */
-          }
+        // 基準日と表示月数を描画範囲へ反映（padding再設定→再描画）
+        applyBasePadding(tasks);
+        try {
+          ganttRef.current.change_view_mode();
+        } catch {
+          /* 再描画失敗は無視 */
         }
       } catch (e) {
         console.error("[GanttChart] render error", e);

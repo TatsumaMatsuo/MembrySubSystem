@@ -32,8 +32,7 @@ export const NIPPOU_FORM_SHARE_URL =
  * 売約番号: 要件上「非表示/初期値」→ prefill + hide_ で自動付与かつ回答者に見せない。
  * 受付コード: 要件上は表示のまま初期値設定(SEC-04照合の正)→ prefill のみ。
  * 物件名: 作業員が現場を取り違えないよう、表示のまま prefill(hide しない)。フォームに
- *   「物件名」質問が存在する(visible)前提。※ 値に空白を含むと + 化され Lark で不整合の
- *   可能性があるため実機確認する。
+ *   「物件名」質問が存在する(visible)前提。
  * 営業担当者名: 作業員が山口産業側の担当を把握できるよう、表示のまま prefill。
  *   ⚠ 当該フォームはフィールド名="営業担当者名" だが質問ラベル(title)="営業担当者" と不一致。
  *     prefill がどちらで照合されても当たるよう両名で送る(不一致側は Lark が無視)。
@@ -54,7 +53,11 @@ export function buildNippouFormUrl(
     params.set("prefill_営業担当者名", opts.salesPerson);
     params.set("prefill_営業担当者", opts.salesPerson);
   }
-  return `${NIPPOU_FORM_SHARE_URL}?${params.toString()}`;
+  // 半角スペースは URLSearchParams が "+" に変換するが、クエリを RFC3986 準拠で解釈する
+  // パーサでは "+" のまま復元され「山口+倉庫」のように化ける。"%20" はどちらの解釈でも
+  // スペースに戻るため置換する(値中のリテラル "+" は先に "%2B" 化済みなので一括置換で安全)。
+  // 全角スペース(U+3000)は通常のパーセントエンコード対象で化けないため対処不要。
+  return `${NIPPOU_FORM_SHARE_URL}?${params.toString().replace(/\+/g, "%20")}`;
 }
 
 /**

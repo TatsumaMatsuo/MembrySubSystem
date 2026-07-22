@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/auth-server";
 import {
   getActivePeriod,
   getCatalogForWarehouse,
+  getReTanaoroshiCatalog,
   getWhStatus,
   getReasons,
   getReportedItemCodes,
@@ -52,10 +53,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(body);
     }
 
-    const [catalog, whStatus] = await Promise.all([
-      getCatalogForWarehouse(warehouse),
-      getWhStatus(period.periodId, warehouse),
-    ]);
+    const whStatus = await getWhStatus(period.periodId, warehouse);
+    // 1回目=全対象品目 / 2回目以降=前回差分の掲載品目のみ（F-08）
+    const catalog =
+      whStatus.round > 1
+        ? await getReTanaoroshiCatalog(period.periodId, warehouse, whStatus.round)
+        : await getCatalogForWarehouse(warehouse);
     const reportedItemCodes = await getReportedItemCodes(period.periodId, warehouse, whStatus.round);
 
     // 倉庫名はクライアント（倉庫一覧）が保持しているため空でよい

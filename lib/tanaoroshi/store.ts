@@ -201,6 +201,30 @@ export async function getItemFromMaster(
   return { itemName: norm(r[M.item_name]), spec: norm(r[M.item_name2]), unit: norm(r[M.unit]) };
 }
 
+/**
+ * 再棚卸（2回目以降）の対象カタログ。前回回数の差分リスト掲載品目のみを対象とする（F-08）。
+ */
+export async function getReTanaoroshiCatalog(
+  periodId: string,
+  warehouseCode: string,
+  round: number
+): Promise<CatalogItem[]> {
+  const diffs = await getDiffRows(periodId, warehouseCode, round - 1);
+  if (!diffs.length) return [];
+  const stock = await buildStockMap(warehouseCode);
+  return diffs.map((d) => {
+    const st = stock.get(d.itemCode);
+    return {
+      itemCode: d.itemCode,
+      itemName: st?.itemName || d.itemName,
+      spec: st?.spec || "",
+      unit: "",
+      systemQty: st?.systemQty ?? d.systemQty,
+      inTarget: true,
+    };
+  });
+}
+
 /** 実施中の棚卸期（無ければ null）。同時に実施中は1件の想定 */
 export async function getActivePeriod(): Promise<{ periodId: string; name: string; closingDate: number | null } | null> {
   const P = TANAOROSHI_PERIOD_FIELDS;

@@ -53,6 +53,8 @@ export interface TanaoroshiSession {
   round: number;
   deviceId: string;
   startedAt: number;
+  /** 差分理由コードマスタ（2回目以降の理由選択用） */
+  reasons?: ReasonCode[];
 }
 
 /**

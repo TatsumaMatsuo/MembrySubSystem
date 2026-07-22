@@ -84,6 +84,7 @@ export default function TanaoroshiTopPage() {
         round: boot.warehouse?.round || 1,
         deviceId,
         startedAt: Date.now(),
+        reasons: boot.reasons || [],
       });
       router.push("/tanaoroshi/scan");
     } catch (e: any) {

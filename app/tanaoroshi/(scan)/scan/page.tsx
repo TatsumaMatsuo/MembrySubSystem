@@ -35,6 +35,7 @@ export default function ScanPage() {
   const [current, setCurrent] = useState<Current | null>(null);
   const [qty, setQty] = useState("");
   const [stockState, setStockState] = useState<StockState>("良品");
+  const [reasonCode, setReasonCode] = useState<string>("");
   const [photos, setPhotos] = useState<Blob[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [accum, setAccum] = useState(0); // 当該品目の既登録累計（このセッションのqueue内）
@@ -72,14 +73,22 @@ export default function ScanPage() {
       lastScanRef.current = { code, at: now };
 
       const item = catalogRef.current.get(code) || null;
-      lockedRef.current = true;
       const prior = accumRef.current.get(code) || 0; // 送信済み＋未送信の累計
+
+      // 2回目以降は差分リスト掲載品目のみ対象（F-08）。対象外は登録しない
+      if (!item && s.round > 1) {
+        feedbackWarn();
+        showToast("warn", "この品目は今回の対象外です");
+        return;
+      }
+
+      lockedRef.current = true;
       setAccum(prior);
       if (item) {
         prior > 0 ? feedbackAdd() : feedbackSuccess();
         setCurrent({ item, code, noSystemStock: false });
       } else {
-        // システム在庫に無い品目 → 品目マスタから品名・規格を照会（オンライン時）
+        // システム在庫に無い品目（1回目のみここに来る）→ 品目マスタから品名・規格を照会
         feedbackWarn();
         let resolved: CatalogItem | null = null;
         try {
@@ -95,6 +104,7 @@ export default function ScanPage() {
       }
       setQty("");
       setStockState("良品"); // 既定は良品（未選択時も良品扱い）
+      setReasonCode("");
       setPhotos([]);
     },
     [session]
@@ -205,6 +215,7 @@ export default function ScanPage() {
       stockState,
       inputMethod: manual ? "手入力" : "読取",
       round: s.round,
+      reasonCode: reasonCode || undefined,
       noSystemStock: current.noSystemStock,
       inputBy: user?.name || "",
       inputByEmail: user?.email || "",
@@ -373,6 +384,22 @@ export default function ScanPage() {
             </div>
           )}
         </div>
+
+        {/* 差分理由コード（2回目以降のみ） */}
+        {current && (session?.round || 1) > 1 && session?.reasons?.length ? (
+          <select
+            value={reasonCode}
+            onChange={(e) => setReasonCode(e.target.value)}
+            className="flex-none rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white focus:outline-none"
+          >
+            <option value="">差分理由を選択（任意）</option>
+            {session.reasons.map((r) => (
+              <option key={r.code} value={r.code}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
 
         {/* 在庫状態フラグ（入力中のみ。既定=良品） */}
         {current && (

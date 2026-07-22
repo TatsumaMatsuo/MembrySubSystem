@@ -109,6 +109,17 @@ export function getLarkTables() {
     // ガントチャート機能（#95 営業部支援ツール。project base）
     GANTT_CHART: process.env.LARK_TABLE_GANTT_CHART || "tblZu9auJGP1Jsbn",
     GANTT_TEMPLATE: process.env.LARK_TABLE_GANTT_TEMPLATE || "tbljLtonssQbpHAx",
+    // ===== 棚卸入力Webアプリ（project base）=====
+    // 参照（既存・基幹からの月次アップロード先）
+    TANAOROSHI_STOCK: process.env.LARK_TABLE_TANAOROSHI_STOCK || "tblFG23F6WgRPr5a", // システム在庫情報
+    TANAOROSHI_RESULT: process.env.LARK_TABLE_TANAOROSHI_RESULT || "tbl8pCg48KRx8710", // 棚卸在庫情報(基幹取込レイアウト)
+    // 新規（docs/tanaoroshi/table-spec.md に従い Lark UI で手動作成。IDは env 必須）
+    TANAOROSHI_PERIOD: process.env.LARK_TABLE_TANAOROSHI_PERIOD || "",
+    TANAOROSHI_WH_STATUS: process.env.LARK_TABLE_TANAOROSHI_WH_STATUS || "",
+    TANAOROSHI_ENTRY: process.env.LARK_TABLE_TANAOROSHI_ENTRY || "",
+    TANAOROSHI_DIFF: process.env.LARK_TABLE_TANAOROSHI_DIFF || "",
+    TANAOROSHI_REASON: process.env.LARK_TABLE_TANAOROSHI_REASON || "",
+    TANAOROSHI_AUDIT: process.env.LARK_TABLE_TANAOROSHI_AUDIT || "",
   };
 }
 
@@ -174,7 +185,40 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   // ガントチャート機能
   GANTT_CHART: "project",
   GANTT_TEMPLATE: "project",
+  // 棚卸入力Webアプリ（全て project base）
+  TANAOROSHI_STOCK: "project",
+  TANAOROSHI_RESULT: "project",
+  TANAOROSHI_PERIOD: "project",
+  TANAOROSHI_WH_STATUS: "project",
+  TANAOROSHI_ENTRY: "project",
+  TANAOROSHI_DIFF: "project",
+  TANAOROSHI_REASON: "project",
+  TANAOROSHI_AUDIT: "project",
 };
+
+/**
+ * 棚卸テーブルIDの取得（未設定なら明示的に落とす）
+ * 新規6テーブルは Lark UI で手動作成するためソース内フォールバックを持たない。
+ * env 未設定のまま動くと「空文字のtable_id」で不可解なAPIエラーになるため、ここで止める。
+ */
+export function requireTanaoroshiTable(
+  key:
+    | "TANAOROSHI_PERIOD"
+    | "TANAOROSHI_WH_STATUS"
+    | "TANAOROSHI_ENTRY"
+    | "TANAOROSHI_DIFF"
+    | "TANAOROSHI_REASON"
+    | "TANAOROSHI_AUDIT"
+): string {
+  const id = getLarkTables()[key];
+  if (!id) {
+    throw new Error(
+      `環境変数 LARK_TABLE_${key} が未設定です。docs/tanaoroshi/table-spec.md に従いテーブルを作成し、` +
+        `npx tsx scripts/verify-tanaoroshi-tables.ts で取得したIDを設定してください。`
+    );
+  }
+  return id;
+}
 
 /**
  * ガントチャートテーブルのフィールド定義（#95）
@@ -212,6 +256,140 @@ export const KOJI_LEDGER_SETTINGS_FIELDS = {
   seiban: "製番",
   settings_json: "設定JSON",
   updated_at: "更新日時",
+} as const;
+
+/* ===================== 棚卸入力Webアプリ ===================== */
+
+/**
+ * システム在庫情報（既存・基幹から月次アップロード / 洗い替え）
+ * 48列あるが棚卸で使うのはここに定義した分のみ。
+ * 注意: 在庫数などの数値は Text 型で入っており、金額はカンマ区切り。
+ *       参照時は必ず parseStockNumber() を通すこと。
+ */
+export const TANAOROSHI_STOCK_FIELDS = {
+  closing_date: "締日", // 日付。月次スナップショットの基準日
+  warehouse_code: "倉庫コード", // 数値だがAPIでは文字列で返る
+  warehouse_name: "倉庫", // 全角空白を含む。突合キーには使わない
+  shelf_no: "棚番", // 次期フェーズ用
+  item_code: "品番",
+  item_name: "品名",
+  item_name2: "品名2", // 品名と結合して表示する
+  unit: "単位",
+  stock_qty: "在庫数", // Text型
+  tanaoroshi_qty: "棚卸数", // 数値型
+  adjust_qty: "調整数", // 数値型
+} as const;
+
+/**
+ * 棚卸在庫情報（既存・基幹取込レイアウト。F-11 の出力先）
+ * 確定値をここへ書き戻し、同じ列構成で EXCEL もダウンロードする。
+ */
+export const TANAOROSHI_RESULT_FIELDS = {
+  warehouse_code: "倉庫コード", // 数値
+  warehouse_name: "倉庫",
+  item_code: "品番",
+  item_name: "品名",
+  item_name2: "品名2",
+  qty: "数量", // 数値。確定実棚数量
+  note: "備考",
+  staff_code: "担当者コード",
+  staff_name: "担当者",
+  theoretical_qty: "理論数", // 数値。システム在庫数
+  diff_qty: "差異数", // 数値。数量 - 理論数
+} as const;
+
+/** 棚卸_期 */
+export const TANAOROSHI_PERIOD_FIELDS = {
+  period_id: "期ID",
+  name: "棚卸名称",
+  closing_date: "基準締日",
+  status: "状態", // 単一選択: 準備中/実施中/締め
+  created_by: "作成者",
+  created_at: "作成日時",
+  updated_at: "更新日時",
+} as const;
+
+/** 棚卸_倉庫進捗（回数は倉庫単位で管理する） */
+export const TANAOROSHI_WH_STATUS_FIELDS = {
+  status_id: "進捗ID", // 期ID|倉庫コード
+  period_id: "期ID",
+  warehouse_code: "倉庫コード",
+  warehouse_name: "倉庫名",
+  current_round: "現在回数",
+  status: "ステータス", // 単一選択。"発行処理中" は二重発行防止ロック
+  target_items: "対象品目数",
+  reported_items: "報告済品目数",
+  diff_count: "差分件数",
+  last_reported_at: "最終報告日時",
+  updated_at: "更新日時",
+} as const;
+
+/**
+ * 棚卸_実績（追記専用）
+ * 実棚数量は「状態=有効 の 入力数量 の SUM」で常に導出する。累計列は持たない。
+ */
+export const TANAOROSHI_ENTRY_FIELDS = {
+  entry_id: "実績ID", // クライアント採番UUID。冪等キー
+  period_id: "期ID",
+  warehouse_code: "倉庫コード",
+  warehouse_name: "倉庫名",
+  item_code: "品番",
+  item_name: "品名",
+  qty: "入力数量", // この1操作の数量。累計ではない
+  stock_state: "在庫状態", // 単一選択: 良品/不良品/滞留
+  photos: "写真",
+  input_method: "入力方式", // 単一選択: 読取/手入力/検索
+  round: "棚卸回数",
+  reason_code: "差分理由コード",
+  status: "状態", // 単一選択: 有効/取消
+  voided_from: "取消元実績ID",
+  no_system_stock: "システム在庫なし",
+  input_by: "入力者",
+  input_by_email: "入力者メール",
+  input_at: "入力日時", // 入力時刻（送信時刻ではない）
+  sent_at: "送信日時",
+  device_id: "端末ID",
+} as const;
+
+/** 棚卸_差分リスト */
+export const TANAOROSHI_DIFF_FIELDS = {
+  diff_id: "差分ID", // 期ID|倉庫コード|品番|回数
+  period_id: "期ID",
+  warehouse_code: "倉庫コード",
+  warehouse_name: "倉庫名",
+  item_code: "品番",
+  item_name: "品名",
+  system_qty: "システム在庫数",
+  actual_qty: "実棚数量",
+  diff_qty: "差分数",
+  state_breakdown: "在庫状態内訳",
+  round: "棚卸回数",
+  reason_code: "差分理由コード",
+  reason_name: "差分理由名称",
+  resolved: "解消フラグ",
+  issued_by: "発行者",
+  issued_at: "発行日時",
+} as const;
+
+/** 棚卸_差分理由コードマスタ */
+export const TANAOROSHI_REASON_FIELDS = {
+  code: "理由コード",
+  name: "理由名称",
+  sort_order: "表示順",
+  is_active: "有効フラグ",
+} as const;
+
+/** 棚卸_操作履歴（取消・修正・管理操作のみ記録。登録は実績テーブル自体が履歴を兼ねる） */
+export const TANAOROSHI_AUDIT_FIELDS = {
+  audit_id: "履歴ID",
+  period_id: "期ID",
+  target_key: "対象キー",
+  action: "操作種別", // 単一選択: 取消/修正/差分リスト発行/締め/基幹出力/在庫取込/初期化
+  before: "変更前",
+  after: "変更後",
+  note: "備考",
+  operator: "操作者",
+  operated_at: "操作日時",
 } as const;
 
 /**

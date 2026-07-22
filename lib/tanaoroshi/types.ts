@@ -76,7 +76,9 @@ export interface EntryDraft {
   inputByEmail: string;
   inputAt: number; // 入力時刻（送信時刻ではない）
   deviceId: string;
-  /** 写真の file_token（アップロード済み）。Phase 2 で使用 */
+  /** 未送信時の写真データ（端末に保持。送信時にアップロードして photoTokens 化） */
+  photos?: Blob[];
+  /** アップロード済み写真の file_token */
   photoTokens?: string[];
 }
 

@@ -4,7 +4,8 @@ export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Upload, Delete, Keyboard, Check, Loader2, X, Undo2, ListChecks, PackageSearch } from "lucide-react";
+import { ArrowLeft, Upload, Delete, Keyboard, Check, Loader2, X, Undo2, ListChecks, PackageSearch, Camera } from "lucide-react";
+import { compressImageToLimit } from "@/lib/document-upload";
 import { useAuth } from "@/lib/auth";
 import type { CatalogItem, EntryDraft, TanaoroshiSession, StockState } from "@/lib/tanaoroshi/types";
 import { loadSession, loadCatalog, enqueue, loadQueue } from "@/lib/tanaoroshi/local-store";
@@ -34,6 +35,8 @@ export default function ScanPage() {
   const [current, setCurrent] = useState<Current | null>(null);
   const [qty, setQty] = useState("");
   const [stockState, setStockState] = useState<StockState>("良品");
+  const [photos, setPhotos] = useState<Blob[]>([]);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [accum, setAccum] = useState(0); // 当該品目の既登録累計（このセッションのqueue内）
   const [pending, setPending] = useState(0);
   const [toast, setToast] = useState<{ kind: "ok" | "add" | "err" | "warn"; text: string } | null>(null);
@@ -92,9 +95,24 @@ export default function ScanPage() {
       }
       setQty("");
       setStockState("良品"); // 既定は良品（未選択時も良品扱い）
+      setPhotos([]);
     },
     [session]
   );
+
+  const onPickPhoto = async (files: FileList | null) => {
+    if (!files || !files.length) return;
+    const blobs: Blob[] = [];
+    for (const f of Array.from(files)) {
+      try {
+        blobs.push(await compressImageToLimit(f, 1.5 * 1024 * 1024));
+      } catch {
+        blobs.push(f);
+      }
+    }
+    setPhotos((p) => [...p, ...blobs]);
+    if (photoInputRef.current) photoInputRef.current.value = "";
+  };
 
   // セッション＆カタログ読み込み
   useEffect(() => {
@@ -164,6 +182,7 @@ export default function ScanPage() {
   const cancelCurrent = () => {
     setCurrent(null);
     setQty("");
+    setPhotos([]);
     lockedRef.current = false;
   };
 
@@ -191,6 +210,7 @@ export default function ScanPage() {
       inputByEmail: user?.email || "",
       inputAt: Date.now(),
       deviceId: s.deviceId,
+      photos: photos.length ? photos : undefined,
     };
     await enqueue(draft);
     accumRef.current.set(current.code, (accumRef.current.get(current.code) || 0) + n); // 累計に反映
@@ -202,6 +222,7 @@ export default function ScanPage() {
     // 次へ
     setCurrent(null);
     setQty("");
+    setPhotos([]);
     setManual(false);
     lockedRef.current = false;
   };
@@ -411,6 +432,17 @@ export default function ScanPage() {
                 <X className="h-5 w-5" />
               </button>
               <button
+                onClick={() => photoInputRef.current?.click()}
+                className="relative flex items-center justify-center rounded-xl bg-gray-700 px-4 py-3 text-white active:bg-gray-600"
+              >
+                <Camera className="h-5 w-5" />
+                {photos.length > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-500 px-1 text-xs font-bold">
+                    {photos.length}
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={decideNext}
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-lg font-bold text-white active:bg-blue-700"
               >
@@ -467,6 +499,17 @@ export default function ScanPage() {
           )}
         </div>
       </div>
+
+      {/* 写真入力（カメラ起動） */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        multiple
+        className="hidden"
+        onChange={(e) => onPickPhoto(e.target.files)}
+      />
 
       {/* 手入力モーダル */}
       {manual && (

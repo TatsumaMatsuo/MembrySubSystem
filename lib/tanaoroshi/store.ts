@@ -276,26 +276,33 @@ export async function submitEntries(
 
   const toCreate = entries.filter((e) => !existing.has(e.entryId));
   const now = Date.now();
-  const records = toCreate.map((e) => ({
-    [E.entry_id]: e.entryId,
-    [E.period_id]: e.periodId,
-    [E.warehouse_code]: e.warehouseCode,
-    [E.warehouse_name]: e.warehouseName,
-    [E.item_code]: e.itemCode,
-    [E.item_name]: e.itemName,
-    [E.qty]: e.qty,
-    [E.stock_state]: e.stockState,
-    [E.input_method]: e.inputMethod,
-    [E.round]: e.round,
-    [E.reason_code]: e.reasonCode || "",
-    [E.status]: "有効",
-    [E.no_system_stock]: e.noSystemStock,
-    [E.input_by]: e.inputBy,
-    [E.input_by_email]: e.inputByEmail,
-    [E.input_at]: e.inputAt,
-    [E.sent_at]: now,
-    [E.device_id]: e.deviceId,
-  }));
+  const records = toCreate.map((e) => {
+    const rec: Record<string, any> = {
+      [E.entry_id]: e.entryId,
+      [E.period_id]: e.periodId,
+      [E.warehouse_code]: e.warehouseCode,
+      [E.warehouse_name]: e.warehouseName,
+      [E.item_code]: e.itemCode,
+      [E.item_name]: e.itemName,
+      [E.qty]: e.qty,
+      [E.stock_state]: e.stockState,
+      [E.input_method]: e.inputMethod,
+      [E.round]: e.round,
+      [E.reason_code]: e.reasonCode || "",
+      [E.status]: "有効",
+      [E.no_system_stock]: e.noSystemStock,
+      [E.input_by]: e.inputBy,
+      [E.input_by_email]: e.inputByEmail,
+      [E.input_at]: e.inputAt,
+      [E.sent_at]: now,
+      [E.device_id]: e.deviceId,
+    };
+    // 写真（アップロード済み file_token を添付列へ）
+    if (e.photoTokens && e.photoTokens.length) {
+      rec[E.photos] = e.photoTokens.map((t) => ({ file_token: t }));
+    }
+    return rec;
+  });
   if (records.length) await batchCreateBaseRecords(tableId, records);
 
   return {

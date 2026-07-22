@@ -25,6 +25,7 @@ export default function ScanPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const scannerRef = useRef<ScannerHandle | null>(null);
   const catalogRef = useRef<Map<string, CatalogItem>>(new Map());
+  const accumRef = useRef<Map<string, number>>(new Map()); // 品目コード→累計（送信済み＋未送信）
   const lastScanRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
   const lockedRef = useRef(false); // 品目確定〜数量入力の間は新規読取を無視
 
@@ -39,7 +40,7 @@ export default function ScanPage() {
   const [manualCode, setManualCode] = useState("");
   const [camError, setCamError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
-  const [lastEntry, setLastEntry] = useState<{ entryId: string; code: string } | null>(null);
+  const [lastEntry, setLastEntry] = useState<{ entryId: string; code: string; qty: number } | null>(null);
 
   const showToast = (kind: "ok" | "add" | "err" | "warn", text: string) => {
     setToast({ kind, text });
@@ -48,14 +49,6 @@ export default function ScanPage() {
 
   const refreshPending = useCallback(async () => {
     setPending((await loadQueue()).length);
-  }, []);
-
-  // 当該品目のqueue内累計
-  const accumFor = useCallback(async (code: string, s: TanaoroshiSession): Promise<number> => {
-    const q = await loadQueue();
-    return q
-      .filter((e) => e.itemCode === code && e.warehouseCode === s.warehouseCode && e.round === s.round)
-      .reduce((sum, e) => sum + (e.qty || 0), 0);
   }, []);
 
   const handleCode = useCallback(
@@ -76,19 +69,29 @@ export default function ScanPage() {
 
       const item = catalogRef.current.get(code) || null;
       lockedRef.current = true;
-      const prior = await accumFor(code, s);
+      const prior = accumRef.current.get(code) || 0; // 送信済み＋未送信の累計
       setAccum(prior);
       if (item) {
         prior > 0 ? feedbackAdd() : feedbackSuccess();
         setCurrent({ item, code, noSystemStock: false });
       } else {
-        // システム在庫に無い品目 → 差分として登録可（要確認）
+        // システム在庫に無い品目 → 品目マスタから品名・規格を照会（オンライン時）
         feedbackWarn();
-        setCurrent({ item: null, code, noSystemStock: true });
+        let resolved: CatalogItem | null = null;
+        try {
+          const res = await fetch(`/api/tanaoroshi/item?code=${encodeURIComponent(code)}`);
+          const j = await res.json().catch(() => ({}));
+          if (res.ok && j?.item) {
+            resolved = { itemCode: code, itemName: j.item.itemName, spec: j.item.spec, unit: j.item.unit, systemQty: 0, inTarget: false };
+          }
+        } catch {
+          /* オフライン等：品名なしで登録可 */
+        }
+        setCurrent({ item: resolved, code, noSystemStock: true });
       }
       setQty("");
     },
-    [session, accumFor]
+    [session]
   );
 
   // セッション＆カタログ読み込み
@@ -102,6 +105,26 @@ export default function ScanPage() {
       setSession(s);
       const cat = await loadCatalog();
       catalogRef.current = new Map(cat.map((c) => [c.itemCode, c]));
+
+      // 累計マップ初期化（送信済み＝サーバ ＋ 未送信＝端末queue）
+      const map = new Map<string, number>();
+      const q = await loadQueue();
+      for (const e of q) {
+        if (e.warehouseCode === s.warehouseCode && e.round === s.round) {
+          map.set(e.itemCode, (map.get(e.itemCode) || 0) + e.qty);
+        }
+      }
+      try {
+        const res = await fetch(`/api/tanaoroshi/entries?warehouse=${encodeURIComponent(s.warehouseCode)}`);
+        const j = await res.json().catch(() => ({}));
+        if (res.ok && j?.success !== false) {
+          for (const r of j.entries || []) map.set(r.itemCode, (map.get(r.itemCode) || 0) + (r.qty || 0));
+        }
+      } catch {
+        /* オフライン時は端末分のみ */
+      }
+      accumRef.current = map;
+
       await refreshPending();
       setReady(true);
     })();
@@ -168,7 +191,8 @@ export default function ScanPage() {
       deviceId: s.deviceId,
     };
     await enqueue(draft);
-    setLastEntry({ entryId: draft.entryId, code: current.code });
+    accumRef.current.set(current.code, (accumRef.current.get(current.code) || 0) + n); // 累計に反映
+    setLastEntry({ entryId: draft.entryId, code: current.code, qty: n });
     await refreshPending();
     showToast(current.noSystemStock ? "warn" : "ok", `${current.code} を ${n} 登録`);
     // バックグラウンド送信（オンライン時）
@@ -184,6 +208,8 @@ export default function ScanPage() {
     if (!lastEntry) return;
     try {
       await cancelEntry(lastEntry.entryId);
+      const cur = accumRef.current.get(lastEntry.code) || 0;
+      accumRef.current.set(lastEntry.code, Math.max(0, cur - lastEntry.qty)); // 累計から戻す
       await refreshPending();
       showToast("warn", `${lastEntry.code} の登録を取り消しました`);
       setLastEntry(null);
@@ -275,7 +301,18 @@ export default function ScanPage() {
                 {accum > 0 && <span className="text-sm text-blue-300">既登録累計 {accum}</span>}
               </div>
               {current.noSystemStock ? (
-                <div className="text-sm text-amber-300">システム在庫にない品目（差分として登録）</div>
+                <div className="leading-tight">
+                  <div className="text-xs text-amber-300">システム在庫にない品目（差分として登録）</div>
+                  {current.item?.itemName ? (
+                    <>
+                      <div className="line-clamp-2 text-sm text-gray-100">{current.item.itemName}</div>
+                      {current.item?.spec && <div className="text-xs text-gray-400">規格: {current.item.spec}</div>}
+                      {current.item?.unit && <div className="text-xs text-gray-500">単位: {current.item.unit}</div>}
+                    </>
+                  ) : (
+                    <div className="text-sm text-gray-400">品名情報なし</div>
+                  )}
+                </div>
               ) : (
                 <div className="leading-tight">
                   <div className="line-clamp-2 text-sm text-gray-100">{current.item?.itemName || "—"}</div>

@@ -121,6 +121,8 @@ export function getLarkTables() {
     TANAOROSHI_DIFF: process.env.LARK_TABLE_TANAOROSHI_DIFF || "tblUKKGTNUI41U1g",
     TANAOROSHI_REASON: process.env.LARK_TABLE_TANAOROSHI_REASON || "tblbHjN0xN54MH58",
     TANAOROSHI_AUDIT: process.env.LARK_TABLE_TANAOROSHI_AUDIT || "tblM0bccFUPOLyrO",
+    // 品目マスタ（既存・在庫にない品番の品名解決用。project base）
+    TANAOROSHI_ITEM_MASTER: process.env.LARK_TABLE_TANAOROSHI_ITEM_MASTER || "tblw1oc3PD0cM0fu",
   };
 }
 
@@ -195,6 +197,7 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   TANAOROSHI_DIFF: "project",
   TANAOROSHI_REASON: "project",
   TANAOROSHI_AUDIT: "project",
+  TANAOROSHI_ITEM_MASTER: "project",
 };
 
 /**
@@ -378,6 +381,14 @@ export const TANAOROSHI_REASON_FIELDS = {
   name: "理由名称",
   sort_order: "表示順",
   is_active: "有効フラグ",
+} as const;
+
+/** 品目マスタ（在庫にない品番の品名・規格解決用。多数の列があるが棚卸で使うのはこれだけ） */
+export const TANAOROSHI_ITEM_MASTER_FIELDS = {
+  item_code: "品目コード",
+  item_name: "品名",
+  item_name2: "品名2",
+  unit: "単位",
 } as const;
 
 /** 棚卸_操作履歴（取消・修正・管理操作のみ記録。登録は実績テーブル自体が履歴を兼ねる） */

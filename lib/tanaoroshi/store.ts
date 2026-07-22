@@ -22,6 +22,7 @@ import {
   TANAOROSHI_STOCK_FIELDS,
   TANAOROSHI_WH_STATUS_FIELDS,
   TANAOROSHI_REASON_FIELDS,
+  TANAOROSHI_ITEM_MASTER_FIELDS,
 } from "@/lib/lark-tables";
 import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import { parseStockNumber } from "./stock-import";
@@ -182,6 +183,20 @@ export async function getCatalogForWarehouse(warehouseCode: string): Promise<Cat
     });
   }
   return out;
+}
+
+/** 品目マスタから品名・規格・単位を引く（在庫にない品番の解決用）。無ければ null */
+export async function getItemFromMaster(
+  code: string
+): Promise<{ itemName: string; spec: string; unit: string } | null> {
+  const M = TANAOROSHI_ITEM_MASTER_FIELDS;
+  const rows = await listAll(getLarkTables().TANAOROSHI_ITEM_MASTER, {
+    filter: `CurrentValue.[${M.item_code}]="${escapeLarkFilterValue(code)}"`,
+    fieldNames: [M.item_code, M.item_name, M.item_name2, M.unit],
+  });
+  if (!rows.length) return null;
+  const r = rows[0];
+  return { itemName: norm(r[M.item_name]), spec: norm(r[M.item_name2]), unit: norm(r[M.unit]) };
 }
 
 /** 実施中の棚卸期（無ければ null）。同時に実施中は1件の想定 */

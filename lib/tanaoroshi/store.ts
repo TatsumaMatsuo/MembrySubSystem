@@ -6,9 +6,10 @@ import {
   getBaseRecords,
   batchDeleteBaseRecords,
   batchCreateBaseRecords,
-  searchBaseRecordsAll,
   createBaseRecord,
   updateBaseRecord,
+  getLarkClient,
+  getLarkBaseToken,
 } from "@/lib/lark-client";
 import {
   getLarkTables,
@@ -54,6 +55,37 @@ export const ARCHIVABLE_TABLES: Record<
   diff: { id: () => requireTanaoroshiTable("TANAOROSHI_DIFF"), label: "棚卸_差分リスト", fields: TANAOROSHI_DIFF_FIELDS },
 };
 
+/**
+ * list API で全ページ取得（文字列フィルタ対応）。
+ * search API は filter が構造化オブジェクト必須のため、単純な突合には list API を使う。
+ * 返り値は fields をトップレベルに展開し record_id を付与（r[列名] / r.record_id でアクセス可能）。
+ */
+async function listAll(
+  tableId: string,
+  opts?: { filter?: string; fieldNames?: string[]; baseToken?: string }
+): Promise<Record<string, any>[]> {
+  const client = getLarkClient();
+  if (!client) throw new Error("Lark client not initialized");
+  const appToken = opts?.baseToken || getLarkBaseToken();
+  const out: Record<string, any>[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res: any = await client.bitable.appTableRecord.list({
+      path: { app_token: appToken, table_id: tableId },
+      params: {
+        filter: opts?.filter,
+        field_names: opts?.fieldNames ? JSON.stringify(opts.fieldNames) : undefined,
+        page_size: 500,
+        page_token: pageToken,
+      },
+    });
+    if (res.code !== 0) throw new Error(`Lark取得失敗 table=${tableId} code=${res.code} msg=${res.msg}`);
+    for (const it of res.data?.items || []) out.push({ ...(it.fields || {}), record_id: it.record_id });
+    pageToken = res.data?.has_more ? res.data?.page_token : undefined;
+  } while (pageToken);
+  return out;
+}
+
 /** 全レコードを取得（アーカイブ用。フィールド値はテキスト展開） */
 export async function fetchAllRecords(tableId: string): Promise<Record<string, any>[]> {
   let token: string | undefined;
@@ -98,8 +130,8 @@ export async function createRecords(tableId: string, records: Record<string, any
 /** 「実施中」の棚卸期の件数（在庫初期化のガードに使う） */
 export async function countActivePeriods(): Promise<number> {
   const F = TANAOROSHI_PERIOD_FIELDS;
-  const rows = await searchBaseRecordsAll(requireTanaoroshiTable("TANAOROSHI_PERIOD"), {
-    filter: `CurrentValue.[${F.status}]=${escapeLarkFilterValue("実施中")}`,
+  const rows = await listAll(requireTanaoroshiTable("TANAOROSHI_PERIOD"), {
+    filter: `CurrentValue.[${F.status}]="${escapeLarkFilterValue("実施中")}"`,
     fieldNames: [F.status],
   });
   return rows.length;
@@ -112,7 +144,7 @@ const S = TANAOROSHI_STOCK_FIELDS;
 
 /** システム在庫の行を取得（必要列のみ・全ページ） */
 async function fetchStockRows(): Promise<any[]> {
-  return searchBaseRecordsAll(STOCK_TABLE_ID(), {
+  return listAll(STOCK_TABLE_ID(), {
     fieldNames: [S.warehouse_code, S.warehouse_name, S.item_code, S.item_name, S.item_name2, S.unit, S.stock_qty],
   });
 }
@@ -154,8 +186,8 @@ export async function getCatalogForWarehouse(warehouseCode: string): Promise<Cat
 /** 実施中の棚卸期（無ければ null）。同時に実施中は1件の想定 */
 export async function getActivePeriod(): Promise<{ periodId: string; name: string; closingDate: number | null } | null> {
   const P = TANAOROSHI_PERIOD_FIELDS;
-  const rows = await searchBaseRecordsAll(requireTanaoroshiTable("TANAOROSHI_PERIOD"), {
-    filter: `CurrentValue.[${P.status}]=${escapeLarkFilterValue("実施中")}`,
+  const rows = await listAll(requireTanaoroshiTable("TANAOROSHI_PERIOD"), {
+    filter: `CurrentValue.[${P.status}]="${escapeLarkFilterValue("実施中")}"`,
   });
   if (!rows.length) return null;
   const r = rows[0];
@@ -170,7 +202,7 @@ export async function getActivePeriod(): Promise<{ periodId: string; name: strin
 /** 差分理由コードマスタ（有効・表示順） */
 export async function getReasons(): Promise<ReasonCode[]> {
   const R = TANAOROSHI_REASON_FIELDS;
-  const rows = await searchBaseRecordsAll(requireTanaoroshiTable("TANAOROSHI_REASON"), {});
+  const rows = await listAll(requireTanaoroshiTable("TANAOROSHI_REASON"));
   return rows
     .filter((r) => r[R.is_active] !== false)
     .map((r) => ({ code: norm(r[R.code]), name: norm(r[R.name]), sort: Number(r[R.sort_order] ?? 0) }))
@@ -184,8 +216,8 @@ export async function getWhStatus(
   warehouseCode: string
 ): Promise<{ recordId: string | null; round: number; status: string }> {
   const W = TANAOROSHI_WH_STATUS_FIELDS;
-  const rows = await searchBaseRecordsAll(requireTanaoroshiTable("TANAOROSHI_WH_STATUS"), {
-    filter: `AND(CurrentValue.[${W.period_id}]=${escapeLarkFilterValue(periodId)},CurrentValue.[${W.warehouse_code}]=${escapeLarkFilterValue(warehouseCode)})`,
+  const rows = await listAll(requireTanaoroshiTable("TANAOROSHI_WH_STATUS"), {
+    filter: `AND(CurrentValue.[${W.period_id}]="${escapeLarkFilterValue(periodId)}",CurrentValue.[${W.warehouse_code}]="${escapeLarkFilterValue(warehouseCode)}")`,
   });
   if (!rows.length) return { recordId: null, round: 1, status: "未着手" };
   const r = rows[0];
@@ -195,8 +227,8 @@ export async function getWhStatus(
 /** 当該 期・倉庫・回数 で報告済みの品目コード（有効レコードのみ） */
 export async function getReportedItemCodes(periodId: string, warehouseCode: string, round: number): Promise<string[]> {
   const E = TANAOROSHI_ENTRY_FIELDS;
-  const rows = await searchBaseRecordsAll(requireTanaoroshiTable("TANAOROSHI_ENTRY"), {
-    filter: `AND(CurrentValue.[${E.period_id}]=${escapeLarkFilterValue(periodId)},CurrentValue.[${E.warehouse_code}]=${escapeLarkFilterValue(warehouseCode)},CurrentValue.[${E.round}]=${round},CurrentValue.[${E.status}]=${escapeLarkFilterValue("有効")})`,
+  const rows = await listAll(requireTanaoroshiTable("TANAOROSHI_ENTRY"), {
+    filter: `AND(CurrentValue.[${E.period_id}]="${escapeLarkFilterValue(periodId)}",CurrentValue.[${E.warehouse_code}]="${escapeLarkFilterValue(warehouseCode)}",CurrentValue.[${E.round}]=${round},CurrentValue.[${E.status}]="${escapeLarkFilterValue("有効")}")`,
     fieldNames: [E.item_code],
   });
   return [...new Set(rows.map((r) => norm(r[E.item_code])).filter(Boolean))];
@@ -216,13 +248,13 @@ export async function submitEntries(
 
   // 既存 実績ID を検索（バッチ内のIDに限定）
   const ids = entries.map((e) => e.entryId);
-  const orClauses = ids.map((id) => `CurrentValue.[${E.entry_id}]=${escapeLarkFilterValue(id)}`);
+  const orClauses = ids.map((id) => `CurrentValue.[${E.entry_id}]="${escapeLarkFilterValue(id)}"`);
   const existing = new Set<string>();
   // filter が長くなりすぎないよう50件ずつ
   for (let i = 0; i < orClauses.length; i += 50) {
     const chunk = orClauses.slice(i, i + 50);
     const filter = chunk.length === 1 ? chunk[0] : `OR(${chunk.join(",")})`;
-    const rows = await searchBaseRecordsAll(tableId, { filter, fieldNames: [E.entry_id] });
+    const rows = await listAll(tableId, { filter, fieldNames: [E.entry_id] });
     for (const r of rows) existing.add(norm(r[E.entry_id]));
   }
 
@@ -302,7 +334,7 @@ export interface PeriodRow {
 /** 棚卸期の一覧（作成日時の新しい順） */
 export async function listPeriods(): Promise<PeriodRow[]> {
   const P = TANAOROSHI_PERIOD_FIELDS;
-  const rows = await searchBaseRecordsAll(requireTanaoroshiTable("TANAOROSHI_PERIOD"), {});
+  const rows = await listAll(requireTanaoroshiTable("TANAOROSHI_PERIOD"));
   return rows
     .map((r) => ({
       recordId: r.record_id,

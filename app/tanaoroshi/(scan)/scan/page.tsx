@@ -4,9 +4,9 @@ export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Upload, Delete, Keyboard, Check, Loader2, X, Undo2, ListChecks } from "lucide-react";
+import { ArrowLeft, Upload, Delete, Keyboard, Check, Loader2, X, Undo2, ListChecks, PackageSearch } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import type { CatalogItem, EntryDraft, TanaoroshiSession } from "@/lib/tanaoroshi/types";
+import type { CatalogItem, EntryDraft, TanaoroshiSession, StockState } from "@/lib/tanaoroshi/types";
 import { loadSession, loadCatalog, enqueue, loadQueue } from "@/lib/tanaoroshi/local-store";
 import { startScanner, type ScannerHandle } from "@/lib/tanaoroshi/scanner";
 import { normalizeItemCode } from "@/lib/tanaoroshi/item-code";
@@ -33,6 +33,7 @@ export default function ScanPage() {
   const [ready, setReady] = useState(false);
   const [current, setCurrent] = useState<Current | null>(null);
   const [qty, setQty] = useState("");
+  const [stockState, setStockState] = useState<StockState>("良品");
   const [accum, setAccum] = useState(0); // 当該品目の既登録累計（このセッションのqueue内）
   const [pending, setPending] = useState(0);
   const [toast, setToast] = useState<{ kind: "ok" | "add" | "err" | "warn"; text: string } | null>(null);
@@ -90,6 +91,7 @@ export default function ScanPage() {
         setCurrent({ item: resolved, code, noSystemStock: true });
       }
       setQty("");
+      setStockState("良品"); // 既定は良品（未選択時も良品扱い）
     },
     [session]
   );
@@ -181,7 +183,7 @@ export default function ScanPage() {
       itemCode: current.code,
       itemName: current.item ? [current.item.itemName, current.item.spec].filter(Boolean).join(" ") : "",
       qty: n,
-      stockState: "良品",
+      stockState,
       inputMethod: manual ? "手入力" : "読取",
       round: s.round,
       noSystemStock: current.noSystemStock,
@@ -231,6 +233,29 @@ export default function ScanPage() {
   };
 
   const finish = async () => {
+    // 未報告品目の確認（F-05: 報告なし＝実棚0で差分になるため作業中に解消を促す）
+    if (session) {
+      try {
+        const reported = new Set<string>();
+        const queue = await loadQueue();
+        for (const e of queue) if (e.warehouseCode === session.warehouseCode && e.round === session.round) reported.add(e.itemCode);
+        const res = await fetch(`/api/tanaoroshi/reported?warehouse=${encodeURIComponent(session.warehouseCode)}`);
+        const j = await res.json().catch(() => ({}));
+        if (res.ok && j?.success !== false) for (const c of j.reportedItemCodes || []) reported.add(c);
+        const remaining = [...catalogRef.current.keys()].filter((code) => !reported.has(code)).length;
+        if (remaining > 0) {
+          const ok = window.confirm(
+            `未報告の品目が ${remaining} 件あります（報告なしは実棚0として差分になります）。\n未報告リストを確認しますか？\n\n［OK］確認する ／ ［キャンセル］このまま終了`
+          );
+          if (ok) {
+            router.push("/tanaoroshi/remaining");
+            return;
+          }
+        }
+      } catch {
+        /* 確認に失敗しても終了はできる */
+      }
+    }
     setFinishing(true);
     const r = await flushQueue();
     setFinishing(false);
@@ -328,6 +353,27 @@ export default function ScanPage() {
           )}
         </div>
 
+        {/* 在庫状態フラグ（入力中のみ。既定=良品） */}
+        {current && (
+          <div className="flex flex-none gap-1">
+            {(["良品", "不良品", "滞留"] as StockState[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStockState(s)}
+                className={`flex-1 rounded-lg py-1.5 text-sm font-medium ${
+                  stockState === s
+                    ? s === "良品"
+                      ? "bg-green-600 text-white"
+                      : "bg-amber-600 text-white"
+                    : "bg-gray-700 text-gray-300"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* 数量表示 */}
         <div className="flex flex-none items-center justify-between rounded-xl bg-gray-800 px-4 py-1.5">
           <span className="text-xs text-gray-400">数量</span>
@@ -374,28 +420,35 @@ export default function ScanPage() {
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={undoLast}
                   disabled={!lastEntry}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gray-700 py-2.5 text-sm font-medium text-white active:bg-gray-600 disabled:opacity-30"
+                  className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-gray-700 py-2 text-xs font-medium text-white active:bg-gray-600 disabled:opacity-30"
                 >
                   <Undo2 className="h-5 w-5" />
                   直前取消
                 </button>
                 <button
                   onClick={() => router.push("/tanaoroshi/entries")}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gray-700 py-2.5 text-sm font-medium text-white active:bg-gray-600"
+                  className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-gray-700 py-2 text-xs font-medium text-white active:bg-gray-600"
                 >
                   <ListChecks className="h-5 w-5" />
                   一覧
+                </button>
+                <button
+                  onClick={() => router.push("/tanaoroshi/remaining")}
+                  className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-gray-700 py-2 text-xs font-medium text-white active:bg-gray-600"
+                >
+                  <PackageSearch className="h-5 w-5" />
+                  未報告
                 </button>
                 <button
                   onClick={() => {
                     unlockAudio();
                     setManual(true);
                   }}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gray-700 py-2.5 text-sm font-medium text-white active:bg-gray-600"
+                  className="flex flex-col items-center justify-center gap-0.5 rounded-xl bg-gray-700 py-2 text-xs font-medium text-white active:bg-gray-600"
                 >
                   <Keyboard className="h-5 w-5" />
                   手入力

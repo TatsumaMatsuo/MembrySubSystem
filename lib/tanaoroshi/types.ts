@@ -82,6 +82,30 @@ export interface EntryDraft {
   photoTokens?: string[];
 }
 
+/** 差分リストの1行 */
+export interface DiffRow {
+  itemCode: string;
+  itemName: string;
+  systemQty: number;
+  actualQty: number;
+  diffQty: number; // 実棚 − システム在庫
+  stateBreakdown: string; // 例: 良品 20 / 不良品 4
+  reasonCode?: string;
+  round: number;
+}
+
+/** 進捗ダッシュボードの1行（倉庫別） */
+export interface ProgressRow {
+  warehouseCode: string;
+  warehouseName: string;
+  round: number;
+  status: string;
+  targetItems: number; // 対象品目数（システム在庫の品目数）
+  reportedItems: number; // 報告済み品目数（現在回数）
+  diffCount: number;
+  lastReportedAt: number | null;
+}
+
 /** bootstrap（起動時一括取得）のレスポンス */
 export interface BootstrapResponse {
   success: boolean;

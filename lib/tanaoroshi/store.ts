@@ -23,10 +23,12 @@ import {
   TANAOROSHI_WH_STATUS_FIELDS,
   TANAOROSHI_REASON_FIELDS,
   TANAOROSHI_ITEM_MASTER_FIELDS,
+  TANAOROSHI_RESULT_FIELDS,
 } from "@/lib/lark-tables";
 import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import { parseStockNumber } from "./stock-import";
-import type { Warehouse, CatalogItem, ReasonCode } from "./types";
+import { computeDiffs, pickConfirmedQty, type ActualAgg, type StockInfo, type ConfirmedRow, type RoundValue } from "./aggregate";
+import type { Warehouse, CatalogItem, ReasonCode, DiffRow, ProgressRow } from "./types";
 
 /** 参照テーブル（既存・env にフォールバックIDあり） */
 export const STOCK_TABLE_ID = () => getLarkTables().TANAOROSHI_STOCK;
@@ -406,6 +408,380 @@ export async function touchWhStatus(
       [W.updated_at]: now,
     });
   }
+}
+
+/* ===================== Phase 3: 差分リスト発行・進捗・出力 ===================== */
+
+/** 実績を品目別に集計（期＋倉庫＋回数＋有効） */
+async function buildActualAgg(periodId: string, warehouseCode: string, round: number): Promise<Map<string, ActualAgg>> {
+  const E = TANAOROSHI_ENTRY_FIELDS;
+  const rows = await listAll(requireTanaoroshiTable("TANAOROSHI_ENTRY"), {
+    filter: `AND(CurrentValue.[${E.period_id}]="${escapeLarkFilterValue(periodId)}",CurrentValue.[${E.warehouse_code}]="${escapeLarkFilterValue(warehouseCode)}",CurrentValue.[${E.round}]=${round},CurrentValue.[${E.status}]="${escapeLarkFilterValue("有効")}")`,
+  });
+  const map = new Map<string, ActualAgg>();
+  for (const r of rows) {
+    const code = norm(r[E.item_code]);
+    if (!code) continue;
+    const qty = Number(r[E.qty] ?? 0);
+    const state = norm(r[E.stock_state]) || "良品";
+    const reason = norm(r[E.reason_code]);
+    const cur = map.get(code) || { qty: 0, itemName: norm(r[E.item_name]), states: {}, reasonCode: undefined };
+    cur.qty += qty;
+    cur.states[state] = (cur.states[state] || 0) + qty;
+    if (reason) cur.reasonCode = reason; // 最新の理由で上書き
+    if (!cur.itemName) cur.itemName = norm(r[E.item_name]);
+    map.set(code, cur);
+  }
+  return map;
+}
+
+/** システム在庫を品目別に（指定倉庫） */
+async function buildStockMap(warehouseCode: string): Promise<Map<string, StockInfo>> {
+  const rows = await fetchStockRows();
+  const map = new Map<string, StockInfo>();
+  for (const r of rows) {
+    if (norm(r[S.warehouse_code]) !== norm(warehouseCode)) continue;
+    const code = norm(r[S.item_code]);
+    if (!code) continue;
+    map.set(code, {
+      systemQty: parseStockNumber(r[S.stock_qty]) ?? 0,
+      itemName: norm(r[S.item_name]),
+      spec: norm(r[S.item_name2]),
+    });
+  }
+  return map;
+}
+
+/** 理由コード→名称の対応 */
+async function reasonNameMap(): Promise<Map<string, string>> {
+  const reasons = await getReasons();
+  return new Map(reasons.map((r) => [r.code, r.name]));
+}
+
+/** 差分リストを読む（期＋倉庫? ＋回数?） */
+export async function getDiffRows(
+  periodId: string,
+  warehouseCode?: string,
+  round?: number
+): Promise<(DiffRow & { warehouseCode: string; warehouseName: string; resolved: boolean })[]> {
+  const D = TANAOROSHI_DIFF_FIELDS;
+  const clauses = [`CurrentValue.[${D.period_id}]="${escapeLarkFilterValue(periodId)}"`];
+  if (warehouseCode) clauses.push(`CurrentValue.[${D.warehouse_code}]="${escapeLarkFilterValue(warehouseCode)}"`);
+  if (round) clauses.push(`CurrentValue.[${D.round}]=${round}`);
+  const filter = clauses.length === 1 ? clauses[0] : `AND(${clauses.join(",")})`;
+  const rows = await listAll(requireTanaoroshiTable("TANAOROSHI_DIFF"), { filter });
+  return rows.map((r) => ({
+    itemCode: norm(r[D.item_code]),
+    itemName: norm(r[D.item_name]),
+    systemQty: Number(r[D.system_qty] ?? 0),
+    actualQty: Number(r[D.actual_qty] ?? 0),
+    diffQty: Number(r[D.diff_qty] ?? 0),
+    stateBreakdown: norm(r[D.state_breakdown]),
+    reasonCode: norm(r[D.reason_code]) || undefined,
+    round: Number(r[D.round] ?? 1),
+    warehouseCode: norm(r[D.warehouse_code]),
+    warehouseName: norm(r[D.warehouse_name]),
+    resolved: r[D.resolved] === true,
+  }));
+}
+
+/** 進捗ダッシュボード（倉庫別）。実績1回取得＋在庫＋倉庫進捗から算出 */
+export async function getProgress(periodId: string): Promise<ProgressRow[]> {
+  const E = TANAOROSHI_ENTRY_FIELDS;
+  const W = TANAOROSHI_WH_STATUS_FIELDS;
+
+  const [warehouses, stockRows, entries, whRows] = await Promise.all([
+    getWarehouses(),
+    fetchStockRows(),
+    listAll(requireTanaoroshiTable("TANAOROSHI_ENTRY"), {
+      filter: `AND(CurrentValue.[${E.period_id}]="${escapeLarkFilterValue(periodId)}",CurrentValue.[${E.status}]="${escapeLarkFilterValue("有効")}")`,
+      fieldNames: [E.warehouse_code, E.item_code, E.round],
+    }),
+    listAll(requireTanaoroshiTable("TANAOROSHI_WH_STATUS"), {
+      filter: `CurrentValue.[${W.period_id}]="${escapeLarkFilterValue(periodId)}"`,
+    }),
+  ]);
+
+  // 倉庫→対象品目数
+  const target = new Map<string, number>();
+  for (const r of stockRows) {
+    const c = norm(r[S.warehouse_code]);
+    if (!c) continue;
+    target.set(c, (target.get(c) || 0) + 1);
+  }
+  // 倉庫進捗
+  const whMap = new Map<string, any>();
+  for (const r of whRows) whMap.set(norm(r[W.warehouse_code]), r);
+
+  // 倉庫→回数→報告済み品目セット
+  const reportedByWh = new Map<string, Map<number, Set<string>>>();
+  for (const e of entries) {
+    const c = norm(e[E.warehouse_code]);
+    const round = Number(e[E.round] ?? 1);
+    const code = norm(e[E.item_code]);
+    if (!reportedByWh.has(c)) reportedByWh.set(c, new Map());
+    const byRound = reportedByWh.get(c)!;
+    if (!byRound.has(round)) byRound.set(round, new Set());
+    byRound.get(round)!.add(code);
+  }
+
+  return warehouses.map((w) => {
+    const wh = whMap.get(w.code);
+    const round = wh ? Number(wh[W.current_round] ?? 1) || 1 : 1;
+    const status = wh ? norm(wh[W.status]) || "未着手" : "未着手";
+    const reported = reportedByWh.get(w.code)?.get(round)?.size ?? 0;
+    return {
+      warehouseCode: w.code,
+      warehouseName: w.name,
+      round,
+      status,
+      targetItems: target.get(w.code) ?? 0,
+      reportedItems: reported,
+      diffCount: wh ? Number(wh[W.diff_count] ?? 0) : 0,
+      lastReportedAt: wh && typeof wh[W.last_reported_at] === "number" ? wh[W.last_reported_at] : null,
+    };
+  });
+}
+
+/**
+ * 差分リスト発行＝回数確定（F-07）。倉庫ごとに再実行安全に処理する。
+ * @returns 倉庫ごとの結果
+ */
+export async function issueDiff(
+  periodId: string,
+  warehouseCodes: string[],
+  operator: string
+): Promise<{ warehouseCode: string; diffCount: number; newRound: number; status: string; skipped?: string }[]> {
+  const W = TANAOROSHI_WH_STATUS_FIELDS;
+  const D = TANAOROSHI_DIFF_FIELDS;
+  const whTableId = requireTanaoroshiTable("TANAOROSHI_WH_STATUS");
+  const diffTableId = requireTanaoroshiTable("TANAOROSHI_DIFF");
+  const reasonMap = await reasonNameMap();
+  const results: { warehouseCode: string; diffCount: number; newRound: number; status: string; skipped?: string }[] = [];
+
+  for (const warehouseCode of warehouseCodes) {
+    const cur = await getWhStatus(periodId, warehouseCode);
+    if (cur.status === "発行処理中") {
+      results.push({ warehouseCode, diffCount: 0, newRound: cur.round, status: cur.status, skipped: "発行処理中" });
+      continue;
+    }
+    const round = cur.round;
+    const wh = await getWarehouseName(warehouseCode);
+
+    // ロック
+    await upsertWhStatus(whTableId, periodId, warehouseCode, wh, { [W.status]: "発行処理中", [W.updated_at]: Date.now() });
+
+    try {
+      const [actual, stock] = await Promise.all([buildActualAgg(periodId, warehouseCode, round), buildStockMap(warehouseCode)]);
+      const rows = computeDiffs(actual, stock, round);
+
+      // 既存の同一(期,倉庫,回数)差分を削除 → 再作成（再実行の冪等性）
+      const existing = await getDiffRecordIds(periodId, warehouseCode, round);
+      if (existing.length) await batchDeleteBaseRecords(diffTableId, existing);
+
+      if (rows.length) {
+        await batchCreateBaseRecords(
+          diffTableId,
+          rows.map((r) => ({
+            [D.diff_id]: `${periodId}|${warehouseCode}|${r.itemCode}|${round}`,
+            [D.period_id]: periodId,
+            [D.warehouse_code]: warehouseCode,
+            [D.warehouse_name]: wh,
+            [D.item_code]: r.itemCode,
+            [D.item_name]: r.itemName,
+            [D.system_qty]: r.systemQty,
+            [D.actual_qty]: r.actualQty,
+            [D.diff_qty]: r.diffQty,
+            [D.state_breakdown]: r.stateBreakdown,
+            [D.round]: round,
+            [D.reason_code]: r.reasonCode || "",
+            [D.reason_name]: r.reasonCode ? reasonMap.get(r.reasonCode) || "" : "",
+            [D.resolved]: false,
+            [D.issued_by]: operator,
+            [D.issued_at]: Date.now(),
+          }))
+        );
+      }
+
+      // ステータス・回数の更新
+      const isClose = rows.length === 0 || round >= 3;
+      const newRound = isClose ? round : round + 1;
+      const status = isClose ? "締め" : `${round}回目確定`;
+      await upsertWhStatus(whTableId, periodId, warehouseCode, wh, {
+        [W.status]: status,
+        [W.current_round]: newRound,
+        [W.diff_count]: rows.length,
+        [W.updated_at]: Date.now(),
+      });
+
+      await writeAudit({
+        periodId,
+        action: "差分リスト発行",
+        targetKey: warehouseCode,
+        after: `${round}回目 差分${rows.length}件 → ${status}`,
+        operator,
+      }).catch(() => {});
+
+      results.push({ warehouseCode, diffCount: rows.length, newRound, status });
+    } catch (e) {
+      // ロック解除（実施中へ戻す）
+      await upsertWhStatus(whTableId, periodId, warehouseCode, wh, { [W.status]: "実施中", [W.updated_at]: Date.now() }).catch(() => {});
+      throw e;
+    }
+  }
+  return results;
+}
+
+/** 倉庫名（システム在庫から） */
+async function getWarehouseName(code: string): Promise<string> {
+  const ws = await getWarehouses();
+  return ws.find((w) => w.code === code)?.name || "";
+}
+
+/** 倉庫進捗レコードを upsert（record_id 検索 → 更新 or 作成） */
+async function upsertWhStatus(
+  tableId: string,
+  periodId: string,
+  warehouseCode: string,
+  warehouseName: string,
+  fields: Record<string, any>
+): Promise<void> {
+  const W = TANAOROSHI_WH_STATUS_FIELDS;
+  const cur = await getWhStatus(periodId, warehouseCode);
+  if (cur.recordId) {
+    await updateBaseRecord(tableId, cur.recordId, fields);
+  } else {
+    await createBaseRecord(tableId, {
+      [W.status_id]: `${periodId}|${warehouseCode}`,
+      [W.period_id]: periodId,
+      [W.warehouse_code]: warehouseCode,
+      [W.warehouse_name]: warehouseName,
+      [W.current_round]: 1,
+      ...fields,
+    });
+  }
+}
+
+/**
+ * 確定値の算出（F-11）。倉庫＋品目ごとに、最も回数の大きい実棚を採用。
+ * 対象は「システム在庫にある品目 ∪ 実棚報告のあった品目」。
+ */
+export async function computeConfirmed(periodId: string, warehouseCodes?: string[]): Promise<ConfirmedRow[]> {
+  const E = TANAOROSHI_ENTRY_FIELDS;
+  const warehouses = await getWarehouses();
+  const whFilter = warehouseCodes && warehouseCodes.length ? new Set(warehouseCodes) : null;
+  const targetWh = warehouses.filter((w) => !whFilter || whFilter.has(w.code));
+
+  // 全実績（期＋有効）を1回取得し倉庫＋品目＋回数で集計
+  const entries = await listAll(requireTanaoroshiTable("TANAOROSHI_ENTRY"), {
+    filter: `AND(CurrentValue.[${E.period_id}]="${escapeLarkFilterValue(periodId)}",CurrentValue.[${E.status}]="${escapeLarkFilterValue("有効")}")`,
+    fieldNames: [E.warehouse_code, E.item_code, E.qty, E.round, E.reason_code, E.input_by],
+  });
+  // 倉庫|品目 → 回数 → {qty,reason,staff}
+  const byKey = new Map<string, Map<number, RoundValue>>();
+  for (const e of entries) {
+    const wc = norm(e[E.warehouse_code]);
+    if (whFilter && !whFilter.has(wc)) continue;
+    const code = norm(e[E.item_code]);
+    const round = Number(e[E.round] ?? 1);
+    const key = `${wc}|${code}`;
+    if (!byKey.has(key)) byKey.set(key, new Map());
+    const byRound = byKey.get(key)!;
+    const cur = byRound.get(round) || { round, qty: 0, reasonCode: undefined, staff: norm(e[E.input_by]) };
+    cur.qty += Number(e[E.qty] ?? 0);
+    const reason = norm(e[E.reason_code]);
+    if (reason) cur.reasonCode = reason;
+    byRound.set(round, cur);
+  }
+
+  const stockRows = await fetchStockRows();
+  const out: ConfirmedRow[] = [];
+  for (const w of targetWh) {
+    const stock = new Map<string, StockInfo>();
+    for (const r of stockRows) {
+      if (norm(r[S.warehouse_code]) !== w.code) continue;
+      const code = norm(r[S.item_code]);
+      if (code)
+        stock.set(code, {
+          systemQty: parseStockNumber(r[S.stock_qty]) ?? 0,
+          itemName: norm(r[S.item_name]),
+          spec: norm(r[S.item_name2]),
+        });
+    }
+    // 対象品目 = 在庫品目 ∪ 報告品目
+    const reportedCodes = new Set<string>();
+    for (const key of byKey.keys()) {
+      const [wc, code] = key.split("|");
+      if (wc === w.code) reportedCodes.add(code);
+    }
+    const allCodes = new Set<string>([...stock.keys(), ...reportedCodes]);
+
+    for (const code of allCodes) {
+      const roundMap = byKey.get(`${w.code}|${code}`);
+      const picked = roundMap ? pickConfirmedQty([...roundMap.values()]) : null;
+      const qty = picked?.qty ?? 0; // 報告なしは0
+      const st = stock.get(code);
+      const systemQty = st?.systemQty ?? 0;
+      out.push({
+        warehouseCode: w.code,
+        warehouseName: w.name,
+        itemCode: code,
+        itemName: st?.itemName || "",
+        spec: st?.spec || "",
+        qty,
+        systemQty,
+        diffQty: qty - systemQty,
+        round: picked?.round ?? 0,
+        reasonCode: picked?.reasonCode,
+        staff: picked?.staff || "",
+      });
+    }
+  }
+  return out.sort((a, b) => a.warehouseCode.localeCompare(b.warehouseCode) || a.itemCode.localeCompare(b.itemCode));
+}
+
+/**
+ * 基幹連携: 確定値を「棚卸在庫情報」テーブルへ書き戻す（F-11）。
+ * 対象期・倉庫の既存行を削除してから batchCreate（再実行安全）。
+ */
+export async function writeBackToKikan(periodId: string, warehouseCodes: string[], operator: string): Promise<number> {
+  const R = TANAOROSHI_RESULT_FIELDS;
+  const tableId = RESULT_TABLE_ID();
+  const confirmed = await computeConfirmed(periodId, warehouseCodes);
+
+  // 既存の対象倉庫行を削除
+  const RC = TANAOROSHI_RESULT_FIELDS;
+  const existing = await listAll(tableId, { fieldNames: [RC.warehouse_code] });
+  const whSet = new Set(warehouseCodes);
+  const toDelete = existing.filter((r) => whSet.has(norm(r[RC.warehouse_code]))).map((r) => r.record_id).filter(Boolean);
+  if (toDelete.length) await batchDeleteBaseRecords(tableId, toDelete);
+
+  const records = confirmed.map((c) => ({
+    [R.warehouse_code]: Number(c.warehouseCode) || c.warehouseCode,
+    [R.warehouse_name]: c.warehouseName,
+    [R.item_code]: c.itemCode,
+    [R.item_name]: c.itemName,
+    [R.item_name2]: c.spec,
+    [R.qty]: c.qty,
+    [R.theoretical_qty]: c.systemQty,
+    [R.diff_qty]: c.diffQty,
+    [R.staff_name]: c.staff,
+    [R.note]: [c.reasonCode ? `理由:${c.reasonCode}` : "", c.systemQty === 0 && c.qty > 0 ? "システム在庫なし" : ""].filter(Boolean).join(" "),
+  }));
+  if (records.length) await batchCreateBaseRecords(tableId, records);
+
+  await writeAudit({ periodId, action: "基幹出力", targetKey: warehouseCodes.join(","), after: `${records.length}件を書き戻し`, operator }).catch(() => {});
+  return records.length;
+}
+
+/** 差分レコードの record_id（期＋倉庫＋回数） */
+async function getDiffRecordIds(periodId: string, warehouseCode: string, round: number): Promise<string[]> {
+  const D = TANAOROSHI_DIFF_FIELDS;
+  const rows = await listAll(requireTanaoroshiTable("TANAOROSHI_DIFF"), {
+    filter: `AND(CurrentValue.[${D.period_id}]="${escapeLarkFilterValue(periodId)}",CurrentValue.[${D.warehouse_code}]="${escapeLarkFilterValue(warehouseCode)}",CurrentValue.[${D.round}]=${round})`,
+    fieldNames: [D.diff_id],
+  });
+  return rows.map((r) => r.record_id).filter(Boolean);
 }
 
 /* ---------- 棚卸期の管理（S-08） ---------- */

@@ -40,6 +40,7 @@ export default function TanaoroshiTopPage() {
   const [pending, setPending] = useState(0);
   const [resume, setResume] = useState<{ warehouseName: string; round: number } | null>(null);
   const [flushMsg, setFlushMsg] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const [selected, setSelected] = useState<string>("");
 
   useEffect(() => {
@@ -92,10 +93,18 @@ export default function TanaoroshiTopPage() {
   };
 
   const doFlush = async () => {
-    setFlushMsg("送信中…");
+    setSending(true);
+    setFlushMsg(null);
     const r = await flushQueue();
     setPending(r.remaining);
-    setFlushMsg(r.error ? `送信エラー: ${r.error}（残 ${r.remaining}件）` : `送信しました（残 ${r.remaining}件）`);
+    setSending(false);
+    setFlushMsg(
+      r.error
+        ? `送信エラー: ${r.error}（未送信 ${r.remaining}件）`
+        : r.remaining > 0
+        ? `一部送信できました（未送信 ${r.remaining}件）`
+        : "すべて送信しました"
+    );
   };
 
   const filtered = warehouses.filter((w) => `${w.code} ${w.name}`.toLowerCase().includes(selected.toLowerCase()));
@@ -133,23 +142,32 @@ export default function TanaoroshiTopPage() {
                 </div>
               )}
 
-              {/* 未送信 */}
-              {pending > 0 && (
-                <div className="flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50 p-4">
-                  <div className="flex items-center gap-2 text-sm text-orange-800">
-                    <Upload className="h-4 w-4" />
-                    未送信のデータが <span className="font-bold">{pending}</span> 件あります
-                  </div>
-                  <button onClick={doFlush} className="rounded-lg bg-orange-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-700">
-                    送信する
-                  </button>
+              {/* 完了して送信 */}
+              <div
+                className={`rounded-2xl border p-4 shadow-sm ${
+                  pending > 0 ? "border-orange-200 bg-orange-50" : "border-gray-100 bg-white"
+                }`}
+              >
+                <div className="mb-3 flex items-center gap-2 text-sm">
+                  <Upload className={`h-4 w-4 ${pending > 0 ? "text-orange-600" : "text-gray-400"}`} />
+                  {pending > 0 ? (
+                    <span className="text-orange-800">
+                      未送信のデータが <span className="font-bold">{pending}</span> 件あります
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">未送信のデータはありません（送信済み）</span>
+                  )}
                 </div>
-              )}
-              {flushMsg && (
-                <div className="flex items-center gap-2 rounded-lg bg-gray-100 p-3 text-sm text-gray-600">
-                  <CheckCircle2 className="h-4 w-4" /> {flushMsg}
-                </div>
-              )}
+                <button
+                  onClick={doFlush}
+                  disabled={sending || pending === 0}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 py-3 font-bold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
+                  完了して送信
+                </button>
+                {flushMsg && <div className="mt-2 text-center text-sm text-gray-600">{flushMsg}</div>}
+              </div>
 
               {/* 再開 */}
               {resume && (

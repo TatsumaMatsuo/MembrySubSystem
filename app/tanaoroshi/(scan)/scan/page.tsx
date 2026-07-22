@@ -358,9 +358,9 @@ export default function ScanPage() {
         </div>
 
         {/* アクション（常に画面内に固定表示） */}
-        <div className="flex flex-none gap-2 pt-0.5">
+        <div className="flex-none pt-0.5">
           {current ? (
-            <>
+            <div className="flex gap-2">
               <button onClick={cancelCurrent} className="flex items-center justify-center rounded-xl bg-gray-700 px-4 py-3 text-white active:bg-gray-600">
                 <X className="h-5 w-5" />
               </button>
@@ -371,35 +371,46 @@ export default function ScanPage() {
                 <Check className="h-5 w-5" />
                 決定 次へ
               </button>
-            </>
+            </div>
           ) : (
-            <>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={undoLast}
+                  disabled={!lastEntry}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gray-700 py-2.5 text-sm font-medium text-white active:bg-gray-600 disabled:opacity-30"
+                >
+                  <Undo2 className="h-5 w-5" />
+                  直前取消
+                </button>
+                <button
+                  onClick={() => router.push("/tanaoroshi/entries")}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gray-700 py-2.5 text-sm font-medium text-white active:bg-gray-600"
+                >
+                  <ListChecks className="h-5 w-5" />
+                  一覧
+                </button>
+                <button
+                  onClick={() => {
+                    unlockAudio();
+                    setManual(true);
+                  }}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gray-700 py-2.5 text-sm font-medium text-white active:bg-gray-600"
+                >
+                  <Keyboard className="h-5 w-5" />
+                  手入力
+                </button>
+              </div>
+              {/* 終了して送信（作業完了時） */}
               <button
-                onClick={undoLast}
-                disabled={!lastEntry}
-                className="flex items-center justify-center gap-1 rounded-xl bg-gray-700 px-3 py-3 text-sm font-medium text-white active:bg-gray-600 disabled:opacity-30"
+                onClick={finish}
+                disabled={finishing}
+                className="flex items-center justify-center gap-2 rounded-xl bg-green-600 py-3 text-lg font-bold text-white active:bg-green-700 disabled:opacity-60"
               >
-                <Undo2 className="h-5 w-5" />
-                直前取消
+                {finishing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
+                {pending > 0 ? `終了して送信（未送信 ${pending}）` : "終了"}
               </button>
-              <button
-                onClick={() => router.push("/tanaoroshi/entries")}
-                className="flex items-center justify-center gap-1 rounded-xl bg-gray-700 px-3 py-3 text-sm font-medium text-white active:bg-gray-600"
-              >
-                <ListChecks className="h-5 w-5" />
-                一覧
-              </button>
-              <button
-                onClick={() => {
-                  unlockAudio();
-                  setManual(true);
-                }}
-                className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gray-700 py-3 text-sm font-medium text-white active:bg-gray-600"
-              >
-                <Keyboard className="h-5 w-5" />
-                手入力
-              </button>
-            </>
+            </div>
           )}
         </div>
       </div>

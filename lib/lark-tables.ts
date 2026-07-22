@@ -113,13 +113,14 @@ export function getLarkTables() {
     // 参照（既存・基幹からの月次アップロード先）
     TANAOROSHI_STOCK: process.env.LARK_TABLE_TANAOROSHI_STOCK || "tblFG23F6WgRPr5a", // システム在庫情報
     TANAOROSHI_RESULT: process.env.LARK_TABLE_TANAOROSHI_RESULT || "tbl8pCg48KRx8710", // 棚卸在庫情報(基幹取込レイアウト)
-    // 新規（docs/tanaoroshi/table-spec.md に従い Lark UI で手動作成。IDは env 必須）
-    TANAOROSHI_PERIOD: process.env.LARK_TABLE_TANAOROSHI_PERIOD || "",
-    TANAOROSHI_WH_STATUS: process.env.LARK_TABLE_TANAOROSHI_WH_STATUS || "",
-    TANAOROSHI_ENTRY: process.env.LARK_TABLE_TANAOROSHI_ENTRY || "",
-    TANAOROSHI_DIFF: process.env.LARK_TABLE_TANAOROSHI_DIFF || "",
-    TANAOROSHI_REASON: process.env.LARK_TABLE_TANAOROSHI_REASON || "",
-    TANAOROSHI_AUDIT: process.env.LARK_TABLE_TANAOROSHI_AUDIT || "",
+    // 新規（Lark UI で手動作成。既存テーブル同様、ソースにIDをフォールバック埋め込み
+    //   ＝Amplify SSR は実行時 env を読めないため env だけだと undefined になる）
+    TANAOROSHI_PERIOD: process.env.LARK_TABLE_TANAOROSHI_PERIOD || "tblLnZBzHBNJWVsk",
+    TANAOROSHI_WH_STATUS: process.env.LARK_TABLE_TANAOROSHI_WH_STATUS || "tblTH6JwURBYWNoc",
+    TANAOROSHI_ENTRY: process.env.LARK_TABLE_TANAOROSHI_ENTRY || "tblOop8t9aDn7ndQ",
+    TANAOROSHI_DIFF: process.env.LARK_TABLE_TANAOROSHI_DIFF || "tblUKKGTNUI41U1g",
+    TANAOROSHI_REASON: process.env.LARK_TABLE_TANAOROSHI_REASON || "tblbHjN0xN54MH58",
+    TANAOROSHI_AUDIT: process.env.LARK_TABLE_TANAOROSHI_AUDIT || "tblM0bccFUPOLyrO",
   };
 }
 

@@ -223,7 +223,7 @@ export default function ScanPage() {
       </div>
 
       {/* カメラ */}
-      <div className="relative bg-black" style={{ height: "34vh" }}>
+      <div className="relative flex-none bg-black" style={{ height: "clamp(120px, 24vh, 200px)" }}>
         <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />
         {/* 横長ガイド枠（1次元コード用） */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -250,9 +250,9 @@ export default function ScanPage() {
       </div>
 
       {/* 入力エリア */}
-      <div className="flex flex-1 flex-col overflow-hidden bg-gray-900 p-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 bg-gray-900 p-2">
         {/* 品目カード */}
-        <div className="mb-2 min-h-[64px] rounded-xl bg-gray-800 p-3">
+        <div className="min-h-[56px] flex-none rounded-xl bg-gray-800 p-2.5">
           {current ? (
             <>
               <div className="flex items-center justify-between">
@@ -276,36 +276,36 @@ export default function ScanPage() {
         </div>
 
         {/* 数量表示 */}
-        <div className="mb-2 flex items-center justify-between rounded-xl bg-gray-800 px-4 py-2">
+        <div className="flex flex-none items-center justify-between rounded-xl bg-gray-800 px-4 py-1.5">
           <span className="text-xs text-gray-400">数量</span>
           <span className="text-3xl font-bold tabular-nums text-white">{qty || "0"}</span>
         </div>
 
-        {/* テンキー */}
-        <div className="grid grid-cols-3 gap-2">
+        {/* テンキー（残り高さを埋める。小画面でも下のボタンが隠れない） */}
+        <div className="grid min-h-0 flex-1 grid-cols-3 grid-rows-4 gap-1.5">
           {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
             <button
               key={d}
               onClick={() => pushDigit(d)}
               disabled={!current}
-              className="rounded-xl bg-gray-700 py-3 text-2xl font-semibold text-white active:bg-gray-600 disabled:opacity-30"
+              className="rounded-xl bg-gray-700 flex h-full items-center justify-center text-2xl font-semibold text-white active:bg-gray-600 disabled:opacity-30"
             >
               {d}
             </button>
           ))}
-          <button onClick={clearQty} disabled={!current} className="rounded-xl bg-gray-700 py-3 text-lg text-gray-300 active:bg-gray-600 disabled:opacity-30">
+          <button onClick={clearQty} disabled={!current} className="rounded-xl bg-gray-700 flex h-full items-center justify-center text-lg text-gray-300 active:bg-gray-600 disabled:opacity-30">
             C
           </button>
-          <button onClick={() => pushDigit("0")} disabled={!current} className="rounded-xl bg-gray-700 py-3 text-2xl font-semibold text-white active:bg-gray-600 disabled:opacity-30">
+          <button onClick={() => pushDigit("0")} disabled={!current} className="rounded-xl bg-gray-700 flex h-full items-center justify-center text-2xl font-semibold text-white active:bg-gray-600 disabled:opacity-30">
             0
           </button>
-          <button onClick={backspace} disabled={!current} className="flex items-center justify-center rounded-xl bg-gray-700 py-3 text-white active:bg-gray-600 disabled:opacity-30">
+          <button onClick={backspace} disabled={!current} className="flex items-center justify-center rounded-xl bg-gray-700 flex h-full items-center justify-center text-white active:bg-gray-600 disabled:opacity-30">
             <Delete className="h-6 w-6" />
           </button>
         </div>
 
-        {/* アクション */}
-        <div className="mt-2 flex gap-2">
+        {/* アクション（常に画面内に固定表示） */}
+        <div className="flex flex-none gap-2 pt-0.5">
           {current ? (
             <>
               <button onClick={cancelCurrent} className="flex items-center justify-center rounded-xl bg-gray-700 px-4 py-3 text-white active:bg-gray-600">
@@ -325,7 +325,7 @@ export default function ScanPage() {
                 unlockAudio();
                 setManual(true);
               }}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-700 py-3 font-medium text-white active:bg-gray-600"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-700 flex h-full items-center justify-center font-medium text-white active:bg-gray-600"
             >
               <Keyboard className="h-5 w-5" />
               手入力

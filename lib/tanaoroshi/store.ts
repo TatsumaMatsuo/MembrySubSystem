@@ -6,6 +6,7 @@ import {
   getBaseRecords,
   batchDeleteBaseRecords,
   batchCreateBaseRecords,
+  batchUpdateBaseRecords,
   createBaseRecord,
   updateBaseRecord,
   getLarkClient,
@@ -171,10 +172,10 @@ export async function getCatalogForWarehouse(warehouseCode: string): Promise<Cat
     if (norm(r[S.warehouse_code]) !== norm(warehouseCode)) continue;
     const itemCode = norm(r[S.item_code]);
     if (!itemCode) continue;
-    const name = [norm(r[S.item_name]), norm(r[S.item_name2])].filter(Boolean).join(" ");
     out.push({
       itemCode,
-      itemName: name,
+      itemName: norm(r[S.item_name]),
+      spec: norm(r[S.item_name2]),
       unit: norm(r[S.unit]),
       systemQty: parseStockNumber(r[S.stock_qty]) ?? 0,
       inTarget: true, // 1回目は全対象（2回目以降の差分制御は Phase 3）
@@ -286,6 +287,72 @@ export async function submitEntries(
     accepted: toCreate.map((e) => e.entryId),
     duplicated: entries.filter((e) => existing.has(e.entryId)).map((e) => e.entryId),
   };
+}
+
+/** 当該 期・倉庫・回数 の「自分の」有効実績（個別レコード。F-03 一覧・修正用） */
+export async function getMyEntries(
+  periodId: string,
+  warehouseCode: string,
+  round: number,
+  email: string
+): Promise<import("./types").EntryRow[]> {
+  const E = TANAOROSHI_ENTRY_FIELDS;
+  const rows = await listAll(requireTanaoroshiTable("TANAOROSHI_ENTRY"), {
+    filter: `AND(CurrentValue.[${E.period_id}]="${escapeLarkFilterValue(periodId)}",CurrentValue.[${E.warehouse_code}]="${escapeLarkFilterValue(warehouseCode)}",CurrentValue.[${E.round}]=${round},CurrentValue.[${E.status}]="${escapeLarkFilterValue("有効")}",CurrentValue.[${E.input_by_email}]="${escapeLarkFilterValue(email)}")`,
+  });
+  return rows
+    .map((r) => ({
+      entryId: norm(r[E.entry_id]),
+      itemCode: norm(r[E.item_code]),
+      itemName: norm(r[E.item_name]),
+      qty: Number(r[E.qty] ?? 0),
+      stockState: (norm(r[E.stock_state]) || "良品") as any,
+      inputMethod: (norm(r[E.input_method]) || "読取") as any,
+      noSystemStock: r[E.no_system_stock] === true,
+      inputAt: typeof r[E.input_at] === "number" ? r[E.input_at] : 0,
+      sent: true,
+    }))
+    .sort((a, b) => b.inputAt - a.inputAt);
+}
+
+/**
+ * 実績を取消（追記専用のため物理削除せず 状態=取消 に更新）。F-03。
+ * @returns 取消できた entryId
+ */
+export async function voidEntries(entryIds: string[], operator: string): Promise<string[]> {
+  const E = TANAOROSHI_ENTRY_FIELDS;
+  const tableId = requireTanaoroshiTable("TANAOROSHI_ENTRY");
+  if (!entryIds.length) return [];
+
+  // entryId → record_id（有効なものだけ）
+  const targets: { recordId: string; entryId: string }[] = [];
+  const clauses = entryIds.map((id) => `CurrentValue.[${E.entry_id}]="${escapeLarkFilterValue(id)}"`);
+  for (let i = 0; i < clauses.length; i += 50) {
+    const chunk = clauses.slice(i, i + 50);
+    const filter = chunk.length === 1 ? chunk[0] : `OR(${chunk.join(",")})`;
+    const rows = await listAll(tableId, { filter, fieldNames: [E.entry_id, E.status] });
+    for (const r of rows) {
+      if (norm(r[E.status]) === "有効" && r.record_id) {
+        targets.push({ recordId: r.record_id, entryId: norm(r[E.entry_id]) });
+      }
+    }
+  }
+  if (!targets.length) return [];
+
+  const now = Date.now();
+  await batchUpdateBaseRecords(
+    tableId,
+    targets.map((t) => ({ record_id: t.recordId, fields: { [E.status]: "取消" } }))
+  );
+  // 監査（件数のみサマリで1件）
+  await writeAudit({
+    action: "取消",
+    targetKey: targets.map((t) => t.entryId).join(","),
+    after: `${targets.length}件を取消`,
+    operator,
+    note: String(now),
+  }).catch(() => {});
+  return targets.map((t) => t.entryId);
 }
 
 /** 倉庫進捗を upsert（入力があったら実施中・最終報告日時を更新。件数集計は Phase 3） */

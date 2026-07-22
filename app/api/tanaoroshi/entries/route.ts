@@ -1,10 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth-server";
-import { submitEntries, touchWhStatus } from "@/lib/tanaoroshi/store";
+import { submitEntries, touchWhStatus, getActivePeriod, getWhStatus, getMyEntries } from "@/lib/tanaoroshi/store";
 import type { EntryDraft } from "@/lib/tanaoroshi/types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+/**
+ * 自分の入力済み一覧（F-03）。当該倉庫・現在回数の 状態=有効・自分の実績。
+ *   GET /api/tanaoroshi/entries?warehouse=<倉庫コード>
+ */
+export async function GET(req: NextRequest) {
+  const session = await getServerSession();
+  if (!session.user) return NextResponse.json({ success: false, error: "認証が必要です" }, { status: 401 });
+  const email = session.user.email || "";
+  const warehouse = req.nextUrl.searchParams.get("warehouse")?.trim() || "";
+  if (!warehouse) return NextResponse.json({ success: false, error: "倉庫が指定されていません" }, { status: 400 });
+
+  try {
+    const period = await getActivePeriod();
+    if (!period) return NextResponse.json({ success: true, entries: [] });
+    const wh = await getWhStatus(period.periodId, warehouse);
+    const entries = await getMyEntries(period.periodId, warehouse, wh.round, email);
+    return NextResponse.json({ success: true, entries });
+  } catch (e: any) {
+    console.error("[tanaoroshi/entries GET]", e);
+    return NextResponse.json({ success: false, error: e?.message || "取得に失敗しました" }, { status: 500 });
+  }
+}
 
 /**
  * 実績の冪等バッチ登録（F-06/F-12）。

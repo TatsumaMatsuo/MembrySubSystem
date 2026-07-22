@@ -4,13 +4,14 @@ export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Upload, Delete, Keyboard, Check, Loader2, X } from "lucide-react";
+import { ArrowLeft, Upload, Delete, Keyboard, Check, Loader2, X, Undo2, ListChecks } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import type { CatalogItem, EntryDraft, TanaoroshiSession } from "@/lib/tanaoroshi/types";
 import { loadSession, loadCatalog, enqueue, loadQueue } from "@/lib/tanaoroshi/local-store";
 import { startScanner, type ScannerHandle } from "@/lib/tanaoroshi/scanner";
 import { normalizeItemCode } from "@/lib/tanaoroshi/item-code";
 import { flushQueue } from "@/lib/tanaoroshi/sync";
+import { cancelEntry } from "@/lib/tanaoroshi/actions";
 import { unlockAudio, feedbackSuccess, feedbackAdd, feedbackError, feedbackWarn } from "@/lib/tanaoroshi/feedback";
 
 type Current = { item: CatalogItem | null; code: string; noSystemStock: boolean };
@@ -38,6 +39,7 @@ export default function ScanPage() {
   const [manualCode, setManualCode] = useState("");
   const [camError, setCamError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [lastEntry, setLastEntry] = useState<{ entryId: string; code: string } | null>(null);
 
   const showToast = (kind: "ok" | "add" | "err" | "warn", text: string) => {
     setToast({ kind, text });
@@ -154,7 +156,7 @@ export default function ScanPage() {
       warehouseCode: s.warehouseCode,
       warehouseName: s.warehouseName,
       itemCode: current.code,
-      itemName: current.item?.itemName || "",
+      itemName: current.item ? [current.item.itemName, current.item.spec].filter(Boolean).join(" ") : "",
       qty: n,
       stockState: "良品",
       inputMethod: manual ? "手入力" : "読取",
@@ -166,6 +168,7 @@ export default function ScanPage() {
       deviceId: s.deviceId,
     };
     await enqueue(draft);
+    setLastEntry({ entryId: draft.entryId, code: current.code });
     await refreshPending();
     showToast(current.noSystemStock ? "warn" : "ok", `${current.code} を ${n} 登録`);
     // バックグラウンド送信（オンライン時）
@@ -175,6 +178,18 @@ export default function ScanPage() {
     setQty("");
     setManual(false);
     lockedRef.current = false;
+  };
+
+  const undoLast = async () => {
+    if (!lastEntry) return;
+    try {
+      await cancelEntry(lastEntry.entryId);
+      await refreshPending();
+      showToast("warn", `${lastEntry.code} の登録を取り消しました`);
+      setLastEntry(null);
+    } catch (e: any) {
+      showToast("err", e?.message || "取消に失敗しました");
+    }
   };
 
   const submitManual = async () => {
@@ -262,9 +277,10 @@ export default function ScanPage() {
               {current.noSystemStock ? (
                 <div className="text-sm text-amber-300">システム在庫にない品目（差分として登録）</div>
               ) : (
-                <div className="truncate text-sm text-gray-300">
-                  {current.item?.itemName}
-                  {current.item?.unit ? `（${current.item.unit}）` : ""}
+                <div className="leading-tight">
+                  <div className="line-clamp-2 text-sm text-gray-100">{current.item?.itemName || "—"}</div>
+                  {current.item?.spec && <div className="text-xs text-gray-400">規格: {current.item.spec}</div>}
+                  {current.item?.unit && <div className="text-xs text-gray-500">単位: {current.item.unit}</div>}
                 </div>
               )}
             </>
@@ -320,16 +336,33 @@ export default function ScanPage() {
               </button>
             </>
           ) : (
-            <button
-              onClick={() => {
-                unlockAudio();
-                setManual(true);
-              }}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-700 flex h-full items-center justify-center font-medium text-white active:bg-gray-600"
-            >
-              <Keyboard className="h-5 w-5" />
-              手入力
-            </button>
+            <>
+              <button
+                onClick={undoLast}
+                disabled={!lastEntry}
+                className="flex items-center justify-center gap-1 rounded-xl bg-gray-700 px-3 py-3 text-sm font-medium text-white active:bg-gray-600 disabled:opacity-30"
+              >
+                <Undo2 className="h-5 w-5" />
+                直前取消
+              </button>
+              <button
+                onClick={() => router.push("/tanaoroshi/entries")}
+                className="flex items-center justify-center gap-1 rounded-xl bg-gray-700 px-3 py-3 text-sm font-medium text-white active:bg-gray-600"
+              >
+                <ListChecks className="h-5 w-5" />
+                一覧
+              </button>
+              <button
+                onClick={() => {
+                  unlockAudio();
+                  setManual(true);
+                }}
+                className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-gray-700 py-3 text-sm font-medium text-white active:bg-gray-600"
+              >
+                <Keyboard className="h-5 w-5" />
+                手入力
+              </button>
+            </>
           )}
         </div>
       </div>

@@ -17,11 +17,26 @@ export interface Warehouse {
 /** カタログ品目（起動時に一括DLして端末にキャッシュ） */
 export interface CatalogItem {
   itemCode: string;
-  itemName: string; // 品名 + 品名2 を結合済み
+  itemName: string; // 品名
+  spec: string; // 品名2（規格）
   unit: string;
   systemQty: number; // システム在庫数
   /** 2回目以降の対象品目か（1回目は全 true） */
   inTarget: boolean;
+}
+
+/** 入力済み一覧の1行（F-03 取消・修正用。個別レコード単位） */
+export interface EntryRow {
+  entryId: string;
+  itemCode: string;
+  itemName: string;
+  qty: number;
+  stockState: StockState;
+  inputMethod: InputMethod;
+  noSystemStock: boolean;
+  inputAt: number;
+  /** true=サーバ登録済み / false=端末に未送信 */
+  sent: boolean;
 }
 
 /** 差分理由コード */

@@ -502,6 +502,7 @@ export async function getDiffRows(
   return rows.map((r) => ({
     itemCode: norm(r[D.item_code]),
     itemName: norm(r[D.item_name]),
+    spec: norm(r[D.spec]),
     systemQty: Number(r[D.system_qty] ?? 0),
     actualQty: Number(r[D.actual_qty] ?? 0),
     diffQty: Number(r[D.diff_qty] ?? 0),
@@ -618,6 +619,7 @@ export async function issueDiff(
             [D.warehouse_name]: wh,
             [D.item_code]: r.itemCode,
             [D.item_name]: r.itemName,
+            [D.spec]: r.spec,
             [D.system_qty]: r.systemQty,
             [D.actual_qty]: r.actualQty,
             [D.diff_qty]: r.diffQty,

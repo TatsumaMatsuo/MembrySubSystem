@@ -48,11 +48,13 @@ export function computeDiffs(
     const actualQty = a?.qty ?? 0;
     const systemQty = s?.systemQty ?? 0;
     if (actualQty === systemQty) continue;
+    // 品名と規格は分けて持つ（差分リストで別列に出力するため）
     const name = s?.itemName || a?.itemName || "";
     const spec = s?.spec || "";
     rows.push({
       itemCode: code,
-      itemName: [name, spec].filter(Boolean).join(" ").trim() || (a?.itemName ?? ""),
+      itemName: name,
+      spec,
       systemQty,
       actualQty,
       diffQty: actualQty - systemQty,

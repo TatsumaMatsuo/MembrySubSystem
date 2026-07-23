@@ -77,6 +77,7 @@ function DiffInner() {
                   {!warehouse && <th className="px-3 py-2">倉庫</th>}
                   <th className="px-3 py-2">品番</th>
                   <th className="px-3 py-2">品名</th>
+                  <th className="px-3 py-2">規格</th>
                   <th className="px-3 py-2 text-right">在庫</th>
                   <th className="px-3 py-2 text-right">実棚</th>
                   <th className="px-3 py-2 text-right">差分</th>
@@ -90,6 +91,7 @@ function DiffInner() {
                     {!warehouse && <td className="px-3 py-2 text-xs text-gray-500">{r.warehouseName}</td>}
                     <td className="px-3 py-2 font-mono text-xs">{r.itemCode}</td>
                     <td className="px-3 py-2">{r.itemName}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{r.spec}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.systemQty.toLocaleString()}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.actualQty.toLocaleString()}</td>
                     <td className={`px-3 py-2 text-right font-bold tabular-nums ${r.diffQty < 0 ? "text-red-600" : "text-blue-600"}`}>

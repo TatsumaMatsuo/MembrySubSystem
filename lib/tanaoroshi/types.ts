@@ -88,6 +88,7 @@ export interface EntryDraft {
 export interface DiffRow {
   itemCode: string;
   itemName: string;
+  spec: string; // 規格（品名2）
   systemQty: number;
   actualQty: number;
   diffQty: number; // 実棚 − システム在庫

@@ -372,6 +372,7 @@ export const TANAOROSHI_DIFF_FIELDS = {
   warehouse_name: "倉庫名",
   item_code: "品番",
   item_name: "品名",
+  spec: "規格",
   system_qty: "システム在庫数",
   actual_qty: "実棚数量",
   diff_qty: "差分数",

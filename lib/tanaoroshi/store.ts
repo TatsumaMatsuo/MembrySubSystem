@@ -9,6 +9,7 @@ import {
   batchUpdateBaseRecords,
   createBaseRecord,
   updateBaseRecord,
+  deleteBaseRecord,
   getLarkClient,
   getLarkBaseToken,
 } from "@/lib/lark-client";
@@ -24,10 +25,14 @@ import {
   TANAOROSHI_REASON_FIELDS,
   TANAOROSHI_ITEM_MASTER_FIELDS,
   TANAOROSHI_RESULT_FIELDS,
+  TANAOROSHI_WAREHOUSE_MASTER_FIELDS,
+  TANAOROSHI_NOTIFY_TARGET_FIELDS,
+  TANAOROSHI_NOTIFY_LOG_FIELDS,
 } from "@/lib/lark-tables";
 import { escapeLarkFilterValue } from "@/lib/lark-filter";
 import { parseStockNumber } from "./stock-import";
 import { computeDiffs, pickConfirmedQty, type ActualAgg, type StockInfo, type ConfirmedRow, type RoundValue } from "./aggregate";
+import { notifyDiffIssued, notifyClosed, notifyAllReported } from "./notify";
 import type { Warehouse, CatalogItem, ReasonCode, DiffRow, ProgressRow } from "./types";
 
 /** 参照テーブル（既存・env にフォールバックIDあり） */
@@ -646,6 +651,21 @@ export async function issueDiff(
         operator,
       }).catch(() => {});
 
+      // Lark通知（F-10）。失敗しても発行処理は止めない
+      if (isClose) {
+        await notifyClosed({ periodId, warehouseName: wh, operator }).catch((e) => console.error("[issueDiff] notifyClosed", e));
+      } else if (rows.length > 0) {
+        // ①差分リスト発行時 → その倉庫の管理者へ「N回目を実施してください」
+        await notifyDiffIssued({
+          periodId,
+          warehouseCode,
+          warehouseName: wh,
+          round: newRound,
+          diffCount: rows.length,
+          operator,
+        }).catch((e) => console.error("[issueDiff] notifyDiffIssued", e));
+      }
+
       results.push({ warehouseCode, diffCount: rows.length, newRound, status });
     } catch (e) {
       // ロック解除（実施中へ戻す）
@@ -653,6 +673,16 @@ export async function issueDiff(
       throw e;
     }
   }
+
+  // ②全倉庫の当該回報告が揃ったら共通通知先へ（発行後に判定）
+  try {
+    const progress = await getProgress(periodId);
+    const allReported = progress.length > 0 && progress.every((p) => p.status === "締め" || p.reportedItems >= p.targetItems);
+    if (allReported) await notifyAllReported({ periodId, operator });
+  } catch (e) {
+    console.error("[issueDiff] notifyAllReported", e);
+  }
+
   return results;
 }
 
@@ -874,6 +904,132 @@ export async function setPeriodStatus(recordId: string, status: string): Promise
     [P.status]: status,
     [P.updated_at]: Date.now(),
   });
+}
+
+/* ===================== Lark通知 F-10: 通知先マスタ・倉庫通知先・通知ログ ===================== */
+
+export interface NotifyTargetRow {
+  recordId: string;
+  trigger: string;
+  kind: string;
+  value: string;
+  isActive: boolean;
+  note: string;
+}
+
+/** 共通通知先マスタの一覧 */
+export async function listNotifyTargets(): Promise<NotifyTargetRow[]> {
+  const T = TANAOROSHI_NOTIFY_TARGET_FIELDS;
+  const tableId = getLarkTables().TANAOROSHI_NOTIFY_TARGET;
+  if (!tableId) return [];
+  const rows = await listAll(tableId);
+  return rows.map((r) => ({
+    recordId: r.record_id,
+    trigger: norm(r[T.trigger]) || "共通",
+    kind: norm(r[T.kind]) || "メール",
+    value: norm(r[T.value]),
+    isActive: r[T.is_active] !== false,
+    note: norm(r[T.note]),
+  }));
+}
+
+/** 共通通知先の作成/更新 */
+export async function upsertNotifyTarget(p: {
+  recordId?: string;
+  trigger: string;
+  kind: string;
+  value: string;
+  isActive: boolean;
+  note?: string;
+}): Promise<void> {
+  const T = TANAOROSHI_NOTIFY_TARGET_FIELDS;
+  const tableId = requireTanaoroshiTable("TANAOROSHI_NOTIFY_TARGET");
+  const fields: Record<string, any> = {
+    [T.trigger]: p.trigger,
+    [T.kind]: p.kind,
+    [T.value]: p.value,
+    [T.is_active]: p.isActive,
+    [T.note]: p.note || "",
+  };
+  if (p.recordId) {
+    await updateBaseRecord(tableId, p.recordId, fields);
+  } else {
+    await createBaseRecord(tableId, { [T.target_id]: `NT-${Date.now()}-${Math.floor(Math.random() * 1e6)}`, ...fields });
+  }
+}
+
+export async function deleteNotifyTarget(recordId: string): Promise<void> {
+  await deleteBaseRecord(requireTanaoroshiTable("TANAOROSHI_NOTIFY_TARGET"), recordId);
+}
+
+export interface WarehouseNotifyRow {
+  recordId: string;
+  warehouseCode: string;
+  warehouseName: string;
+  notify: string;
+}
+
+/** 倉庫マスタの一覧（倉庫別通知先の編集用） */
+export async function listWarehouseNotify(): Promise<WarehouseNotifyRow[]> {
+  const W = TANAOROSHI_WAREHOUSE_MASTER_FIELDS;
+  const rows = await listAll(getLarkTables().TANAOROSHI_WAREHOUSE_MASTER);
+  return rows
+    .map((r) => ({
+      recordId: r.record_id,
+      warehouseCode: norm(r[W.code]),
+      warehouseName: norm(r[W.name]),
+      notify: norm(r[W.notify]),
+    }))
+    .sort((a, b) => Number(a.warehouseCode) - Number(b.warehouseCode) || a.warehouseCode.localeCompare(b.warehouseCode));
+}
+
+/** 倉庫マスタの通知先列を更新（倉庫コードでレコード解決） */
+export async function setWarehouseNotify(warehouseCode: string, notify: string): Promise<void> {
+  const W = TANAOROSHI_WAREHOUSE_MASTER_FIELDS;
+  const tableId = getLarkTables().TANAOROSHI_WAREHOUSE_MASTER;
+  const rows = await listAll(tableId, {
+    filter: `CurrentValue.[${W.code}]="${escapeLarkFilterValue(warehouseCode)}"`,
+    fieldNames: [W.code],
+  });
+  const recordId = rows[0]?.record_id;
+  if (!recordId) throw new Error(`倉庫マスタに倉庫コード「${warehouseCode}」がありません`);
+  await updateBaseRecord(tableId, recordId, { [W.notify]: notify });
+}
+
+export interface NotifyLogRow {
+  sentAt: number | null;
+  trigger: string;
+  periodId: string;
+  warehouseCode: string;
+  kind: string;
+  value: string;
+  body: string;
+  result: string;
+  error: string;
+  operator: string;
+}
+
+/** 通知ログの一覧（新しい順） */
+export async function listNotifyLog(limit = 300): Promise<NotifyLogRow[]> {
+  const L = TANAOROSHI_NOTIFY_LOG_FIELDS;
+  const tableId = getLarkTables().TANAOROSHI_NOTIFY_LOG;
+  if (!tableId) return [];
+  const rows = await listAll(tableId);
+  return rows
+    .map((r) => ({
+      sentAt: typeof r[L.sent_at] === "number" ? r[L.sent_at] : null,
+      trigger: norm(r[L.trigger]),
+      periodId: norm(r[L.period_id]),
+      warehouseCode: norm(r[L.warehouse_code]),
+      kind: norm(r[L.kind]),
+      value: norm(r[L.value]),
+      body: norm(r[L.body]),
+      result: norm(r[L.result]),
+      error: norm(r[L.error]),
+      operator: norm(r[L.operator]),
+    }))
+    .sort((a, b) => (b.sentAt ?? 0) - (a.sentAt ?? 0))
+    .slice(0, limit);
 }
 
 /** 操作履歴の記録（取消・修正・管理操作用） */

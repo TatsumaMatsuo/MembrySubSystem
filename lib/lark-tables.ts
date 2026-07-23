@@ -121,6 +121,10 @@ export function getLarkTables() {
     TANAOROSHI_DIFF: process.env.LARK_TABLE_TANAOROSHI_DIFF || "tblUKKGTNUI41U1g",
     TANAOROSHI_REASON: process.env.LARK_TABLE_TANAOROSHI_REASON || "tblbHjN0xN54MH58",
     TANAOROSHI_AUDIT: process.env.LARK_TABLE_TANAOROSHI_AUDIT || "tblM0bccFUPOLyrO",
+    // Lark通知 F-10（倉庫マスタは既存・「通知先」列を追加予定 / 通知先マスタ・通知ログは新規手動作成）
+    TANAOROSHI_WAREHOUSE_MASTER: process.env.LARK_TABLE_TANAOROSHI_WAREHOUSE_MASTER || "tblYtGsHvlKEWRF3",
+    TANAOROSHI_NOTIFY_TARGET: process.env.LARK_TABLE_TANAOROSHI_NOTIFY_TARGET || "",
+    TANAOROSHI_NOTIFY_LOG: process.env.LARK_TABLE_TANAOROSHI_NOTIFY_LOG || "",
     // 品目マスタ（既存・在庫にない品番の品名解決用。project base）
     TANAOROSHI_ITEM_MASTER: process.env.LARK_TABLE_TANAOROSHI_ITEM_MASTER || "tblw1oc3PD0cM0fu",
   };
@@ -198,6 +202,9 @@ export const TABLE_BASE_CONFIG: Record<string, BaseType> = {
   TANAOROSHI_REASON: "project",
   TANAOROSHI_AUDIT: "project",
   TANAOROSHI_ITEM_MASTER: "project",
+  TANAOROSHI_WAREHOUSE_MASTER: "project",
+  TANAOROSHI_NOTIFY_TARGET: "project",
+  TANAOROSHI_NOTIFY_LOG: "project",
 };
 
 /**
@@ -213,6 +220,8 @@ export function requireTanaoroshiTable(
     | "TANAOROSHI_DIFF"
     | "TANAOROSHI_REASON"
     | "TANAOROSHI_AUDIT"
+    | "TANAOROSHI_NOTIFY_TARGET"
+    | "TANAOROSHI_NOTIFY_LOG"
 ): string {
   const id = getLarkTables()[key];
   if (!id) {
@@ -381,6 +390,38 @@ export const TANAOROSHI_REASON_FIELDS = {
   name: "理由名称",
   sort_order: "表示順",
   is_active: "有効フラグ",
+} as const;
+
+/** 倉庫マスタ（Lark通知 F-10。「通知先」列＝倉庫ごとの管理者メール、複数はカンマ区切り） */
+export const TANAOROSHI_WAREHOUSE_MASTER_FIELDS = {
+  code: "倉庫コード",
+  name: "倉庫名称",
+  notify: "通知先", // 追加予定の列。社員メール（複数可・カンマ区切り）
+} as const;
+
+/** 棚卸_通知先マスタ（管理者が登録する共通通知先。②完了/③締め の宛先） */
+export const TANAOROSHI_NOTIFY_TARGET_FIELDS = {
+  target_id: "通知先ID",
+  trigger: "契機区分", // 単一選択: 発行/完了/締め/共通
+  kind: "宛先種別", // 単一選択: メール/グループ
+  value: "宛先値", // メールアドレス or グループの chat_id
+  is_active: "有効フラグ",
+  note: "備考",
+} as const;
+
+/** 棚卸_通知ログ（送信状況一覧） */
+export const TANAOROSHI_NOTIFY_LOG_FIELDS = {
+  log_id: "ログID",
+  sent_at: "送信日時",
+  trigger: "契機区分", // 単一選択: 発行/完了/締め
+  period_id: "期ID",
+  warehouse_code: "倉庫コード",
+  kind: "宛先種別", // 単一選択: メール/グループ
+  value: "宛先値",
+  body: "本文",
+  result: "結果", // 単一選択: 成功/失敗
+  error: "エラー",
+  operator: "送信者",
 } as const;
 
 /** 品目マスタ（在庫にない品番の品名・規格解決用。多数の列があるが棚卸で使うのはこれだけ） */

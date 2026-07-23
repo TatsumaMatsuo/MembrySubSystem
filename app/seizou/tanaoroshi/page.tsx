@@ -13,6 +13,8 @@ import {
   Database,
   CalendarClock,
   FileDown,
+  Bell,
+  Send,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout";
 import type { ProgressRow } from "@/lib/tanaoroshi/types";
@@ -144,6 +146,12 @@ export default function DashboardPage() {
             </a>
             <a href={`/seizou/tanaoroshi/export?period=${encodeURIComponent(periodId)}`} className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
               <FileDown className="h-4 w-4" /> 基幹出力
+            </a>
+            <a href="/seizou/tanaoroshi/notify-settings" className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
+              <Bell className="h-4 w-4" /> 通知先設定
+            </a>
+            <a href="/seizou/tanaoroshi/notify-log" className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">
+              <Send className="h-4 w-4" /> 送信状況
             </a>
           </div>
 

@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       location,
       salesPerson,
       contractor: anken.contractor,
-      formUrl: buildNippouFormUrl(seiban, code, { bukken, salesPerson }),
+      formUrl: buildNippouFormUrl(seiban, code, { bukken, salesPerson, company: anken.contractor }),
     });
   } catch (error) {
     console.error("Error in /api/genba:", error);

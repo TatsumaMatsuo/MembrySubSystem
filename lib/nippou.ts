@@ -42,12 +42,14 @@ export const NIPPOU_FORM_SHARE_URL =
 export function buildNippouFormUrl(
   seiban: string,
   code: string,
-  opts: { bukken?: string; salesPerson?: string } = {}
+  opts: { bukken?: string; salesPerson?: string; company?: string } = {}
 ): string {
   const params = new URLSearchParams();
   params.set("prefill_売約番号", seiban);
   params.set("hide_売約番号", "1");
   params.set("prefill_受付コード", code);
+  // 会社名(施工会社名=案件マスタの業者)を受付コード同様に初期値セット。表示のまま prefill。
+  if (opts.company) params.set("prefill_会社名", opts.company);
   if (opts.bukken) params.set("prefill_物件名", opts.bukken);
   if (opts.salesPerson) {
     params.set("prefill_営業担当者名", opts.salesPerson);
@@ -91,6 +93,22 @@ export interface NippouAttachment {
   size?: number;
   url?: string;
   tmp_url?: string;
+}
+
+/**
+ * 現場写真の添付フィールド群。Lark フォームの添付項目は1項目あたり上限（9枚）があるため、
+ * 5項目に分割している。読み取り側はこの順で結合して1つの写真配列として扱う。
+ */
+export const NIPPOU_PHOTO_FIELDS = ["現場写真", "現場写真2", "現場写真3", "現場写真4", "現場写真5"] as const;
+
+/** 複数の現場写真フィールドを定義順に結合して取得 */
+export function collectNippouPhotos(f: Record<string, any>): NippouAttachment[] {
+  const out: NippouAttachment[] = [];
+  for (const name of NIPPOU_PHOTO_FIELDS) {
+    const v = f[name];
+    if (Array.isArray(v)) out.push(...(v as NippouAttachment[]));
+  }
+  return out;
 }
 
 export interface NippouReport {
@@ -215,7 +233,7 @@ function mapNippouReport(item: { record_id: string; fields: Record<string, any> 
     content: extractText(f["作業内容"]),
     notes: extractText(f["特記事項・連絡事項"]),
     tomorrow: extractText(f["翌日の作業予定"]),
-    photos: Array.isArray(f["現場写真"]) ? (f["現場写真"] as NippouAttachment[]) : [],
+    photos: collectNippouPhotos(f),
     uketsukeCode: extractText(f["受付コード"]),
     postedAt: (f["投稿日時"] as number) ?? "",
   };

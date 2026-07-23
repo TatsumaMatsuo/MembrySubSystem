@@ -256,6 +256,57 @@ export function GanttChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks]);
 
+  // バーのドラッグ/リサイズ中、ポインタがビュー端に寄ったら横スクロールを追従させる。
+  // frappe は mousemove を SVG にバインドし、ドラッグ中の自動スクロールを持たないため、
+  // チャートが表示幅より広い(横スクロールが必要)ときに端でバーが止まって見える。これを補う。
+  useEffect(() => {
+    let raf = 0;
+    let pointerX = 0;
+    let active = false;
+    const isDragging = () => {
+      const g = ganttRef.current;
+      // frappe: 非ドラッグ時は bar_being_dragged が null、ドラッグ/リサイズ中は非null(true/false)
+      return !!g && g.bar_being_dragged != null;
+    };
+    const getScroller = () => containerRef.current?.querySelector<HTMLElement>(".gantt-container") || null;
+    const tick = () => {
+      if (!active) {
+        raf = 0;
+        return;
+      }
+      const sc = getScroller();
+      if (sc && isDragging()) {
+        const rect = sc.getBoundingClientRect();
+        const EDGE = 48; // 端からこの距離でスクロール開始
+        const SPEED = 16; // 1フレームのスクロール量(px)
+        if (pointerX > rect.right - EDGE) sc.scrollLeft += SPEED;
+        else if (pointerX < rect.left + EDGE) sc.scrollLeft -= SPEED;
+      } else {
+        active = false;
+        raf = 0;
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    const onMove = (e: MouseEvent) => {
+      pointerX = e.clientX;
+      if (!active && isDragging()) {
+        active = true;
+        if (!raf) raf = requestAnimationFrame(tick);
+      }
+    };
+    const onUp = () => {
+      active = false;
+    };
+    document.addEventListener("mousemove", onMove, { passive: true });
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
     <div ref={rootRef} className="w-full h-full overflow-hidden">
       {tasks.length === 0 ? (

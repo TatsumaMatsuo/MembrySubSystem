@@ -222,7 +222,7 @@ export async function getReTanaoroshiCatalog(
     return {
       itemCode: d.itemCode,
       itemName: st?.itemName || d.itemName,
-      spec: st?.spec || "",
+      spec: st?.spec || d.spec || "",
       unit: "",
       systemQty: st?.systemQty ?? d.systemQty,
       inTarget: true,
@@ -465,8 +465,8 @@ async function buildActualAgg(periodId: string, warehouseCode: string, round: nu
 }
 
 /** システム在庫を品目別に（指定倉庫） */
-async function buildStockMap(warehouseCode: string): Promise<Map<string, StockInfo>> {
-  const rows = await fetchStockRows();
+/** 取得済みの在庫行から、指定倉庫の品目マップを作る（同期・取得は呼び出し側で1回だけ） */
+function buildStockMapFrom(rows: any[], warehouseCode: string): Map<string, StockInfo> {
   const map = new Map<string, StockInfo>();
   for (const r of rows) {
     if (norm(r[S.warehouse_code]) !== norm(warehouseCode)) continue;
@@ -479,6 +479,11 @@ async function buildStockMap(warehouseCode: string): Promise<Map<string, StockIn
     });
   }
   return map;
+}
+
+/** 在庫を取得して指定倉庫の品目マップを作る（単発利用向け） */
+async function buildStockMap(warehouseCode: string): Promise<Map<string, StockInfo>> {
+  return buildStockMapFrom(await fetchStockRows(), warehouseCode);
 }
 
 /** 理由コード→名称の対応 */
@@ -587,6 +592,8 @@ export async function issueDiff(
   const whTableId = requireTanaoroshiTable("TANAOROSHI_WH_STATUS");
   const diffTableId = requireTanaoroshiTable("TANAOROSHI_DIFF");
   const reasonMap = await reasonNameMap();
+  // システム在庫は1回だけ取得して倉庫ごとに使い回す（倉庫ごと再取得すると28秒タイムアウトの原因）
+  const stockRows = await fetchStockRows();
   const results: { warehouseCode: string; diffCount: number; newRound: number; status: string; skipped?: string }[] = [];
 
   for (const warehouseCode of warehouseCodes) {
@@ -602,7 +609,8 @@ export async function issueDiff(
     await upsertWhStatus(whTableId, periodId, warehouseCode, wh, { [W.status]: "発行処理中", [W.updated_at]: Date.now() });
 
     try {
-      const [actual, stock] = await Promise.all([buildActualAgg(periodId, warehouseCode, round), buildStockMap(warehouseCode)]);
+      const actual = await buildActualAgg(periodId, warehouseCode, round);
+      const stock = buildStockMapFrom(stockRows, warehouseCode);
       const rows = computeDiffs(actual, stock, round);
 
       // 既存の同一(期,倉庫,回数)差分を削除 → 再作成（再実行の冪等性）
@@ -676,11 +684,20 @@ export async function issueDiff(
     }
   }
 
-  // ②全倉庫の当該回報告が揃ったら共通通知先へ（発行後に判定）
+  // ②全倉庫が発行済み（確定/締め）になったら共通通知先へ。
+  //   getProgress は全実績・在庫を再取得して重い（28秒タイムアウトの一因）ため、
+  //   ここでは在庫の倉庫数(取得済み) と 倉庫進捗のstatus(1回取得) だけで軽く判定する。
   try {
-    const progress = await getProgress(periodId);
-    const allReported = progress.length > 0 && progress.every((p) => p.status === "締め" || p.reportedItems >= p.targetItems);
-    if (allReported) await notifyAllReported({ periodId, operator });
+    const totalWh = new Set(stockRows.map((r) => norm(r[S.warehouse_code])).filter(Boolean)).size;
+    const whRows = await listAll(whTableId, {
+      filter: `CurrentValue.[${W.period_id}]="${escapeLarkFilterValue(periodId)}"`,
+      fieldNames: [W.warehouse_code, W.status],
+    });
+    const issued = whRows.filter((r) => {
+      const st = norm(r[W.status]);
+      return st.includes("確定") || st === "締め";
+    }).length;
+    if (totalWh > 0 && issued >= totalWh) await notifyAllReported({ periodId, operator });
   } catch (e) {
     console.error("[issueDiff] notifyAllReported", e);
   }

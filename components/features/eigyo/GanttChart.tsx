@@ -161,8 +161,11 @@ export function GanttChart({
   // 構造シグネチャ: タスクの増減・並び・単位・readonly・縮尺・休日・出勤日・表示月数 が変わった時だけ作り直す
   // ※ fitDays は必須。列幅が下限(4px)に張り付くと 9か月/12か月で columnWidth が同値になり、
   //   fitDays を含めないと表示月数を変えても再描画されない。
+  // ※ baseDate は含めない。baseDate はドラッグで最早開始日が変わると変化するため、含めると
+  //   バードラッグのたびに Gantt 全体が作り直され、直後に別バーを掴むとドラッグ対象が取り違わる。
+  //   baseDate の反映は下の同期effect(applyBasePadding+refresh)で軽く行う。
   const structuralSig =
-    tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth + "x" + barHeight + "x" + rowPadding + "#h" + holidaySig + "#w" + workdaySig + "#b" + (baseDate || "") + "#f" + (fitDays || 0);
+    tasks.map((t) => t.id).join("|") + "#" + unit + "#" + (readonly ? "1" : "0") + "#" + columnWidth + "x" + barHeight + "x" + rowPadding + "#h" + holidaySig + "#w" + workdaySig + "#f" + (fitDays || 0);
 
   // 生成/再生成（構造変化時のみ）
   useEffect(() => {
@@ -243,18 +246,21 @@ export function GanttChart({
     }
     const g = ganttRef.current;
     if (!g || !tasks.length) return;
+    // ドラッグ/リサイズ中は絶対に refresh しない（バーを作り直すとドラッグ対象が取り違わる）
+    if (g.bar_being_dragged != null) return;
     try {
       // refresh はスクロールを先頭へ戻すことがあるため、位置を保存/復元
       const scroller = containerRef.current?.querySelector<HTMLElement>(".gantt-container");
       const left = scroller?.scrollLeft ?? 0;
-      applyBasePadding(tasks); // 基準日の開始位置を維持（日付編集で最小開始日が変わっても追従）
+      applyBasePadding(tasks); // 基準日の開始位置を維持（日付編集や baseDate 変更で最小開始日が変わっても追従）
       g.refresh(tasks.map((t, i) => toFg(t, i)));
       if (scroller) requestAnimationFrame(() => (scroller.scrollLeft = left));
     } catch (e) {
       console.error("[GanttChart] refresh error", e);
     }
+    // baseDate も依存に含める（structuralSig から外したぶん、baseDate変更をここで反映）
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks]);
+  }, [tasks, baseDate]);
 
   // バーのドラッグ/リサイズ中、ポインタがビュー端に寄ったら横スクロールを追従させる。
   // frappe は mousemove を SVG にバインドし、ドラッグ中の自動スクロールを持たないため、

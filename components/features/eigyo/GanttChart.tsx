@@ -214,8 +214,18 @@ export function GanttChart({
           infinite_padding: false, // 無限パディングはドラッグ時に表示がずれるため無効化
           scroll_to: "start",
           on_date_change: (task: any, start: Date, end: Date) => {
-            skipSyncRef.current = true; // 自分のドラッグ結果はGanttが既に反映済み→作り直さない
-            cbRef.current.onDateChange?.(task.id, fmt(start), fmt(end));
+            const s = fmt(start);
+            let e = fmt(end);
+            // リサイズで開始日が終了日を追い越すと start>end になり、バー幅が負で消える。
+            // 最小1日(end=start)にクランプしてバー消失・データ不整合を防ぐ。
+            if (s > e) {
+              e = s;
+              // クランプ時は frappe の描画(潰れたバー)とデータが食い違うので、
+              // skip せず同期effectで正しい1日バーに描き直させる。
+            } else {
+              skipSyncRef.current = true; // 通常はGanttが既に反映済み→作り直さない
+            }
+            cbRef.current.onDateChange?.(task.id, s, e);
           },
           on_click: (task: any) => {
             cbRef.current.onClickTask?.(task.id);

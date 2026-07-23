@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Images, Loader2, CheckSquare, Square, RefreshCw, LayoutGrid, FileText, ChevronLeft, ChevronRight, Archive, Upload, GripVertical, Maximize2, ZoomIn, X } from "lucide-react";
-import { uploadDocumentFile, prepareImageForUpload, UPLOAD_MAX_BYTES } from "@/lib/document-upload";
+import { uploadDocumentFile, prepareImageForUpload, UPLOAD_MAX_BYTES, uploadDocumentToken, attachDocuments, runPool } from "@/lib/document-upload";
 
 interface NippouReportUI {
   record_id: string;
@@ -145,6 +145,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   const [uploadPhotos, setUploadPhotos] = useState<{ file_token: string; name: string }[]>([]);
   const [docTableId, setDocTableId] = useState(""); // 案件書庫テーブルID(アップロード写真の画像プロキシ用)
   const [uploading, setUploading] = useState(false);
+  const [uploadProg, setUploadProg] = useState<{ done: number; total: number } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -588,43 +589,74 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
   };
 
   // ローカルからまとめて写真を案件書庫「工事写真アップロード」へ追加(追記式)。完了後に再読込で台帳へ反映。
-  // 画像は上限超過時のみ高品質圧縮で救済(共通ヘルパー)。送信は生バイナリ。
+  // 大量枚数対策: ①各画像を圧縮(上限超過時のみ) → ②Drive へ file_token を並列取得(同時4・リトライ付き)
+  //   → ③得た token を1回のリクエストで添付列へ一括追加。並列でも添付の lost update を起こさない。
   const handleUpload = async (files: FileList) => {
     if (!files.length || uploading) return;
+    const all = Array.from(files);
+    const images = all.filter((f) => f.type.startsWith("image/"));
+    const skipped = all.length - images.length;
+    if (images.length === 0) {
+      window.alert("画像ファイルがありません");
+      return;
+    }
+
     setUploading(true);
-    let ok = 0;
+    setUploadProg({ done: 0, total: images.length });
     let fail = 0;
     try {
-      for (const file of Array.from(files)) {
+      // ① 圧縮（上限超過時のみ）。失敗・上限超過は除外
+      const prepared: { blob: Blob; fileName: string; mimeType: string }[] = [];
+      for (const file of images) {
         try {
-          if (!file.type.startsWith("image/")) {
+          const p = await prepareImageForUpload(file);
+          if (p.blob.size > UPLOAD_MAX_BYTES) {
             fail++;
             continue;
           }
-          const prepared = await prepareImageForUpload(file);
-          if (prepared.blob.size > UPLOAD_MAX_BYTES) {
-            fail++;
-            continue;
-          }
-          const r = await uploadDocumentFile({
-            file: prepared.blob,
-            fileName: prepared.fileName,
-            mimeType: prepared.mimeType,
-            seiban,
-            department: "工務課",
-            documentType: "工事写真アップロード",
-            replace: false, // 追記(既存を保持して追加)
-          });
-          if (r.ok) ok++;
-          else fail++;
+          prepared.push(p);
         } catch {
           fail++;
         }
       }
+
+      // ② Drive へ並列アップロード（file_token取得。同時4・リトライ2）
+      const results = await runPool(
+        prepared,
+        (p) => uploadDocumentToken({ file: p.blob, fileName: p.fileName, mimeType: p.mimeType }),
+        4,
+        (done, total) => setUploadProg({ done, total })
+      );
+      const tokens: string[] = [];
+      for (const r of results) {
+        if (r.status === "fulfilled") tokens.push(r.value);
+        else fail++;
+      }
+
+      // ③ 取得できた token を1回で添付列へ一括追加
+      let ok = 0;
+      if (tokens.length) {
+        const att = await attachDocuments({
+          seiban,
+          documentType: "工事写真アップロード",
+          fileTokens: tokens,
+          replace: false,
+        });
+        if (att.ok) ok = att.added;
+        else {
+          fail += tokens.length;
+          window.alert(`添付の反映に失敗しました：${att.error || ""}`);
+        }
+      }
+
       await load(); // アップロード写真グループを再取得して反映
-      window.alert(`写真を追加しました：成功 ${ok}件${fail ? ` / 失敗 ${fail}件` : ""}`);
+      const parts = [`成功 ${ok}件`];
+      if (fail) parts.push(`失敗 ${fail}件`);
+      if (skipped) parts.push(`非画像 ${skipped}件`);
+      window.alert(`写真を追加しました：${parts.join(" / ")}`);
     } finally {
       setUploading(false);
+      setUploadProg(null);
     }
   };
 
@@ -644,7 +676,7 @@ export function PhotoLedger({ seiban }: { seiban: string }) {
           }`}
         >
           {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-          {uploading ? "追加中..." : "写真を追加"}
+          {uploading ? (uploadProg ? `追加中... ${uploadProg.done}/${uploadProg.total}` : "追加中...") : "写真を追加"}
           <input
             type="file"
             accept="image/*"

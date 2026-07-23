@@ -51,6 +51,89 @@ export async function uploadDocumentFile(p: UploadDocumentParams): Promise<Uploa
   return { ok: res.ok && data?.success === true, status: res.status, data };
 }
 
+// ---- 大量アップロード用: Drive アップロード（file_token取得）と 添付の一括追加を分離 ----
+
+/**
+ * Drive へアップロードして file_token だけ得る（レコード更新しない）。並列実行可。
+ * 失敗時は指数バックオフで最大 retries 回リトライ。
+ */
+export async function uploadDocumentToken(
+  p: { file: Blob; fileName: string; mimeType?: string; signal?: AbortSignal },
+  retries = 2
+): Promise<string> {
+  const q = new URLSearchParams();
+  q.set("fileName", p.fileName);
+  q.set("tokenOnly", "true");
+  if (p.mimeType) q.set("mimeType", p.mimeType);
+
+  let lastErr = "";
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(`/api/documents/upload?${q.toString()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: p.file,
+        signal: p.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.success && data?.fileToken) return data.fileToken as string;
+      lastErr = data?.error || `HTTP ${res.status}`;
+    } catch (e: any) {
+      if (e?.name === "AbortError") throw e;
+      lastErr = e?.message || "ネットワークエラー";
+    }
+    if (attempt < retries) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+  }
+  throw new Error(lastErr || "アップロードに失敗しました");
+}
+
+/** file_token 群を案件書庫レコードの添付フィールドへ1回でまとめて追加 */
+export async function attachDocuments(p: {
+  seiban: string;
+  documentType: string;
+  fileTokens: string[];
+  replace?: boolean;
+}): Promise<{ ok: boolean; added: number; error?: string }> {
+  const res = await fetch("/api/documents/attach", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(p),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data?.success === false) return { ok: false, added: 0, error: data?.error || `HTTP ${res.status}` };
+  return { ok: true, added: data?.added || 0 };
+}
+
+/**
+ * 同時実行数を絞って worker を回す並列プール（結果は入力順）。
+ * Lark のレート制限を避けるため concurrency は控えめ（3〜4）を推奨。
+ */
+export async function runPool<T, R>(
+  items: T[],
+  worker: (item: T, index: number) => Promise<R>,
+  concurrency = 4,
+  onProgress?: (done: number, total: number) => void
+): Promise<PromiseSettledResult<R>[]> {
+  const results = new Array<PromiseSettledResult<R>>(items.length);
+  let next = 0;
+  let done = 0;
+  const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) break;
+      try {
+        results[i] = { status: "fulfilled", value: await worker(items[i], i) };
+      } catch (reason) {
+        results[i] = { status: "rejected", reason };
+      }
+      done++;
+      onProgress?.(done, items.length);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
 function loadImage(blob: Blob): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(blob);

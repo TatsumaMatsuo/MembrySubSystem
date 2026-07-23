@@ -27,6 +27,9 @@ export async function POST(request: NextRequest) {
     let documentType: string | null = null;
     let replaceMode = false;
     let targetFileToken: string | null = null;
+    // tokenOnly: Drive へアップロードして file_token だけ返す（レコード更新しない）。
+    // 大量アップロードを並列化しても添付列の lost update を起こさないための分離。
+    let tokenOnly = false;
 
     if (contentType.includes("application/json")) {
       // JSON形式 (Base64エンコード)
@@ -59,6 +62,7 @@ export async function POST(request: NextRequest) {
       documentType = json.documentType;
       replaceMode = json.replace === true || json.replace === "true";
       targetFileToken = json.targetFileToken || null;
+      tokenOnly = json.tokenOnly === true || json.tokenOnly === "true";
     } else if (contentType.includes("application/octet-stream")) {
       // 生バイナリ形式 (Base64膨張を避け上限を引き上げるため。メタデータはクエリで受け取る)
       const sp = request.nextUrl.searchParams;
@@ -76,7 +80,8 @@ export async function POST(request: NextRequest) {
       documentType = sp.get("documentType");
       replaceMode = sp.get("replace") === "true";
       targetFileToken = sp.get("targetFileToken") || null;
-      console.log("[upload] octet-stream payload received:", { fileName, seiban, documentType, size: buffer.length });
+      tokenOnly = sp.get("tokenOnly") === "true";
+      console.log("[upload] octet-stream payload received:", { fileName, seiban, documentType, size: buffer.length, tokenOnly });
     } else {
       // FormData形式 (従来の方式)
       const formData = await request.formData();
@@ -104,11 +109,12 @@ export async function POST(request: NextRequest) {
         error: "この形式のファイルはアップロードできません",
       }, { status: 400 });
     }
-    if (!seiban || !documentType) {
+    // tokenOnly は Drive にアップロードするだけなので seiban/documentType は不要
+    if (!tokenOnly && (!seiban || !documentType)) {
       return NextResponse.json({ success: false, error: "必須パラメータが不足しています" }, { status: 400 });
     }
 
-    console.log("[upload] Starting upload:", { fileName: file.name, fileSize: file.size, seiban, documentType });
+    console.log("[upload] Starting upload:", { fileName: file.name, fileSize: file.size, seiban, documentType, tokenOnly });
 
     const client = getLarkClient();
     if (!client) {
@@ -118,43 +124,36 @@ export async function POST(request: NextRequest) {
     const tables = getLarkTables();
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
-    // テーブルのフィールド情報を取得
-    const tableInfoResponse = await client.bitable.appTableField.list({
-      path: {
-        app_token: getLarkBaseToken(),
-        table_id: tables.PROJECT_DOCUMENTS,
-      },
-    });
+    // 添付先レコードの解決は tokenOnly では不要（更新しないため）
+    let recordId: string | undefined;
+    let existingAttachments: { file_token: string }[] | undefined;
 
-    // documentType（例: "地盤調査"）に対応するフィールドを検索
-    const targetField = tableInfoResponse.data?.items?.find(
-      (field: any) => field.field_name === documentType
-    );
+    if (!tokenOnly) {
+      // テーブルのフィールド情報を取得
+      const tableInfoResponse = await client.bitable.appTableField.list({
+        path: { app_token: getLarkBaseToken(), table_id: tables.PROJECT_DOCUMENTS },
+      });
+      const targetField = tableInfoResponse.data?.items?.find((field: any) => field.field_name === documentType);
+      if (!targetField) {
+        return NextResponse.json({
+          success: false,
+          error: `書類種別「${documentType}」に対応するフィールドが見つかりません`,
+        }, { status: 400 });
+      }
 
-    if (!targetField) {
-      return NextResponse.json({
-        success: false,
-        error: `書類種別「${documentType}」に対応するフィールドが見つかりません`,
-      }, { status: 400 });
+      // 製番でレコードを検索
+      const filter = `CurrentValue.[製番] = "${escapeLarkFilterValue(seiban!)}"`;
+      const existingRecords = await getBaseRecords(tables.PROJECT_DOCUMENTS, { filter });
+      recordId = existingRecords.data?.items?.[0]?.record_id as string | undefined;
+      if (!recordId) {
+        return NextResponse.json({
+          success: false,
+          error: `製番「${seiban}」の案件書庫レコードが見つかりません。先に案件書庫にレコードを作成してください。`,
+        }, { status: 400 });
+      }
+      existingAttachments = existingRecords.data?.items?.[0]?.fields?.[documentType!] as { file_token: string }[] | undefined;
+      console.log("[upload] Found record:", recordId);
     }
-
-    console.log("[upload] Target field:", { field_id: targetField.field_id, field_name: targetField.field_name });
-
-    // 1. 製番でレコードを検索
-    const filter = `CurrentValue.[製番] = "${escapeLarkFilterValue(seiban)}"`;
-    console.log("[upload] Searching for existing record with filter:", filter);
-
-    const existingRecords = await getBaseRecords(tables.PROJECT_DOCUMENTS, { filter });
-    const recordId = existingRecords.data?.items?.[0]?.record_id as string | undefined;
-
-    if (!recordId) {
-      return NextResponse.json({
-        success: false,
-        error: `製番「${seiban}」の案件書庫レコードが見つかりません。先に案件書庫にレコードを作成してください。`,
-      }, { status: 400 });
-    }
-
-    console.log("[upload] Found record:", recordId);
 
     // 2. Drive APIでファイルをアップロード
     console.log("[upload] Uploading file to Drive...", { size: file.size, name: file.name });
@@ -208,12 +207,13 @@ export async function POST(request: NextRequest) {
 
     console.log("[upload] Got file_token:", fileToken);
 
+    // tokenOnly: file_token だけ返して終了（レコード更新は /api/documents/attach で一括実行）
+    if (tokenOnly) {
+      return NextResponse.json({ success: true, fileToken, data: { fileToken } });
+    }
+
     // 3. レコードを更新して添付フィールドにfile_tokenを設定
     console.log("[upload] Updating record with attachment, replaceMode:", replaceMode, "targetFileToken:", targetFileToken);
-
-    // 既存の添付ファイルを取得
-    const existingRecord = existingRecords.data?.items?.[0];
-    const existingAttachments = existingRecord?.fields?.[documentType] as { file_token: string }[] | undefined;
 
     let attachments: { file_token: string }[] = [{ file_token: fileToken }];
 
@@ -256,8 +256,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await updateBaseRecord(tables.PROJECT_DOCUMENTS, recordId, {
-      [documentType]: attachments,
+    await updateBaseRecord(tables.PROJECT_DOCUMENTS, recordId!, {
+      [documentType!]: attachments,
     });
 
     console.log("[upload] Upload completed successfully");

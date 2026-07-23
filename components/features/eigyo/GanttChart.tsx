@@ -14,6 +14,10 @@ const HOLIDAY_BG = "#fde8e8";
 const UNIT_TO_MODE: Record<GanttUnit, string> = { day: "Day", week: "Week", month: "Month" };
 // 各単位の基準カラム幅(px)。ズーム倍率を掛けて column_width に渡す。
 const BASE_COL: Record<GanttUnit, number> = { day: 38, week: 140, month: 120 };
+// fit表示時の「1列あたり」下限幅(px)。列数が多く fit すると列が細くなり過ぎて
+// バー/日付が消え、床張りで zoom も効かなくなる(=伸ばせない)。下限未満は fit を諦め、
+// この幅を基準に zoom を掛けて横スクロールで見せる。
+const MIN_FIT_COL: Record<GanttUnit, number> = { day: 8, week: 20, month: 30 };
 // 最終バーが右端に貼り付かないよう、終了側に最低限確保する日数
 const END_PAD_MIN = 3;
 
@@ -138,7 +142,13 @@ export function GanttChart({
   const columnWidth = (() => {
     if (fitDays && fitDays > 0 && viewW > 0) {
       const columns = unit === "day" ? fitDays : unit === "week" ? Math.ceil(fitDays / 7) : Math.ceil(fitDays / 30);
-      return Math.max(4, Math.round((viewW / Math.max(1, columns)) * zoom));
+      // fit基準(1列=表示幅/列数)に下限を設けてから zoom を掛ける。
+      // こうすると zoom が常に列幅へ効き(床張りのデッドゾーンが無い)、細くなり過ぎて
+      // バー/カレンダーが消える・一度消えると伸ばせない、という不具合を防ぐ。
+      // 下限で列がビューより広くなる場合は内部の .gantt-container が横スクロールで見せる。
+      const fitBase = viewW / Math.max(1, columns);
+      const base = Math.max(MIN_FIT_COL[unit], fitBase);
+      return Math.max(4, Math.round(base * zoom));
     }
     return Math.max(12, Math.round(BASE_COL[unit] * zoom));
   })();

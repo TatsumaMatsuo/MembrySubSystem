@@ -123,8 +123,8 @@ export function getLarkTables() {
     TANAOROSHI_AUDIT: process.env.LARK_TABLE_TANAOROSHI_AUDIT || "tblM0bccFUPOLyrO",
     // Lark通知 F-10（倉庫マスタは既存・「通知先」列を追加予定 / 通知先マスタ・通知ログは新規手動作成）
     TANAOROSHI_WAREHOUSE_MASTER: process.env.LARK_TABLE_TANAOROSHI_WAREHOUSE_MASTER || "tblYtGsHvlKEWRF3",
-    TANAOROSHI_NOTIFY_TARGET: process.env.LARK_TABLE_TANAOROSHI_NOTIFY_TARGET || "",
-    TANAOROSHI_NOTIFY_LOG: process.env.LARK_TABLE_TANAOROSHI_NOTIFY_LOG || "",
+    TANAOROSHI_NOTIFY_TARGET: process.env.LARK_TABLE_TANAOROSHI_NOTIFY_TARGET || "tbluAGceAepXvgFM",
+    TANAOROSHI_NOTIFY_LOG: process.env.LARK_TABLE_TANAOROSHI_NOTIFY_LOG || "tbliqWBBrpOF8duU",
     // 品目マスタ（既存・在庫にない品番の品名解決用。project base）
     TANAOROSHI_ITEM_MASTER: process.env.LARK_TABLE_TANAOROSHI_ITEM_MASTER || "tblw1oc3PD0cM0fu",
   };
@@ -392,11 +392,11 @@ export const TANAOROSHI_REASON_FIELDS = {
   is_active: "有効フラグ",
 } as const;
 
-/** 倉庫マスタ（Lark通知 F-10。「通知先」列＝倉庫ごとの管理者メール、複数はカンマ区切り） */
+/** 倉庫マスタ（Lark通知 F-10。「通知先メールアドレス」列＝倉庫ごとの管理者メール、複数はカンマ区切り） */
 export const TANAOROSHI_WAREHOUSE_MASTER_FIELDS = {
   code: "倉庫コード",
   name: "倉庫名称",
-  notify: "通知先", // 追加予定の列。社員メール（複数可・カンマ区切り）
+  notify: "通知先メールアドレス", // 社員メール（複数可・カンマ区切り）
 } as const;
 
 /** 棚卸_通知先マスタ（管理者が登録する共通通知先。②完了/③締め の宛先） */

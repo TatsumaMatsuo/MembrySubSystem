@@ -15,9 +15,11 @@ interface ApiResp {
   success: boolean;
   error?: string;
   cachedAt?: number;
-  counts?: { daicho: number; buhin: number };
+  counts?: { buhin: number };
   pdfEnabled?: boolean;
   daicho?: Daicho[];
+  nextPageToken?: string; // 台帳の続きページ(分割取得)
+  total?: number; // 台帳の総件数(進捗表示用)
   buhin?: Daicho[];
   hanyou?: Record<string, string[]>; // 汎用マスタ 項目名→内容[]
   kenya?: KenyaOpt[]; // 建屋区分マスタ（絞り込み=名称/登録=コード）
@@ -186,7 +188,11 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
   const [hanyou, setHanyou] = useState<Record<string, string[]>>({});
   const [kenya, setKenya] = useState<KenyaOpt[]>([]); // 建屋区分マスタ（絞り込み=名称/登録=コード）
   const [pdfEnabled, setPdfEnabled] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [masterLoading, setMasterLoading] = useState(false); // マスタ(候補)読込中
+  const [loading, setLoading] = useState(false); // 台帳読込中
+  const [loaded, setLoaded] = useState(false); // 台帳を取得済みか
+  const [progress, setProgress] = useState(0); // 台帳の読込済み件数(分割取得の進捗)
+  const [totalCount, setTotalCount] = useState(0); // 台帳の総件数(進捗表示用)
   const [error, setError] = useState("");
   const loadedRef = useRef(false);
   const lastSearchSig = useRef<string>(""); // 情報取得計測の重複防止(同一条件は再計上しない)
@@ -217,30 +223,74 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
     } catch { /* noop */ }
   }
 
-  async function load(refresh = false) {
-    setLoading(true);
+  // マスタ(候補一覧)のみ取得。軽量なので画面表示時に読み込み、条件入力を先に行えるようにする。
+  async function loadMaster(refresh = false) {
+    setMasterLoading(true);
     setError("");
     try {
-      const json = await fetchJson<ApiResp>(`/api/eigyo/sankou-zu${refresh ? "?refresh=1" : ""}`);
+      const json = await fetchJson<ApiResp>(`/api/eigyo/sankou-zu?part=master${refresh ? "&refresh=1" : ""}`);
       if (!json.success) throw new Error(json.error || "取得に失敗しました");
-      setAll(json.daicho || []);
       setBuhin(json.buhin || []);
       setHanyou(json.hanyou || {});
       setKenya(json.kenya || []);
       setPdfEnabled(Boolean(json.pdfEnabled));
     } catch (e: any) {
+      setError(e?.message || "候補マスタの取得に失敗しました");
+    } finally {
+      setMasterLoading(false);
+    }
+  }
+
+  // 参考図面台帳(約4,300件)を分割取得。
+  // 1リクエスト=500件に分けることで、1回の処理が28秒制限(504)に掛からないようにしている。
+  // 取得は「検索」「更新」ボタン押下時のみ（画面表示直後には取得しない）。
+  async function loadDaicho() {
+    setLoading(true);
+    setError("");
+    setProgress(0);
+    try {
+      const rows: Daicho[] = [];
+      let pageToken: string | undefined;
+      for (let i = 0; i < 100; i++) { // 安全弁(500件×100=50,000件)
+        const qs = new URLSearchParams({ part: "daicho" });
+        if (pageToken) qs.set("pageToken", pageToken);
+        const json = await fetchJson<ApiResp>(`/api/eigyo/sankou-zu?${qs.toString()}`);
+        if (!json.success) throw new Error(json.error || "取得に失敗しました");
+        rows.push(...(json.daicho || []));
+        setProgress(rows.length);
+        if (json.total) setTotalCount(json.total);
+        pageToken = json.nextPageToken;
+        if (!pageToken) break;
+      }
+      // 伝票番号(業務PK)の昇順で安定表示
+      rows.sort((a, b) => Number(a["伝票番号"]) - Number(b["伝票番号"]));
+      setAll(rows);
+      setTotalCount(rows.length);
+      setLoaded(true);
+    } catch (e: any) {
       setError(e?.message || "取得に失敗しました");
-      setAll([]);
     } finally {
       setLoading(false);
     }
+  }
+
+  // 「検索」: 台帳が未取得なら取得してから結果を表示。取得済みなら即時に絞り込み(再取得しない)。
+  async function runSearch() {
+    if (!loaded && !loading) await loadDaicho();
+  }
+
+  // 「更新」: マスタ・台帳とも最新を取り直す。
+  async function refreshAll() {
+    if (loading || masterLoading) return;
+    await loadMaster(true);
+    await loadDaicho();
   }
 
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
     logUsage("launch"); // 起動回数 +1(メニュー選択=ページ起動)
-    load();
+    loadMaster(); // 台帳は「検索」ボタン押下時に取得する
   }, []);
 
   // 検索ポップアップの候補。優先順:
@@ -438,7 +488,8 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
             <div className="flex items-center gap-2 shrink-0">
               {canRegister && (
                 <button
-                  onClick={() => setRegister({})}
+                  // 登録フォームの一部候補(柱成/梁成など)は台帳の実値から作るため、未読込なら併せて読み込む
+                  onClick={() => { setRegister({}); if (!loaded && !loading) loadDaicho(); }}
                   className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-bold rounded-lg hover:from-fuchsia-600 hover:to-purple-600 shadow-sm transition-all"
                 >
                   <Plus className="w-4 h-4" />
@@ -446,11 +497,12 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
                 </button>
               )}
               <button
-                onClick={() => load(true)}
-                disabled={loading}
+                onClick={refreshAll}
+                disabled={loading || masterLoading}
+                title="台帳と候補マスタを最新化して取得します"
                 className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-all"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                <RefreshCw className={`w-4 h-4 ${loading || masterLoading ? "animate-spin" : ""}`} />
                 <span className="hidden sm:inline">更新</span>
               </button>
             </div>
@@ -476,11 +528,23 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
                   <span className="truncate">絞り込み{activeCount > 0 && `（${activeCount}）`}</span>
                   {filterOpen ? <ChevronUp className="w-4 h-4 shrink-0 lg:hidden" /> : <ChevronDown className="w-4 h-4 shrink-0 lg:hidden" />}
                 </button>
-                {hasCondition && (
-                  <button onClick={resetAll} className="text-xs text-white/90 hover:text-white flex items-center gap-1 shrink-0">
-                    <X className="w-3 h-3" /> クリア
+                <div className="flex items-center gap-2 shrink-0">
+                  {hasCondition && (
+                    <button onClick={resetAll} className="text-xs text-white/90 hover:text-white flex items-center gap-1">
+                      <X className="w-3 h-3" /> クリア
+                    </button>
+                  )}
+                  {/* 台帳の取得はこのボタン押下時のみ（画面表示直後には取得しない＝504対策） */}
+                  <button
+                    onClick={runSearch}
+                    disabled={loading}
+                    title={loaded ? "この条件で絞り込みます" : "台帳を読み込んでこの条件で絞り込みます"}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-white text-fuchsia-700 text-xs font-bold rounded-md shadow-sm hover:bg-fuchsia-50 disabled:opacity-60"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    {loading ? "読込中..." : "検索"}
                   </button>
-                )}
+                </div>
               </div>
 
               {/* 折りたたみ対象（モバイルのみ開閉。PC=lgは常時表示） */}
@@ -491,7 +555,13 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
                   <label className="text-xs font-bold text-gray-600 whitespace-nowrap flex-none">フリーワード（案件名・管理名・各製番）</label>
                   <div className="relative flex-1 min-w-0">
                     <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input className={`${selectClass} pl-8`} value={word} onChange={(e) => setWord(e.target.value)} placeholder="例: 倉庫、12345" />
+                    <input
+                      className={`${selectClass} pl-8`}
+                      value={word}
+                      onChange={(e) => setWord(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }}
+                      placeholder="例: 倉庫、12345"
+                    />
                   </div>
                 </div>
               </div>
@@ -591,12 +661,16 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
                 <h3 className="text-sm font-bold text-gray-700">検索結果</h3>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-gray-500">
-                    {loading ? "読込中..." : `${filtered.length.toLocaleString()} / ${all.length.toLocaleString()} 件`}
-                    {filtered.length > MAX_ROWS && `（上位 ${MAX_ROWS} 件表示）`}
+                    {loading
+                      ? `読込中... ${progress.toLocaleString()}${totalCount ? ` / ${totalCount.toLocaleString()}` : ""} 件`
+                      : !loaded
+                        ? "未取得"
+                        : `${filtered.length.toLocaleString()} / ${all.length.toLocaleString()} 件`}
+                    {loaded && !loading && filtered.length > MAX_ROWS && `（上位 ${MAX_ROWS} 件表示）`}
                   </span>
                   <button
                     onClick={exportCsv}
-                    disabled={loading || filtered.length === 0}
+                    disabled={loading || !loaded || filtered.length === 0}
                     className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold rounded-md hover:from-emerald-600 hover:to-teal-600 shadow-sm disabled:opacity-40"
                     title="検索結果をExcel(CSV)で出力"
                   >
@@ -612,7 +686,7 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
                 </div>
               )}
 
-              {!pdfEnabled && !loading && all.length > 0 && (
+              {!pdfEnabled && !loading && loaded && all.length > 0 && (
                 <div className="mx-3 mt-3 flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   PDF連携(Box)は準備中です。図面を開く機能はBox設定後に有効になります。
@@ -621,7 +695,27 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
 
               <div className="flex-1 overflow-auto p-3 min-h-0">
                 {loading ? (
-                  <p className="text-sm text-gray-500 text-center py-10">読み込み中...</p>
+                  <div className="py-10 text-center">
+                    <p className="text-sm text-gray-500">
+                      台帳を読み込み中... {progress.toLocaleString()}
+                      {totalCount ? ` / ${totalCount.toLocaleString()}` : ""} 件
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">分割して取得しています。しばらくお待ちください。</p>
+                  </div>
+                ) : !loaded ? (
+                  // 画面表示直後は台帳を取得しない（全件取得が28秒制限に掛かり504になるため）。
+                  <div className="py-10 text-center">
+                    <p className="text-sm text-gray-500">条件を入力して「検索」ボタンを押してください。</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      「検索」（または右上の「更新」）を押したときに台帳を読み込みます。
+                    </p>
+                    <button
+                      onClick={runSearch}
+                      className="mt-4 inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-fuchsia-500 to-purple-500 text-white text-sm font-bold rounded-lg hover:from-fuchsia-600 hover:to-purple-600 shadow-sm"
+                    >
+                      <Search className="w-4 h-4" /> 検索
+                    </button>
+                  </div>
                 ) : !hasCondition ? (
                   <p className="text-sm text-gray-500 text-center py-10">
                     左の条件で絞り込んでください（全 {all.length.toLocaleString()} 件）。
@@ -703,6 +797,8 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
           title={FIELD_LABEL[picker] || picker}
           options={optionsByCol[picker] || []}
           value={sel[picker] || ""}
+          // 一部の候補(申請有無・設計ルート・柱成・梁成)は台帳の実値から作るため、読込前は空になる
+          emptyHint={!loaded ? "「検索」ボタンで台帳を読み込むと、この項目の候補が表示されます。" : undefined}
           onSelect={(v) => { setSel((p) => ({ ...p, [picker]: v })); setPicker(null); }}
           onClose={() => setPicker(null)}
         />
@@ -726,7 +822,7 @@ export function SankouZuView({ canRegister, deptLabel }: { canRegister: boolean;
           kenya={kenya}
           pdfEnabled={pdfEnabled}
           onClose={() => setRegister(null)}
-          onSaved={() => { setRegister(null); load(true); }}
+          onSaved={() => { setRegister(null); refreshAll(); }}
         />
       )}
     </MainLayout>
@@ -1187,11 +1283,12 @@ function BaiyakuSearchModal({
 
 /** ★検索ポップアップ: 候補一覧を絞り込んで単一選択（Accessの検索画面相当）。 */
 function PickerModal({
-  title, options, value, onSelect, onClose,
+  title, options, value, emptyHint, onSelect, onClose,
 }: {
   title: string;
   options: string[];
   value: string;
+  emptyHint?: string; // 候補が0件のときの案内(台帳未読込など)
   onSelect: (v: string) => void;
   onClose: () => void;
 }) {
@@ -1233,7 +1330,11 @@ function PickerModal({
               {o}
             </button>
           ))}
-          {list.length === 0 && <p className="text-sm text-gray-400 text-center py-6">該当する候補がありません</p>}
+          {list.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-6 px-3 whitespace-pre-wrap">
+              {options.length === 0 && emptyHint ? emptyHint : "該当する候補がありません"}
+            </p>
+          )}
         </div>
       </div>
     </div>

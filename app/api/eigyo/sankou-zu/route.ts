@@ -5,7 +5,6 @@ import {
   getLarkTables,
   SANKOU_DAICHO_FIELDS,
   SANKOU_DAICHO_NUMERIC_FIELDS,
-  SANKOU_DAICHO_KEY,
   SANKOU_BUHIN_FIELDS,
   SANKOU_HANYOU_SYSTEM,
   SANKOU_KENYA_NAME_FIELD,
@@ -20,21 +19,31 @@ export const maxDuration = 60;
 /**
  * 参考図台帳検索 データ API。
  *
- * Lark Bitable「参考図面台帳」(4,268行) と「参考図面部品マスタ」(853行) を全件取得し、
- * 整形してモジュールキャッシュ(TTL)で保持する。検索/絞り込みはクライアント側で行う
- * (kijun-fusoku と同方式。件数が中規模のため全件キャッシュで十分)。
+ * 【分割取得】以前は台帳(4,268行)＋各マスタを1リクエストで全件返していたが、
+ * Amplify(CloudFront)の28秒制限に掛かり画面表示直後に 504 となることがあったため、
+ * 用途で2つに分けている。
  *
+ *  - `?part=master`（既定）: 部品マスタ/汎用マスタ/建屋区分マスタ + pdfEnabled。
+ *      軽量なのでモジュールキャッシュ(TTL 1時間)で保持し、画面初期表示で取得する。
+ *  - `?part=daicho&pageToken=xxx`: 参考図面台帳を **1ページ(500件)ずつ** 返す。
+ *      クライアントが nextPageToken を辿って全件を集める。1リクエストが短時間で終わる
+ *      ため 504 にならない。取得は画面の「検索」「更新」ボタン押下時のみ。
+ *
+ * 検索/絞り込みはクライアント側で行う（件数が中規模のため全件保持で十分）。
  * 各レコードは空値を除いたフィールドのみ保持してペイロードを軽量化する。数値フィールドは
  * number、それ以外は string。PDF(Box)中継は別途手配が必要なため pdfEnabled で可否を返す。
  */
 
-type DaichoRecord = Record<string, string | number> & { 伝票番号: number | string };
 type BuhinRecord = Record<string, string | number>;
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1時間
 const NUMERIC = new Set<string>(SANKOU_DAICHO_NUMERIC_FIELDS);
+const DAICHO_PAGE_SIZE = 500; // Larkの1回あたり取得上限
+const MAX_PAGES_PER_REQUEST = 4; // 1リクエストでまとめる最大ページ数(=最大2,000件)
+const SOFT_LIMIT_MS = 6000; // この時間を超えたら追加ページを取りに行かない(28秒制限への余裕)
 
-let _cache: { at: number; daicho: DaichoRecord[]; buhin: BuhinRecord[]; hanyou: Record<string, string[]>; kenya: KenyaOption[] } | null = null;
+// マスタ類のみキャッシュ（台帳はページ単位で都度取得し、クライアント側で保持する）
+let _master: { at: number; buhin: BuhinRecord[]; hanyou: Record<string, string[]>; kenya: KenyaOption[] } | null = null;
 
 function textOf(v: any): string {
   if (v == null) return "";
@@ -49,7 +58,26 @@ function numOf(v: any): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** 1テーブルを全件取得し、フィールド配列に沿って空値を除いたオブジェクト配列へ整形。 */
+/** Larkレコードの fields を、対象フィールドに沿って空値を除いたオブジェクトへ整形。 */
+function mapRow(
+  f: Record<string, any>,
+  fields: readonly string[],
+  numericFields: Set<string>
+): Record<string, string | number> {
+  const rec: Record<string, string | number> = {};
+  for (const field of fields) {
+    if (numericFields.has(field)) {
+      const n = numOf(f[field]);
+      if (n != null) rec[field] = n;
+    } else {
+      const s = textOf(f[field]).trim();
+      if (s) rec[field] = s;
+    }
+  }
+  return rec;
+}
+
+/** 1テーブルを全件取得し、フィールド配列に沿って整形。(マスタ用。台帳はページ単位で取得する) */
 async function loadTable(
   tableId: string,
   fields: readonly string[],
@@ -60,20 +88,7 @@ async function loadTable(
   let pageToken: string | undefined;
   do {
     const res: any = await getBaseRecords(tableId, { baseToken, pageSize: 500, pageToken });
-    for (const it of res.data?.items || []) {
-      const f = it.fields || {};
-      const rec: Record<string, string | number> = {};
-      for (const field of fields) {
-        if (numericFields.has(field)) {
-          const n = numOf(f[field]);
-          if (n != null) rec[field] = n;
-        } else {
-          const s = textOf(f[field]).trim();
-          if (s) rec[field] = s;
-        }
-      }
-      out.push(rec);
-    }
+    for (const it of res.data?.items || []) out.push(mapRow(it.fields || {}, fields, numericFields));
     pageToken = res.data?.has_more ? res.data?.page_token : undefined;
   } while (pageToken);
   return out;
@@ -132,30 +147,48 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
+  const part = url.searchParams.get("part") === "daicho" ? "daicho" : "master";
   const force = url.searchParams.get("refresh") === "1";
 
   try {
+    // ── 台帳: 分割して返す。続きは nextPageToken をクライアントが辿る ──
+    // Larkの1ページは500件。応答が速いときはまとめて返して往復回数を減らすが、
+    // 経過時間(SOFT_LIMIT_MS)と最大ページ数で打ち切り、1リクエストが28秒に近づかないようにする。
+    if (part === "daicho") {
+      const baseToken = getLarkBaseToken();
+      const started = Date.now();
+      const daicho: Record<string, string | number>[] = [];
+      let pageToken = url.searchParams.get("pageToken") || undefined;
+      let total: number | undefined;
+      for (let p = 0; p < MAX_PAGES_PER_REQUEST; p++) {
+        const res: any = await getBaseRecords(tables.SANKOU_DAICHO, { baseToken, pageSize: DAICHO_PAGE_SIZE, pageToken });
+        for (const it of res.data?.items || []) daicho.push(mapRow(it.fields || {}, SANKOU_DAICHO_FIELDS, NUMERIC));
+        total = res.data?.total ?? total;
+        pageToken = res.data?.has_more ? res.data?.page_token : undefined;
+        if (!pageToken) break;
+        if (Date.now() - started >= SOFT_LIMIT_MS) break; // 続きは次のリクエストで
+      }
+      return NextResponse.json({ success: true, daicho, nextPageToken: pageToken, total });
+    }
+
+    // ── マスタ類: 軽量なのでキャッシュして初期表示で取得 ──
     const now = Date.now();
-    if (force || !_cache || now - _cache.at > CACHE_TTL_MS) {
-      const [daicho, buhin, hanyou, kenya] = await Promise.all([
-        loadTable(tables.SANKOU_DAICHO, SANKOU_DAICHO_FIELDS, NUMERIC) as Promise<DaichoRecord[]>,
+    if (force || !_master || now - _master.at > CACHE_TTL_MS) {
+      const [buhin, hanyou, kenya] = await Promise.all([
         loadTable(tables.SANKOU_BUHIN, SANKOU_BUHIN_FIELDS, new Set(["ID"])) as Promise<BuhinRecord[]>,
         tables.SANKOU_HANYOU ? loadHanyou(tables.SANKOU_HANYOU) : Promise.resolve({}),
         tables.SANKOU_KENYA ? loadKenya(tables.SANKOU_KENYA) : Promise.resolve([]),
       ]);
-      // 伝票番号(業務PK)の昇順で安定表示
-      daicho.sort((a, b) => Number(a[SANKOU_DAICHO_KEY]) - Number(b[SANKOU_DAICHO_KEY]));
-      _cache = { at: now, daicho, buhin, hanyou, kenya };
+      _master = { at: now, buhin, hanyou, kenya };
     }
     return NextResponse.json({
       success: true,
-      cachedAt: _cache.at,
-      counts: { daicho: _cache.daicho.length, buhin: _cache.buhin.length },
+      cachedAt: _master.at,
+      counts: { buhin: _master.buhin.length },
       pdfEnabled: isBoxConfigured(),
-      daicho: _cache.daicho,
-      buhin: _cache.buhin,
-      hanyou: _cache.hanyou,
-      kenya: _cache.kenya,
+      buhin: _master.buhin,
+      hanyou: _master.hanyou,
+      kenya: _master.kenya,
     });
   } catch (error: any) {
     console.error("[sankou-zu] Error:", error);
